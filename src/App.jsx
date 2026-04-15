@@ -165,6 +165,7 @@ function loadState() {
         parsed.clipCounter ?? parsed.noteCounter ?? parsed.placementCounter ?? 0,
       spectrogramVisible:
         typeof parsed.spectrogramVisible === 'boolean' ? parsed.spectrogramVisible : true,
+      activeTab: parsed.activeTab === 'composer' ? 'composer' : 'designer',
     }
   } catch {
     return null
@@ -192,7 +193,7 @@ function App() {
   const [clips, setClips] = useState(initial?.clips ?? [])
   const [bpm, setBpm] = useState(initial?.bpm ?? DEFAULT_BPM)
   const [numMeasures, setNumMeasures] = useState(initial?.numMeasures ?? DEFAULT_NUM_MEASURES)
-  const [activeTab, setActiveTab] = useState('designer')
+  const [activeTab, setActiveTab] = useState(initial?.activeTab ?? 'designer')
   const [currentSoundId, setCurrentSoundId] = useState(null)
   const [zoomH, setZoomHState] = useState(DEFAULT_ZOOM_H)
   const [defaultClipDuration, setDefaultClipDuration] = useState(DEFAULT_CLIP_DURATION)
@@ -278,6 +279,7 @@ function App() {
           bpm,
           numMeasures,
           spectrogramVisible,
+          activeTab,
           soundCounter: soundCounterRef.current,
           clipCounter: clipCounterRef.current,
         }),
@@ -285,7 +287,7 @@ function App() {
     } catch {
       // storage unavailable
     }
-  }, [savedSounds, soundFolders, tracks, clips, bpm, numMeasures, spectrogramVisible])
+  }, [savedSounds, soundFolders, tracks, clips, bpm, numMeasures, spectrogramVisible, activeTab])
 
   const handleSaveSound = useCallback(
     (soundData, options = {}) => {
