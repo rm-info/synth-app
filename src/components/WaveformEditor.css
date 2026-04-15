@@ -186,6 +186,40 @@
   flex-wrap: wrap;
 }
 
+.freq-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: #a0a0c0;
+  font-size: 0.85rem;
+  min-width: 0;
+  flex-wrap: wrap;
+}
+
+.freq-input {
+  width: 90px;
+  padding: 4px 6px;
+  border: 1px solid #4a4a6a;
+  border-radius: 4px;
+  background: #1a1a2e;
+  color: #00d4ff;
+  font-family: monospace;
+  font-weight: 600;
+  font-size: 0.85rem;
+  text-align: right;
+  outline: none;
+}
+.freq-input:focus {
+  border-color: #00d4ff;
+  background: #0f0f1a;
+}
+
+.freq-unit {
+  color: #00d4ff;
+  font-weight: 600;
+  font-size: 0.85rem;
+}
+
 .note-display {
   color: #c084fc;
   font-weight: 600;

@@ -1,5 +1,6 @@
 import { useRef, useState, useCallback, useEffect, useImperativeHandle } from 'react'
 import { pointsToPeriodicWave } from '../audio'
+import FreqInput from './FreqInput'
 import './WaveformEditor.css'
 
 // Résolution logique du tableau de points (indépendante de la taille pixel
@@ -29,9 +30,12 @@ function freqToSlider(hz) {
   const clamped = Math.max(FREQ_MIN, Math.min(FREQ_MAX, hz))
   return (Math.log(clamped) - FREQ_MIN_LOG) / (FREQ_MAX_LOG - FREQ_MIN_LOG)
 }
+// Affichage toujours en Hz, 1 décimale max si non nulle, sinon entier propre
+// (cf. phase 3.7). Pas de conversion kHz.
 function formatFreq(hz) {
-  if (hz < 1000) return `${Math.round(hz)} Hz`
-  return `${(hz / 1000).toFixed(1)} kHz`
+  const r = Math.round(hz * 10) / 10
+  if (Number.isInteger(r)) return `${r} Hz`
+  return `${r.toFixed(1)} Hz`
 }
 
 // ADSR : coordonnées VIRTUELLES (le canvas peut avoir n'importe quelle taille,
@@ -792,15 +796,28 @@ function WaveformEditor({
       <div className="we-params-fields">
         <div className="control-group">
           <div className="freq-header">
-            <label>
+            <div className="freq-label">
               {freeMode ? 'Fréquence libre' : 'Note'}:{' '}
-              <strong>{formatFreq(frequency)}</strong>
-              {!freeMode && (
-                <span className="note-display">
-                  {' '}— {NOTE_NAMES[noteIndex]}{octave}
-                </span>
+              {freeMode ? (
+                <>
+                  <FreqInput
+                    value={freeFrequency}
+                    onChange={setFreeFrequency}
+                    min={FREQ_MIN}
+                    max={FREQ_MAX}
+                    className="freq-input"
+                  />
+                  <span className="freq-unit"> Hz</span>
+                </>
+              ) : (
+                <>
+                  <strong>{formatFreq(frequency)}</strong>
+                  <span className="note-display">
+                    {' '}— {NOTE_NAMES[noteIndex]}{octave}
+                  </span>
+                </>
               )}
-            </label>
+            </div>
             <button
               type="button"
               className="mode-toggle"
@@ -819,9 +836,12 @@ function WaveformEditor({
               step="0.001"
               value={freqToSlider(freeFrequency)}
               onChange={(e) => {
-                // Conversion log puis arrondi entier pour éviter la dérive FP
-                // au round-trip (dirty check resterait à true sans ça).
-                setFreeFrequency(Math.round(sliderToFreq(Number(e.target.value))))
+                // Conversion log puis arrondi 1 décimale : la spec 3.7 passe
+                // freeFrequency en flottant (précision décimale). L'arrondi
+                // fige la valeur sur une grille 1/10 Hz pour éviter la dérive
+                // FP au round-trip (dirty check stable + affichage net).
+                const hz = sliderToFreq(Number(e.target.value))
+                setFreeFrequency(Math.round(hz * 10) / 10)
               }}
             />
           ) : (
