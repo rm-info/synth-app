@@ -1,7 +1,5 @@
+import BpmInput from './BpmInput'
 import './Toolbar.css'
-
-const MIN_BPM = 60
-const MAX_BPM = 240
 
 /**
  * Toolbar de l'onglet Composer.
@@ -27,13 +25,6 @@ function Toolbar({
   currentTime,
   totalDurationSec,
 }) {
-  const handleBpmChange = (e) => {
-    const v = Number(e.target.value)
-    if (Number.isFinite(v)) {
-      onSetBpm(Math.max(MIN_BPM, Math.min(MAX_BPM, Math.round(v))))
-    }
-  }
-
   return (
     <div className="toolbar">
       <div className="toolbar-section transport">
@@ -54,15 +45,9 @@ function Toolbar({
       </div>
 
       <div className="toolbar-section">
-        <label className="bpm-control" title="Tempo (noires par minute)">
+        <label className="bpm-control" title="Tempo (noires par minute) — flèches haut/bas pour ±1, +Shift pour ±10">
           BPM
-          <input
-            type="number"
-            min={MIN_BPM}
-            max={MAX_BPM}
-            value={bpm}
-            onChange={handleBpmChange}
-          />
+          <BpmInput value={bpm} onChange={onSetBpm} className="bpm-input" />
         </label>
       </div>
 

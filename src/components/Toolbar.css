@@ -85,3 +85,31 @@
   opacity: 0.35;
   cursor: not-allowed;
 }
+
+.bpm-control {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: #a0a0c0;
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+}
+
+.bpm-input {
+  width: 56px;
+  padding: 4px 6px;
+  border: 1px solid #3a3a5a;
+  border-radius: 4px;
+  background: #1a1a2e;
+  color: #e0e0e0;
+  font-family: monospace;
+  font-size: 0.85rem;
+  text-align: center;
+  outline: none;
+}
+
+.bpm-input:focus {
+  border-color: #00d4ff;
+  background: #0f0f1a;
+}
