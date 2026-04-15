@@ -70,7 +70,10 @@ function SoundBank({
         {savedSounds.map((sound) => {
           const usedCount = clips.filter((c) => c.soundId === sound.id).length
           const isEditing = editingSoundId === sound.id
-          const isCurrent = currentSoundId === sound.id
+          // Surbrillance uniquement dans Designer : indique le son chargé dans
+          // l'éditeur. Sans intérêt dans Composer (la banque n'y est qu'une
+          // source de drag).
+          const isCurrent = loadOnSingleClick && currentSoundId === sound.id
 
           const handleDelete = (e) => {
             e.stopPropagation()
