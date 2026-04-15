@@ -383,6 +383,7 @@ function App() {
             savedSounds={savedSounds}
             clips={clips}
             currentSoundId={currentSoundId}
+            activeTab="designer"
             onLoadSound={handleLoadSound}
             onRenameSound={handleRenameSound}
             onDeleteSound={handleDeleteSound}
@@ -447,6 +448,7 @@ function App() {
             savedSounds={savedSounds}
             clips={clips}
             currentSoundId={currentSoundId}
+            activeTab="composer"
             onLoadSound={handleLoadSound}
             onRenameSound={handleRenameSound}
             onDeleteSound={handleDeleteSound}

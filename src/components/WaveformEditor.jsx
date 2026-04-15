@@ -765,21 +765,57 @@ function WaveformEditor({
             onMouseLeave={endAdsrDrag}
           />
           <div className="adsr-sliders">
+            {/* Sliders et canvas partagent la même source de vérité (state local
+                attack/decay/sustain/release). onChange = mise à jour continue
+                pour le visuel ; le commit undo (phase 6) se fera sur le change
+                final / pointerup, mais le système undo n'est pas encore en place. */}
             <div className="adsr-slider">
-              <label>Attack <strong>{attack} ms</strong></label>
-              <input type="range" min="0" max="500" value={attack} disabled readOnly />
+              <label htmlFor="adsr-attack">Attack <strong>{attack} ms</strong></label>
+              <input
+                id="adsr-attack"
+                type="range"
+                min="0"
+                max="500"
+                step="1"
+                value={attack}
+                onChange={(e) => setAttack(Number(e.target.value))}
+              />
             </div>
             <div className="adsr-slider">
-              <label>Decay <strong>{decay} ms</strong></label>
-              <input type="range" min="0" max="500" value={decay} disabled readOnly />
+              <label htmlFor="adsr-decay">Decay <strong>{decay} ms</strong></label>
+              <input
+                id="adsr-decay"
+                type="range"
+                min="0"
+                max="500"
+                step="1"
+                value={decay}
+                onChange={(e) => setDecay(Number(e.target.value))}
+              />
             </div>
             <div className="adsr-slider">
-              <label>Sustain <strong>{Math.round(sustain * 100)}%</strong></label>
-              <input type="range" min="0" max="1" step="0.01" value={sustain} disabled readOnly />
+              <label htmlFor="adsr-sustain">Sustain <strong>{Math.round(sustain * 100)}%</strong></label>
+              <input
+                id="adsr-sustain"
+                type="range"
+                min="0"
+                max="1"
+                step="0.01"
+                value={sustain}
+                onChange={(e) => setSustain(Number(e.target.value))}
+              />
             </div>
             <div className="adsr-slider">
-              <label>Release <strong>{release} ms</strong></label>
-              <input type="range" min="0" max="500" value={release} disabled readOnly />
+              <label htmlFor="adsr-release">Release <strong>{release} ms</strong></label>
+              <input
+                id="adsr-release"
+                type="range"
+                min="0"
+                max="500"
+                step="1"
+                value={release}
+                onChange={(e) => setRelease(Number(e.target.value))}
+              />
             </div>
           </div>
         </div>

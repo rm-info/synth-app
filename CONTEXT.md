@@ -205,6 +205,10 @@ Découpée en 6 phases. Voir le brief original pour les détails.
   nom intelligent pour duplication ("X" en note, "Copie de X" en free, suffixe
   collision), `allowDuplicate` flag pour bypass dup detect en duplication explicite,
   bouton "Nouveau" (reset complet + currentSoundId=null), defaults amp=1 / release=200ms.
+- ✅ **Phase 2.6** — sliders ADSR draggables (Attack/Decay/Sustain/Release), même
+  source de vérité que le canvas (les deux contrôles éditent le state local) ;
+  banque contextuelle : clic simple charge en Designer, double-clic only en Composer
+  (`activeTab` prop sur SoundBank).
 - 🔜 Phase 3 — Fixes UX et zoom (BPM input, zoom H/V continu, subdivision, oscilloscope persistant)
 - 🔮 Backlog phase 6 — bouton "Vider la banque" (avec confirm + undoable)
 - 🔜 Phase 4 — Édition de clips (sélection, drag, resize, panneau Properties)

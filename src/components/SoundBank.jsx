@@ -4,22 +4,25 @@ import './SoundBank.css'
 /**
  * Banque de sons — composant partagé par les onglets Designer & Composer.
  * - Drag d'un chip vers la timeline (Composer) : payload `text/plain` = soundId.
- * - Double-clic : déclenche `onLoadSound(soundId)` (App fait alors le tab-switch
- *   + currentSoundId update, après dirty check).
- * - Single-clic sur le chip lui-même : aussi `onLoadSound` (raccourci).
- * - Bouton "rename" : icône, lance le mode édition inline (Enter valide, Esc annule).
- * - Bouton "×" : suppression avec confirm si utilisé.
- *
- * Le `currentSoundId` est passé en prop pour styliser le chip actif.
+ * - Comportement clic dépend du contexte (`activeTab`) :
+ *   - Designer (banque centrale) : clic simple = charge le son.
+ *   - Composer (banque secondaire) : clic simple = no-op (trop intrusif), il faut
+ *     double-cliquer pour bascule + chargement.
+ *   - Double-clic : charge le son dans tous les contextes.
+ * - Bouton "rename" (✎) : édition inline (Enter valide, Esc annule).
+ * - Bouton "×" : suppression avec confirm si le son est utilisé.
+ * - `currentSoundId` est passé en prop pour styliser le chip actif.
  */
 function SoundBank({
   savedSounds,
   clips,
   currentSoundId,
+  activeTab,
   onLoadSound,
   onRenameSound,
   onDeleteSound,
 }) {
+  const loadOnSingleClick = activeTab === 'designer'
   const [editingSoundId, setEditingSoundId] = useState(null)
   const [editingValue, setEditingValue] = useState('')
 
@@ -83,6 +86,13 @@ function SoundBank({
             if (isEditing) return
             onLoadSound?.(sound.id)
           }
+          const handleSingleClick = () => {
+            if (isEditing) return
+            if (loadOnSingleClick) handleLoad()
+          }
+          const titleText = loadOnSingleClick
+            ? 'Clic pour éditer, glisser pour placer sur la timeline'
+            : 'Double-clic pour éditer, glisser pour placer sur la timeline'
 
           return (
             <li
@@ -91,8 +101,9 @@ function SoundBank({
               style={{ '--chip-color': sound.color }}
               draggable={!isEditing}
               onDragStart={(e) => handleDragStart(e, sound.id)}
+              onClick={handleSingleClick}
               onDoubleClick={handleLoad}
-              title={isEditing ? undefined : 'Double-clic pour éditer, glisser pour placer sur la timeline'}
+              title={isEditing ? undefined : titleText}
             >
               <span className="chip-dot" />
               {isEditing ? (
