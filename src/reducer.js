@@ -152,6 +152,13 @@ export function buildInitialState() {
     spectrogramVisible: persisted?.spectrogramVisible ?? true,
     defaultClipDuration: DEFAULT_CLIP_DURATION,
     composerFlash: null,
+
+    // Historique undo/redo (RAM uniquement, jamais persisté)
+    history: {
+      designer: { past: [], future: [] },
+      composer: { past: [], future: [] },
+    },
+    notification: null,
   }
 }
 
@@ -440,8 +447,164 @@ export function reducer(state, action) {
     case 'SET_COMPOSER_FLASH': {
       return { ...state, composerFlash: action.payload }
     }
+    case 'SET_NOTIFICATION': {
+      return { ...state, notification: action.payload }
+    }
 
     default:
       return state
+  }
+}
+
+// === Undo / redo wrapper ===
+
+const HISTORY_DEPTH = 50
+
+const COMPOSER_UNDOABLE = new Set([
+  'ADD_CLIP', 'REMOVE_CLIP', 'UPDATE_CLIP', 'DELETE_SELECTED_CLIPS',
+  'CLEAR_TIMELINE', 'SET_BPM', 'ADD_MEASURES', 'REMOVE_LAST_MEASURE',
+])
+
+const DESIGNER_UNDOABLE = new Set([
+  'SAVE_SOUND', 'UPDATE_SOUND', 'DELETE_SOUND', 'RENAME_SOUND',
+  'SET_EDITOR_POINTS', 'SET_EDITOR_NOTE', 'SET_EDITOR_OCTAVE',
+  'TOGGLE_EDITOR_FREE_MODE', 'SET_EDITOR_FREQUENCY', 'SET_EDITOR_AMPLITUDE',
+  'SET_EDITOR_ADSR', 'APPLY_EDITOR_PRESET', 'RESET_EDITOR',
+])
+
+// Champs snapshot par pile. Note : `tracks` exclu de COMPOSER pour que la
+// hauteur de piste (zoom V) ne soit pas affectée par un undo (elle vit dans
+// tracks[0].height pour des raisons de modèle, mais zoomV est non-undoable
+// par spec). Ré-inclure quand des opérations de track viendront en phase B.
+const COMPOSER_FIELDS = ['clips', 'numMeasures', 'bpm']
+const DESIGNER_FIELDS = ['savedSounds', 'soundFolders', 'editor']
+
+function pickFields(state, fields) {
+  const out = {}
+  for (const k of fields) out[k] = state[k]
+  return out
+}
+
+// Vérifie qu'aucun clip ne référencerait un son disparu après restauration.
+// Retourne null si OK, ou { clipCount, soundIds } si conflit.
+function findOrphanReferences(restoredSavedSounds, currentClips) {
+  const ids = new Set(restoredSavedSounds.map((s) => s.id))
+  const orphans = currentClips.filter((c) => !ids.has(c.soundId))
+  if (orphans.length === 0) return null
+  const orphanSoundIds = [...new Set(orphans.map((c) => c.soundId))]
+  return { clipCount: orphans.length, soundIds: orphanSoundIds }
+}
+
+function makeOrphanNotification(orphans) {
+  const n = orphans.clipCount
+  const plural = n > 1 ? 's' : ''
+  return {
+    message: `Action impossible : ce son est utilisé par ${n} clip${plural}. Supprimez-${n > 1 ? 'les' : 'le'} d'abord depuis l'onglet Composition.`,
+    type: 'error',
+    timestamp: Date.now(),
+  }
+}
+
+export function withUndo(baseReducer) {
+  return function wrapped(state, action) {
+    // --- Méta ----
+    if (action.type === 'UNDO_COMPOSER') {
+      const { past, future } = state.history.composer
+      if (past.length === 0) return state
+      const previous = past[past.length - 1]
+      const current = pickFields(state, COMPOSER_FIELDS)
+      return {
+        ...state,
+        ...previous,
+        history: {
+          ...state.history,
+          composer: { past: past.slice(0, -1), future: [current, ...future] },
+        },
+      }
+    }
+    if (action.type === 'REDO_COMPOSER') {
+      const { past, future } = state.history.composer
+      if (future.length === 0) return state
+      const next = future[0]
+      const current = pickFields(state, COMPOSER_FIELDS)
+      return {
+        ...state,
+        ...next,
+        history: {
+          ...state.history,
+          composer: { past: [...past, current], future: future.slice(1) },
+        },
+      }
+    }
+    if (action.type === 'UNDO_DESIGNER') {
+      const { past, future } = state.history.designer
+      if (past.length === 0) return state
+      const previous = past[past.length - 1]
+      // Bloque si la restauration créerait des clips orphelins
+      const conflict = findOrphanReferences(previous.savedSounds, state.clips)
+      if (conflict) {
+        return { ...state, notification: makeOrphanNotification(conflict) }
+      }
+      const current = pickFields(state, DESIGNER_FIELDS)
+      return {
+        ...state,
+        ...previous,
+        history: {
+          ...state.history,
+          designer: { past: past.slice(0, -1), future: [current, ...future] },
+        },
+      }
+    }
+    if (action.type === 'REDO_DESIGNER') {
+      const { past, future } = state.history.designer
+      if (future.length === 0) return state
+      const next = future[0]
+      const conflict = findOrphanReferences(next.savedSounds, state.clips)
+      if (conflict) {
+        return { ...state, notification: makeOrphanNotification(conflict) }
+      }
+      const current = pickFields(state, DESIGNER_FIELDS)
+      return {
+        ...state,
+        ...next,
+        history: {
+          ...state.history,
+          designer: { past: [...past, current], future: future.slice(1) },
+        },
+      }
+    }
+
+    // --- Action normale : on délègue, puis on snapshote si undoable ---
+    const newState = baseReducer(state, action)
+    if (newState === state) return newState // pas de changement → pas de snapshot
+
+    if (COMPOSER_UNDOABLE.has(action.type)) {
+      const snap = pickFields(state, COMPOSER_FIELDS)
+      return {
+        ...newState,
+        history: {
+          ...newState.history,
+          composer: {
+            past: [...newState.history.composer.past, snap].slice(-HISTORY_DEPTH),
+            future: [],
+          },
+        },
+      }
+    }
+    if (DESIGNER_UNDOABLE.has(action.type)) {
+      const snap = pickFields(state, DESIGNER_FIELDS)
+      return {
+        ...newState,
+        history: {
+          ...newState.history,
+          designer: {
+            past: [...newState.history.designer.past, snap].slice(-HISTORY_DEPTH),
+            future: [],
+          },
+        },
+      }
+    }
+
+    return newState
   }
 }

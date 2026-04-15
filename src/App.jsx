@@ -9,6 +9,7 @@ import PropertiesPanel from './components/PropertiesPanel'
 import SpectrogramPlaceholder from './components/SpectrogramPlaceholder'
 import {
   reducer,
+  withUndo,
   buildInitialState,
   STORAGE_KEY,
   BEATS_PER_MEASURE,
@@ -19,16 +20,19 @@ import {
   DEFAULT_TRACK_ID,
   sameWaveform,
 } from './reducer'
+import Toast from './components/Toast'
 import { usePlayback } from './hooks/usePlayback'
 import './App.css'
 
+const wrappedReducer = withUndo(reducer)
+
 function App() {
-  const [state, dispatch] = useReducer(reducer, undefined, buildInitialState)
+  const [state, dispatch] = useReducer(wrappedReducer, undefined, buildInitialState)
   const {
     clips, savedSounds, soundFolders, tracks, bpm, numMeasures,
     editor, activeTab, currentSoundId, zoomH, defaultClipDuration,
     spectrogramVisible, selectedClipIds, composerFlash,
-    soundCounter, clipCounter,
+    soundCounter, clipCounter, history, notification,
   } = state
 
   const editorRef = useRef(null)
@@ -55,6 +59,36 @@ function App() {
     const t = setTimeout(() => dispatch({ type: 'SET_COMPOSER_FLASH', payload: null }), 3000)
     return () => clearTimeout(t)
   }, [composerFlash])
+
+  // Auto-clear du toast notification après 4.5s. Le timestamp force le reset
+  // du timer si une nouvelle notification arrive (même message).
+  useEffect(() => {
+    if (!notification) return
+    const t = setTimeout(() => dispatch({ type: 'SET_NOTIFICATION', payload: null }), 4500)
+    return () => clearTimeout(t)
+  }, [notification])
+
+  // Raccourcis globaux Ctrl/Cmd+Z (undo) et Ctrl/Cmd+Shift+Z / Ctrl+Y (redo).
+  // Ne se déclenchent pas si focus dans un input/textarea/select/contenteditable
+  // (préserve l'undo natif des champs de saisie).
+  useEffect(() => {
+    const handler = (e) => {
+      const ctrl = e.ctrlKey || e.metaKey
+      if (!ctrl) return
+      const target = e.target
+      const tag = target?.tagName
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return
+      if (target?.isContentEditable) return
+      const isUndo = e.key.toLowerCase() === 'z' && !e.shiftKey
+      const isRedo = (e.key.toLowerCase() === 'z' && e.shiftKey) || e.key.toLowerCase() === 'y'
+      if (!isUndo && !isRedo) return
+      e.preventDefault()
+      const tab = activeTab === 'composer' ? 'COMPOSER' : 'DESIGNER'
+      dispatch({ type: `${isUndo ? 'UNDO' : 'REDO'}_${tab}` })
+    }
+    window.addEventListener('keydown', handler)
+    return () => window.removeEventListener('keydown', handler)
+  }, [activeTab])
 
   // Global Delete/Backspace — supprime les clips sélectionnés, sauf si focus
   // dans un input/textarea/contenteditable.
@@ -276,6 +310,17 @@ function App() {
   const handleZoomHIn = () => dispatch({ type: 'SET_ZOOM_H', payload: (z) => z + 2 })
   const handleZoomHOut = () => dispatch({ type: 'SET_ZOOM_H', payload: (z) => z - 2 })
 
+  const handleUndoComposer = useCallback(() => dispatch({ type: 'UNDO_COMPOSER' }), [])
+  const handleRedoComposer = useCallback(() => dispatch({ type: 'REDO_COMPOSER' }), [])
+  const handleUndoDesigner = useCallback(() => dispatch({ type: 'UNDO_DESIGNER' }), [])
+  const handleRedoDesigner = useCallback(() => dispatch({ type: 'REDO_DESIGNER' }), [])
+  const dismissNotification = useCallback(() => dispatch({ type: 'SET_NOTIFICATION', payload: null }), [])
+
+  const composerCanUndo = history.composer.past.length > 0
+  const composerCanRedo = history.composer.future.length > 0
+  const designerCanUndo = history.designer.past.length > 0
+  const designerCanRedo = history.designer.future.length > 0
+
   // === Editor actions (passées à WaveformEditor) ===
   const editorActions = useMemo(() => ({
     setPoints: (pts) => dispatch({ type: 'SET_EDITOR_POINTS', payload: pts }),
@@ -306,6 +351,10 @@ function App() {
         onSoundCreated={handleSoundCreated}
         spectrogramVisible={spectrogramVisible}
         onToggleSpectrogram={setSpectrogramVisible}
+        canUndo={designerCanUndo}
+        canRedo={designerCanRedo}
+        onUndo={handleUndoDesigner}
+        onRedo={handleRedoDesigner}
       >
         {({ renderCanvasArea, renderParamsArea, renderAdsrArea }) => (
           <>
@@ -381,6 +430,10 @@ function App() {
                   currentTime={playback.currentTime}
                   totalDurationSec={totalDurationSec}
                   composerFlash={composerFlash}
+                  canUndo={composerCanUndo}
+                  canRedo={composerCanRedo}
+                  onUndo={handleUndoComposer}
+                  onRedo={handleRedoComposer}
                 />
               </div>
               <div className="composer-sidebar">
@@ -430,6 +483,14 @@ function App() {
           </>
         )}
       </WaveformEditor>
+
+      {notification && (
+        <Toast
+          message={notification.message}
+          type={notification.type}
+          onDismiss={dismissNotification}
+        />
+      )}
     </div>
   )
 }

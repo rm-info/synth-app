@@ -41,6 +41,10 @@ function Toolbar({
   currentTime,
   totalDurationSec,
   composerFlash,
+  canUndo,
+  canRedo,
+  onUndo,
+  onRedo,
 }) {
   return (
     <div className="toolbar">
@@ -125,6 +129,25 @@ function Toolbar({
           aria-label="Hauteur de piste"
         />
         <span className="zoom-value">{trackHeight}px</span>
+      </div>
+
+      <div className="toolbar-section history-section">
+        <button
+          type="button"
+          className="history-btn"
+          onClick={onUndo}
+          disabled={!canUndo}
+          aria-label="Annuler"
+          title="Annuler (Ctrl+Z)"
+        >⟲</button>
+        <button
+          type="button"
+          className="history-btn"
+          onClick={onRedo}
+          disabled={!canRedo}
+          aria-label="Rétablir"
+          title="Rétablir (Ctrl+Shift+Z)"
+        >⟳</button>
       </div>
 
       <div className="toolbar-section toolbar-spacer">

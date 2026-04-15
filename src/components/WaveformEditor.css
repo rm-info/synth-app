@@ -36,6 +36,48 @@
   flex: 1;
 }
 
+.we-header-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.we-history {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  background: #14141f;
+  border: 1px solid #3a3a5a;
+  border-radius: 4px;
+  padding: 2px;
+}
+
+.we-history-btn {
+  width: 24px;
+  height: 24px;
+  border: none;
+  border-radius: 3px;
+  background: transparent;
+  color: #c0c0e0;
+  font-size: 1rem;
+  line-height: 1;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.12s, color 0.12s;
+  padding: 0;
+}
+.we-history-btn:hover:not(:disabled) {
+  background: #2a2a4a;
+  color: #00d4ff;
+}
+.we-history-btn:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+
 .spectro-toggle {
   display: inline-flex;
   align-items: center;

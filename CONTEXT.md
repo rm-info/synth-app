@@ -295,8 +295,30 @@ Découpée en 6 phases. Voir le brief original pour les détails.
     `duration` est ramenée pile à la limite). Confirm uniquement si ≥1
     suppression ; troncatures-only = pas de confirm + flash transitoire
     `composerFlash` rendu dans la toolbar (auto-clear 3s).
-- 🔮 Backlog phase 6 — bouton "Vider la banque" (avec confirm + undoable)
-- 🔜 Phase 6 — Undo/Redo (migration vers useReducer)
+- ✅ **Phase 6.1** — Refactor : un seul `useReducer` (src/reducer.js) qui
+  remplace une dizaine de useState d'App.jsx. State de l'éditeur de son
+  remonté dans `state.editor` (points, freeMode, noteIndex, octave,
+  freeFrequency, amplitude, ADSR, preset). WaveformEditor lit ses valeurs
+  via la prop `editor` et dispatche via `editorActions`. Drafts locaux
+  pour les gestes continus (canvas drawing, drag poignées ADSR, sliders) :
+  pas de pollution d'historique pendant le geste, dispatch unique au
+  mouseup/touchend/keyup/blur. Compteurs (sound/clip) en state mais hors
+  snapshot pour ne pas reculer sur undo. Hydratation déclenchée dans App
+  via `HYDRATE_EDITOR_FROM_SOUND` (non-undoable). Aucun changement de
+  comportement utilisateur.
+- ✅ **Phase 6.2** — Undo/redo avec piles séparées par onglet (Designer
+  et Composer indépendants). `withUndo(reducer)` wrapper qui gère
+  `UNDO_*` / `REDO_*` et enregistre les snapshots avant chaque action
+  undoable. Profondeur 50 actions/pile, FIFO. Snapshots par champs :
+  Composer = `[clips, numMeasures, bpm]` (tracks exclu pour préserver
+  zoom V), Designer = `[savedSounds, soundFolders, editor]`. Vérification
+  cross-onglet : un undo Designer qui ferait disparaître un son utilisé
+  par des clips est bloqué + Toast d'erreur (composant Toast.jsx, auto-clear
+  4.5s). Boutons ⟲/⟳ dans la toolbar Composer et dans l'en-tête de la
+  zone Waveform du Designer. Raccourcis Ctrl/Cmd+Z (undo) et
+  Ctrl/Cmd+Shift+Z / Ctrl+Y (redo) au niveau window, skip si focus dans
+  input/textarea/select/contenteditable. Historique RAM uniquement (non
+  persisté).
 
 **Décisions UX clés (à mémoire pour Iter A)**
 - Sauvegarde dans l'éditeur quand `currentSoundId` est non-null : 2 boutons distincts
@@ -325,8 +347,9 @@ Découpée en 6 phases. Voir le brief original pour les détails.
 - Export WAV PCM 16-bit stéréo
 - Persistance localStorage + migration
 
-🔜 **Prochaine phase** : Iter A — Phase 6 (undo/redo : migration vers
-useReducer ou snapshot history, actions undoables définies par phase).
+✅ **Itération A terminée**. Prochaine étape : itération B (folders, multi-
+sélection, multipiste, insertion de mesures au milieu, etc.) ou
+sous-itérations correctifs/UX selon les retours.
 
 ## Historique (chronologie inverse)
 

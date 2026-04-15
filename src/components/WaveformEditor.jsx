@@ -152,6 +152,10 @@ function WaveformEditor({
   onSoundCreated,
   spectrogramVisible,
   onToggleSpectrogram,
+  canUndo,
+  canRedo,
+  onUndo,
+  onRedo,
   ref,
   children,
 }) {
@@ -349,7 +353,10 @@ function WaveformEditor({
 
   const commitDraftPoints = () => {
     if (draftPoints) {
-      editorActions.setPoints(draftPoints)
+      // Skip si rien n'a réellement bougé (drag sans modification = clic statique)
+      const same = draftPoints.length === editor.points.length &&
+        draftPoints.every((v, i) => v === editor.points[i])
+      if (!same) editorActions.setPoints(draftPoints)
       setDraftPoints(null)
     }
   }
@@ -703,7 +710,12 @@ function WaveformEditor({
 
   const commitDraftAdsr = () => {
     if (draftAdsr && Object.keys(draftAdsr).length > 0) {
-      editorActions.setAdsr(draftAdsr)
+      // Garder uniquement les clés qui diffèrent du state courant
+      const patch = {}
+      for (const k of Object.keys(draftAdsr)) {
+        if (draftAdsr[k] !== editor[k]) patch[k] = draftAdsr[k]
+      }
+      if (Object.keys(patch).length > 0) editorActions.setAdsr(patch)
       setDraftAdsr(null)
     }
   }
@@ -728,13 +740,13 @@ function WaveformEditor({
 
   const commitDraftAmp = () => {
     if (draftAmp != null) {
-      editorActions.setAmplitude(draftAmp)
+      if (draftAmp !== editor.amplitude) editorActions.setAmplitude(draftAmp)
       setDraftAmp(null)
     }
   }
   const commitDraftFreq = () => {
     if (draftFreq != null) {
-      editorActions.setFrequency(draftFreq)
+      if (draftFreq !== editor.freeFrequency) editorActions.setFrequency(draftFreq)
       setDraftFreq(null)
     }
   }
@@ -753,16 +765,38 @@ function WaveformEditor({
             {currentSound ? `Édition : ${currentSound.name}` : defaultName}
           </span>
         </div>
-        {onToggleSpectrogram && (
-          <label className="spectro-toggle" title="Afficher le spectrogramme à côté">
-            <input
-              type="checkbox"
-              checked={!!spectrogramVisible}
-              onChange={(e) => onToggleSpectrogram(e.target.checked)}
-            />
-            <span>Spectro</span>
-          </label>
-        )}
+        <div className="we-header-right">
+          {(onUndo || onRedo) && (
+            <div className="we-history">
+              <button
+                type="button"
+                className="we-history-btn"
+                onClick={onUndo}
+                disabled={!canUndo}
+                aria-label="Annuler"
+                title="Annuler (Ctrl+Z)"
+              >⟲</button>
+              <button
+                type="button"
+                className="we-history-btn"
+                onClick={onRedo}
+                disabled={!canRedo}
+                aria-label="Rétablir"
+                title="Rétablir (Ctrl+Shift+Z)"
+              >⟳</button>
+            </div>
+          )}
+          {onToggleSpectrogram && (
+            <label className="spectro-toggle" title="Afficher le spectrogramme à côté">
+              <input
+                type="checkbox"
+                checked={!!spectrogramVisible}
+                onChange={(e) => onToggleSpectrogram(e.target.checked)}
+              />
+              <span>Spectro</span>
+            </label>
+          )}
+        </div>
       </header>
       <div className="presets">
         <button onClick={() => loadPreset('sine')}>Sine</button>
