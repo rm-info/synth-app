@@ -7,7 +7,7 @@
   min-height: 0;
 }
 
-/* Scrollable grid wrapper */
+/* Scrollable grid wrapper : flex pour aligner grille + zone d'extension */
 .timeline-grid-wrapper {
   overflow-x: auto;
   overflow-y: auto;
@@ -16,12 +16,49 @@
   background: #1a1a2e;
   flex: 1;
   min-height: 0;
+  display: flex;
+  align-items: stretch;
 }
 
 /* Grid */
 .timeline-grid {
   position: relative;
   background: #1a1a2e;
+  flex: 0 0 auto;
+}
+
+/* Zone d'extension : bouton +1 / +4 / +16 après la dernière mesure */
+.timeline-extension {
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 6px 8px;
+  background: repeating-linear-gradient(
+    135deg,
+    #161628 0 8px,
+    #1a1a2e 8px 16px
+  );
+  border-left: 1px dashed #3a3a5a;
+  min-width: 60px;
+  align-items: stretch;
+}
+
+.extension-btn {
+  background: #2a2a4a;
+  border: 1px solid #4a4a6a;
+  color: #c0c0e0;
+  border-radius: 4px;
+  padding: 4px 8px;
+  font-family: monospace;
+  font-size: 0.78rem;
+  cursor: pointer;
+  transition: background 0.12s, border-color 0.12s, color 0.12s;
+}
+.extension-btn:hover {
+  background: #3a3a5a;
+  border-color: #00d4ff;
+  color: #00d4ff;
 }
 
 .measure-labels {
@@ -35,6 +72,7 @@
 
 .measure-label {
   flex: 0 0 auto;
+  position: relative;
   text-align: center;
   padding: 4px 0;
   font-size: 0.65rem;
@@ -45,6 +83,34 @@
 }
 .measure-label:last-child {
   border-right: none;
+}
+
+.delete-measure-btn {
+  position: absolute;
+  top: 1px;
+  right: 2px;
+  width: 16px;
+  height: 16px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: none;
+  border-radius: 3px;
+  color: #ff6b8a;
+  font-size: 0.95rem;
+  line-height: 1;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.15s, background 0.12s;
+  padding: 0;
+}
+.measure-label.is-last-measure:hover .delete-measure-btn {
+  opacity: 1;
+}
+.delete-measure-btn:hover {
+  background: rgba(255, 107, 138, 0.18);
+  color: #ff8ca5;
 }
 
 .cells-wrapper {

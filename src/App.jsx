@@ -196,6 +196,7 @@ function App() {
     initial?.spectrogramVisible ?? true,
   )
   const [selectedClipIds, setSelectedClipIds] = useState([])
+  const [composerFlash, setComposerFlash] = useState(null)
 
   const soundCounterRef = useRef(initial?.soundCounter ?? 0)
   const clipCounterRef = useRef(initial?.clipCounter ?? 0)
@@ -235,6 +236,13 @@ function App() {
     () => (currentSoundId ? savedSounds.find((s) => s.id === currentSoundId) ?? null : null),
     [currentSoundId, savedSounds],
   )
+
+  // Auto-clear du flash composer après 3s
+  useEffect(() => {
+    if (!composerFlash) return
+    const t = setTimeout(() => setComposerFlash(null), 3000)
+    return () => clearTimeout(t)
+  }, [composerFlash])
 
   // Global Delete/Backspace — supprime les clips sélectionnés, sauf si focus
   // dans un input/textarea/contenteditable.
@@ -383,26 +391,60 @@ function App() {
     setClips([])
   }, [])
 
-  const handleAddMeasure = useCallback(() => {
-    setNumMeasures((n) => n + 1)
+  const handleAddMeasures = useCallback((count = 1) => {
+    if (count <= 0) return
+    setNumMeasures((n) => n + count)
   }, [])
 
-  const handleRemoveMeasure = useCallback(() => {
+  // Suppression de la dernière mesure : un clip entièrement dans cette mesure
+  // est supprimé ; un clip qui commence avant mais déborde est tronqué juste
+  // avant la limite. Confirm seulement si ≥1 suppression. Si seules des
+  // troncatures, flash de transparence.
+  const handleRemoveLastMeasure = useCallback(() => {
     if (numMeasures <= 1) return
-    const lastMeasureStartBeat = (numMeasures - 1) * BEATS_PER_MEASURE
-    const affected = clips.filter((c) => {
-      const end = (c.measure - 1) * BEATS_PER_MEASURE + c.beat + c.duration
-      return end > lastMeasureStartBeat
-    })
-    if (affected.length > 0) {
-      const ok = window.confirm(
-        `${affected.length} clip${affected.length > 1 ? 's' : ''} seront supprimés. Continuer ?`,
-      )
-      if (!ok) return
-      const affectedIds = new Set(affected.map((c) => c.id))
-      setClips((prev) => prev.filter((c) => !affectedIds.has(c.id)))
-      setSelectedClipIds((prev) => prev.filter((id) => !affectedIds.has(id)))
+    const lastMeasureStart = (numMeasures - 1) * BEATS_PER_MEASURE
+
+    const toDelete = []
+    const toTruncate = []
+    for (const c of clips) {
+      const start = (c.measure - 1) * BEATS_PER_MEASURE + c.beat
+      const end = start + c.duration
+      if (end <= lastMeasureStart) continue
+      if (start >= lastMeasureStart) {
+        toDelete.push(c.id)
+      } else {
+        toTruncate.push({ id: c.id, newDuration: lastMeasureStart - start })
+      }
     }
+
+    if (toDelete.length > 0) {
+      const dN = toDelete.length
+      const tN = toTruncate.length
+      const dS = dN > 1 ? 's' : ''
+      const verb = dN > 1 ? 'seront supprimés' : 'sera supprimé'
+      const msg = tN > 0
+        ? `${dN} clip${dS} ${verb} et ${tN} tronqué${tN > 1 ? 's' : ''}. Continuer ?`
+        : `${dN} clip${dS} ${verb}. Continuer ?`
+      if (!window.confirm(msg)) return
+    }
+
+    if (toDelete.length > 0 || toTruncate.length > 0) {
+      const deleteSet = new Set(toDelete)
+      const truncateMap = new Map(toTruncate.map((t) => [t.id, t.newDuration]))
+      setClips((prev) =>
+        prev
+          .filter((c) => !deleteSet.has(c.id))
+          .map((c) => (truncateMap.has(c.id) ? { ...c, duration: truncateMap.get(c.id) } : c)),
+      )
+      setSelectedClipIds((prev) => prev.filter((id) => !deleteSet.has(id)))
+    }
+
+    if (toTruncate.length > 0 && toDelete.length === 0) {
+      setComposerFlash(
+        `${toTruncate.length} clip${toTruncate.length > 1 ? 's tronqués' : ' tronqué'}`,
+      )
+    }
+
     setNumMeasures((n) => n - 1)
   }, [numMeasures, clips])
 
@@ -545,9 +587,7 @@ function App() {
                   onSetDefaultClipDuration={setDefaultClipDuration}
                   currentTime={playback.currentTime}
                   totalDurationSec={totalDurationSec}
-                  numMeasures={numMeasures}
-                  onAddMeasure={handleAddMeasure}
-                  onRemoveMeasure={handleRemoveMeasure}
+                  composerFlash={composerFlash}
                 />
               </div>
               <div className="composer-sidebar">
@@ -580,6 +620,8 @@ function App() {
                   selectedClipIds={selectedClipIds}
                   onSelectClip={handleSelectClip}
                   onDeselectAll={handleDeselectAll}
+                  onAddMeasures={handleAddMeasures}
+                  onRemoveLastMeasure={handleRemoveLastMeasure}
                 />
               </div>
               <div className="composer-aside">

@@ -140,20 +140,26 @@
 }
 
 .zoom-h-section,
-.zoom-v-section,
-.measures-section {
+.zoom-v-section {
   background: #14141f;
   border: 1px solid #2a2a4a;
   border-radius: 6px;
   padding: 4px 8px;
 }
 
-.measures-count {
-  font-family: monospace;
-  font-size: 0.82rem;
-  color: #d0d0e0;
-  min-width: 22px;
-  text-align: center;
+.toolbar-flash {
+  font-size: 0.78rem;
+  color: #4ade80;
+  font-style: italic;
+  padding: 4px 10px;
+  background: rgba(74, 222, 128, 0.1);
+  border-radius: 4px;
+  border: 1px solid rgba(74, 222, 128, 0.3);
+  animation: toolbar-flash-in 0.2s ease-out;
+}
+@keyframes toolbar-flash-in {
+  from { opacity: 0; transform: translateY(-2px); }
+  to { opacity: 1; transform: translateY(0); }
 }
 
 .zoom-label {

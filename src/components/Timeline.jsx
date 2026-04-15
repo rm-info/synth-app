@@ -93,6 +93,8 @@ function Timeline({
   selectedClipIds,
   onSelectClip,
   onDeselectAll,
+  onAddMeasures,
+  onRemoveLastMeasure,
 }) {
   const wrapperRef = useRef(null)
   const dropZoneRef = useRef(null)
@@ -418,6 +420,8 @@ function Timeline({
 
   const clipAreaHeight = laneCount * trackHeight
 
+  const canDeleteMeasure = numMeasures > 1
+
   return (
     <div className="timeline">
       <div
@@ -432,15 +436,27 @@ function Timeline({
           }}
         >
           <div className="measure-labels">
-            {Array.from({ length: numMeasures }, (_, i) => (
-              <div
-                key={i}
-                className="measure-label"
-                style={{ width: `${pxPerMeasure}px` }}
-              >
-                {i + 1}
-              </div>
-            ))}
+            {Array.from({ length: numMeasures }, (_, i) => {
+              const isLast = i === numMeasures - 1
+              return (
+                <div
+                  key={i}
+                  className={`measure-label ${isLast ? 'is-last-measure' : ''}`}
+                  style={{ width: `${pxPerMeasure}px` }}
+                >
+                  <span className="measure-number">{i + 1}</span>
+                  {isLast && canDeleteMeasure && (
+                    <button
+                      type="button"
+                      className="delete-measure-btn"
+                      onClick={onRemoveLastMeasure}
+                      aria-label="Retirer la dernière mesure"
+                      title="Retirer la dernière mesure"
+                    >×</button>
+                  )}
+                </div>
+              )
+            })}
           </div>
 
           <div
@@ -521,6 +537,27 @@ function Timeline({
               />
             )}
           </div>
+        </div>
+
+        <div className="timeline-extension" aria-label="Ajouter des mesures">
+          <button
+            type="button"
+            className="extension-btn"
+            onClick={() => onAddMeasures?.(1)}
+            title="Ajouter 1 mesure"
+          >+1</button>
+          <button
+            type="button"
+            className="extension-btn"
+            onClick={() => onAddMeasures?.(4)}
+            title="Ajouter 4 mesures"
+          >+4</button>
+          <button
+            type="button"
+            className="extension-btn"
+            onClick={() => onAddMeasures?.(16)}
+            title="Ajouter 16 mesures"
+          >+16</button>
         </div>
       </div>
 

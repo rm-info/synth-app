@@ -40,9 +40,7 @@ function Toolbar({
   onSetDefaultClipDuration,
   currentTime,
   totalDurationSec,
-  numMeasures,
-  onAddMeasure,
-  onRemoveMeasure,
+  composerFlash,
 }) {
   return (
     <div className="toolbar">
@@ -114,26 +112,6 @@ function Toolbar({
         <span className="zoom-value">{zoomH < 10 ? zoomH.toFixed(1) : Math.round(zoomH)}%</span>
       </div>
 
-      <div className="toolbar-section measures-section">
-        <label className="zoom-label" title="Nombre de mesures">Mesures</label>
-        <button
-          type="button"
-          className="zoom-step"
-          onClick={onRemoveMeasure}
-          disabled={numMeasures <= 1}
-          aria-label="Retirer la dernière mesure"
-          title="Retirer la dernière mesure"
-        >−</button>
-        <span className="measures-count">{numMeasures}</span>
-        <button
-          type="button"
-          className="zoom-step"
-          onClick={onAddMeasure}
-          aria-label="Ajouter une mesure"
-          title="Ajouter une mesure"
-        >+</button>
-      </div>
-
       <div className="toolbar-section zoom-v-section">
         <label className="zoom-label" title="Hauteur des clips">Hauteur</label>
         <input
@@ -149,7 +127,11 @@ function Toolbar({
         <span className="zoom-value">{trackHeight}px</span>
       </div>
 
-      <div className="toolbar-section toolbar-spacer" />
+      <div className="toolbar-section toolbar-spacer">
+        {composerFlash && (
+          <span className="toolbar-flash" role="status">{composerFlash}</span>
+        )}
+      </div>
 
       <div className="toolbar-section">
         <button

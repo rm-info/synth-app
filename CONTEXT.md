@@ -277,6 +277,19 @@ Découpée en 6 phases. Voir le brief original pour les détails.
   à supprimer ; si confirmé, filter les clips affectés + désélection, puis
   `numMeasures--`. Plancher 1 mesure (bouton `−` désactivé à `numMeasures === 1`).
   Pas de raccourci clavier. Insertion au milieu reportée en phase B.
+- ✅ **Phase 5.1** — Manipulation contextuelle des mesures :
+  - Section "Mesures" retirée de la toolbar.
+  - × discret au survol de la dernière mesure (header `.measure-label.is-last-measure`)
+    déclenche `onRemoveLastMeasure`. Masqué si `numMeasures === 1`.
+  - Zone d'extension à droite de la grille (sibling de `.timeline-grid` dans
+    le wrapper flex `.timeline-grid-wrapper`) avec 3 boutons `+1` / `+4` / `+16`.
+    Fond hachuré pour signaler "extension".
+  - Suppression revue : pour chaque clip dont la fin > début de la dernière
+    mesure, on distingue **suppression** (clip entièrement dans la dernière
+    mesure) vs **troncature** (clip qui commence avant et déborde, sa
+    `duration` est ramenée pile à la limite). Confirm uniquement si ≥1
+    suppression ; troncatures-only = pas de confirm + flash transitoire
+    `composerFlash` rendu dans la toolbar (auto-clear 3s).
 - 🔮 Backlog phase 6 — bouton "Vider la banque" (avec confirm + undoable)
 - 🔜 Phase 6 — Undo/Redo (migration vers useReducer)
 
