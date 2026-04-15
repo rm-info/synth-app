@@ -105,6 +105,22 @@
   z-index: 4;
 }
 
+.placed-sound.is-resizing {
+  z-index: 4;
+}
+
+/* Zones de resize (bords G/D) */
+.resize-handle {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 7px;
+  cursor: ew-resize;
+  z-index: 2;
+}
+.resize-handle-left { left: 0; }
+.resize-handle-right { right: 0; }
+
 .placed-sound.is-selected {
   outline: 2px solid rgba(255, 255, 255, 0.9);
   outline-offset: -1px;

@@ -4,6 +4,7 @@ import './Timeline.css'
 const BEATS_PER_MEASURE = 4
 const SNAP_RESOLUTION = 0.25 // 16th-note snap
 const DRAG_THRESHOLD_PX = 5
+const MIN_CLIP_DURATION = 0.25
 
 // Conversions zoom — centralisées ici.
 //   100% = 50px par triple croche (1/8 noire).
@@ -97,14 +98,13 @@ function Timeline({
   const dropZoneRef = useRef(null)
   const visualizerCanvasRef = useRef(null)
 
-  // --- Drag de clip ---
-  // dragRef : mutable, contient l'état live pendant le drag (évite les
-  // fermetures périmées). dragVisual : state React utilisé uniquement pour
-  // l'aperçu visuel (offset en beats) du clip traîné. clipId dans les deps
-  // de l'effet pour que les listeners ne soient ré-attachés qu'au début/fin
-  // de chaque session de drag, pas à chaque mousemove.
-  const dragRef = useRef(null)
-  const [dragVisual, setDragVisual] = useState(null)
+  // --- Interaction clip (drag / resize-left / resize-right) ---
+  // interactionRef : mutable, contient l'état live pendant l'interaction
+  // (évite les fermetures périmées). interactionVisual : state React pour
+  // l'aperçu visuel du clip manipulé. clipId dans les deps de l'effet pour
+  // ré-attachement au début/fin de chaque session, pas à chaque mousemove.
+  const interactionRef = useRef(null)
+  const [interactionVisual, setInteractionVisual] = useState(null)
 
   const pxPerBeat = pxPerBeatFromZoom(zoomH)
   const pxPerMeasure = pxPerBeat * BEATS_PER_MEASURE
@@ -173,53 +173,96 @@ function Timeline({
     return () => wrapper.removeEventListener('wheel', handleWheel)
   }, [handleWheel])
 
-  // --- Drag clip : listeners globaux window, n'ont pas à se ré-attacher
-  // sur chaque mousemove (deps = clipId actif uniquement). ---
-  const activeDragClipId = dragVisual?.clipId ?? null
+  // Listeners window pour la session d'interaction active. Re-attachement
+  // uniquement quand la session commence/se termine (deps = clipId+mode).
+  const activeClipId = interactionVisual?.clipId ?? null
+  const activeMode = interactionVisual?.mode ?? null
   useEffect(() => {
-    if (!activeDragClipId) return
+    if (!activeClipId) return
+
+    const commitCursor = (mode) => {
+      if (mode === 'drag') {
+        document.body.style.cursor = 'grabbing'
+      } else {
+        document.body.style.cursor = 'ew-resize'
+      }
+      document.body.style.userSelect = 'none'
+    }
 
     const handleMove = (e) => {
-      const d = dragRef.current
-      if (!d) return
-      const dx = e.clientX - d.startX
-      const dy = e.clientY - d.startY
-      const dist = Math.hypot(dx, dy)
-      const justStartedDragging = !d.isDragging && dist >= DRAG_THRESHOLD_PX
-      if (!d.isDragging && !justStartedDragging) return
-      if (justStartedDragging) {
-        d.isDragging = true
-        document.body.style.cursor = 'grabbing'
-        document.body.style.userSelect = 'none'
+      const s = interactionRef.current
+      if (!s) return
+      const dx = e.clientX - s.startX
+      const dy = e.clientY - s.startY
+      const dxBeats = dx / s.pxPerBeat
+      const dxSnapped = Math.round(dxBeats / SNAP_RESOLUTION) * SNAP_RESOLUTION
+
+      if (s.mode === 'drag') {
+        const dist = Math.hypot(dx, dy)
+        const justStarted = !s.isActive && dist >= DRAG_THRESHOLD_PX
+        if (!s.isActive && !justStarted) return
+        if (justStarted) {
+          s.isActive = true
+          commitCursor('drag')
+        }
+        const startTotal = s.originalStart
+        const maxStart = Math.max(0, s.totalBeats - s.originalDuration)
+        const newStart = Math.max(0, Math.min(maxStart, startTotal + dxSnapped))
+        const measure = Math.floor(newStart / BEATS_PER_MEASURE) + 1
+        const beat = newStart - (measure - 1) * BEATS_PER_MEASURE
+        s.visual = { measure, beat, duration: s.originalDuration }
+        setInteractionVisual({ clipId: s.clipId, mode: s.mode, ...s.visual })
+        return
       }
-      const rawOffsetBeats = dx / d.pxPerBeat
-      const snapped = Math.round(rawOffsetBeats / SNAP_RESOLUTION) * SNAP_RESOLUTION
-      d.offsetBeats = snapped
-      setDragVisual({ clipId: d.clipId, offsetBeats: snapped })
+
+      // Resize : actif immédiatement, pas de seuil
+      s.isActive = true
+      if (!s.cursorSet) {
+        commitCursor(s.mode)
+        s.cursorSet = true
+      }
+
+      if (s.mode === 'resize-right') {
+        // Bord droit bouge ; bord gauche fixe.
+        let newDuration = s.originalDuration + dxSnapped
+        newDuration = Math.max(MIN_CLIP_DURATION, Math.min(s.maxDurationRight, newDuration))
+        newDuration = Math.round(newDuration / SNAP_RESOLUTION) * SNAP_RESOLUTION
+        s.visual = {
+          measure: s.originalMeasure,
+          beat: s.originalBeat,
+          duration: newDuration,
+        }
+      } else {
+        // resize-left : bord gauche bouge ; bord droit fixe.
+        const originalEnd = s.originalStart + s.originalDuration
+        let newStart = s.originalStart + dxSnapped
+        // Min = borne gauche (clip précédent ou 0). Max = originalEnd - MIN_DURATION.
+        newStart = Math.max(s.minStartLeft, Math.min(originalEnd - MIN_CLIP_DURATION, newStart))
+        newStart = Math.round(newStart / SNAP_RESOLUTION) * SNAP_RESOLUTION
+        const newDuration = originalEnd - newStart
+        const measure = Math.floor(newStart / BEATS_PER_MEASURE) + 1
+        const beat = newStart - (measure - 1) * BEATS_PER_MEASURE
+        s.visual = { measure, beat, duration: newDuration }
+      }
+      setInteractionVisual({ clipId: s.clipId, mode: s.mode, ...s.visual })
     }
 
     const handleUp = () => {
-      const d = dragRef.current
-      if (!d) {
-        setDragVisual(null)
-        return
-      }
+      const s = interactionRef.current
       document.body.style.cursor = ''
       document.body.style.userSelect = ''
-      if (d.isDragging) {
-        const startTotal = (d.originalMeasure - 1) * BEATS_PER_MEASURE + d.originalBeat
-        const rawNew = startTotal + d.offsetBeats
-        const maxStart = Math.max(0, d.totalBeats - d.duration)
-        const clamped = Math.max(0, Math.min(maxStart, rawNew))
-        const snapped = Math.round(clamped / SNAP_RESOLUTION) * SNAP_RESOLUTION
-        const measure = Math.floor(snapped / BEATS_PER_MEASURE) + 1
-        const beat = snapped - (measure - 1) * BEATS_PER_MEASURE
-        onUpdateClip(d.clipId, { measure, beat })
-      } else {
-        onSelectClip?.(d.clipId)
+      if (!s) {
+        setInteractionVisual(null)
+        return
       }
-      dragRef.current = null
-      setDragVisual(null)
+      if (!s.isActive) {
+        // Drag sous le seuil = clic → sélection
+        onSelectClip?.(s.clipId)
+      } else if (s.visual) {
+        onUpdateClip(s.clipId, { ...s.visual })
+      }
+      interactionRef.current = null
+      setInteractionVisual(null)
     }
 
     window.addEventListener('mousemove', handleMove)
@@ -228,25 +271,59 @@ function Timeline({
       window.removeEventListener('mousemove', handleMove)
       window.removeEventListener('mouseup', handleUp)
     }
-  }, [activeDragClipId, onUpdateClip, onSelectClip])
+  }, [activeClipId, activeMode, onUpdateClip, onSelectClip])
 
-  const handleClipMouseDown = (e, clip) => {
+  const startInteraction = (e, clip, mode, bounds) => {
     if (e.button !== 0) return
     e.preventDefault()
     e.stopPropagation()
-    dragRef.current = {
+    const originalStart = (clip.measure - 1) * BEATS_PER_MEASURE + clip.beat
+    interactionRef.current = {
       clipId: clip.id,
+      mode, // 'drag' | 'resize-left' | 'resize-right'
       startX: e.clientX,
       startY: e.clientY,
-      originalMeasure: clip.measure,
-      originalBeat: clip.beat,
-      duration: clip.duration,
-      offsetBeats: 0,
-      isDragging: false,
       pxPerBeat,
       totalBeats,
+      originalStart,
+      originalMeasure: clip.measure,
+      originalBeat: clip.beat,
+      originalDuration: clip.duration,
+      // Bornes de resize calculées au début de la session selon la lane courante.
+      minStartLeft: bounds?.minStartLeft ?? 0,
+      maxDurationRight: bounds?.maxDurationRight ?? (totalBeats - originalStart),
+      isActive: mode !== 'drag',
+      cursorSet: false,
+      visual: null,
     }
-    setDragVisual({ clipId: clip.id, offsetBeats: 0 })
+    setInteractionVisual({
+      clipId: clip.id,
+      mode,
+      measure: clip.measure,
+      beat: clip.beat,
+      duration: clip.duration,
+    })
+  }
+
+  // Bornes de resize pour un clip donné selon la lane courante :
+  //  - minStartLeft : fin du clip précédent dans la même lane (ou 0)
+  //  - maxDurationRight : espace disponible jusqu'au clip suivant (ou fin)
+  const computeBounds = (targetClipId, laidOutItems) => {
+    const target = laidOutItems.find((it) => it.clip.id === targetClipId)
+    if (!target) return { minStartLeft: 0, maxDurationRight: totalBeats }
+    const { lane, start, clip } = target
+    let minStartLeft = 0
+    let maxEnd = totalBeats
+    for (const it of laidOutItems) {
+      if (it.clip.id === targetClipId) continue
+      if (it.lane !== lane) continue
+      if (it.end <= start && it.end > minStartLeft) minStartLeft = it.end
+      if (it.start >= start + clip.duration && it.start < maxEnd) maxEnd = it.start
+    }
+    return {
+      minStartLeft,
+      maxDurationRight: Math.max(MIN_CLIP_DURATION, maxEnd - start),
+    }
   }
 
   // --- Visualiseur persistant avec fade ---
@@ -383,25 +460,29 @@ function Timeline({
 
             <div className="placed-sounds-layer">
               {laidOut.map(({ clip, sound, lane }) => {
-                const start = clipBeatOffset(clip)
-                const isBeingDragged = dragVisual?.clipId === clip.id
-                // Offset visuel pendant le drag : on utilise l'offset snappé,
-                // clampé aux bornes (0..totalBeats-duration) pour éviter que
-                // le clip sorte de la grille pendant le mouvement.
-                let visualStart = start
-                if (isBeingDragged) {
-                  const maxStart = Math.max(0, totalBeats - clip.duration)
-                  visualStart = Math.max(0, Math.min(maxStart, start + dragVisual.offsetBeats))
-                }
+                const isActive = interactionVisual?.clipId === clip.id
+                const mode = isActive ? interactionVisual.mode : null
+                // Position/durée visuelle : si interaction active, on utilise
+                // les valeurs live du snapshot (mesure/beat/durée courantes).
+                const visualMeasure = isActive ? interactionVisual.measure : clip.measure
+                const visualBeat = isActive ? interactionVisual.beat : clip.beat
+                const visualDuration = isActive ? interactionVisual.duration : clip.duration
+                const visualStart = (visualMeasure - 1) * BEATS_PER_MEASURE + visualBeat
                 const left = (visualStart / totalBeats) * 100
-                const width = (clip.duration / totalBeats) * 100
+                const width = (visualDuration / totalBeats) * 100
                 const top = lane * trackHeight + 4
                 const height = trackHeight - 8
                 const isSelected = selectedClipIds?.includes(clip.id)
+                const classNames = [
+                  'placed-sound',
+                  isSelected && 'is-selected',
+                  mode === 'drag' && 'is-dragging',
+                  (mode === 'resize-left' || mode === 'resize-right') && 'is-resizing',
+                ].filter(Boolean).join(' ')
                 return (
                   <div
                     key={clip.id}
-                    className={`placed-sound ${isSelected ? 'is-selected' : ''} ${isBeingDragged ? 'is-dragging' : ''}`}
+                    className={classNames}
                     style={{
                       left: `${left}%`,
                       width: `${width}%`,
@@ -411,15 +492,23 @@ function Timeline({
                       borderColor: sound.color,
                     }}
                     title={`${sound.name} — mesure ${clip.measure}, beat ${clip.beat} — Clic droit pour retirer`}
-                    onMouseDown={(e) => handleClipMouseDown(e, clip)}
+                    onMouseDown={(e) => startInteraction(e, clip, 'drag', null)}
                     onContextMenu={(e) => {
                       e.preventDefault()
                       e.stopPropagation()
                       onRemoveClip(clip.id)
                     }}
                   >
+                    <div
+                      className="resize-handle resize-handle-left"
+                      onMouseDown={(e) => startInteraction(e, clip, 'resize-left', computeBounds(clip.id, laidOut))}
+                    />
                     <span className="placed-dot" style={{ backgroundColor: sound.color }} />
                     <span className="placed-name">{sound.name}</span>
+                    <div
+                      className="resize-handle resize-handle-right"
+                      onMouseDown={(e) => startInteraction(e, clip, 'resize-right', computeBounds(clip.id, laidOut))}
+                    />
                   </div>
                 )
               })}
