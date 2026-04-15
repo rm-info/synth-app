@@ -30,8 +30,6 @@ function freqToSlider(hz) {
   const clamped = Math.max(FREQ_MIN, Math.min(FREQ_MAX, hz))
   return (Math.log(clamped) - FREQ_MIN_LOG) / (FREQ_MAX_LOG - FREQ_MIN_LOG)
 }
-// Affichage toujours en Hz, 1 décimale max si non nulle, sinon entier propre
-// (cf. phase 3.7). Pas de conversion kHz.
 function formatFreq(hz) {
   const r = Math.round(hz * 10) / 10
   if (Number.isInteger(r)) return `${r} Hz`
@@ -50,19 +48,6 @@ const ADSR_PEAK_Y = ADSR_H * 0.05
 const ADSR_HIT_RADIUS = 10
 const ADSR_HANDLE_RADIUS = 4
 
-const DEFAULT_STATE = {
-  freeMode: false,
-  noteIndex: 9,
-  octave: 4,
-  freeFrequency: 440,
-  amplitude: 1,
-  preset: null,
-  attack: 10,
-  decay: 100,
-  sustain: 0.7,
-  release: 200,
-}
-
 function nextAvailableName(base, existingSounds) {
   const taken = new Set(existingSounds.map((s) => s.name))
   if (!taken.has(base)) return base
@@ -71,31 +56,22 @@ function nextAvailableName(base, existingSounds) {
   return `${base} (${i})`
 }
 
-function blankPoints() {
-  return new Float32Array(POINTS_RESOLUTION)
+function blankPointsArray() {
+  return new Array(POINTS_RESOLUTION).fill(0)
 }
 
-function blankReference() {
-  return {
-    points: Array.from(blankPoints()),
-    ...DEFAULT_STATE,
+function generatePresetPoints(type) {
+  const pts = new Array(POINTS_RESOLUTION).fill(0)
+  for (let i = 0; i < POINTS_RESOLUTION; i++) {
+    const t = i / POINTS_RESOLUTION
+    switch (type) {
+      case 'sine': pts[i] = Math.sin(2 * Math.PI * t); break
+      case 'square': pts[i] = t < 0.5 ? 1 : -1; break
+      case 'sawtooth': pts[i] = 2 * t - 1; break
+      case 'triangle': pts[i] = t < 0.5 ? 4 * t - 1 : 3 - 4 * t; break
+    }
   }
-}
-
-function soundToReference(sound) {
-  return {
-    points: Array.from(sound.points),
-    freeMode: sound.mode === 'free',
-    noteIndex: sound.noteIndex ?? DEFAULT_STATE.noteIndex,
-    octave: sound.octave ?? DEFAULT_STATE.octave,
-    freeFrequency: sound.mode === 'free' ? sound.frequency : DEFAULT_STATE.freeFrequency,
-    amplitude: sound.amplitude,
-    preset: sound.preset,
-    attack: sound.attack,
-    decay: sound.decay,
-    sustain: sound.sustain,
-    release: sound.release,
-  }
+  return pts
 }
 
 function statesEqual(a, b) {
@@ -117,19 +93,56 @@ function statesEqual(a, b) {
   return true
 }
 
+function snapshotEditor(editor) {
+  return {
+    points: Array.from(editor.points),
+    freeMode: editor.freeMode,
+    noteIndex: editor.noteIndex,
+    octave: editor.octave,
+    freeFrequency: editor.freeFrequency,
+    amplitude: editor.amplitude,
+    preset: editor.preset,
+    attack: editor.attack,
+    decay: editor.decay,
+    sustain: editor.sustain,
+    release: editor.release,
+  }
+}
+
+function soundToReference(sound) {
+  return {
+    points: Array.from(sound.points),
+    freeMode: sound.mode === 'free',
+    noteIndex: sound.noteIndex ?? 9,
+    octave: sound.octave ?? 4,
+    freeFrequency: sound.mode === 'free' ? sound.frequency : 440,
+    amplitude: sound.amplitude,
+    preset: sound.preset,
+    attack: sound.attack,
+    decay: sound.decay,
+    sustain: sound.sustain,
+    release: sound.release,
+  }
+}
+
 /**
- * WaveformEditor — state container pour l'éditeur de son.
+ * WaveformEditor — vue de l'éditeur de son.
  *
- * Expose 3 zones rendues via render-prop `children` : `renderCanvasArea`,
- * `renderParamsArea`, `renderAdsrArea`. Le parent (App) place ces trois zones
- * où il veut dans le layout Designer (phase 3.5 : grid 2×2 avec le spectrogramme
- * à côté du waveform et l'ADSR à côté des params).
+ * Phase 6.1 : state remonté dans App via reducer. Les valeurs courantes
+ * arrivent en prop `editor` ; les mutations passent par `editorActions`
+ * (qui dispatchent dans le reducer). Pendant un geste continu (drag du
+ * canvas, drag de poignées ADSR, slide d'un range), on garde un draft
+ * local pour préserver la fluidité ; le dispatch n'a lieu qu'au mouseup
+ * (un seul snapshot dans l'historique).
  *
- * Les canvases (waveform + ADSR) s'adaptent à la taille de leur conteneur via
- * ResizeObserver. Le waveform garde POINTS_RESOLUTION samples fixes ; l'ADSR
- * utilise setTransform pour conserver des coordonnées virtuelles 400×120.
+ * Le composant garde aussi en local : refs audio (oscillateur, gain,
+ * AudioContext), refs des canvases, état de lecture (preview), message
+ * flash de save, et la « référence de dirty check » (snapshot du state
+ * au moment du dernier save / hydrate).
  */
 function WaveformEditor({
+  editor,
+  editorActions,
   onSaveSound,
   onUpdateSound,
   onRequestNew,
@@ -142,87 +155,64 @@ function WaveformEditor({
   ref,
   children,
 }) {
+  // --- Drafts pour les gestes continus ---
+  const [draftPoints, setDraftPoints] = useState(null)
+  const [draftAdsr, setDraftAdsr] = useState(null) // { attack?, decay?, sustain?, release? }
+  const [draftAmp, setDraftAmp] = useState(null)
+  const [draftFreq, setDraftFreq] = useState(null)
+
+  // --- Valeurs effectives (props écrasées par draft si actif) ---
+  const points = draftPoints ?? editor.points
+  const amplitude = draftAmp ?? editor.amplitude
+  const freeFrequency = draftFreq ?? editor.freeFrequency
+  const attack = draftAdsr?.attack ?? editor.attack
+  const decay = draftAdsr?.decay ?? editor.decay
+  const sustain = draftAdsr?.sustain ?? editor.sustain
+  const release = draftAdsr?.release ?? editor.release
+
+  const { freeMode, noteIndex, octave, preset: activePreset } = editor
+
+  const frequency = freeMode ? freeFrequency : noteToFrequency(noteIndex, octave)
+  const defaultName = freeMode ? nextSoundName : `${NOTE_NAMES[noteIndex]}${octave}`
+
+  // --- Refs locales (audio + canvas + dirty) ---
   const canvasRef = useRef(null)
   const canvasContainerRef = useRef(null)
+  const adsrCanvasRef = useRef(null)
   const adsrContainerRef = useRef(null)
   const audioCtxRef = useRef(null)
   const oscRef = useRef(null)
   const gainRef = useRef(null)
 
-  const [points, setPoints] = useState(() => blankPoints())
   const [isDrawing, setIsDrawing] = useState(false)
   const [isPlaying, setIsPlaying] = useState(false)
-  const [freeMode, setFreeMode] = useState(DEFAULT_STATE.freeMode)
-  const [noteIndex, setNoteIndex] = useState(DEFAULT_STATE.noteIndex)
-  const [octave, setOctave] = useState(DEFAULT_STATE.octave)
-  const [freeFrequency, setFreeFrequency] = useState(DEFAULT_STATE.freeFrequency)
-  const [amplitude, setAmplitude] = useState(DEFAULT_STATE.amplitude)
-  const [activePreset, setActivePreset] = useState(DEFAULT_STATE.preset)
+  const [draggingHandle, setDraggingHandle] = useState(null)
   const [saveMessage, setSaveMessage] = useState('')
   const saveMsgTimerRef = useRef(null)
 
-  const [attack, setAttack] = useState(DEFAULT_STATE.attack)
-  const [decay, setDecay] = useState(DEFAULT_STATE.decay)
-  const [sustain, setSustain] = useState(DEFAULT_STATE.sustain)
-  const [release, setRelease] = useState(DEFAULT_STATE.release)
-  const [draggingHandle, setDraggingHandle] = useState(null)
-  const adsrCanvasRef = useRef(null)
+  const referenceRef = useRef(snapshotEditor(editor))
+  const referencedSoundIdRef = useRef(null)
 
-  // --- Hydration depuis currentSound ---
-  const referenceRef = useRef(blankReference())
-  const hydratedFromIdRef = useRef(null)
-
+  // Sync de la référence (dirty check) sur changement de currentSound : on
+  // capture l'état attendu pour comparer ensuite l'éditeur en cours.
   useEffect(() => {
     const incomingId = currentSound?.id ?? null
-    if (incomingId === hydratedFromIdRef.current) return
-
-    if (currentSound) {
-      setPoints(new Float32Array(currentSound.points))
-      setFreeMode(currentSound.mode === 'free')
-      setNoteIndex(currentSound.noteIndex ?? DEFAULT_STATE.noteIndex)
-      setOctave(currentSound.octave ?? DEFAULT_STATE.octave)
-      setFreeFrequency(currentSound.mode === 'free' ? currentSound.frequency : DEFAULT_STATE.freeFrequency)
-      setAmplitude(currentSound.amplitude)
-      setActivePreset(currentSound.preset)
-      setAttack(currentSound.attack)
-      setDecay(currentSound.decay)
-      setSustain(currentSound.sustain)
-      setRelease(currentSound.release)
-      referenceRef.current = soundToReference(currentSound)
-    } else {
-      setPoints(blankPoints())
-      setFreeMode(DEFAULT_STATE.freeMode)
-      setNoteIndex(DEFAULT_STATE.noteIndex)
-      setOctave(DEFAULT_STATE.octave)
-      setFreeFrequency(DEFAULT_STATE.freeFrequency)
-      setAmplitude(DEFAULT_STATE.amplitude)
-      setActivePreset(DEFAULT_STATE.preset)
-      setAttack(DEFAULT_STATE.attack)
-      setDecay(DEFAULT_STATE.decay)
-      setSustain(DEFAULT_STATE.sustain)
-      setRelease(DEFAULT_STATE.release)
-      referenceRef.current = blankReference()
-    }
-    hydratedFromIdRef.current = incomingId
+    if (incomingId === referencedSoundIdRef.current) return
+    referencedSoundIdRef.current = incomingId
+    referenceRef.current = currentSound
+      ? soundToReference(currentSound)
+      : { ...snapshotEditor(editor), points: Array.from(blankPointsArray()) }
+    // Note: on ne s'inscrit PAS sur editor dans les deps, sinon on resyncrhoniserait
+    // la référence à chaque modif (et le dirty check ne dirait jamais "dirty").
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentSound])
 
-  // Snapshot mis à jour après chaque render pour le dirty check.
+  // Snapshot live pour le dirty check (mis à jour à chaque render).
   const stateSnapshotRef = useRef(null)
-  useEffect(() => {
-    stateSnapshotRef.current = {
-      points,
-      freeMode,
-      noteIndex,
-      octave,
-      freeFrequency,
-      amplitude,
-      preset: activePreset,
-      attack,
-      decay,
-      sustain,
-      release,
-    }
-  })
+  stateSnapshotRef.current = {
+    points, freeMode, noteIndex, octave, freeFrequency,
+    amplitude, preset: activePreset, attack, decay, sustain, release,
+  }
 
   useImperativeHandle(ref, () => ({
     isDirty: () => {
@@ -231,12 +221,11 @@ function WaveformEditor({
     },
   }), [])
 
-  const frequency = freeMode ? freeFrequency : noteToFrequency(noteIndex, octave)
-  const defaultName = freeMode ? nextSoundName : `${NOTE_NAMES[noteIndex]}${octave}`
-
+  // --- Refs miroirs des valeurs courantes pour le moteur audio ---
   const pointsRef = useRef(points)
-  pointsRef.current = points
+  useEffect(() => { pointsRef.current = points }, [points])
 
+  // --- Canvas waveform ---
   const drawCanvas = useCallback((pts) => {
     const canvas = canvasRef.current
     if (!canvas) return
@@ -265,7 +254,6 @@ function WaveformEditor({
     ctx.stroke()
     ctx.setLineDash([])
 
-    // Courbe : une colonne par px, échantillonne pts à ptIdx.
     ctx.strokeStyle = '#00d4ff'
     ctx.lineWidth = 2
     ctx.beginPath()
@@ -295,11 +283,6 @@ function WaveformEditor({
     drawCanvas(points)
   }, [points, drawCanvas])
 
-  // Suit la taille du CONTENEUR du canvas (pas du canvas lui-même).
-  // Observer le canvas directement créé un feedback loop : canvas.width a une
-  // taille intrinsèque qui, dans un contexte flex, peut nourrir le calcul de
-  // tailles du parent. On observe donc le div parent, et le canvas est
-  // position:absolute (hors du flow) pour que sa taille n'influence rien.
   useEffect(() => {
     const container = canvasContainerRef.current
     const canvas = canvasRef.current
@@ -320,6 +303,7 @@ function WaveformEditor({
     return () => ro.disconnect()
   }, [drawCanvas])
 
+  // --- Drawing (canvas) ---
   const getCanvasPoint = (e) => {
     const canvas = canvasRef.current
     const rect = canvas.getBoundingClientRect()
@@ -337,14 +321,11 @@ function WaveformEditor({
 
   const handleMouseDown = (e) => {
     setIsDrawing(true)
-    setActivePreset(null)
     const pt = getCanvasPoint(e)
     lastPointRef.current = pt
-    setPoints((prev) => {
-      const next = new Float32Array(prev)
-      next[pt.x] = pt.value
-      return next
-    })
+    const next = Array.from(points)
+    next[pt.x] = pt.value
+    setDraftPoints(next)
   }
 
   const handleMouseMove = (e) => {
@@ -352,25 +333,31 @@ function WaveformEditor({
     const pt = getCanvasPoint(e)
     const last = lastPointRef.current
     if (last) {
-      setPoints((prev) => {
-        const next = new Float32Array(prev)
-        const dx = pt.x - last.x
-        const steps = Math.max(Math.abs(dx), 1)
-        for (let i = 0; i <= steps; i++) {
-          const t = i / steps
-          const x = Math.round(last.x + dx * t)
-          const v = last.value + (pt.value - last.value) * t
-          if (x >= 0 && x < POINTS_RESOLUTION) next[x] = v
-        }
-        return next
-      })
+      const next = Array.from(draftPoints ?? points)
+      const dx = pt.x - last.x
+      const steps = Math.max(Math.abs(dx), 1)
+      for (let i = 0; i <= steps; i++) {
+        const t = i / steps
+        const x = Math.round(last.x + dx * t)
+        const v = last.value + (pt.value - last.value) * t
+        if (x >= 0 && x < POINTS_RESOLUTION) next[x] = v
+      }
+      setDraftPoints(next)
     }
     lastPointRef.current = pt
+  }
+
+  const commitDraftPoints = () => {
+    if (draftPoints) {
+      editorActions.setPoints(draftPoints)
+      setDraftPoints(null)
+    }
   }
 
   const handleMouseUp = () => {
     setIsDrawing(false)
     lastPointRef.current = null
+    commitDraftPoints()
     updateOscillator()
   }
 
@@ -378,10 +365,12 @@ function WaveformEditor({
     if (isDrawing) {
       setIsDrawing(false)
       lastPointRef.current = null
+      commitDraftPoints()
       updateOscillator()
     }
   }
 
+  // --- Audio (preview / Test) ---
   const updateOscillator = useCallback(() => {
     if (!oscRef.current || !audioCtxRef.current) return
     const wave = pointsToPeriodicWave(pointsRef.current, audioCtxRef.current)
@@ -442,13 +431,15 @@ function WaveformEditor({
   }
 
   useEffect(() => {
-    if (oscRef.current)
+    if (oscRef.current && audioCtxRef.current) {
       oscRef.current.frequency.setValueAtTime(frequency, audioCtxRef.current.currentTime)
+    }
   }, [frequency])
 
   useEffect(() => {
-    if (gainRef.current)
+    if (gainRef.current && audioCtxRef.current) {
       gainRef.current.gain.setValueAtTime(amplitude, audioCtxRef.current.currentTime)
+    }
   }, [amplitude])
 
   useEffect(() => {
@@ -465,27 +456,18 @@ function WaveformEditor({
     }
   }, [points, isPlaying])
 
+  // --- Presets / Clear ---
   const clearCanvas = () => {
-    setPoints(blankPoints())
-    setActivePreset(null)
+    editorActions.setPoints(blankPointsArray())
     if (isPlaying) updateOscillator()
   }
 
   const loadPreset = (type) => {
-    const pts = blankPoints()
-    for (let i = 0; i < POINTS_RESOLUTION; i++) {
-      const t = i / POINTS_RESOLUTION
-      switch (type) {
-        case 'sine': pts[i] = Math.sin(2 * Math.PI * t); break
-        case 'square': pts[i] = t < 0.5 ? 1 : -1; break
-        case 'sawtooth': pts[i] = 2 * t - 1; break
-        case 'triangle': pts[i] = t < 0.5 ? 4 * t - 1 : 3 - 4 * t; break
-      }
-    }
-    setPoints(pts)
-    setActivePreset(type)
+    const pts = generatePresetPoints(type)
+    editorActions.applyPreset(type, pts)
   }
 
+  // --- Save / Update / New ---
   const flashMessage = (msg) => {
     setSaveMessage(msg)
     if (saveMsgTimerRef.current) clearTimeout(saveMsgTimerRef.current)
@@ -496,11 +478,79 @@ function WaveformEditor({
     if (saveMsgTimerRef.current) clearTimeout(saveMsgTimerRef.current)
   }, [])
 
-  // --- ADSR visual editor ---
-  // Tout est calculé en coordonnées virtuelles (ADSR_W=400, ADSR_H=120). Le
-  // canvas peut avoir n'importe quelle taille pixel ; drawAdsr applique
-  // setTransform avant de dessiner. Les interactions souris sont converties
-  // en virtuel via getAdsrPos.
+  const buildPayload = (name) => ({
+    name,
+    mode: freeMode ? 'free' : 'note',
+    noteIndex: freeMode ? null : noteIndex,
+    octave: freeMode ? null : octave,
+    preset: activePreset,
+    points: Array.from(points),
+    frequency,
+    amplitude,
+    attack,
+    decay,
+    sustain,
+    release,
+  })
+
+  const handleSaveAsNew = () => {
+    const hasSignal = points.some((v) => v !== 0)
+    if (!hasSignal) {
+      flashMessage('Canvas vide')
+      return
+    }
+
+    const isExplicitDuplicate = !!currentSound
+    let proposedName
+    if (isExplicitDuplicate) {
+      const base = currentSound.mode === 'note'
+        ? currentSound.name
+        : `Copie de ${currentSound.name}`
+      proposedName = nextAvailableName(base, savedSounds ?? [])
+    } else {
+      proposedName = defaultName
+    }
+
+    const result = onSaveSound(
+      buildPayload(proposedName),
+      { allowDuplicate: isExplicitDuplicate },
+    )
+    if (result?.duplicate) {
+      flashMessage('Ce son existe déjà')
+      return
+    }
+    referenceRef.current = stateSnapshotRef.current
+    if (result?.id) {
+      referencedSoundIdRef.current = result.id
+      onSoundCreated?.(result.id)
+    }
+    flashMessage('Nouveau son enregistré')
+  }
+
+  const handleUpdate = () => {
+    if (!currentSound) return
+    const hasSignal = points.some((v) => v !== 0)
+    if (!hasSignal) {
+      flashMessage('Canvas vide')
+      return
+    }
+    onUpdateSound(currentSound.id, buildPayload(currentSound.name))
+    referenceRef.current = stateSnapshotRef.current
+    flashMessage('Son mis à jour')
+  }
+
+  const handleNew = () => {
+    const dirty = !statesEqual(stateSnapshotRef.current, referenceRef.current)
+    if (dirty) {
+      const ok = window.confirm('Modifications non sauvegardées, continuer ?')
+      if (!ok) return
+    }
+    if (isPlaying) stopAudio()
+    onRequestNew?.()
+    // La référence sera resync via l'effet sur currentSound (qui passe à null).
+  }
+
+  // --- ADSR canvas ---
   const attackPx = (attack / ADSR_MAX_MS) * ADSR_SEGMENT_PX
   const decayPx = (decay / ADSR_MAX_MS) * ADSR_SEGMENT_PX
   const releasePx = (release / ADSR_MAX_MS) * ADSR_SEGMENT_PX
@@ -599,19 +649,27 @@ function WaveformEditor({
   const pxToMs = (px) => Math.round((px / ADSR_SEGMENT_PX) * ADSR_MAX_MS)
 
   const applyHandleDrag = (handleIdx, pos) => {
-    if (handleIdx === 1) {
-      const newAttackPx = Math.max(0, Math.min(ADSR_SEGMENT_PX, pos.x))
-      setAttack(pxToMs(newAttackPx))
-    } else if (handleIdx === 2) {
-      const newDecayPx = Math.max(0, Math.min(ADSR_SEGMENT_PX, pos.x - attackPx))
-      setDecay(pxToMs(newDecayPx))
-      const newSustain = Math.max(0, Math.min(1, 1 - pos.y / ADSR_H))
-      setSustain(Math.round(newSustain * 100) / 100)
-    } else if (handleIdx === 4) {
-      const base = attackPx + decayPx + ADSR_SUSTAIN_PX
-      const newReleasePx = Math.max(0, Math.min(ADSR_SEGMENT_PX, pos.x - base))
-      setRelease(pxToMs(newReleasePx))
-    }
+    setDraftAdsr((prev) => {
+      const next = { ...(prev ?? {}) }
+      if (handleIdx === 1) {
+        const newAttackPx = Math.max(0, Math.min(ADSR_SEGMENT_PX, pos.x))
+        next.attack = pxToMs(newAttackPx)
+      } else if (handleIdx === 2) {
+        const baseAtk = next.attack ?? attack
+        const baseAtkPx = (baseAtk / ADSR_MAX_MS) * ADSR_SEGMENT_PX
+        const newDecayPx = Math.max(0, Math.min(ADSR_SEGMENT_PX, pos.x - baseAtkPx))
+        next.decay = pxToMs(newDecayPx)
+        const newSustain = Math.max(0, Math.min(1, 1 - pos.y / ADSR_H))
+        next.sustain = Math.round(newSustain * 100) / 100
+      } else if (handleIdx === 4) {
+        const baseAtk = next.attack ?? attack
+        const baseDec = next.decay ?? decay
+        const base = ((baseAtk + baseDec) / ADSR_MAX_MS) * ADSR_SEGMENT_PX + ADSR_SUSTAIN_PX
+        const newReleasePx = Math.max(0, Math.min(ADSR_SEGMENT_PX, pos.x - base))
+        next.release = pxToMs(newReleasePx)
+      }
+      return next
+    })
   }
 
   const handleAdsrMouseDown = (e) => {
@@ -643,104 +701,45 @@ function WaveformEditor({
     applyHandleDrag(draggingHandle, getAdsrPos(e))
   }
 
-  const endAdsrDrag = () => setDraggingHandle(null)
-
-  const buildPayload = (name) => ({
-    name,
-    mode: freeMode ? 'free' : 'note',
-    noteIndex: freeMode ? null : noteIndex,
-    octave: freeMode ? null : octave,
-    preset: activePreset,
-    points: Array.from(points),
-    frequency,
-    amplitude,
-    attack,
-    decay,
-    sustain,
-    release,
-  })
-
-  const captureCurrentReference = () => ({
-    points: Array.from(points),
-    freeMode,
-    noteIndex,
-    octave,
-    freeFrequency,
-    amplitude,
-    preset: activePreset,
-    attack,
-    decay,
-    sustain,
-    release,
-  })
-
-  const handleSaveAsNew = () => {
-    const hasSignal = points.some((v) => v !== 0)
-    if (!hasSignal) {
-      flashMessage('Canvas vide')
-      return
+  const commitDraftAdsr = () => {
+    if (draftAdsr && Object.keys(draftAdsr).length > 0) {
+      editorActions.setAdsr(draftAdsr)
+      setDraftAdsr(null)
     }
-
-    const isExplicitDuplicate = !!currentSound
-    let proposedName
-    if (isExplicitDuplicate) {
-      const base = currentSound.mode === 'note'
-        ? currentSound.name
-        : `Copie de ${currentSound.name}`
-      proposedName = nextAvailableName(base, savedSounds ?? [])
-    } else {
-      proposedName = defaultName
-    }
-
-    const result = onSaveSound(
-      buildPayload(proposedName),
-      { allowDuplicate: isExplicitDuplicate },
-    )
-    if (result?.duplicate) {
-      flashMessage('Ce son existe déjà')
-      return
-    }
-    referenceRef.current = captureCurrentReference()
-    if (result?.id) {
-      hydratedFromIdRef.current = result.id
-      onSoundCreated?.(result.id)
-    }
-    flashMessage('Nouveau son enregistré')
   }
 
-  const handleUpdate = () => {
-    if (!currentSound) return
-    const hasSignal = points.some((v) => v !== 0)
-    if (!hasSignal) {
-      flashMessage('Canvas vide')
-      return
+  const endAdsrDrag = () => {
+    if (draggingHandle !== null) {
+      setDraggingHandle(null)
+      commitDraftAdsr()
     }
-    onUpdateSound(currentSound.id, buildPayload(currentSound.name))
-    referenceRef.current = captureCurrentReference()
-    flashMessage('Son mis à jour')
   }
 
-  const handleNew = () => {
-    const dirty = !statesEqual(stateSnapshotRef.current, referenceRef.current)
-    if (dirty) {
-      const ok = window.confirm('Modifications non sauvegardées, continuer ?')
-      if (!ok) return
+  // --- Helpers de slider draftés ---
+  // Pattern : pendant le drag (mouse down) on met à jour un draft local pour
+  // garder le rendu fluide ; au mouseup/touchend/keyup le draft est commité.
+  const sliderCommitter = (commit) => ({
+    onPointerUp: commit,
+    onMouseUp: commit,
+    onTouchEnd: commit,
+    onKeyUp: commit,
+    onBlur: commit,
+  })
+
+  const commitDraftAmp = () => {
+    if (draftAmp != null) {
+      editorActions.setAmplitude(draftAmp)
+      setDraftAmp(null)
     }
-    if (isPlaying) stopAudio()
-    setPoints(blankPoints())
-    setFreeMode(DEFAULT_STATE.freeMode)
-    setNoteIndex(DEFAULT_STATE.noteIndex)
-    setOctave(DEFAULT_STATE.octave)
-    setFreeFrequency(DEFAULT_STATE.freeFrequency)
-    setAmplitude(DEFAULT_STATE.amplitude)
-    setActivePreset(DEFAULT_STATE.preset)
-    setAttack(DEFAULT_STATE.attack)
-    setDecay(DEFAULT_STATE.decay)
-    setSustain(DEFAULT_STATE.sustain)
-    setRelease(DEFAULT_STATE.release)
-    referenceRef.current = blankReference()
-    hydratedFromIdRef.current = null
-    onRequestNew?.()
+  }
+  const commitDraftFreq = () => {
+    if (draftFreq != null) {
+      editorActions.setFrequency(draftFreq)
+      setDraftFreq(null)
+    }
+  }
+  const commitDraftAdsrSlider = () => {
+    commitDraftAdsr()
   }
 
   // --- Render areas (render-prop) ---
@@ -802,7 +801,7 @@ function WaveformEditor({
                 <>
                   <FreqInput
                     value={freeFrequency}
-                    onChange={setFreeFrequency}
+                    onChange={editorActions.setFrequency}
                     min={FREQ_MIN}
                     max={FREQ_MAX}
                     className="freq-input"
@@ -821,7 +820,7 @@ function WaveformEditor({
             <button
               type="button"
               className="mode-toggle"
-              onClick={() => setFreeMode((m) => !m)}
+              onClick={editorActions.toggleFreeMode}
               title="Basculer entre note tempérée et fréquence libre"
             >
               {freeMode ? 'Mode note' : 'Mode libre'}
@@ -836,19 +835,16 @@ function WaveformEditor({
               step="0.001"
               value={freqToSlider(freeFrequency)}
               onChange={(e) => {
-                // Conversion log puis arrondi 1 décimale : la spec 3.7 passe
-                // freeFrequency en flottant (précision décimale). L'arrondi
-                // fige la valeur sur une grille 1/10 Hz pour éviter la dérive
-                // FP au round-trip (dirty check stable + affichage net).
                 const hz = sliderToFreq(Number(e.target.value))
-                setFreeFrequency(Math.round(hz * 10) / 10)
+                setDraftFreq(Math.round(hz * 10) / 10)
               }}
+              {...sliderCommitter(commitDraftFreq)}
             />
           ) : (
             <div className="note-selectors">
               <select
                 value={noteIndex}
-                onChange={(e) => setNoteIndex(Number(e.target.value))}
+                onChange={(e) => editorActions.setNoteIndex(Number(e.target.value))}
                 aria-label="Note"
               >
                 {NOTE_NAMES.map((n, i) => (
@@ -857,7 +853,7 @@ function WaveformEditor({
               </select>
               <select
                 value={octave}
-                onChange={(e) => setOctave(Number(e.target.value))}
+                onChange={(e) => editorActions.setOctave(Number(e.target.value))}
                 aria-label="Octave"
               >
                 {OCTAVES.map((o) => (
@@ -878,7 +874,8 @@ function WaveformEditor({
             max="1"
             step="0.01"
             value={amplitude}
-            onChange={(e) => setAmplitude(Number(e.target.value))}
+            onChange={(e) => setDraftAmp(Number(e.target.value))}
+            {...sliderCommitter(commitDraftAmp)}
           />
         </div>
       </div>
@@ -913,73 +910,52 @@ function WaveformEditor({
     </div>
   )
 
-  const renderAdsrArea = () => (
-    <div className="we-adsr-area">
-      <header className="we-area-header">
-        <h3 className="we-area-title">Enveloppe ADSR</h3>
-      </header>
-      <div className="adsr-canvas-container" ref={adsrContainerRef}>
-        <canvas
-          ref={adsrCanvasRef}
-          className="adsr-canvas"
-          onMouseDown={handleAdsrMouseDown}
-          onMouseMove={handleAdsrMouseMove}
-          onMouseUp={endAdsrDrag}
-          onMouseLeave={endAdsrDrag}
+  const renderAdsrArea = () => {
+    const renderSlider = (key, label, max, step, format) => (
+      <div className="adsr-slider">
+        <label htmlFor={`adsr-${key}`}>
+          {label} <strong>{format(editor[key], { attack, decay, sustain, release }[key])}</strong>
+        </label>
+        <input
+          id={`adsr-${key}`}
+          type="range"
+          min="0"
+          max={max}
+          step={step}
+          value={{ attack, decay, sustain, release }[key]}
+          onChange={(e) => {
+            const val = Number(e.target.value)
+            setDraftAdsr((prev) => ({ ...(prev ?? {}), [key]: val }))
+          }}
+          {...sliderCommitter(commitDraftAdsrSlider)}
         />
       </div>
-      <div className="adsr-sliders">
-        <div className="adsr-slider">
-          <label htmlFor="adsr-attack">Attack <strong>{attack} ms</strong></label>
-          <input
-            id="adsr-attack"
-            type="range"
-            min="0"
-            max="500"
-            step="1"
-            value={attack}
-            onChange={(e) => setAttack(Number(e.target.value))}
+    )
+
+    return (
+      <div className="we-adsr-area">
+        <header className="we-area-header">
+          <h3 className="we-area-title">Enveloppe ADSR</h3>
+        </header>
+        <div className="adsr-canvas-container" ref={adsrContainerRef}>
+          <canvas
+            ref={adsrCanvasRef}
+            className="adsr-canvas"
+            onMouseDown={handleAdsrMouseDown}
+            onMouseMove={handleAdsrMouseMove}
+            onMouseUp={endAdsrDrag}
+            onMouseLeave={endAdsrDrag}
           />
         </div>
-        <div className="adsr-slider">
-          <label htmlFor="adsr-decay">Decay <strong>{decay} ms</strong></label>
-          <input
-            id="adsr-decay"
-            type="range"
-            min="0"
-            max="500"
-            step="1"
-            value={decay}
-            onChange={(e) => setDecay(Number(e.target.value))}
-          />
-        </div>
-        <div className="adsr-slider">
-          <label htmlFor="adsr-sustain">Sustain <strong>{Math.round(sustain * 100)}%</strong></label>
-          <input
-            id="adsr-sustain"
-            type="range"
-            min="0"
-            max="1"
-            step="0.01"
-            value={sustain}
-            onChange={(e) => setSustain(Number(e.target.value))}
-          />
-        </div>
-        <div className="adsr-slider">
-          <label htmlFor="adsr-release">Release <strong>{release} ms</strong></label>
-          <input
-            id="adsr-release"
-            type="range"
-            min="0"
-            max="500"
-            step="1"
-            value={release}
-            onChange={(e) => setRelease(Number(e.target.value))}
-          />
+        <div className="adsr-sliders">
+          {renderSlider('attack', 'Attack', 500, 1, (_, v) => `${v} ms`)}
+          {renderSlider('decay', 'Decay', 500, 1, (_, v) => `${v} ms`)}
+          {renderSlider('sustain', 'Sustain', 1, 0.01, (_, v) => `${Math.round(v * 100)}%`)}
+          {renderSlider('release', 'Release', 500, 1, (_, v) => `${v} ms`)}
         </div>
       </div>
-    </div>
-  )
+    )
+  }
 
   return children({ renderCanvasArea, renderParamsArea, renderAdsrArea })
 }
