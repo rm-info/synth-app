@@ -2,8 +2,10 @@ import { useRef, useState, useCallback, useEffect, useImperativeHandle } from 'r
 import { pointsToPeriodicWave } from '../audio'
 import './WaveformEditor.css'
 
-const CANVAS_WIDTH = 600
-const CANVAS_HEIGHT = 300
+// Résolution logique du tableau de points (indépendante de la taille pixel
+// du canvas). Le canvas peut avoir n'importe quelle taille, on échantillonne
+// pts à ptIdx = floor((x/W) * POINTS_RESOLUTION) pour chaque colonne.
+const POINTS_RESOLUTION = 600
 
 const NOTE_NAMES = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B']
 const OCTAVES = [1, 2, 3, 4, 5, 6, 7]
@@ -13,7 +15,9 @@ function noteToFrequency(noteIndex, octave) {
   return 440 * Math.pow(2, (midi - 69) / 12)
 }
 
-// ADSR visual editor constants
+// ADSR : coordonnées VIRTUELLES (le canvas peut avoir n'importe quelle taille,
+// on applique setTransform(W/ADSR_W, H/ADSR_H) avant de dessiner, et toute la
+// logique de positions/interactions reste en 400×120).
 const ADSR_W = 400
 const ADSR_H = 120
 const ADSR_MAX_MS = 500
@@ -45,7 +49,7 @@ function nextAvailableName(base, existingSounds) {
 }
 
 function blankPoints() {
-  return new Float32Array(CANVAS_WIDTH)
+  return new Float32Array(POINTS_RESOLUTION)
 }
 
 function blankReference() {
@@ -90,6 +94,18 @@ function statesEqual(a, b) {
   return true
 }
 
+/**
+ * WaveformEditor — state container pour l'éditeur de son.
+ *
+ * Expose 3 zones rendues via render-prop `children` : `renderCanvasArea`,
+ * `renderParamsArea`, `renderAdsrArea`. Le parent (App) place ces trois zones
+ * où il veut dans le layout Designer (phase 3.5 : grid 2×2 avec le spectrogramme
+ * à côté du waveform et l'ADSR à côté des params).
+ *
+ * Les canvases (waveform + ADSR) s'adaptent à la taille de leur conteneur via
+ * ResizeObserver. Le waveform garde POINTS_RESOLUTION samples fixes ; l'ADSR
+ * utilise setTransform pour conserver des coordonnées virtuelles 400×120.
+ */
 function WaveformEditor({
   onSaveSound,
   onUpdateSound,
@@ -99,6 +115,7 @@ function WaveformEditor({
   savedSounds,
   onSoundCreated,
   ref,
+  children,
 }) {
   const canvasRef = useRef(null)
   const audioCtxRef = useRef(null)
@@ -125,9 +142,6 @@ function WaveformEditor({
   const adsrCanvasRef = useRef(null)
 
   // --- Hydration depuis currentSound ---
-  // Reference state pour le dirty check ; mis à jour à chaque hydratation
-  // ou sauvegarde. Tant que l'état local correspond à la référence, l'éditeur
-  // est "clean".
   const referenceRef = useRef(blankReference())
   const hydratedFromIdRef = useRef(null)
 
@@ -165,9 +179,7 @@ function WaveformEditor({
     hydratedFromIdRef.current = incomingId
   }, [currentSound])
 
-  // Dirty check exposé : App appelle editorRef.current.isDirty() avant un load
-  // pour décider s'il faut un confirm. Snapshot mis à jour après chaque render
-  // (les events utilisateur tirent toujours du snapshot frais).
+  // Snapshot mis à jour après chaque render pour le dirty check.
   const stateSnapshotRef = useRef(null)
   useEffect(() => {
     stateSnapshotRef.current = {
@@ -201,33 +213,39 @@ function WaveformEditor({
   const drawCanvas = useCallback((pts) => {
     const canvas = canvasRef.current
     if (!canvas) return
+    const W = canvas.width
+    const H = canvas.height
+    if (!W || !H) return
     const ctx = canvas.getContext('2d')
-    const midY = CANVAS_HEIGHT / 2
+    const midY = H / 2
 
     ctx.fillStyle = '#1a1a2e'
-    ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT)
+    ctx.fillRect(0, 0, W, H)
 
     ctx.strokeStyle = '#2a2a4a'
     ctx.lineWidth = 1
     ctx.beginPath()
     ctx.moveTo(0, midY)
-    ctx.lineTo(CANVAS_WIDTH, midY)
+    ctx.lineTo(W, midY)
     ctx.stroke()
 
     ctx.setLineDash([4, 4])
     ctx.beginPath()
-    ctx.moveTo(0, midY - CANVAS_HEIGHT / 4)
-    ctx.lineTo(CANVAS_WIDTH, midY - CANVAS_HEIGHT / 4)
-    ctx.moveTo(0, midY + CANVAS_HEIGHT / 4)
-    ctx.lineTo(CANVAS_WIDTH, midY + CANVAS_HEIGHT / 4)
+    ctx.moveTo(0, midY - H / 4)
+    ctx.lineTo(W, midY - H / 4)
+    ctx.moveTo(0, midY + H / 4)
+    ctx.lineTo(W, midY + H / 4)
     ctx.stroke()
     ctx.setLineDash([])
 
+    // Courbe : une colonne par px, échantillonne pts à ptIdx.
     ctx.strokeStyle = '#00d4ff'
     ctx.lineWidth = 2
     ctx.beginPath()
-    for (let x = 0; x < CANVAS_WIDTH; x++) {
-      const y = midY - pts[x] * (CANVAS_HEIGHT / 2)
+    for (let x = 0; x < W; x++) {
+      const ptFloat = (x / W) * POINTS_RESOLUTION
+      const ptIdx = Math.min(Math.floor(ptFloat), POINTS_RESOLUTION - 1)
+      const y = midY - pts[ptIdx] * (H / 2)
       if (x === 0) ctx.moveTo(x, y)
       else ctx.lineTo(x, y)
     }
@@ -236,8 +254,10 @@ function WaveformEditor({
     ctx.strokeStyle = 'rgba(0, 212, 255, 0.3)'
     ctx.lineWidth = 6
     ctx.beginPath()
-    for (let x = 0; x < CANVAS_WIDTH; x++) {
-      const y = midY - pts[x] * (CANVAS_HEIGHT / 2)
+    for (let x = 0; x < W; x++) {
+      const ptFloat = (x / W) * POINTS_RESOLUTION
+      const ptIdx = Math.min(Math.floor(ptFloat), POINTS_RESOLUTION - 1)
+      const y = midY - pts[ptIdx] * (H / 2)
       if (x === 0) ctx.moveTo(x, y)
       else ctx.lineTo(x, y)
     }
@@ -248,16 +268,36 @@ function WaveformEditor({
     drawCanvas(points)
   }, [points, drawCanvas])
 
+  // Suit la taille du conteneur du canvas waveform. Sync canvas.width/height
+  // au pixel près et redessine.
+  useEffect(() => {
+    const canvas = canvasRef.current
+    if (!canvas || typeof ResizeObserver === 'undefined') return
+    const ro = new ResizeObserver((entries) => {
+      for (const entry of entries) {
+        const w = Math.floor(entry.contentRect.width)
+        const h = Math.floor(entry.contentRect.height)
+        if (!w || !h) continue
+        if (w !== canvas.width || h !== canvas.height) {
+          canvas.width = w
+          canvas.height = h
+          drawCanvas(pointsRef.current)
+        }
+      }
+    })
+    ro.observe(canvas)
+    return () => ro.disconnect()
+  }, [drawCanvas])
+
   const getCanvasPoint = (e) => {
     const canvas = canvasRef.current
     const rect = canvas.getBoundingClientRect()
-    const scaleX = CANVAS_WIDTH / rect.width
-    const scaleY = CANVAS_HEIGHT / rect.height
-    const x = Math.floor((e.clientX - rect.left) * scaleX)
-    const y = (e.clientY - rect.top) * scaleY
-    const normalized = -((y / CANVAS_HEIGHT) * 2 - 1)
+    const xPct = Math.max(0, Math.min(0.9999, (e.clientX - rect.left) / rect.width))
+    const yPct = (e.clientY - rect.top) / rect.height
+    const normalized = -(yPct * 2 - 1)
+    const x = Math.floor(xPct * POINTS_RESOLUTION)
     return {
-      x: Math.max(0, Math.min(CANVAS_WIDTH - 1, x)),
+      x: Math.max(0, Math.min(POINTS_RESOLUTION - 1, x)),
       value: Math.max(-1, Math.min(1, normalized)),
     }
   }
@@ -289,7 +329,7 @@ function WaveformEditor({
           const t = i / steps
           const x = Math.round(last.x + dx * t)
           const v = last.value + (pt.value - last.value) * t
-          if (x >= 0 && x < CANVAS_WIDTH) next[x] = v
+          if (x >= 0 && x < POINTS_RESOLUTION) next[x] = v
         }
         return next
       })
@@ -402,8 +442,8 @@ function WaveformEditor({
 
   const loadPreset = (type) => {
     const pts = blankPoints()
-    for (let i = 0; i < CANVAS_WIDTH; i++) {
-      const t = i / CANVAS_WIDTH
+    for (let i = 0; i < POINTS_RESOLUTION; i++) {
+      const t = i / POINTS_RESOLUTION
       switch (type) {
         case 'sine': pts[i] = Math.sin(2 * Math.PI * t); break
         case 'square': pts[i] = t < 0.5 ? 1 : -1; break
@@ -426,6 +466,10 @@ function WaveformEditor({
   }, [])
 
   // --- ADSR visual editor ---
+  // Tout est calculé en coordonnées virtuelles (ADSR_W=400, ADSR_H=120). Le
+  // canvas peut avoir n'importe quelle taille pixel ; drawAdsr applique
+  // setTransform avant de dessiner. Les interactions souris sont converties
+  // en virtuel via getAdsrPos.
   const attackPx = (attack / ADSR_MAX_MS) * ADSR_SEGMENT_PX
   const decayPx = (decay / ADSR_MAX_MS) * ADSR_SEGMENT_PX
   const releasePx = (release / ADSR_MAX_MS) * ADSR_SEGMENT_PX
@@ -439,7 +483,11 @@ function WaveformEditor({
   const drawAdsr = useCallback(() => {
     const canvas = adsrCanvasRef.current
     if (!canvas) return
+    const W = canvas.width
+    const H = canvas.height
+    if (!W || !H) return
     const ctx = canvas.getContext('2d')
+    ctx.setTransform(W / ADSR_W, 0, 0, H / ADSR_H, 0, 0)
 
     ctx.fillStyle = '#1a1a2e'
     ctx.fillRect(0, 0, ADSR_W, ADSR_H)
@@ -488,14 +536,31 @@ function WaveformEditor({
     drawAdsr()
   }, [drawAdsr])
 
+  useEffect(() => {
+    const canvas = adsrCanvasRef.current
+    if (!canvas || typeof ResizeObserver === 'undefined') return
+    const ro = new ResizeObserver((entries) => {
+      for (const entry of entries) {
+        const w = Math.floor(entry.contentRect.width)
+        const h = Math.floor(entry.contentRect.height)
+        if (!w || !h) continue
+        if (w !== canvas.width || h !== canvas.height) {
+          canvas.width = w
+          canvas.height = h
+          drawAdsr()
+        }
+      }
+    })
+    ro.observe(canvas)
+    return () => ro.disconnect()
+  }, [drawAdsr])
+
   const getAdsrPos = (e) => {
     const canvas = adsrCanvasRef.current
     const rect = canvas.getBoundingClientRect()
-    const scaleX = ADSR_W / rect.width
-    const scaleY = ADSR_H / rect.height
     return {
-      x: (e.clientX - rect.left) * scaleX,
-      y: (e.clientY - rect.top) * scaleY,
+      x: ((e.clientX - rect.left) / rect.width) * ADSR_W,
+      y: ((e.clientY - rect.top) / rect.height) * ADSR_H,
     }
   }
 
@@ -584,12 +649,6 @@ function WaveformEditor({
       return
     }
 
-    // Choix du nom proposé :
-    // - création (pas de currentSound) : nom par défaut (note ou "Son N"), pas de
-    //   suffixe automatique, la détection de doublons reste active côté App.
-    // - duplication explicite (currentSound défini) : "<nom>" en mode note,
-    //   "Copie de <nom>" en mode free, suffixé en cas de collision. Le flag
-    //   allowDuplicate court-circuite la détection de doublons côté App.
     const isExplicitDuplicate = !!currentSound
     let proposedName
     if (isExplicitDuplicate) {
@@ -617,6 +676,18 @@ function WaveformEditor({
     flashMessage('Nouveau son enregistré')
   }
 
+  const handleUpdate = () => {
+    if (!currentSound) return
+    const hasSignal = points.some((v) => v !== 0)
+    if (!hasSignal) {
+      flashMessage('Canvas vide')
+      return
+    }
+    onUpdateSound(currentSound.id, buildPayload(currentSound.name))
+    referenceRef.current = captureCurrentReference()
+    flashMessage('Son mis à jour')
+  }
+
   const handleNew = () => {
     const dirty = !statesEqual(stateSnapshotRef.current, referenceRef.current)
     if (dirty) {
@@ -640,27 +711,16 @@ function WaveformEditor({
     onRequestNew?.()
   }
 
-  const handleUpdate = () => {
-    if (!currentSound) return
-    const hasSignal = points.some((v) => v !== 0)
-    if (!hasSignal) {
-      flashMessage('Canvas vide')
-      return
-    }
-    onUpdateSound(currentSound.id, buildPayload(currentSound.name))
-    referenceRef.current = captureCurrentReference()
-    flashMessage('Son mis à jour')
-  }
+  // --- Render areas (render-prop) ---
 
-  return (
-    <div className="waveform-editor">
-      <div className="editor-header">
-        <h2>Waveform Editor</h2>
-        <span className="next-sound-name">
+  const renderCanvasArea = () => (
+    <div className="we-canvas-area">
+      <header className="we-area-header">
+        <h3 className="we-area-title">Waveform</h3>
+        <span className="we-sound-tag">
           {currentSound ? `Édition : ${currentSound.name}` : defaultName}
         </span>
-      </div>
-
+      </header>
       <div className="presets">
         <button onClick={() => loadPreset('sine')}>Sine</button>
         <button onClick={() => loadPreset('square')}>Square</button>
@@ -668,12 +728,9 @@ function WaveformEditor({
         <button onClick={() => loadPreset('triangle')}>Triangle</button>
         <button onClick={clearCanvas}>Clear</button>
       </div>
-
       <div className="canvas-container">
         <canvas
           ref={canvasRef}
-          width={CANVAS_WIDTH}
-          height={CANVAS_HEIGHT}
           onMouseDown={handleMouseDown}
           onMouseMove={handleMouseMove}
           onMouseUp={handleMouseUp}
@@ -683,8 +740,16 @@ function WaveformEditor({
         <span className="label middle">0</span>
         <span className="label bottom">-1</span>
       </div>
+    </div>
+  )
 
-      <div className="controls">
+  const renderParamsArea = () => (
+    <div className="we-params-area">
+      <header className="we-area-header">
+        <h3 className="we-area-title">Paramètres</h3>
+      </header>
+
+      <div className="we-params-fields">
         <div className="control-group">
           <div className="freq-header">
             <label>
@@ -751,98 +816,107 @@ function WaveformEditor({
             onChange={(e) => setAmplitude(Number(e.target.value))}
           />
         </div>
+      </div>
 
-        <div className="adsr-group">
-          <div className="adsr-title">Enveloppe ADSR</div>
-          <canvas
-            ref={adsrCanvasRef}
-            className="adsr-canvas"
-            width={ADSR_W}
-            height={ADSR_H}
-            onMouseDown={handleAdsrMouseDown}
-            onMouseMove={handleAdsrMouseMove}
-            onMouseUp={endAdsrDrag}
-            onMouseLeave={endAdsrDrag}
+      <div className="we-params-spacer" />
+
+      <div className="control-buttons">
+        <button
+          type="button"
+          className={`test-btn ${isPlaying ? 'playing' : ''}`}
+          onClick={togglePlay}
+          title="Preview du son en cours d'édition"
+        >
+          {isPlaying ? 'Stop' : 'Test'}
+        </button>
+        <button type="button" className="new-btn" onClick={handleNew} title="Nouveau son (réinitialise l'éditeur)">
+          Nouveau
+        </button>
+        {currentSound && (
+          <button className="update-btn" onClick={handleUpdate}>
+            Mettre à jour
+          </button>
+        )}
+        <button className="save-btn" onClick={handleSaveAsNew}>
+          {currentSound ? 'Enregistrer comme nouveau' : 'Sauvegarder le son'}
+        </button>
+      </div>
+
+      <div className="save-message-slot">
+        {saveMessage && <span className="save-message">{saveMessage}</span>}
+      </div>
+    </div>
+  )
+
+  const renderAdsrArea = () => (
+    <div className="we-adsr-area">
+      <header className="we-area-header">
+        <h3 className="we-area-title">Enveloppe ADSR</h3>
+      </header>
+      <div className="adsr-canvas-container">
+        <canvas
+          ref={adsrCanvasRef}
+          className="adsr-canvas"
+          onMouseDown={handleAdsrMouseDown}
+          onMouseMove={handleAdsrMouseMove}
+          onMouseUp={endAdsrDrag}
+          onMouseLeave={endAdsrDrag}
+        />
+      </div>
+      <div className="adsr-sliders">
+        <div className="adsr-slider">
+          <label htmlFor="adsr-attack">Attack <strong>{attack} ms</strong></label>
+          <input
+            id="adsr-attack"
+            type="range"
+            min="0"
+            max="500"
+            step="1"
+            value={attack}
+            onChange={(e) => setAttack(Number(e.target.value))}
           />
-          <div className="adsr-sliders">
-            {/* Sliders et canvas partagent la même source de vérité (state local
-                attack/decay/sustain/release). onChange = mise à jour continue
-                pour le visuel ; le commit undo (phase 6) se fera sur le change
-                final / pointerup, mais le système undo n'est pas encore en place. */}
-            <div className="adsr-slider">
-              <label htmlFor="adsr-attack">Attack <strong>{attack} ms</strong></label>
-              <input
-                id="adsr-attack"
-                type="range"
-                min="0"
-                max="500"
-                step="1"
-                value={attack}
-                onChange={(e) => setAttack(Number(e.target.value))}
-              />
-            </div>
-            <div className="adsr-slider">
-              <label htmlFor="adsr-decay">Decay <strong>{decay} ms</strong></label>
-              <input
-                id="adsr-decay"
-                type="range"
-                min="0"
-                max="500"
-                step="1"
-                value={decay}
-                onChange={(e) => setDecay(Number(e.target.value))}
-              />
-            </div>
-            <div className="adsr-slider">
-              <label htmlFor="adsr-sustain">Sustain <strong>{Math.round(sustain * 100)}%</strong></label>
-              <input
-                id="adsr-sustain"
-                type="range"
-                min="0"
-                max="1"
-                step="0.01"
-                value={sustain}
-                onChange={(e) => setSustain(Number(e.target.value))}
-              />
-            </div>
-            <div className="adsr-slider">
-              <label htmlFor="adsr-release">Release <strong>{release} ms</strong></label>
-              <input
-                id="adsr-release"
-                type="range"
-                min="0"
-                max="500"
-                step="1"
-                value={release}
-                onChange={(e) => setRelease(Number(e.target.value))}
-              />
-            </div>
-          </div>
         </div>
-
-        <div className="control-buttons">
-          <button className={`play-btn ${isPlaying ? 'playing' : ''}`} onClick={togglePlay}>
-            {isPlaying ? 'Stop' : 'Play'}
-          </button>
-          <button type="button" className="new-btn" onClick={handleNew} title="Nouveau son (réinitialise l'éditeur)">
-            Nouveau
-          </button>
-          {currentSound && (
-            <button className="update-btn" onClick={handleUpdate}>
-              Mettre à jour
-            </button>
-          )}
-          <button className="save-btn" onClick={handleSaveAsNew}>
-            {currentSound ? 'Enregistrer comme nouveau' : 'Sauvegarder le son'}
-          </button>
+        <div className="adsr-slider">
+          <label htmlFor="adsr-decay">Decay <strong>{decay} ms</strong></label>
+          <input
+            id="adsr-decay"
+            type="range"
+            min="0"
+            max="500"
+            step="1"
+            value={decay}
+            onChange={(e) => setDecay(Number(e.target.value))}
+          />
         </div>
-
-        <div className="save-message-slot">
-          {saveMessage && <span className="save-message">{saveMessage}</span>}
+        <div className="adsr-slider">
+          <label htmlFor="adsr-sustain">Sustain <strong>{Math.round(sustain * 100)}%</strong></label>
+          <input
+            id="adsr-sustain"
+            type="range"
+            min="0"
+            max="1"
+            step="0.01"
+            value={sustain}
+            onChange={(e) => setSustain(Number(e.target.value))}
+          />
+        </div>
+        <div className="adsr-slider">
+          <label htmlFor="adsr-release">Release <strong>{release} ms</strong></label>
+          <input
+            id="adsr-release"
+            type="range"
+            min="0"
+            max="500"
+            step="1"
+            value={release}
+            onChange={(e) => setRelease(Number(e.target.value))}
+          />
         </div>
       </div>
     </div>
   )
+
+  return children({ renderCanvasArea, renderParamsArea, renderAdsrArea })
 }
 
 export default WaveformEditor

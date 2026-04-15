@@ -16,29 +16,67 @@
 .designer-layout {
   flex: 1;
   display: grid;
-  grid-template-columns: minmax(220px, 280px) 1fr minmax(240px, 320px);
-  grid-template-rows: 1fr auto;
-  grid-template-areas:
-    "bank main aside"
-    "footer footer footer";
+  grid-template-columns: 220px 1fr;
+  grid-template-rows: 1fr;
+  grid-template-areas: "sidebar main";
   gap: 12px;
   padding: 12px;
   min-height: 0;
 }
 
-.designer-sidebar { grid-area: bank; min-height: 0; }
+/* Sidebar : banque (flex:1) + mini-player (flex:0). Bord unifié autour
+   des deux enfants. */
+.designer-sidebar {
+  grid-area: sidebar;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  background: #1a1a2e;
+  border: 1px solid #2a2a4a;
+  border-radius: 8px;
+  overflow: hidden;
+}
+.designer-sidebar > .sound-bank-panel {
+  flex: 1;
+  min-height: 0;
+  border: none;
+  border-radius: 0;
+  max-width: none;
+  min-width: 0;
+  background: transparent;
+}
+.designer-sidebar > .mini-player {
+  flex: 0 0 auto;
+  border: none;
+  border-top: 1px solid #2a2a4a;
+  border-radius: 0;
+  background: transparent;
+}
+
+/* Main : grid 2×2 (2 rows × 2 cols), chaque cell fait 50% */
 .designer-main {
   grid-area: main;
   display: flex;
-  justify-content: center;
-  align-items: flex-start;
-  overflow: auto;
-  background: #14141f;
-  border: 1px solid #2a2a4a;
-  border-radius: 8px;
+  flex-direction: column;
+  gap: 12px;
+  min-height: 0;
+  min-width: 0;
 }
-.designer-aside { grid-area: aside; min-height: 0; }
-.designer-footer { grid-area: footer; }
+.designer-row {
+  flex: 1;
+  display: flex;
+  flex-direction: row;
+  gap: 12px;
+  min-height: 0;
+  min-width: 0;
+}
+.designer-cell {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+}
 
 /* ======================= COMPOSER ======================= */
 .composer-layout {
@@ -70,14 +108,10 @@
 /* ============== Responsive : <1100px ============== */
 @media (max-width: 1100px) {
   .designer-layout {
-    grid-template-columns: minmax(200px, 240px) 1fr;
-    grid-template-rows: auto 1fr auto;
-    grid-template-areas:
-      "bank aside"
-      "main main"
-      "footer footer";
+    grid-template-columns: 200px 1fr;
+    /* scroll vertical doux si besoin ; les sous-colonnes deviennent étroites */
+    overflow-y: auto;
   }
-  .designer-aside { max-height: 220px; }
 
   .composer-layout {
     grid-template-columns: minmax(200px, 240px) 1fr;
@@ -93,14 +127,29 @@
 @media (max-width: 800px) {
   .designer-layout {
     grid-template-columns: 1fr;
-    grid-template-rows: auto auto auto auto;
+    grid-template-rows: auto 1fr;
     grid-template-areas:
-      "bank"
-      "main"
-      "aside"
-      "footer";
+      "sidebar"
+      "main";
   }
-  .designer-aside { max-height: 200px; }
+  /* Sidebar en haut : bank + player horizontaux */
+  .designer-sidebar {
+    flex-direction: row;
+    max-height: 180px;
+  }
+  .designer-sidebar > .sound-bank-panel {
+    flex: 1;
+    border-right: 1px solid #2a2a4a;
+  }
+  .designer-sidebar > .mini-player {
+    flex: 0 0 auto;
+    border-top: none;
+    border-left: 1px solid #2a2a4a;
+  }
+  /* Stack vertical de chaque row */
+  .designer-row {
+    flex-direction: column;
+  }
 
   .composer-layout {
     grid-template-columns: 1fr;

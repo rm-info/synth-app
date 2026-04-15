@@ -220,6 +220,21 @@ Découpée en 6 phases. Voir le brief original pour les détails.
   pxPerBeat), labels adaptatifs via container queries (`@container max-width:20px`),
   oscilloscope persistant + fade entre repos (ligne plate) et lecture (signal),
   Ctrl+molette zoom centré sur la souris.
+- ✅ **Phase 3.5 (fixes)** — Échap BPM corrigé (flag skipBlurCommitRef + restore
+  preFocusValue), alignement Properties Composer (colonnes grid symétriques).
+- ✅ **Phase 3.5 (Designer layout)** — refonte en 2 colonnes : sidebar gauche
+  (banque + mini-player stackés verticalement) + zone centrale en grid 2×2
+  (waveform | spectrogramme / params+boutons | ADSR). Plus de sidebar droite
+  ni de footer.
+  WaveformEditor passe en render-prop `children({ renderCanvasArea,
+  renderParamsArea, renderAdsrArea })` : son state reste dans le composant
+  (hydratation, dirty check, imperative handle isDirty) mais le parent (App)
+  place les 3 zones où il veut dans le grid.
+  Canvases waveform + ADSR dynamiques via ResizeObserver. Points array découplé
+  (POINTS_RESOLUTION=600) de la taille pixel du canvas. ADSR utilise setTransform
+  pour préserver ses coordonnées virtuelles 400×120. Bouton "Play" éditeur
+  renommé en "Test" (preview du son en édition, pas lecture timeline).
+  Mini-player simplifié : plus de marqueurs de mesure, juste un trait qui avance.
 - 🔮 Backlog phase 6 — bouton "Vider la banque" (avec confirm + undoable)
 - 🔜 Phase 4 — Édition de clips (sélection, drag, resize, panneau Properties)
 - 🔜 Phase 5 — Mesures dynamiques

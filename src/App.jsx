@@ -396,120 +396,133 @@ function App() {
   // Les deux layouts restent montés en permanence (toggle CSS via aria-hidden).
   // Sinon : démontage du WaveformEditor → perte du dirty check + de l'état local
   // d'édition au moindre changement d'onglet.
+  // WaveformEditor enveloppe les 2 layouts (Designer + Composer) : son state
+  // persiste donc sur les changements d'onglet, et il expose 3 zones de rendu
+  // que le layout Designer place dans le grid 2×2 (canvas + spectrogramme, params
+  // + ADSR). Cf. phase 3.5.
   return (
     <div className="app">
       <Tabs activeTab={activeTab} onChange={setActiveTab} />
 
-      <main
-        className="designer-layout"
-        hidden={activeTab !== 'designer'}
-        aria-hidden={activeTab !== 'designer'}
+      <WaveformEditor
+        ref={editorRef}
+        onSaveSound={handleSaveSound}
+        onUpdateSound={handleUpdateSound}
+        onRequestNew={handleRequestNew}
+        nextSoundName={nextSoundName}
+        currentSound={currentSound}
+        savedSounds={savedSounds}
+        onSoundCreated={handleSoundCreated}
       >
-        <div className="designer-sidebar">
-          <SoundBank
-            savedSounds={savedSounds}
-            clips={clips}
-            currentSoundId={currentSoundId}
-            activeTab="designer"
-            onLoadSound={handleLoadSound}
-            onRenameSound={handleRenameSound}
-            onDeleteSound={handleDeleteSound}
-          />
-        </div>
-        <div className="designer-main">
-          <WaveformEditor
-            ref={editorRef}
-            onSaveSound={handleSaveSound}
-            onUpdateSound={handleUpdateSound}
-            onRequestNew={handleRequestNew}
-            nextSoundName={nextSoundName}
-            currentSound={currentSound}
-            savedSounds={savedSounds}
-            onSoundCreated={handleSoundCreated}
-          />
-        </div>
-        <div className="designer-aside">
-          <SpectrogramPlaceholder />
-        </div>
-        <div className="designer-footer">
-          <MiniPlayer
-            isPlaying={playback.isPlaying}
-            cursorPos={playback.cursorPos}
-            currentTime={playback.currentTime}
-            totalDurationSec={totalDurationSec}
-            numMeasures={numMeasures}
-            hasClips={clips.length > 0}
-            onPlay={playback.play}
-            onStop={playback.stop}
-          />
-        </div>
-      </main>
+        {({ renderCanvasArea, renderParamsArea, renderAdsrArea }) => (
+          <>
+            <main
+              className="designer-layout"
+              hidden={activeTab !== 'designer'}
+              aria-hidden={activeTab !== 'designer'}
+            >
+              <aside className="designer-sidebar">
+                <SoundBank
+                  savedSounds={savedSounds}
+                  clips={clips}
+                  currentSoundId={currentSoundId}
+                  activeTab="designer"
+                  onLoadSound={handleLoadSound}
+                  onRenameSound={handleRenameSound}
+                  onDeleteSound={handleDeleteSound}
+                />
+                <MiniPlayer
+                  isPlaying={playback.isPlaying}
+                  cursorPos={playback.cursorPos}
+                  currentTime={playback.currentTime}
+                  totalDurationSec={totalDurationSec}
+                  hasClips={clips.length > 0}
+                  onPlay={playback.play}
+                  onStop={playback.stop}
+                />
+              </aside>
+              <div className="designer-main">
+                <div className="designer-row">
+                  <div className="designer-cell">{renderCanvasArea()}</div>
+                  <div className="designer-cell">
+                    <SpectrogramPlaceholder />
+                  </div>
+                </div>
+                <div className="designer-row">
+                  <div className="designer-cell">{renderParamsArea()}</div>
+                  <div className="designer-cell">{renderAdsrArea()}</div>
+                </div>
+              </div>
+            </main>
 
-      <main
-        className="composer-layout"
-        hidden={activeTab !== 'composer'}
-        aria-hidden={activeTab !== 'composer'}
-      >
-        <div className="composer-toolbar">
-          <Toolbar
-            bpm={bpm}
-            onSetBpm={setBpm}
-            isPlaying={playback.isPlaying}
-            hasClips={clips.length > 0}
-            isExporting={playback.isExporting}
-            onPlay={playback.play}
-            onStop={playback.stop}
-            onClearTimeline={handleClearTimeline}
-            onExportWav={playback.exportWav}
-            zoomH={zoomH}
-            onSetZoomH={setZoomH}
-            onZoomHIn={handleZoomHIn}
-            onZoomHOut={handleZoomHOut}
-            zoomHMin={MIN_ZOOM_H}
-            zoomHMax={MAX_ZOOM_H}
-            trackHeight={trackHeight}
-            onSetTrackHeight={setTrackHeight}
-            trackHeightMin={MIN_TRACK_HEIGHT}
-            trackHeightMax={MAX_TRACK_HEIGHT}
-            defaultClipDuration={defaultClipDuration}
-            onSetDefaultClipDuration={setDefaultClipDuration}
-            currentTime={playback.currentTime}
-            totalDurationSec={totalDurationSec}
-          />
-        </div>
-        <div className="composer-sidebar">
-          <SoundBank
-            savedSounds={savedSounds}
-            clips={clips}
-            currentSoundId={currentSoundId}
-            activeTab="composer"
-            onLoadSound={handleLoadSound}
-            onRenameSound={handleRenameSound}
-            onDeleteSound={handleDeleteSound}
-          />
-        </div>
-        <div className="composer-main">
-          <Timeline
-            savedSounds={savedSounds}
-            clips={clips}
-            numMeasures={numMeasures}
-            zoomH={zoomH}
-            onSetZoomH={setZoomH}
-            zoomHMin={MIN_ZOOM_H}
-            zoomHMax={MAX_ZOOM_H}
-            trackHeight={trackHeight}
-            cursorPos={playback.cursorPos}
-            isPlaying={playback.isPlaying}
-            analyserRef={playback.analyserRef}
-            onAddClip={handleAddClip}
-            onRemoveClip={handleRemoveClip}
-            onUpdateClip={handleUpdateClip}
-          />
-        </div>
-        <div className="composer-aside">
-          <PropertiesPanel selectedClip={null} />
-        </div>
-      </main>
+            <main
+              className="composer-layout"
+              hidden={activeTab !== 'composer'}
+              aria-hidden={activeTab !== 'composer'}
+            >
+              <div className="composer-toolbar">
+                <Toolbar
+                  bpm={bpm}
+                  onSetBpm={setBpm}
+                  isPlaying={playback.isPlaying}
+                  hasClips={clips.length > 0}
+                  isExporting={playback.isExporting}
+                  onPlay={playback.play}
+                  onStop={playback.stop}
+                  onClearTimeline={handleClearTimeline}
+                  onExportWav={playback.exportWav}
+                  zoomH={zoomH}
+                  onSetZoomH={setZoomH}
+                  onZoomHIn={handleZoomHIn}
+                  onZoomHOut={handleZoomHOut}
+                  zoomHMin={MIN_ZOOM_H}
+                  zoomHMax={MAX_ZOOM_H}
+                  trackHeight={trackHeight}
+                  onSetTrackHeight={setTrackHeight}
+                  trackHeightMin={MIN_TRACK_HEIGHT}
+                  trackHeightMax={MAX_TRACK_HEIGHT}
+                  defaultClipDuration={defaultClipDuration}
+                  onSetDefaultClipDuration={setDefaultClipDuration}
+                  currentTime={playback.currentTime}
+                  totalDurationSec={totalDurationSec}
+                />
+              </div>
+              <div className="composer-sidebar">
+                <SoundBank
+                  savedSounds={savedSounds}
+                  clips={clips}
+                  currentSoundId={currentSoundId}
+                  activeTab="composer"
+                  onLoadSound={handleLoadSound}
+                  onRenameSound={handleRenameSound}
+                  onDeleteSound={handleDeleteSound}
+                />
+              </div>
+              <div className="composer-main">
+                <Timeline
+                  savedSounds={savedSounds}
+                  clips={clips}
+                  numMeasures={numMeasures}
+                  zoomH={zoomH}
+                  onSetZoomH={setZoomH}
+                  zoomHMin={MIN_ZOOM_H}
+                  zoomHMax={MAX_ZOOM_H}
+                  trackHeight={trackHeight}
+                  cursorPos={playback.cursorPos}
+                  isPlaying={playback.isPlaying}
+                  analyserRef={playback.analyserRef}
+                  onAddClip={handleAddClip}
+                  onRemoveClip={handleRemoveClip}
+                  onUpdateClip={handleUpdateClip}
+                />
+              </div>
+              <div className="composer-aside">
+                <PropertiesPanel selectedClip={null} />
+              </div>
+            </main>
+          </>
+        )}
+      </WaveformEditor>
     </div>
   )
 }
