@@ -203,7 +203,6 @@ function App() {
 
   // Setters réservés aux phases ultérieures
   void setSoundFolders
-  void setNumMeasures
 
   const setZoomH = useCallback((next) => {
     setZoomHState((prev) => {
@@ -384,6 +383,29 @@ function App() {
     setClips([])
   }, [])
 
+  const handleAddMeasure = useCallback(() => {
+    setNumMeasures((n) => n + 1)
+  }, [])
+
+  const handleRemoveMeasure = useCallback(() => {
+    if (numMeasures <= 1) return
+    const lastMeasureStartBeat = (numMeasures - 1) * BEATS_PER_MEASURE
+    const affected = clips.filter((c) => {
+      const end = (c.measure - 1) * BEATS_PER_MEASURE + c.beat + c.duration
+      return end > lastMeasureStartBeat
+    })
+    if (affected.length > 0) {
+      const ok = window.confirm(
+        `${affected.length} clip${affected.length > 1 ? 's' : ''} seront supprimés. Continuer ?`,
+      )
+      if (!ok) return
+      const affectedIds = new Set(affected.map((c) => c.id))
+      setClips((prev) => prev.filter((c) => !affectedIds.has(c.id)))
+      setSelectedClipIds((prev) => prev.filter((id) => !affectedIds.has(id)))
+    }
+    setNumMeasures((n) => n - 1)
+  }, [numMeasures, clips])
+
   const handleDeleteSound = useCallback(
     (soundId) => {
       setSavedSounds((prev) => prev.filter((s) => s.id !== soundId))
@@ -523,6 +545,9 @@ function App() {
                   onSetDefaultClipDuration={setDefaultClipDuration}
                   currentTime={playback.currentTime}
                   totalDurationSec={totalDurationSec}
+                  numMeasures={numMeasures}
+                  onAddMeasure={handleAddMeasure}
+                  onRemoveMeasure={handleRemoveMeasure}
                 />
               </div>
               <div className="composer-sidebar">

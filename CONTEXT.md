@@ -269,8 +269,15 @@ Découpée en 6 phases. Voir le brief original pour les détails.
     resize unifiés dans un même système `interactionRef`/`interactionVisual`
     avec champ `mode: 'drag' | 'resize-left' | 'resize-right'`. Resize actif
     immédiatement, pas de seuil 5px.
+- ✅ **Phase 5** — Mesures dynamiques : boutons +/− dans la toolbar Composer
+  (section "Mesures" à côté de Hauteur), affichage du compte entre les
+  boutons. Ajout : `numMeasures++`, pas de plafond, grille s'étend. Suppression :
+  si la dernière mesure contient ou reçoit un clip débordant (critère
+  `clipEnd > (numMeasures-1)*4`), confirm window listant le nombre de clips
+  à supprimer ; si confirmé, filter les clips affectés + désélection, puis
+  `numMeasures--`. Plancher 1 mesure (bouton `−` désactivé à `numMeasures === 1`).
+  Pas de raccourci clavier. Insertion au milieu reportée en phase B.
 - 🔮 Backlog phase 6 — bouton "Vider la banque" (avec confirm + undoable)
-- 🔜 Phase 5 — Mesures dynamiques
 - 🔜 Phase 6 — Undo/Redo (migration vers useReducer)
 
 **Décisions UX clés (à mémoire pour Iter A)**
@@ -300,9 +307,8 @@ Découpée en 6 phases. Voir le brief original pour les détails.
 - Export WAV PCM 16-bit stéréo
 - Persistance localStorage + migration
 
-🔜 **Prochaine phase** : Iter A — Phase 5 (mesures dynamiques : +/- en bout
-de composition, conservation des clips lors d'un redimensionnement, warning
-si clips perdus par réduction).
+🔜 **Prochaine phase** : Iter A — Phase 6 (undo/redo : migration vers
+useReducer ou snapshot history, actions undoables définies par phase).
 
 ## Historique (chronologie inverse)
 

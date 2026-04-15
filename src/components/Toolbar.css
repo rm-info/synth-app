@@ -140,11 +140,20 @@
 }
 
 .zoom-h-section,
-.zoom-v-section {
+.zoom-v-section,
+.measures-section {
   background: #14141f;
   border: 1px solid #2a2a4a;
   border-radius: 6px;
   padding: 4px 8px;
+}
+
+.measures-count {
+  font-family: monospace;
+  font-size: 0.82rem;
+  color: #d0d0e0;
+  min-width: 22px;
+  text-align: center;
 }
 
 .zoom-label {
