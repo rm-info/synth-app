@@ -209,7 +209,17 @@ Découpée en 6 phases. Voir le brief original pour les détails.
   source de vérité que le canvas (les deux contrôles éditent le state local) ;
   banque contextuelle : clic simple charge en Designer, double-clic only en Composer
   (`activeTab` prop sur SoundBank).
-- 🔜 Phase 3 — Fixes UX et zoom (BPM input, zoom H/V continu, subdivision, oscilloscope persistant)
+- ✅ **Phase 2.7** — surbrillance currentSound uniquement dans Designer (chip
+  is-current masquée dans Composer où l'info n'est pas pertinente).
+- ✅ **Phase 3.1** — input BPM avec validation différée (composant `BpmInput`,
+  type=text, commit au blur/Enter, ±1/±10 via flèches+Shift, Échap annule).
+- ✅ **Phase 3.2-3.6** — nouveau zoom % basé triple croche (2-1000%, défaut 5%),
+  zoom V (hauteur lane 30-200px stockée dans `track.height`), sélecteur durée
+  par défaut sorti des clips et déplacé dans Toolbar, grille rendue en lignes
+  absolues avec subdivision adaptative (noire/croche/double/triple selon
+  pxPerBeat), labels adaptatifs via container queries (`@container max-width:20px`),
+  oscilloscope persistant + fade entre repos (ligne plate) et lecture (signal),
+  Ctrl+molette zoom centré sur la souris.
 - 🔮 Backlog phase 6 — bouton "Vider la banque" (avec confirm + undoable)
 - 🔜 Phase 4 — Édition de clips (sélection, drag, resize, panneau Properties)
 - 🔜 Phase 5 — Mesures dynamiques

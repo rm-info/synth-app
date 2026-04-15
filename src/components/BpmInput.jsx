@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 
 const MIN_BPM = 60
 const MAX_BPM = 240
@@ -18,11 +18,15 @@ function clamp(v) {
 function BpmInput({ value, onChange, className }) {
   const [text, setText] = useState(String(value))
   const [focused, setFocused] = useState(false)
+  const [lastSeenValue, setLastSeenValue] = useState(value)
 
-  // Re-sync depuis l'extérieur seulement quand pas en train d'éditer.
-  useEffect(() => {
-    if (!focused) setText(String(value))
-  }, [value, focused])
+  // Sync depuis l'extérieur via comparaison en render (pattern React officiel
+  // pour "storing info from previous renders") — uniquement quand l'utilisateur
+  // n'est pas focus, pour ne pas écraser sa saisie.
+  if (value !== lastSeenValue && !focused) {
+    setLastSeenValue(value)
+    setText(String(value))
+  }
 
   const commit = (raw) => {
     const v = parseInt(raw, 10)

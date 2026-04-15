@@ -1,18 +1,17 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useCallback } from 'react'
 import './Timeline.css'
 
 const BEATS_PER_MEASURE = 4
 const SNAP_RESOLUTION = 0.25 // 16th-note snap
 
-const DURATION_OPTIONS = [
-  { label: 'Ronde', value: 4 },
-  { label: 'Blanche', value: 2 },
-  { label: 'Noire pointée', value: 1.5 },
-  { label: 'Noire', value: 1 },
-  { label: 'Croche pointée', value: 0.75 },
-  { label: 'Croche', value: 0.5 },
-  { label: 'Double croche', value: 0.25 },
-]
+// Conversions zoom — centralisées ici.
+//   100% = 50px par triple croche (1/8 noire).
+//   pxPerBeat = (zoomH/100) * 50 * 8
+const PX_PER_TRIPLE_AT_100 = 50
+
+function pxPerBeatFromZoom(zoomH) {
+  return (zoomH / 100) * PX_PER_TRIPLE_AT_100 * 8
+}
 
 function clipBeatOffset(clip) {
   return (clip.measure - 1) * BEATS_PER_MEASURE + clip.beat
@@ -43,29 +42,62 @@ function layoutClips(clips, savedSounds) {
 }
 
 /**
- * Timeline grid (Composer). Header & sound bank ont été déplacés (Toolbar / SoundBank).
- * Reçoit le moteur de lecture via props (cursorPos, isPlaying, analyserRef) — tout
- * vient du hook usePlayback partagé dans App.
+ * Décide combien de subdivisions par beat afficher selon le zoom.
+ *  - noire toujours
+ *  - croches si pxPerBeat ≥ 40
+ *  - doubles si pxPerBeat ≥ 80
+ *  - triples si pxPerBeat ≥ 160
+ */
+function subdivPerBeat(pxPerBeat) {
+  if (pxPerBeat >= 160) return 8
+  if (pxPerBeat >= 80) return 4
+  if (pxPerBeat >= 40) return 2
+  return 1
+}
+
+function gridLineLevel(i, subdiv) {
+  const beatStep = subdiv
+  const measureStep = BEATS_PER_MEASURE * beatStep
+  if (i % measureStep === 0) return 'measure'
+  if (i % beatStep === 0) return 'beat'
+  const subIndex = i % beatStep
+  if (subdiv === 2) return 'croche'
+  if (subdiv === 4) return subIndex === 2 ? 'croche' : 'double'
+  // subdiv === 8
+  if (subIndex === 4) return 'croche'
+  if (subIndex % 2 === 0) return 'double'
+  return 'triple'
+}
+
+/**
+ * Timeline grid (Composer). Reçoit zoomH (en %) + trackHeight, calcule
+ * pxPerBeat / pxPerMeasure et rend la grille en lignes absolument positionnées.
  */
 function Timeline({
   savedSounds,
   clips,
   numMeasures,
-  measureWidth,
+  zoomH,
+  onSetZoomH,
+  zoomHMin,
+  zoomHMax,
+  trackHeight,
   cursorPos,
   isPlaying,
   analyserRef,
   onAddClip,
   onRemoveClip,
-  onUpdateClip,
 }) {
+  const wrapperRef = useRef(null)
   const dropZoneRef = useRef(null)
   const visualizerCanvasRef = useRef(null)
-  const visualizerFrameRef = useRef(null)
 
+  const pxPerBeat = pxPerBeatFromZoom(zoomH)
+  const pxPerMeasure = pxPerBeat * BEATS_PER_MEASURE
   const totalBeats = numMeasures * BEATS_PER_MEASURE
-  const beatWidth = measureWidth / BEATS_PER_MEASURE
+  const gridWidth = pxPerMeasure * numMeasures
 
+  // --- Drag & drop ---
   const handleDragOver = (e) => {
     e.preventDefault()
     e.dataTransfer.dropEffect = 'copy'
@@ -78,101 +110,188 @@ function Timeline({
     const zone = dropZoneRef.current
     if (!zone) return
     const rect = zone.getBoundingClientRect()
-    const frac = Math.max(0, Math.min(0.9999, (e.clientX - rect.left) / rect.width))
-    const rawBeat = frac * totalBeats
+    const xInGrid = e.clientX - rect.left
+    const rawBeat = xInGrid / pxPerBeat
     const snapped = Math.round(rawBeat / SNAP_RESOLUTION) * SNAP_RESOLUTION
-    const defaultDuration = 1
-    const maxStart = Math.max(0, totalBeats - defaultDuration)
-    const clamped = Math.max(0, Math.min(snapped, maxStart))
+    const clamped = Math.max(0, Math.min(snapped, Math.max(0, totalBeats - SNAP_RESOLUTION)))
     const measure = Math.floor(clamped / BEATS_PER_MEASURE) + 1
     const beat = clamped - (measure - 1) * BEATS_PER_MEASURE
-    onAddClip(soundId, measure, beat, defaultDuration)
+    // duration = undefined → App utilise defaultClipDuration
+    onAddClip(soundId, measure, beat)
   }
 
-  // Visualizer
-  useEffect(() => {
-    if (!isPlaying) return
-    const canvas = visualizerCanvasRef.current
-    const analyser = analyserRef?.current
-    if (!canvas || !analyser) return
+  // --- Ctrl+molette : zoom centré sur la position de la souris ---
+  const handleWheel = useCallback(
+    (e) => {
+      if (!e.ctrlKey) return
+      e.preventDefault()
+      const wrapper = wrapperRef.current
+      if (!wrapper) return
 
+      const delta = e.deltaY > 0 ? -5 : 5
+      const oldZoom = zoomH
+      const newZoom = Math.max(zoomHMin, Math.min(zoomHMax, oldZoom + delta))
+      if (newZoom === oldZoom) return
+
+      // Position musicale (en beats) sous la souris avant zoom
+      const rect = wrapper.getBoundingClientRect()
+      const mouseX = e.clientX - rect.left
+      const targetX = wrapper.scrollLeft + mouseX
+      const oldPxPerBeat = pxPerBeatFromZoom(oldZoom)
+      const beatPos = targetX / oldPxPerBeat
+
+      onSetZoomH(newZoom)
+
+      // Re-centrer après re-render pour conserver la position musicale sous la souris
+      requestAnimationFrame(() => {
+        const newPxPerBeat = pxPerBeatFromZoom(newZoom)
+        wrapper.scrollLeft = beatPos * newPxPerBeat - mouseX
+      })
+    },
+    [zoomH, zoomHMin, zoomHMax, onSetZoomH],
+  )
+
+  useEffect(() => {
+    const wrapper = wrapperRef.current
+    if (!wrapper) return
+    // passive:false pour pouvoir preventDefault sur Ctrl+wheel
+    wrapper.addEventListener('wheel', handleWheel, { passive: false })
+    return () => wrapper.removeEventListener('wheel', handleWheel)
+  }, [handleWheel])
+
+  // --- Visualiseur persistant avec fade ---
+  // intensity ∈ [0,1] : 0 = ligne plate seule ; 1 = signal pleine intensité.
+  // Ramp : +0.15/frame en play (montée rapide), -0.04/frame en stop (descente douce).
+  // lastDataRef garde la dernière capture du signal pour pouvoir l'afficher
+  // pendant le fade-out après stop.
+  const intensityRef = useRef(0)
+  const lastDataRef = useRef(null)
+  useEffect(() => {
+    const canvas = visualizerCanvasRef.current
+    if (!canvas) return
     const ctx2d = canvas.getContext('2d')
-    const bufferLength = analyser.fftSize
-    const dataArray = new Uint8Array(bufferLength)
+    let frameId
 
     const draw = () => {
-      analyser.getByteTimeDomainData(dataArray)
+      // Ramp intensity
+      if (isPlaying) {
+        intensityRef.current = Math.min(1, intensityRef.current + 0.15)
+      } else {
+        intensityRef.current = Math.max(0, intensityRef.current - 0.04)
+      }
+
+      // Capture du buffer si en lecture
+      const analyser = analyserRef?.current
+      if (analyser && isPlaying) {
+        const len = analyser.fftSize
+        if (!lastDataRef.current || lastDataRef.current.length !== len) {
+          lastDataRef.current = new Uint8Array(len)
+        }
+        analyser.getByteTimeDomainData(lastDataRef.current)
+      }
+
       const W = canvas.width
       const H = canvas.height
       ctx2d.fillStyle = '#0a0a1a'
       ctx2d.fillRect(0, 0, W, H)
-      ctx2d.lineWidth = 2
-      ctx2d.strokeStyle = '#4ade80'
-      ctx2d.beginPath()
-      const sliceWidth = W / bufferLength
-      let x = 0
-      for (let i = 0; i < bufferLength; i++) {
-        const v = dataArray[i] / 128.0
-        const y = (v * H) / 2
-        if (i === 0) ctx2d.moveTo(x, y)
-        else ctx2d.lineTo(x, y)
-        x += sliceWidth
-      }
-      ctx2d.stroke()
-      visualizerFrameRef.current = requestAnimationFrame(draw)
-    }
-    visualizerFrameRef.current = requestAnimationFrame(draw)
 
-    return () => {
-      if (visualizerFrameRef.current) cancelAnimationFrame(visualizerFrameRef.current)
+      // Ligne plate toujours visible (faded)
+      ctx2d.strokeStyle = 'rgba(74, 222, 128, 0.3)'
+      ctx2d.lineWidth = 2
+      ctx2d.beginPath()
+      ctx2d.moveTo(0, H / 2)
+      ctx2d.lineTo(W, H / 2)
+      ctx2d.stroke()
+
+      // Signal en overlay si intensity > 0
+      const intensity = intensityRef.current
+      if (intensity > 0 && lastDataRef.current) {
+        ctx2d.strokeStyle = `rgba(74, 222, 128, ${intensity})`
+        ctx2d.lineWidth = 2
+        ctx2d.beginPath()
+        const data = lastDataRef.current
+        const sliceWidth = W / data.length
+        let x = 0
+        for (let i = 0; i < data.length; i++) {
+          const v = data[i] / 128.0
+          const y = (v * H) / 2
+          if (i === 0) ctx2d.moveTo(x, y)
+          else ctx2d.lineTo(x, y)
+          x += sliceWidth
+        }
+        ctx2d.stroke()
+      }
+
+      frameId = requestAnimationFrame(draw)
     }
+
+    frameId = requestAnimationFrame(draw)
+    return () => cancelAnimationFrame(frameId)
   }, [isPlaying, analyserRef])
 
   const { items: laidOut, laneCount } = layoutClips(clips, savedSounds)
   const hasNoClips = clips.length === 0
 
+  // Grille : génération des lignes
+  const subdiv = subdivPerBeat(pxPerBeat)
+  const totalSubs = totalBeats * subdiv
+  const pxPerSub = pxPerBeat / subdiv
+  const gridLines = []
+  for (let i = 0; i <= totalSubs; i++) {
+    const level = gridLineLevel(i, subdiv)
+    const x = i * pxPerSub
+    gridLines.push(
+      <div
+        key={i}
+        className={`grid-line grid-line-${level}`}
+        style={{ left: `${x}px` }}
+      />,
+    )
+  }
+
+  const clipAreaHeight = laneCount * trackHeight
+
   return (
     <div className="timeline">
-      <div className="timeline-grid-wrapper">
+      <div
+        className="timeline-grid-wrapper"
+        ref={wrapperRef}
+      >
         <div
           className="timeline-grid"
           style={{
-            '--lane-count': laneCount,
-            '--measure-width': `${measureWidth}px`,
-            '--beat-width': `${beatWidth}px`,
-            minWidth: `${numMeasures * measureWidth}px`,
+            width: `${gridWidth}px`,
+            minWidth: `${gridWidth}px`,
           }}
         >
           <div className="measure-labels">
             {Array.from({ length: numMeasures }, (_, i) => (
-              <div key={i} className="measure-label">{i + 1}</div>
+              <div
+                key={i}
+                className="measure-label"
+                style={{ width: `${pxPerMeasure}px` }}
+              >
+                {i + 1}
+              </div>
             ))}
           </div>
 
           <div
             className="cells-wrapper"
             ref={dropZoneRef}
+            style={{ minHeight: `${clipAreaHeight}px` }}
             onDragOver={handleDragOver}
             onDrop={handleDrop}
           >
-            <div className="measure-cells">
-              {Array.from({ length: numMeasures }, (_, i) => (
-                <div
-                  key={i}
-                  className={`measure-cell ${i % 4 === 0 ? 'bar-start' : ''}`}
-                >
-                  {Array.from({ length: BEATS_PER_MEASURE }, (_, b) => (
-                    <div key={b} className="beat-cell" />
-                  ))}
-                </div>
-              ))}
-            </div>
+            <div className="grid-lines-layer">{gridLines}</div>
 
             <div className="placed-sounds-layer">
               {laidOut.map(({ clip, sound, lane }) => {
                 const start = clipBeatOffset(clip)
                 const left = (start / totalBeats) * 100
                 const width = (clip.duration / totalBeats) * 100
+                const top = lane * trackHeight + 4
+                const height = trackHeight - 8
                 return (
                   <div
                     key={clip.id}
@@ -180,7 +299,8 @@ function Timeline({
                     style={{
                       left: `${left}%`,
                       width: `${width}%`,
-                      '--lane': lane,
+                      top: `${top}px`,
+                      height: `${height}px`,
                       backgroundColor: sound.color + '33',
                       borderColor: sound.color,
                     }}
@@ -192,24 +312,12 @@ function Timeline({
                   >
                     <span className="placed-dot" style={{ backgroundColor: sound.color }} />
                     <span className="placed-name">{sound.name}</span>
-                    <select
-                      className="placed-duration"
-                      value={clip.duration}
-                      onChange={(e) => onUpdateClip(clip.id, { duration: parseFloat(e.target.value) })}
-                      onMouseDown={(e) => e.stopPropagation()}
-                      onContextMenu={(e) => e.stopPropagation()}
-                      draggable={false}
-                    >
-                      {DURATION_OPTIONS.map((o) => (
-                        <option key={o.value} value={o.value}>{o.label}</option>
-                      ))}
-                    </select>
                   </div>
                 )
               })}
             </div>
 
-            {isPlaying && (
+            {(isPlaying || cursorPos > 0) && (
               <div
                 className="playback-cursor"
                 style={{ left: `${cursorPos * 100}%` }}
@@ -219,16 +327,14 @@ function Timeline({
         </div>
       </div>
 
-      {isPlaying && (
-        <div className="visualizer">
-          <canvas
-            ref={visualizerCanvasRef}
-            className="visualizer-canvas"
-            width={900}
-            height={120}
-          />
-        </div>
-      )}
+      <div className="visualizer">
+        <canvas
+          ref={visualizerCanvasRef}
+          className="visualizer-canvas"
+          width={1200}
+          height={120}
+        />
+      </div>
 
       {savedSounds.length === 0 && (
         <p className="timeline-hint">
@@ -238,6 +344,7 @@ function Timeline({
       {savedSounds.length > 0 && hasNoClips && (
         <p className="timeline-hint">
           Glissez-déposez un son depuis la banque pour placer un clip. Clic droit pour retirer.
+          Ctrl + molette pour zoomer.
         </p>
       )}
     </div>

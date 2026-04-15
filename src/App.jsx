@@ -61,10 +61,18 @@ const DEFAULT_NUM_MEASURES = 16
 const DEFAULT_TRACK_ID = 'track-default'
 const BEATS_PER_MEASURE = 4
 
-const MIN_MEASURE_WIDTH = 40
-const MAX_MEASURE_WIDTH = 200
-const DEFAULT_MEASURE_WIDTH = 80
-const ZOOM_STEP = 20
+// Zoom horizontal en % : 100% = 50px par triple croche.
+//   pxPerBeat = (zoomH / 100) * 50 * 8
+// Plage 2% (1px/triple) → 1000% (500px/triple). Défaut 5% ≈ 80px/mesure
+// (équivalent à l'ancien défaut pré-phase-3).
+const MIN_ZOOM_H = 2
+const MAX_ZOOM_H = 1000
+const DEFAULT_ZOOM_H = 5
+
+const MIN_TRACK_HEIGHT = 30
+const MAX_TRACK_HEIGHT = 200
+
+const DEFAULT_CLIP_DURATION = 1
 
 const makeDefaultTrack = () => ({
   id: DEFAULT_TRACK_ID,
@@ -180,7 +188,8 @@ function App() {
   const [numMeasures, setNumMeasures] = useState(initial?.numMeasures ?? DEFAULT_NUM_MEASURES)
   const [activeTab, setActiveTab] = useState('designer')
   const [currentSoundId, setCurrentSoundId] = useState(null)
-  const [measureWidth, setMeasureWidth] = useState(DEFAULT_MEASURE_WIDTH)
+  const [zoomH, setZoomHState] = useState(DEFAULT_ZOOM_H)
+  const [defaultClipDuration, setDefaultClipDuration] = useState(DEFAULT_CLIP_DURATION)
 
   const soundCounterRef = useRef(initial?.soundCounter ?? 0)
   const clipCounterRef = useRef(initial?.clipCounter ?? 0)
@@ -188,8 +197,27 @@ function App() {
 
   // Setters réservés aux phases ultérieures
   void setSoundFolders
-  void setTracks
   void setNumMeasures
+
+  const setZoomH = useCallback((next) => {
+    setZoomHState((prev) => {
+      const v = typeof next === 'function' ? next(prev) : next
+      return Math.max(MIN_ZOOM_H, Math.min(MAX_ZOOM_H, v))
+    })
+  }, [])
+
+  // La hauteur "verticale" est stockée par track. Pour itération A on n'a qu'une
+  // piste : on expose track[0].height comme zoom V global.
+  const trackHeight = tracks[0]?.height ?? 80
+  const setTrackHeight = useCallback((next) => {
+    setTracks((prev) => {
+      if (!prev[0]) return prev
+      const v = typeof next === 'function' ? next(prev[0].height) : next
+      const clamped = Math.max(MIN_TRACK_HEIGHT, Math.min(MAX_TRACK_HEIGHT, v))
+      if (prev[0].height === clamped) return prev
+      return prev.map((t, i) => (i === 0 ? { ...t, height: clamped } : t))
+    })
+  }, [])
 
   const nextSoundName = `Son ${soundCounterRef.current + 1}`
 
@@ -292,7 +320,8 @@ function App() {
   }, [])
 
   const handleAddClip = useCallback(
-    (soundId, measure, beat, duration = 1, trackId = DEFAULT_TRACK_ID) => {
+    (soundId, measure, beat, duration, trackId = DEFAULT_TRACK_ID) => {
+      const finalDuration = duration ?? defaultClipDuration
       clipCounterRef.current += 1
       setClips((prev) => [
         ...prev,
@@ -302,11 +331,11 @@ function App() {
           soundId,
           measure,
           beat,
-          duration,
+          duration: finalDuration,
         },
       ])
     },
-    [],
+    [defaultClipDuration],
   )
 
   const handleRemoveClip = useCallback((clipId) => {
@@ -361,10 +390,8 @@ function App() {
     setCurrentSoundId(null)
   }, [])
 
-  const handleZoomOut = () =>
-    setMeasureWidth((w) => Math.max(MIN_MEASURE_WIDTH, w - ZOOM_STEP))
-  const handleZoomIn = () =>
-    setMeasureWidth((w) => Math.min(MAX_MEASURE_WIDTH, w + ZOOM_STEP))
+  const handleZoomHIn = () => setZoomH((z) => z + 5)
+  const handleZoomHOut = () => setZoomH((z) => z - 5)
 
   // Les deux layouts restent montés en permanence (toggle CSS via aria-hidden).
   // Sinon : démontage du WaveformEditor → perte du dirty check + de l'état local
@@ -434,11 +461,18 @@ function App() {
             onStop={playback.stop}
             onClearTimeline={handleClearTimeline}
             onExportWav={playback.exportWav}
-            measureWidth={measureWidth}
-            onZoomIn={handleZoomIn}
-            onZoomOut={handleZoomOut}
-            zoomMin={MIN_MEASURE_WIDTH}
-            zoomMax={MAX_MEASURE_WIDTH}
+            zoomH={zoomH}
+            onSetZoomH={setZoomH}
+            onZoomHIn={handleZoomHIn}
+            onZoomHOut={handleZoomHOut}
+            zoomHMin={MIN_ZOOM_H}
+            zoomHMax={MAX_ZOOM_H}
+            trackHeight={trackHeight}
+            onSetTrackHeight={setTrackHeight}
+            trackHeightMin={MIN_TRACK_HEIGHT}
+            trackHeightMax={MAX_TRACK_HEIGHT}
+            defaultClipDuration={defaultClipDuration}
+            onSetDefaultClipDuration={setDefaultClipDuration}
             currentTime={playback.currentTime}
             totalDurationSec={totalDurationSec}
           />
@@ -459,7 +493,11 @@ function App() {
             savedSounds={savedSounds}
             clips={clips}
             numMeasures={numMeasures}
-            measureWidth={measureWidth}
+            zoomH={zoomH}
+            onSetZoomH={setZoomH}
+            zoomHMin={MIN_ZOOM_H}
+            zoomHMax={MAX_ZOOM_H}
+            trackHeight={trackHeight}
             cursorPos={playback.cursorPos}
             isPlaying={playback.isPlaying}
             analyserRef={playback.analyserRef}
