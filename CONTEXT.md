@@ -27,15 +27,29 @@ synth-app/
 ├── eslint.config.js
 └── src/
     ├── main.jsx              # entry point React
-    ├── App.jsx               # état global + composition
-    ├── App.css
+    ├── App.jsx               # état global + orchestration des onglets
+    ├── App.css               # layout grid responsive Designer/Composer
     ├── index.css
     ├── audio.js              # DFT -> PeriodicWave, encodage WAV, palette couleurs
-    ├── assets/               # logos du template Vite (résiduel, non utilisé)
+    ├── assets/               # résiduel template Vite (non utilisé)
+    ├── hooks/
+    │   └── usePlayback.js    # moteur de lecture timeline (partagé Designer/Composer)
     └── components/
-        ├── WaveformEditor.jsx + .css
-        └── Timeline.jsx + .css
+        ├── Tabs.jsx + .css                    # bascule Designer / Composer
+        ├── SoundBank.jsx + .css               # banque de sons partagée
+        ├── WaveformEditor.jsx + .css          # éditeur ondes (Designer)
+        ├── SpectrogramPlaceholder.jsx + .css  # placeholder iter B
+        ├── MiniPlayer.jsx + .css              # transport simplifié (Designer)
+        ├── Toolbar.jsx + .css                 # toolbar (Composer)
+        ├── Timeline.jsx + .css                # grille + clips + curseur (Composer)
+        └── PropertiesPanel.jsx + .css         # placeholder phase 4 (Composer)
 ```
+
+### Layout
+
+L'`App` rend **les deux layouts en permanence** et toggle leur visibilité via
+l'attribut `hidden` (override CSS pour battre `display:grid`). Raison : ne pas
+démonter le `WaveformEditor`, sinon perte de l'état local + du dirty check.
 
 ## Modèle de données
 
@@ -106,13 +120,18 @@ Seuls les **placements timeline** s'appellent "clips".
 ### `App.jsx` — racine
 - Détient tout l'état du modèle : `savedSounds`, `soundFolders`, `tracks`, `clips`,
   `bpm`, `numMeasures` + refs counters (`soundCounterRef`, `clipCounterRef`)
-- Persistance auto via `useEffect`
-- Détection de doublons en mode note (note + octave + waveform via preset ou similarité
-  moyenne des points < 0.01)
-- Handlers : `handleSaveSound`, `handleAddClip`, `handleRemoveClip`, `handleUpdateClip`,
-  `handleClearTimeline`, `handleDeleteSound`, `handleRenameSound`
-- État UI (à venir) : `selectedClipIds`, `currentSoundId`, `zoomH`, `zoomV`,
-  `activeTab` — ajoutés dans les phases qui les consomment.
+- État UI : `activeTab`, `currentSoundId`, `measureWidth` (zoom ancien, refondu en phase 3)
+- Détention d'une `editorRef` (imperative handle) pour interroger le `WaveformEditor`
+  sur son état dirty avant de charger un nouveau son.
+- Persistance auto via `useEffect` (n'inclut PAS l'UI state).
+- Handlers : `handleSaveSound` (retourne `{duplicate, id}`), `handleUpdateSound`
+  (MAJ d'un son existant), `handleAddClip`, `handleRemoveClip`, `handleUpdateClip`,
+  `handleClearTimeline`, `handleDeleteSound`, `handleRenameSound`, `handleLoadSound`
+  (avec confirm si dirty), `handleSoundCreated` (set currentSoundId au nouveau).
+- Appelle `usePlayback({ clips, savedSounds, bpm, totalDurationSec })` UNE fois ;
+  les contrôles (play/stop/cursorPos/etc.) sont distribués au MiniPlayer (Designer)
+  et au Toolbar/Timeline (Composer).
+- État restant à venir : `selectedClipIds`, `zoomH/V` (% continus), tracks/folders.
 
 ### `WaveformEditor.jsx`
 - Canvas 600×300 dessinable à la souris (interpolation linéaire)
@@ -123,20 +142,40 @@ Seuls les **placements timeline** s'appellent "clips".
   P3 fin sustain non-draggable, P4 release), courbe cyan + remplissage, sliders read-only
   en dessous
 - Preview Play/Stop avec enveloppe AD→sustain hold puis release, cleanup via `osc.onended`
-- Badge "prochain nom" en haut à droite
-- Message flash 2s (doublon / canvas vide)
+- Hydratation auto depuis `currentSound` (prop) via `useEffect` qui compare l'id
+  contre `hydratedFromIdRef`. Pas de re-hydrate si même id.
+- **Dirty check** exposé via `useImperativeHandle` (`isDirty()`). Compare l'état local
+  vs `referenceRef` (snapshot mis à jour à chaque hydrate / save).
+- Deux boutons sauvegarder :
+  - "Mettre à jour" (visible si `currentSound`) : appelle `onUpdateSound(id, payload)`,
+    referenceRef est synchronisée, flash "Son mis à jour".
+  - "Enregistrer comme nouveau" (toujours visible) : appelle `onSaveSound(payload)`,
+    bascule la référence et le `hydratedFromIdRef` vers le nouvel id, déclenche
+    `onSoundCreated(id)` pour que App set `currentSoundId`. Flash "Nouveau son enregistré".
+- Header affiche soit le nom prochain (création) soit "Édition : NOM" (chargé).
 
-### `Timeline.jsx`
-- Header : input BPM 60-240, temps live `X.Xs / Y.Ys`, Play/Stop toggle, Effacer,
-  Exporter WAV, zoom −/+ (40-200px par mesure)
-- Banque de sons : chips draggables, double-clic = rename inline (Enter/blur valide,
-  vide annule, Escape annule), × avec confirm si utilisé
-- Grille : 16 mesures × 4 `.beat-cell` (pointillés), drop unique sur `.cells-wrapper`
-  avec snap 16ᵉ + clamp anti-débordement
+### `Timeline.jsx` (Composer)
+- Reçu en props : `cursorPos`, `isPlaying`, `analyserRef` (depuis `usePlayback`),
+  `measureWidth`, `numMeasures`, handlers de clips.
+- Grille : `numMeasures` × 4 `.beat-cell` (pointillés), drop unique sur `.cells-wrapper`
+  avec snap 16ᵉ + clamp anti-débordement.
 - Clips placés (couche absolue) : lane layout greedy pour polyphonie, `<select>` durée
-  embarqué, clic droit = retirer
-- Curseur de lecture + visualiseur oscilloscope (canvas 900×120, ligne verte 2px) via
-  `AnalyserNode`, visible pendant lecture uniquement
+  embarqué (sortira en phase 3), clic droit = retirer.
+- Curseur de lecture + visualiseur oscilloscope visible pendant lecture (persistant en phase 3).
+- Plus de header ni de banque (déplacés vers Toolbar / SoundBank).
+
+### `SoundBank.jsx` (partagé Designer & Composer)
+- Liste verticale de chips (responsive : bandeau horizontal en <900px).
+- Drag → payload `text/plain` = soundId (drop sur Timeline).
+- Click ou double-click → `onLoadSound(id)` (App fait dirty check + tab switch).
+- Bouton ✎ rename inline ; bouton × supprime (confirm si utilisé).
+- Chip avec `currentSoundId` reçoit la classe `is-current` (highlight bordure).
+
+### `usePlayback` (hook, `src/hooks/usePlayback.js`)
+- Une instance dans App. Singleton de fait pour le moteur audio timeline.
+- Retourne `{ isPlaying, cursorPos, currentTime, isExporting, analyserRef,
+  play, stop, exportWav }`.
+- AudioContext créé paresseusement. Cleanup à l'unmount d'App.
 
 ### `audio.js`
 - `pointsToPeriodicWave(points, ctx)` — DFT 256 points
@@ -159,7 +198,9 @@ Découpée en 6 phases. Voir le brief original pour les détails.
 
 - ✅ **Phase 1** — Refonte modèle de données + migration (Note→Clip, +Track,
   +SoundFolder, +numMeasures, IDs préfixés, migration localStorage transparente)
-- 🔜 Phase 2 — Layout split en 2 onglets (Designer / Composer) + responsive
+- ✅ **Phase 2** — Layout split en 2 onglets (Designer / Composer) + responsive,
+  banque partagée, mini-player, hydratation de l'éditeur, dual-save (Mettre à jour
+  / Enregistrer comme nouveau), dirty check sur switch
 - 🔜 Phase 3 — Fixes UX et zoom (BPM input, zoom H/V continu, subdivision, oscilloscope persistant)
 - 🔜 Phase 4 — Édition de clips (sélection, drag, resize, panneau Properties)
 - 🔜 Phase 5 — Mesures dynamiques
@@ -192,10 +233,18 @@ Découpée en 6 phases. Voir le brief original pour les détails.
 - Export WAV PCM 16-bit stéréo
 - Persistance localStorage + migration
 
-🔜 **Prochaine phase** : Iter A — Phase 2 (split en 2 onglets Designer/Composer)
+🔜 **Prochaine phase** : Iter A — Phase 3 (fixes UX : input BPM différé, zoom %
+continu sur triple croche, zoom V, subdivision sortie des clips, oscilloscope
+persistant, labels adaptatifs)
 
 ## Historique (chronologie inverse)
 
+00. **Iter A — Phase 2** : split onglets Designer/Composer + responsive (grid),
+    SoundBank partagée extraite, MiniPlayer/Toolbar séparés, `usePlayback` hook
+    partagé, hydratation de l'éditeur depuis `currentSoundId`, dual save
+    (Mettre à jour / Enregistrer comme nouveau), dirty check via imperative handle,
+    SpectrogramPlaceholder + PropertiesPanel placeholders, suppression de la
+    largeur max globale.
 0. **Iter A — Phase 1** : refonte modèle (Note→Clip, +Track/SoundFolder/numMeasures,
    migration localStorage transparente, IDs préfixés). Aucun changement d'UI.
 1. **Refactor son↔note** : duration retirée des sounds, déplacée sur les notes ;

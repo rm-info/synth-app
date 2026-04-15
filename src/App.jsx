@@ -1,14 +1,21 @@
-import { useState, useCallback, useRef, useEffect } from 'react'
+import { useState, useCallback, useRef, useEffect, useMemo } from 'react'
 import WaveformEditor from './components/WaveformEditor'
 import Timeline from './components/Timeline'
+import Tabs from './components/Tabs'
+import SoundBank from './components/SoundBank'
+import MiniPlayer from './components/MiniPlayer'
+import Toolbar from './components/Toolbar'
+import PropertiesPanel from './components/PropertiesPanel'
+import SpectrogramPlaceholder from './components/SpectrogramPlaceholder'
 import { SOUND_COLORS } from './audio'
+import { usePlayback } from './hooks/usePlayback'
 import './App.css'
 
 /**
  * @typedef {Object} SoundFolder
- * @property {string} id            - "folder-N"
+ * @property {string} id
  * @property {string} name
- * @property {string|null} parentId - null = racine
+ * @property {string|null} parentId
  *
  * @typedef {Object} SavedSound
  * @property {string} id
@@ -25,24 +32,24 @@ import './App.css'
  * @property {number} decay
  * @property {number} sustain
  * @property {number} release
- * @property {string|null} folderId - null = racine
+ * @property {string|null} folderId
  *
  * @typedef {Object} Track
- * @property {string} id          - "track-N"
- * @property {string} name        - "Piste 1" par défaut
+ * @property {string} id
+ * @property {string} name
  * @property {string|null} color
  * @property {boolean} muted
  * @property {boolean} solo
- * @property {number} volume      - 0..1
- * @property {number} height      - px
+ * @property {number} volume
+ * @property {number} height
  *
  * @typedef {Object} Clip
- * @property {string} id          - "clip-N"
+ * @property {string} id
  * @property {string} trackId
  * @property {string} soundId
- * @property {number} measure     - 1-indexée
- * @property {number} beat        - 0..3.75 (snap 0.25)
- * @property {number} duration    - en noires
+ * @property {number} measure
+ * @property {number} beat
+ * @property {number} duration
  */
 
 const STORAGE_KEY = 'synth-app-state'
@@ -52,6 +59,12 @@ const DEFAULT_ADSR = { attack: 10, decay: 100, sustain: 0.7, release: 100 }
 const DEFAULT_BPM = 120
 const DEFAULT_NUM_MEASURES = 16
 const DEFAULT_TRACK_ID = 'track-default'
+const BEATS_PER_MEASURE = 4
+
+const MIN_MEASURE_WIDTH = 40
+const MAX_MEASURE_WIDTH = 200
+const DEFAULT_MEASURE_WIDTH = 80
+const ZOOM_STEP = 20
 
 const makeDefaultTrack = () => ({
   id: DEFAULT_TRACK_ID,
@@ -85,7 +98,6 @@ function migrateClipId(id) {
 }
 
 function normalizeClip(raw) {
-  // Legacy placements had 0-indexed measure and no beat/duration fields.
   const isLegacy = raw.beat === undefined && raw.duration === undefined
   const id = migrateClipId(raw.id)
   if (isLegacy) {
@@ -166,15 +178,30 @@ function App() {
   const [clips, setClips] = useState(initial?.clips ?? [])
   const [bpm, setBpm] = useState(initial?.bpm ?? DEFAULT_BPM)
   const [numMeasures, setNumMeasures] = useState(initial?.numMeasures ?? DEFAULT_NUM_MEASURES)
+  const [activeTab, setActiveTab] = useState('designer')
+  const [currentSoundId, setCurrentSoundId] = useState(null)
+  const [measureWidth, setMeasureWidth] = useState(DEFAULT_MEASURE_WIDTH)
+
   const soundCounterRef = useRef(initial?.soundCounter ?? 0)
   const clipCounterRef = useRef(initial?.clipCounter ?? 0)
+  const editorRef = useRef(null)
 
-  // Setters réservés pour les phases ultérieures (folders / tracks / measures dynamiques).
+  // Setters réservés aux phases ultérieures
   void setSoundFolders
   void setTracks
   void setNumMeasures
 
   const nextSoundName = `Son ${soundCounterRef.current + 1}`
+
+  const totalBeats = numMeasures * BEATS_PER_MEASURE
+  const totalDurationSec = (totalBeats * 60) / bpm
+
+  const playback = usePlayback({ clips, savedSounds, bpm, totalDurationSec })
+
+  const currentSound = useMemo(
+    () => (currentSoundId ? savedSounds.find((s) => s.id === currentSoundId) ?? null : null),
+    [currentSoundId, savedSounds],
+  )
 
   useEffect(() => {
     try {
@@ -192,7 +219,7 @@ function App() {
         }),
       )
     } catch {
-      // storage unavailable — silently ignore
+      // storage unavailable
     }
   }, [savedSounds, soundFolders, tracks, clips, bpm, numMeasures])
 
@@ -233,10 +260,33 @@ function App() {
           folderId: null,
         },
       ])
-      return { duplicate: false }
+      return { duplicate: false, id }
     },
     [savedSounds],
   )
+
+  const handleUpdateSound = useCallback((soundId, soundData) => {
+    setSavedSounds((prev) =>
+      prev.map((s) =>
+        s.id === soundId
+          ? {
+              ...s,
+              points: Array.from(soundData.points),
+              frequency: soundData.frequency,
+              amplitude: soundData.amplitude,
+              mode: soundData.mode,
+              noteIndex: soundData.noteIndex,
+              octave: soundData.octave,
+              preset: soundData.preset,
+              attack: soundData.attack,
+              decay: soundData.decay,
+              sustain: soundData.sustain,
+              release: soundData.release,
+            }
+          : s,
+      ),
+    )
+  }, [])
 
   const handleAddClip = useCallback(
     (soundId, measure, beat, duration = 1, trackId = DEFAULT_TRACK_ID) => {
@@ -268,10 +318,14 @@ function App() {
     setClips([])
   }, [])
 
-  const handleDeleteSound = useCallback((soundId) => {
-    setSavedSounds((prev) => prev.filter((s) => s.id !== soundId))
-    setClips((prev) => prev.filter((c) => c.soundId !== soundId))
-  }, [])
+  const handleDeleteSound = useCallback(
+    (soundId) => {
+      setSavedSounds((prev) => prev.filter((s) => s.id !== soundId))
+      setClips((prev) => prev.filter((c) => c.soundId !== soundId))
+      if (currentSoundId === soundId) setCurrentSoundId(null)
+    },
+    [currentSoundId],
+  )
 
   const handleRenameSound = useCallback((soundId, newName) => {
     setSavedSounds((prev) =>
@@ -279,22 +333,134 @@ function App() {
     )
   }, [])
 
+  const handleLoadSound = useCallback(
+    (soundId) => {
+      // Idempotent if déjà chargé sur Designer
+      if (currentSoundId === soundId && activeTab === 'designer') return
+      const dirty = editorRef.current?.isDirty?.() ?? false
+      if (dirty && currentSoundId !== soundId) {
+        const ok = window.confirm(
+          "Modifications non sauvegardées dans l'éditeur. Charger ce son et perdre vos modifs ?",
+        )
+        if (!ok) return
+      }
+      setCurrentSoundId(soundId)
+      setActiveTab('designer')
+    },
+    [currentSoundId, activeTab],
+  )
+
+  const handleSoundCreated = useCallback((newSoundId) => {
+    setCurrentSoundId(newSoundId)
+  }, [])
+
+  const handleZoomOut = () =>
+    setMeasureWidth((w) => Math.max(MIN_MEASURE_WIDTH, w - ZOOM_STEP))
+  const handleZoomIn = () =>
+    setMeasureWidth((w) => Math.min(MAX_MEASURE_WIDTH, w + ZOOM_STEP))
+
+  // Les deux layouts restent montés en permanence (toggle CSS via aria-hidden).
+  // Sinon : démontage du WaveformEditor → perte du dirty check + de l'état local
+  // d'édition au moindre changement d'onglet.
   return (
     <div className="app">
-      <WaveformEditor onSaveSound={handleSaveSound} nextSoundName={nextSoundName} />
-      <Timeline
-        savedSounds={savedSounds}
-        clips={clips}
-        bpm={bpm}
-        numMeasures={numMeasures}
-        onSetBpm={setBpm}
-        onAddClip={handleAddClip}
-        onRemoveClip={handleRemoveClip}
-        onUpdateClip={handleUpdateClip}
-        onClearTimeline={handleClearTimeline}
-        onDeleteSound={handleDeleteSound}
-        onRenameSound={handleRenameSound}
-      />
+      <Tabs activeTab={activeTab} onChange={setActiveTab} />
+
+      <main
+        className="designer-layout"
+        hidden={activeTab !== 'designer'}
+        aria-hidden={activeTab !== 'designer'}
+      >
+        <div className="designer-sidebar">
+          <SoundBank
+            savedSounds={savedSounds}
+            clips={clips}
+            currentSoundId={currentSoundId}
+            onLoadSound={handleLoadSound}
+            onRenameSound={handleRenameSound}
+            onDeleteSound={handleDeleteSound}
+          />
+        </div>
+        <div className="designer-main">
+          <WaveformEditor
+            ref={editorRef}
+            onSaveSound={handleSaveSound}
+            onUpdateSound={handleUpdateSound}
+            nextSoundName={nextSoundName}
+            currentSound={currentSound}
+            onSoundCreated={handleSoundCreated}
+          />
+        </div>
+        <div className="designer-aside">
+          <SpectrogramPlaceholder />
+        </div>
+        <div className="designer-footer">
+          <MiniPlayer
+            isPlaying={playback.isPlaying}
+            cursorPos={playback.cursorPos}
+            currentTime={playback.currentTime}
+            totalDurationSec={totalDurationSec}
+            numMeasures={numMeasures}
+            hasClips={clips.length > 0}
+            onPlay={playback.play}
+            onStop={playback.stop}
+          />
+        </div>
+      </main>
+
+      <main
+        className="composer-layout"
+        hidden={activeTab !== 'composer'}
+        aria-hidden={activeTab !== 'composer'}
+      >
+        <div className="composer-toolbar">
+          <Toolbar
+            bpm={bpm}
+            onSetBpm={setBpm}
+            isPlaying={playback.isPlaying}
+            hasClips={clips.length > 0}
+            isExporting={playback.isExporting}
+            onPlay={playback.play}
+            onStop={playback.stop}
+            onClearTimeline={handleClearTimeline}
+            onExportWav={playback.exportWav}
+            measureWidth={measureWidth}
+            onZoomIn={handleZoomIn}
+            onZoomOut={handleZoomOut}
+            zoomMin={MIN_MEASURE_WIDTH}
+            zoomMax={MAX_MEASURE_WIDTH}
+            currentTime={playback.currentTime}
+            totalDurationSec={totalDurationSec}
+          />
+        </div>
+        <div className="composer-sidebar">
+          <SoundBank
+            savedSounds={savedSounds}
+            clips={clips}
+            currentSoundId={currentSoundId}
+            onLoadSound={handleLoadSound}
+            onRenameSound={handleRenameSound}
+            onDeleteSound={handleDeleteSound}
+          />
+        </div>
+        <div className="composer-main">
+          <Timeline
+            savedSounds={savedSounds}
+            clips={clips}
+            numMeasures={numMeasures}
+            measureWidth={measureWidth}
+            cursorPos={playback.cursorPos}
+            isPlaying={playback.isPlaying}
+            analyserRef={playback.analyserRef}
+            onAddClip={handleAddClip}
+            onRemoveClip={handleRemoveClip}
+            onUpdateClip={handleUpdateClip}
+          />
+        </div>
+        <div className="composer-aside">
+          <PropertiesPanel selectedClip={null} />
+        </div>
+      </main>
     </div>
   )
 }

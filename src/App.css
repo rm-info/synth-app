@@ -2,8 +2,111 @@
   min-height: 100vh;
   display: flex;
   flex-direction: column;
-  align-items: center;
   background: #0f0f1a;
-  padding: 32px 16px;
-  gap: 16px;
+  color: #e0e0e0;
+}
+
+/* Override la règle UA `[hidden] { display: none }` qui serait masquée par
+   nos `display: grid` plus spécifiques. */
+.app > main[hidden] {
+  display: none !important;
+}
+
+/* ======================= DESIGNER ======================= */
+.designer-layout {
+  flex: 1;
+  display: grid;
+  grid-template-columns: minmax(220px, 280px) 1fr minmax(240px, 320px);
+  grid-template-rows: 1fr auto;
+  grid-template-areas:
+    "bank main aside"
+    "footer footer footer";
+  gap: 12px;
+  padding: 12px;
+  min-height: 0;
+}
+
+.designer-sidebar { grid-area: bank; min-height: 0; }
+.designer-main {
+  grid-area: main;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  overflow: auto;
+  background: #14141f;
+  border: 1px solid #2a2a4a;
+  border-radius: 8px;
+}
+.designer-aside { grid-area: aside; min-height: 0; }
+.designer-footer { grid-area: footer; }
+
+/* ======================= COMPOSER ======================= */
+.composer-layout {
+  flex: 1;
+  display: grid;
+  grid-template-columns: minmax(220px, 280px) 1fr minmax(240px, 320px);
+  grid-template-rows: auto 1fr;
+  grid-template-areas:
+    "toolbar toolbar toolbar"
+    "bank main aside";
+  gap: 12px;
+  padding: 12px;
+  min-height: 0;
+}
+
+.composer-toolbar { grid-area: toolbar; }
+.composer-sidebar { grid-area: bank; min-height: 0; }
+.composer-main {
+  grid-area: main;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  min-width: 0;
+}
+.composer-aside { grid-area: aside; min-height: 0; }
+
+/* ============== Responsive : <1100px ============== */
+@media (max-width: 1100px) {
+  .designer-layout {
+    grid-template-columns: minmax(200px, 240px) 1fr;
+    grid-template-rows: auto 1fr auto;
+    grid-template-areas:
+      "bank aside"
+      "main main"
+      "footer footer";
+  }
+  .designer-aside { max-height: 220px; }
+
+  .composer-layout {
+    grid-template-columns: minmax(200px, 240px) 1fr;
+    grid-template-rows: auto 1fr auto;
+    grid-template-areas:
+      "toolbar toolbar"
+      "bank main"
+      "aside aside";
+  }
+}
+
+/* ============== Responsive : <800px (stack vertical) ============== */
+@media (max-width: 800px) {
+  .designer-layout {
+    grid-template-columns: 1fr;
+    grid-template-rows: auto auto auto auto;
+    grid-template-areas:
+      "bank"
+      "main"
+      "aside"
+      "footer";
+  }
+  .designer-aside { max-height: 200px; }
+
+  .composer-layout {
+    grid-template-columns: 1fr;
+    grid-template-rows: auto auto 1fr auto;
+    grid-template-areas:
+      "toolbar"
+      "bank"
+      "main"
+      "aside";
+  }
 }
