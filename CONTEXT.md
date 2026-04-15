@@ -3,6 +3,17 @@
 > Document maintenu automatiquement par Claude Code. Mis à jour à chaque fin de phase.
 > Coller en début de session pour briefer un nouveau modèle/contexte.
 
+## TL;DR
+
+Synthétiseur web pédagogique : on dessine une forme d'onde à la souris,
+on la place sur une timeline multipiste, on exporte en WAV. Stack minimale :
+React 19 + Vite, Web Audio API native, persistance localStorage. **Pas de
+TypeScript, pas de lib audio, pas de state manager, pas de framework UI,
+pas de routing.** Itération A (refonte UX core : 2 onglets Designer/Composer,
+dual save, zoom %, édition clips, undo/redo) terminée. Itération B (multi-
+sélection, folders UI, spectrogramme) et C (multipiste, look-ahead audio)
+à venir.
+
 ## Objectif
 
 Synthétiseur web pédagogique / créatif : dessiner des formes d'onde à la souris,
@@ -27,10 +38,11 @@ synth-app/
 ├── eslint.config.js
 └── src/
     ├── main.jsx              # entry point React
-    ├── App.jsx               # état global + orchestration des onglets
+    ├── App.jsx               # orchestration, persistance, raccourcis clavier
     ├── App.css               # layout grid responsive Designer/Composer
     ├── index.css
     ├── audio.js              # DFT -> PeriodicWave, encodage WAV, palette couleurs
+    ├── reducer.js            # useReducer global + withUndo (historique par onglet)
     ├── assets/               # résiduel template Vite (non utilisé)
     ├── hooks/
     │   └── usePlayback.js    # moteur de lecture timeline (partagé Designer/Composer)
@@ -40,9 +52,12 @@ synth-app/
         ├── WaveformEditor.jsx + .css          # éditeur ondes (Designer)
         ├── SpectrogramPlaceholder.jsx + .css  # placeholder iter B
         ├── MiniPlayer.jsx + .css              # transport simplifié (Designer)
+        ├── BpmInput.jsx                       # input BPM validation différée
+        ├── FreqInput.jsx                      # input fréquence libre (phase 3.7)
+        ├── Toast.jsx + .css                   # toast d'erreur (undo cross-onglet)
         ├── Toolbar.jsx + .css                 # toolbar (Composer)
         ├── Timeline.jsx + .css                # grille + clips + curseur (Composer)
-        └── PropertiesPanel.jsx + .css         # placeholder phase 4 (Composer)
+        └── PropertiesPanel.jsx + .css         # édition du clip sélectionné (Composer)
 ```
 
 ### Layout
@@ -98,9 +113,12 @@ type Clip = {                     // ex-Note (placement timeline)
                                   // 1=noire, 0.75=croche pointée, 0.5=croche, 0.25=double
 }
 
-// Persistance (localStorage) :
+// Persistance (localStorage, clé "synth-app-state") :
 // { savedSounds, soundFolders, tracks, clips, bpm, numMeasures,
-//   soundCounter, clipCounter }
+//   spectrogramVisible, activeTab, soundCounter, clipCounter }
+// NON persisté (volatile) : selectedClipIds, currentSoundId, zoomH,
+// defaultClipDuration, composerFlash, editor (éditeur vide au reload),
+// piles undo/redo.
 // Migration auto des formats legacy au chargement (notes→clips, IDs note-N→clip-N,
 // trackId par défaut "track-default", folderId null par défaut, numMeasures inféré).
 ```
@@ -192,9 +210,62 @@ Seuls les **placements timeline** s'appellent "clips".
 - **ADSR par note** : rampes linéaires attack→peak→sustain→hold→release→0
   avec `clipDuration = max(noteDurationSec, attack+decay+release)`
 
-## Itération en cours : A — Refonte UX core
+## Décisions architecturales
+
+Choix non évidents pris pour de bonnes raisons. À ne pas remettre en question
+à la légère — relire ici avant de refactorer.
+
+- **L'éditeur de son n'est plus détaché** : son state (points, ADSR,
+  fréquence, preset, etc.) vit dans `state.editor` du reducer global,
+  pas en local dans `WaveformEditor`. Raison : l'undo/redo doit couvrir
+  l'éditeur. Conséquence : les gestes continus (dessin canvas, drag
+  poignées ADSR, sliders) **doivent** utiliser un draft local et ne
+  dispatcher qu'au mouseup/touchend/blur, sinon chaque pixel pollue
+  la pile d'historique.
+- **Piles undo/redo en RAM pure** : pas de persistance localStorage.
+  Motifs : taille (snapshots complets × 50 × 2 onglets), complexité
+  (migration de format à chaque évolution du reducer), coût faible
+  pour l'utilisateur (historique qui s'efface au reload est un comportement
+  standard).
+- **Snapshots undo complets (pas de diff)** : chaque entrée d'historique
+  est un clone superficiel des champs trackés. Le partage de références
+  via l'immutabilité du reducer rend ça bon marché en mémoire (un clip
+  non modifié est la même référence dans tous les snapshots).
+- **Moteur audio schedule tout au démarrage** : `usePlayback` appelle
+  `scheduleNotes()` une fois au `play()` pour tous les clips. Pas de
+  look-ahead, pas de re-schedule pendant lecture. **Bug connu** : toute
+  modification de clips pendant que ça joue est ignorée jusqu'au prochain
+  play. À refondre en **itération C** (look-ahead par fenêtre glissante).
+- **Lane assignment greedy, calculé au rendu** : la polyphonie (clips
+  qui se chevauchent → lanes empilées) est calculée à chaque render de
+  `Timeline` à partir des clips triés par position. Pas stocké dans le
+  state. Raison : le calcul est O(n) et le layout se redébrouille après
+  chaque drag/resize/drop sans invalidation manuelle.
+
+## Contraintes implicites
+
+Conventions tacites. Les enfreindre sans raison crée des bugs subtils.
+
+- **Pas de TypeScript** : choix initial, pas de migration en cours de
+  projet. Le modèle est documenté en TS-like dans ce fichier à titre
+  de référence uniquement.
+- **IDs via compteurs persistés** (`soundCounter`, `clipCounter`) :
+  jamais les recalculer depuis `savedSounds.length` ou `clips.length`.
+  Après des suppressions, deux créations successives auraient le même
+  ID → collisions silencieuses.
+- **Snapshots historique : mouseup pour gestes continus, dispatch direct
+  pour contrôles discrets**. Un dropdown / un toggle / un clic preset
+  dispatche directement (1 action = 1 snapshot). Un drag / un dessin /
+  un slider utilise un draft local puis un dispatch unique au relâchement.
+- **Non persisté dans localStorage** : `zoomH`, `zoomV` (par track),
+  `selectedClipIds`, l'éditeur (drafts + state complet), l'historique
+  undo/redo, `currentSoundId`, `composerFlash`. Au reload on retombe
+  sur un état "propre" côté UI, seules les données métier survivent.
+
+## Itération terminée : A — Refonte UX core
 
 Découpée en 6 phases. Voir le brief original pour les détails.
+Phases listées ci-dessous dans l'ordre chronologique d'implémentation.
 
 - ✅ **Phase 1** — Refonte modèle de données + migration (Note→Clip, +Track,
   +SoundFolder, +numMeasures, IDs préfixés, migration localStorage transparente)
@@ -222,14 +293,6 @@ Découpée en 6 phases. Voir le brief original pour les détails.
   Ctrl+molette zoom centré sur la souris.
 - ✅ **Phase 3.5 (fixes)** — Échap BPM corrigé (flag skipBlurCommitRef + restore
   preFocusValue), alignement Properties Composer (colonnes grid symétriques).
-- ✅ **Phase 3.6** — toggle spectrogramme fonctionnel (state `spectrogramVisible`
-  persisté dans localStorage, toggle dans le header de la zone Waveform, cell
-  spectrogramme retirée du DOM quand OFF), mini-player avec barre de progression
-  intégrée (linear-gradient --progress sur un seul élément texte, plus de bar
-  séparée), fréquence libre étendue à 20-20000 Hz avec slider log (conversion
-  via sliderToFreq/freqToSlider, arrondi entier, affichage formatFreq "X Hz"
-  ou "X.X kHz"), contrastes renforcés (bordures cards #2a2a4a→#3a3a5a, inputs
-  #3a3a5a→#4a4a6a, chip-info #6a6a8a→#9aa2b8, empty text #5a5a7a→#8a8fa8).
 - ✅ **Phase 3.5 (Designer layout)** — refonte en 2 colonnes : sidebar gauche
   (banque + mini-player stackés verticalement) + zone centrale en grid 2×2
   (waveform | spectrogramme / params+boutons | ADSR). Plus de sidebar droite
@@ -243,6 +306,25 @@ Découpée en 6 phases. Voir le brief original pour les détails.
   pour préserver ses coordonnées virtuelles 400×120. Bouton "Play" éditeur
   renommé en "Test" (preview du son en édition, pas lecture timeline).
   Mini-player simplifié : plus de marqueurs de mesure, juste un trait qui avance.
+- ✅ **Phase 3.6** — toggle spectrogramme fonctionnel (state `spectrogramVisible`
+  persisté dans localStorage, toggle dans le header de la zone Waveform, cell
+  spectrogramme retirée du DOM quand OFF), mini-player avec barre de progression
+  intégrée (linear-gradient --progress sur un seul élément texte, plus de bar
+  séparée), fréquence libre étendue à 20-20000 Hz avec slider log (conversion
+  via sliderToFreq/freqToSlider, arrondi entier, affichage formatFreq "X Hz"
+  ou "X.X kHz"), contrastes renforcés (bordures cards #2a2a4a→#3a3a5a, inputs
+  #3a3a5a→#4a4a6a, chip-info #6a6a8a→#9aa2b8, empty text #5a5a7a→#8a8fa8).
+- ✅ **Phase 3.7** — fréquence libre éditable au clavier. Nouveau composant
+  `FreqInput.jsx` (modèle BpmInput : `type=text inputMode=decimal`, validation
+  différée au blur/Enter, Échap restaure preFocusValue via skipBlurCommitRef,
+  re-sync depuis props quand pas focus). Parser permissif : `"440"`, `"440.5"`,
+  `"440,5"`, suffixe `"Hz"` optionnel et insensible à la casse. Commit =
+  parse + clamp [20, 20000] + arrondi 0.1 Hz ; invalide → revient à la dernière
+  valeur valide. Slider onChange stocke `freeFrequency` en flottant arrondi
+  à 0.1 Hz pour que la grille du slider colle à la précision affichée.
+  `formatFreq` unifié en Hz avec 1 décimale max (plus de conversion kHz).
+  Le label fréquence passe de `<label>` à `<div>` pour ne pas focus l'input
+  sur clic dans la zone.
 - ✅ **Phase 4** — Édition de clips (sélection + Properties + drag + resize) :
   - **4.1** `selectedClipIds` (tableau, préparation multi-sélect phase B) géré
     dans App ; clic clip = sélection, clic zone vide = désélection, outline
@@ -277,11 +359,6 @@ Découpée en 6 phases. Voir le brief original pour les détails.
   à supprimer ; si confirmé, filter les clips affectés + désélection, puis
   `numMeasures--`. Plancher 1 mesure (bouton `−` désactivé à `numMeasures === 1`).
   Pas de raccourci clavier. Insertion au milieu reportée en phase B.
-- ✅ **Phase 5.2** — Fix persistance `numMeasures` : `loadState` faisait
-  `Math.max(persisted, maxClipMeasure, DEFAULT_NUM_MEASURES)` → un user qui
-  réduisait à 8 mesures retombait sur 16 au reload. Suppression du 3ᵉ
-  argument (plancher remplacé par `1`). Audit du reste : `savedSounds || []`
-  et `soundCounter || 0` migrés vers `??` pour cohérence (pas de bug actif).
 - ✅ **Phase 5.1** — Manipulation contextuelle des mesures :
   - Section "Mesures" retirée de la toolbar.
   - × discret au survol de la dernière mesure (header `.measure-label.is-last-measure`)
@@ -295,6 +372,11 @@ Découpée en 6 phases. Voir le brief original pour les détails.
     `duration` est ramenée pile à la limite). Confirm uniquement si ≥1
     suppression ; troncatures-only = pas de confirm + flash transitoire
     `composerFlash` rendu dans la toolbar (auto-clear 3s).
+- ✅ **Phase 5.2** — Fix persistance `numMeasures` : `loadState` faisait
+  `Math.max(persisted, maxClipMeasure, DEFAULT_NUM_MEASURES)` → un user qui
+  réduisait à 8 mesures retombait sur 16 au reload. Suppression du 3ᵉ
+  argument (plancher remplacé par `1`). Audit du reste : `savedSounds || []`
+  et `soundCounter || 0` migrés vers `??` pour cohérence (pas de bug actif).
 - ✅ **Phase 6.1** — Refactor : un seul `useReducer` (src/reducer.js) qui
   remplace une dizaine de useState d'App.jsx. State de l'éditeur de son
   remonté dans `state.editor` (points, freeMode, noteIndex, octave,
@@ -379,3 +461,35 @@ sous-itérations correctifs/UX selon les retours.
   musicale standard : noire = 1 unité)
 - Git : remote `origin` = `git@github.com:rm-info/synth-app.git`, branche `main`
 - CONTEXT.md mis à jour à chaque fin de phase par Claude Code
+
+## Roadmap & Backlog
+
+### Itération B (édition avancée) — à rediscuter
+
+- Multi-sélection clips (Shift+clic, rectangle, Ctrl+clic)
+- Copier/coller/déplacer clips en groupe
+- Spectrogramme fonctionnel (lecture seule)
+- Répertoires de sons exposés dans l'UI
+- Menu contextuel sur en-tête de mesure (insertion milieu, couper/
+  copier/coller mesures, split clips)
+
+### Itération C (multipiste) — à rediscuter
+
+- UI multi-tracks (créer/renommer/supprimer/réordonner)
+- Mute/Solo/volume par piste
+- Refonte moteur audio en look-ahead (résout bug modif pendant lecture)
+
+### Backlog général (à caser quand pertinent)
+
+- Bouton "Vider la banque" (avec undo)
+- Notes/octaves en boutons type clavier au lieu de dropdowns
+- Concept "patch/instrument" : son sans fréquence, hauteur appliquée
+  par le clip (refonte conceptuelle majeure, à rediscuter)
+- Toggle thème clair/sombre
+- Améliorations contrastes (passe 2)
+- Section stats (nb mesures, nb clips, durée totale)
+- Migration timeline DOM → Canvas (perf à grand nombre de clips)
+- Annulation drag par Échap (selon ressenti)
+- Optimisation stockage localStorage (résolution points, quantification,
+  ou IndexedDB)
+- Fréquence libre : flèches haut/bas dans FreqInput pour incréments fins
