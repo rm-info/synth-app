@@ -494,8 +494,8 @@ function App() {
     setCurrentSoundId(null)
   }, [])
 
-  const handleZoomHIn = () => setZoomH((z) => z + 5)
-  const handleZoomHOut = () => setZoomH((z) => z - 5)
+  const handleZoomHIn = () => setZoomH((z) => z + 2)
+  const handleZoomHOut = () => setZoomH((z) => z - 2)
 
   // Les deux layouts restent montés en permanence (toggle CSS via aria-hidden).
   // Sinon : démontage du WaveformEditor → perte du dirty check + de l'état local

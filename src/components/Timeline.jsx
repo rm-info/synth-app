@@ -144,7 +144,7 @@ function Timeline({
       const wrapper = wrapperRef.current
       if (!wrapper) return
 
-      const delta = e.deltaY > 0 ? -5 : 5
+      const delta = e.deltaY > 0 ? -2 : 2
       const oldZoom = zoomH
       const newZoom = Math.max(zoomHMin, Math.min(zoomHMax, oldZoom + delta))
       if (newZoom === oldZoom) return
