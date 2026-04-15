@@ -2,9 +2,7 @@ import { useRef, useState, useCallback, useEffect } from 'react'
 import { pointsToPeriodicWave, audioBufferToWav, downloadWav } from '../audio'
 import './Timeline.css'
 
-const NUM_MEASURES = 16
 const BEATS_PER_MEASURE = 4
-const TOTAL_BEATS = NUM_MEASURES * BEATS_PER_MEASURE
 const SNAP_RESOLUTION = 0.25 // 16th-note snap
 
 const MIN_BPM = 60
@@ -29,18 +27,18 @@ function beatToSeconds(beats, bpm) {
   return (beats * 60) / bpm
 }
 
-function noteBeatOffset(note) {
-  return (note.measure - 1) * BEATS_PER_MEASURE + note.beat
+function clipBeatOffset(clip) {
+  return (clip.measure - 1) * BEATS_PER_MEASURE + clip.beat
 }
 
-function layoutNotes(notes, savedSounds) {
-  const enriched = notes
-    .map((note) => {
-      const sound = savedSounds.find((s) => s.id === note.soundId)
+function layoutClips(clips, savedSounds) {
+  const enriched = clips
+    .map((clip) => {
+      const sound = savedSounds.find((s) => s.id === clip.soundId)
       if (!sound) return null
-      const start = noteBeatOffset(note)
-      const end = start + note.duration
-      return { note, sound, start, end }
+      const start = clipBeatOffset(clip)
+      const end = start + clip.duration
+      return { clip, sound, start, end }
     })
     .filter(Boolean)
     .sort((a, b) => a.start - b.start)
@@ -57,10 +55,10 @@ function layoutNotes(notes, savedSounds) {
   return { items: result, laneCount: Math.max(1, lanes.length) }
 }
 
-function scheduleNotes(ctx, notes, savedSounds, startTime, destination, bpm) {
+function scheduleClips(ctx, clips, savedSounds, startTime, destination, bpm) {
   const nodes = []
-  for (const note of notes) {
-    const sound = savedSounds.find((s) => s.id === note.soundId)
+  for (const clip of clips) {
+    const sound = savedSounds.find((s) => s.id === clip.soundId)
     if (!sound) continue
 
     const wave = pointsToPeriodicWave(sound.points, ctx)
@@ -68,30 +66,30 @@ function scheduleNotes(ctx, notes, savedSounds, startTime, destination, bpm) {
     const gain = ctx.createGain()
     osc.setPeriodicWave(wave)
 
-    const beatOffset = noteBeatOffset(note)
-    const noteStart = startTime + beatToSeconds(beatOffset, bpm)
+    const beatOffset = clipBeatOffset(clip)
+    const clipStart = startTime + beatToSeconds(beatOffset, bpm)
     const a = (sound.attack ?? 10) / 1000
     const d = (sound.decay ?? 100) / 1000
     const r = (sound.release ?? 100) / 1000
     const sus = sound.sustain ?? 0.7
     const amp = sound.amplitude
     const sustainLevel = sus * amp
-    const placedDuration = beatToSeconds(note.duration, bpm)
+    const placedDuration = beatToSeconds(clip.duration, bpm)
     const minDuration = a + d + r
-    const clipDuration = Math.max(placedDuration, minDuration)
-    const releaseStart = noteStart + clipDuration - r
+    const totalDuration = Math.max(placedDuration, minDuration)
+    const releaseStart = clipStart + totalDuration - r
 
-    osc.frequency.setValueAtTime(sound.frequency, noteStart)
-    gain.gain.setValueAtTime(0, noteStart)
-    gain.gain.linearRampToValueAtTime(amp, noteStart + a)
-    gain.gain.linearRampToValueAtTime(sustainLevel, noteStart + a + d)
+    osc.frequency.setValueAtTime(sound.frequency, clipStart)
+    gain.gain.setValueAtTime(0, clipStart)
+    gain.gain.linearRampToValueAtTime(amp, clipStart + a)
+    gain.gain.linearRampToValueAtTime(sustainLevel, clipStart + a + d)
     gain.gain.linearRampToValueAtTime(sustainLevel, releaseStart)
-    gain.gain.linearRampToValueAtTime(0, noteStart + clipDuration)
+    gain.gain.linearRampToValueAtTime(0, clipStart + totalDuration)
 
     osc.connect(gain)
     gain.connect(destination)
-    osc.start(noteStart)
-    osc.stop(noteStart + clipDuration)
+    osc.start(clipStart)
+    osc.stop(clipStart + totalDuration)
 
     nodes.push({ osc, gain })
   }
@@ -100,12 +98,13 @@ function scheduleNotes(ctx, notes, savedSounds, startTime, destination, bpm) {
 
 function Timeline({
   savedSounds,
-  notes,
+  clips,
   bpm,
+  numMeasures,
   onSetBpm,
-  onAddNote,
-  onRemoveNote,
-  onUpdateNote,
+  onAddClip,
+  onRemoveClip,
+  onUpdateClip,
   onClearTimeline,
   onDeleteSound,
   onRenameSound,
@@ -128,7 +127,8 @@ function Timeline({
   const [measureWidth, setMeasureWidth] = useState(DEFAULT_MEASURE_WIDTH)
   const [isExporting, setIsExporting] = useState(false)
 
-  const totalDurationSec = beatToSeconds(TOTAL_BEATS, bpm)
+  const totalBeats = numMeasures * BEATS_PER_MEASURE
+  const totalDurationSec = beatToSeconds(totalBeats, bpm)
 
   const startEdit = (sound) => {
     setEditingSoundId(sound.id)
@@ -167,19 +167,19 @@ function Timeline({
     if (!zone) return
     const rect = zone.getBoundingClientRect()
     const frac = Math.max(0, Math.min(0.9999, (e.clientX - rect.left) / rect.width))
-    const rawBeat = frac * TOTAL_BEATS
+    const rawBeat = frac * totalBeats
     const snapped = Math.round(rawBeat / SNAP_RESOLUTION) * SNAP_RESOLUTION
     const defaultDuration = 1
-    const maxStart = Math.max(0, TOTAL_BEATS - defaultDuration)
+    const maxStart = Math.max(0, totalBeats - defaultDuration)
     const clamped = Math.max(0, Math.min(snapped, maxStart))
     const measure = Math.floor(clamped / BEATS_PER_MEASURE) + 1
     const beat = clamped - (measure - 1) * BEATS_PER_MEASURE
-    onAddNote(soundId, measure, beat, defaultDuration)
+    onAddClip(soundId, measure, beat, defaultDuration)
   }
 
   // --- Playback ---
   const play = useCallback(() => {
-    if (notes.length === 0) return
+    if (clips.length === 0) return
 
     const ctx = audioCtxRef.current || new AudioContext()
     audioCtxRef.current = ctx
@@ -194,7 +194,7 @@ function Timeline({
     analyserGainRef.current = analyserGain
 
     const startTime = ctx.currentTime + 0.05
-    const nodes = scheduleNotes(ctx, notes, savedSounds, startTime, analyserGain, bpm)
+    const nodes = scheduleClips(ctx, clips, savedSounds, startTime, analyserGain, bpm)
     scheduledNodesRef.current = nodes
     setIsPlaying(true)
     setCursorPos(0)
@@ -211,7 +211,7 @@ function Timeline({
       animFrameRef.current = requestAnimationFrame(animate)
     }
     animFrameRef.current = requestAnimationFrame(animate)
-  }, [notes, savedSounds, bpm, totalDurationSec])
+  }, [clips, savedSounds, bpm, totalDurationSec])
 
   const stop = useCallback(() => {
     for (const node of scheduledNodesRef.current) {
@@ -235,7 +235,7 @@ function Timeline({
   }, [])
 
   const exportWav = useCallback(async () => {
-    if (notes.length === 0 || isExporting) return
+    if (clips.length === 0 || isExporting) return
     setIsExporting(true)
     try {
       const sampleRate = 44100
@@ -244,14 +244,14 @@ function Timeline({
         Math.ceil(sampleRate * totalDurationSec),
         sampleRate,
       )
-      scheduleNotes(offlineCtx, notes, savedSounds, 0, offlineCtx.destination, bpm)
+      scheduleClips(offlineCtx, clips, savedSounds, 0, offlineCtx.destination, bpm)
       const renderedBuffer = await offlineCtx.startRendering()
       const wav = audioBufferToWav(renderedBuffer)
       downloadWav(wav, 'composition.wav')
     } finally {
       setIsExporting(false)
     }
-  }, [notes, savedSounds, bpm, totalDurationSec, isExporting])
+  }, [clips, savedSounds, bpm, totalDurationSec, isExporting])
 
   // Visualizer
   useEffect(() => {
@@ -314,8 +314,8 @@ function Timeline({
     }
   }
 
-  const { items: laidOut, laneCount } = layoutNotes(notes, savedSounds)
-  const hasNoNotes = notes.length === 0
+  const { items: laidOut, laneCount } = layoutClips(clips, savedSounds)
+  const hasNoClips = clips.length === 0
   const beatWidth = measureWidth / BEATS_PER_MEASURE
 
   return (
@@ -341,21 +341,21 @@ function Timeline({
           <button
             className={`timeline-play-btn ${isPlaying ? 'playing' : ''}`}
             onClick={isPlaying ? stop : play}
-            disabled={hasNoNotes}
+            disabled={hasNoClips}
           >
             {isPlaying ? 'Stop' : 'Play Timeline'}
           </button>
           <button
             className="timeline-clear-btn"
             onClick={onClearTimeline}
-            disabled={hasNoNotes}
+            disabled={hasNoClips}
           >
             Effacer la timeline
           </button>
           <button
             className="timeline-export-btn"
             onClick={exportWav}
-            disabled={hasNoNotes || isExporting}
+            disabled={hasNoClips || isExporting}
           >
             {isExporting ? 'Export…' : 'Exporter WAV'}
           </button>
@@ -371,7 +371,7 @@ function Timeline({
         <div className="sound-bank">
           <span className="bank-label">Sons :</span>
           {savedSounds.map((sound) => {
-            const usedCount = notes.filter((n) => n.soundId === sound.id).length
+            const usedCount = clips.filter((c) => c.soundId === sound.id).length
             const isEditing = editingSoundId === sound.id
             const handleDelete = (e) => {
               e.stopPropagation()
@@ -440,11 +440,11 @@ function Timeline({
             '--lane-count': laneCount,
             '--measure-width': `${measureWidth}px`,
             '--beat-width': `${beatWidth}px`,
-            minWidth: `${NUM_MEASURES * measureWidth}px`,
+            minWidth: `${numMeasures * measureWidth}px`,
           }}
         >
           <div className="measure-labels">
-            {Array.from({ length: NUM_MEASURES }, (_, i) => (
+            {Array.from({ length: numMeasures }, (_, i) => (
               <div key={i} className="measure-label">{i + 1}</div>
             ))}
           </div>
@@ -456,7 +456,7 @@ function Timeline({
             onDrop={handleDrop}
           >
             <div className="measure-cells">
-              {Array.from({ length: NUM_MEASURES }, (_, i) => (
+              {Array.from({ length: numMeasures }, (_, i) => (
                 <div
                   key={i}
                   className={`measure-cell ${i % 4 === 0 ? 'bar-start' : ''}`}
@@ -469,13 +469,13 @@ function Timeline({
             </div>
 
             <div className="placed-sounds-layer">
-              {laidOut.map(({ note, sound, lane }) => {
-                const start = noteBeatOffset(note)
-                const left = (start / TOTAL_BEATS) * 100
-                const width = (note.duration / TOTAL_BEATS) * 100
+              {laidOut.map(({ clip, sound, lane }) => {
+                const start = clipBeatOffset(clip)
+                const left = (start / totalBeats) * 100
+                const width = (clip.duration / totalBeats) * 100
                 return (
                   <div
-                    key={note.id}
+                    key={clip.id}
                     className="placed-sound"
                     style={{
                       left: `${left}%`,
@@ -484,18 +484,18 @@ function Timeline({
                       backgroundColor: sound.color + '33',
                       borderColor: sound.color,
                     }}
-                    title={`${sound.name} — mesure ${note.measure}, beat ${note.beat} — Clic droit pour retirer`}
+                    title={`${sound.name} — mesure ${clip.measure}, beat ${clip.beat} — Clic droit pour retirer`}
                     onContextMenu={(e) => {
                       e.preventDefault()
-                      onRemoveNote(note.id)
+                      onRemoveClip(clip.id)
                     }}
                   >
                     <span className="placed-dot" style={{ backgroundColor: sound.color }} />
                     <span className="placed-name">{sound.name}</span>
                     <select
                       className="placed-duration"
-                      value={note.duration}
-                      onChange={(e) => onUpdateNote(note.id, { duration: parseFloat(e.target.value) })}
+                      value={clip.duration}
+                      onChange={(e) => onUpdateClip(clip.id, { duration: parseFloat(e.target.value) })}
                       onMouseDown={(e) => e.stopPropagation()}
                       onContextMenu={(e) => e.stopPropagation()}
                       draggable={false}
@@ -535,9 +535,9 @@ function Timeline({
           Dessinez une forme d'onde et cliquez "Sauvegarder le son" pour commencer.
         </p>
       )}
-      {savedSounds.length > 0 && hasNoNotes && (
+      {savedSounds.length > 0 && hasNoClips && (
         <p className="timeline-hint">
-          Glissez-déposez un son sur la grille pour placer une note. Clic droit pour retirer.
+          Glissez-déposez un son sur la grille pour placer un clip. Clic droit pour retirer.
         </p>
       )}
     </div>
