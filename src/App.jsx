@@ -224,8 +224,11 @@ function App() {
   }, [savedSounds, soundFolders, tracks, clips, bpm, numMeasures])
 
   const handleSaveSound = useCallback(
-    (soundData) => {
-      if (soundData.mode === 'note') {
+    (soundData, options = {}) => {
+      // `allowDuplicate` court-circuite la détection : utilisé pour la
+      // duplication explicite ("Enregistrer comme nouveau" depuis un son
+      // chargé), où le user demande sciemment une copie.
+      if (!options.allowDuplicate && soundData.mode === 'note') {
         const dup = savedSounds.some(
           (s) =>
             s.mode === 'note' &&
@@ -354,6 +357,10 @@ function App() {
     setCurrentSoundId(newSoundId)
   }, [])
 
+  const handleRequestNew = useCallback(() => {
+    setCurrentSoundId(null)
+  }, [])
+
   const handleZoomOut = () =>
     setMeasureWidth((w) => Math.max(MIN_MEASURE_WIDTH, w - ZOOM_STEP))
   const handleZoomIn = () =>
@@ -386,8 +393,10 @@ function App() {
             ref={editorRef}
             onSaveSound={handleSaveSound}
             onUpdateSound={handleUpdateSound}
+            onRequestNew={handleRequestNew}
             nextSoundName={nextSoundName}
             currentSound={currentSound}
+            savedSounds={savedSounds}
             onSoundCreated={handleSoundCreated}
           />
         </div>

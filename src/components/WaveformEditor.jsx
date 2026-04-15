@@ -28,12 +28,20 @@ const DEFAULT_STATE = {
   noteIndex: 9,
   octave: 4,
   freeFrequency: 440,
-  amplitude: 0.5,
+  amplitude: 1,
   preset: null,
   attack: 10,
   decay: 100,
   sustain: 0.7,
-  release: 100,
+  release: 200,
+}
+
+function nextAvailableName(base, existingSounds) {
+  const taken = new Set(existingSounds.map((s) => s.name))
+  if (!taken.has(base)) return base
+  let i = 2
+  while (taken.has(`${base} (${i})`)) i++
+  return `${base} (${i})`
 }
 
 function blankPoints() {
@@ -85,8 +93,10 @@ function statesEqual(a, b) {
 function WaveformEditor({
   onSaveSound,
   onUpdateSound,
+  onRequestNew,
   nextSoundName,
   currentSound,
+  savedSounds,
   onSoundCreated,
   ref,
 }) {
@@ -573,7 +583,28 @@ function WaveformEditor({
       flashMessage('Canvas vide')
       return
     }
-    const result = onSaveSound(buildPayload(defaultName))
+
+    // Choix du nom proposé :
+    // - création (pas de currentSound) : nom par défaut (note ou "Son N"), pas de
+    //   suffixe automatique, la détection de doublons reste active côté App.
+    // - duplication explicite (currentSound défini) : "<nom>" en mode note,
+    //   "Copie de <nom>" en mode free, suffixé en cas de collision. Le flag
+    //   allowDuplicate court-circuite la détection de doublons côté App.
+    const isExplicitDuplicate = !!currentSound
+    let proposedName
+    if (isExplicitDuplicate) {
+      const base = currentSound.mode === 'note'
+        ? currentSound.name
+        : `Copie de ${currentSound.name}`
+      proposedName = nextAvailableName(base, savedSounds ?? [])
+    } else {
+      proposedName = defaultName
+    }
+
+    const result = onSaveSound(
+      buildPayload(proposedName),
+      { allowDuplicate: isExplicitDuplicate },
+    )
     if (result?.duplicate) {
       flashMessage('Ce son existe déjà')
       return
@@ -584,6 +615,29 @@ function WaveformEditor({
       onSoundCreated?.(result.id)
     }
     flashMessage('Nouveau son enregistré')
+  }
+
+  const handleNew = () => {
+    const dirty = !statesEqual(stateSnapshotRef.current, referenceRef.current)
+    if (dirty) {
+      const ok = window.confirm('Modifications non sauvegardées, continuer ?')
+      if (!ok) return
+    }
+    if (isPlaying) stopAudio()
+    setPoints(blankPoints())
+    setFreeMode(DEFAULT_STATE.freeMode)
+    setNoteIndex(DEFAULT_STATE.noteIndex)
+    setOctave(DEFAULT_STATE.octave)
+    setFreeFrequency(DEFAULT_STATE.freeFrequency)
+    setAmplitude(DEFAULT_STATE.amplitude)
+    setActivePreset(DEFAULT_STATE.preset)
+    setAttack(DEFAULT_STATE.attack)
+    setDecay(DEFAULT_STATE.decay)
+    setSustain(DEFAULT_STATE.sustain)
+    setRelease(DEFAULT_STATE.release)
+    referenceRef.current = blankReference()
+    hydratedFromIdRef.current = null
+    onRequestNew?.()
   }
 
   const handleUpdate = () => {
@@ -733,6 +787,9 @@ function WaveformEditor({
         <div className="control-buttons">
           <button className={`play-btn ${isPlaying ? 'playing' : ''}`} onClick={togglePlay}>
             {isPlaying ? 'Stop' : 'Play'}
+          </button>
+          <button type="button" className="new-btn" onClick={handleNew} title="Nouveau son (réinitialise l'éditeur)">
+            Nouveau
           </button>
           {currentSound && (
             <button className="update-btn" onClick={handleUpdate}>

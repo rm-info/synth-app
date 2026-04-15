@@ -201,7 +201,12 @@ Découpée en 6 phases. Voir le brief original pour les détails.
 - ✅ **Phase 2** — Layout split en 2 onglets (Designer / Composer) + responsive,
   banque partagée, mini-player, hydratation de l'éditeur, dual-save (Mettre à jour
   / Enregistrer comme nouveau), dirty check sur switch
+- ✅ **Phase 2.5** — correctifs UX : double-clic seul charge (clic simple = no-op),
+  nom intelligent pour duplication ("X" en note, "Copie de X" en free, suffixe
+  collision), `allowDuplicate` flag pour bypass dup detect en duplication explicite,
+  bouton "Nouveau" (reset complet + currentSoundId=null), defaults amp=1 / release=200ms.
 - 🔜 Phase 3 — Fixes UX et zoom (BPM input, zoom H/V continu, subdivision, oscilloscope persistant)
+- 🔮 Backlog phase 6 — bouton "Vider la banque" (avec confirm + undoable)
 - 🔜 Phase 4 — Édition de clips (sélection, drag, resize, panneau Properties)
 - 🔜 Phase 5 — Mesures dynamiques
 - 🔜 Phase 6 — Undo/Redo (migration vers useReducer)

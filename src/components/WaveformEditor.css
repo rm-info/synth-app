@@ -224,6 +224,24 @@
   transform: scale(0.98);
 }
 
+.new-btn {
+  padding: 10px 16px;
+  border: 1px solid #5a5a7a;
+  border-radius: 8px;
+  background: transparent;
+  color: #a0a0c0;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: border-color 0.15s, color 0.15s, background 0.15s;
+}
+
+.new-btn:hover {
+  border-color: #00d4ff;
+  color: #00d4ff;
+  background: rgba(0, 212, 255, 0.08);
+}
+
 .update-btn {
   padding: 10px 20px;
   border: 1px solid #4ade80;

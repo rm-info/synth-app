@@ -91,9 +91,8 @@ function SoundBank({
               style={{ '--chip-color': sound.color }}
               draggable={!isEditing}
               onDragStart={(e) => handleDragStart(e, sound.id)}
-              onClick={handleLoad}
               onDoubleClick={handleLoad}
-              title={isEditing ? undefined : 'Clic pour charger dans l\'éditeur, glisser pour placer sur la timeline'}
+              title={isEditing ? undefined : 'Double-clic pour éditer, glisser pour placer sur la timeline'}
             >
               <span className="chip-dot" />
               {isEditing ? (
