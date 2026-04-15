@@ -10,9 +10,9 @@ on la place sur une timeline multipiste, on exporte en WAV. Stack minimale :
 React 19 + Vite, Web Audio API native, persistance localStorage. **Pas de
 TypeScript, pas de lib audio, pas de state manager, pas de framework UI,
 pas de routing.** Itération A (refonte UX core : 2 onglets Designer/Composer,
-dual save, zoom %, édition clips, undo/redo) terminée. Itération B (multi-
-sélection, folders UI, spectrogramme) et C (multipiste, look-ahead audio)
-à venir.
+dual save, zoom %, édition clips, undo/redo) **clôturée le 2026-04-15**.
+Itération B (multi-sélection, folders UI, spectrogramme) et C (multipiste,
+look-ahead audio) à venir.
 
 ## Objectif
 
@@ -235,12 +235,22 @@ Choix non évidents pris pour de bonnes raisons. À ne pas remettre en question
   `scheduleNotes()` une fois au `play()` pour tous les clips. Pas de
   look-ahead, pas de re-schedule pendant lecture. **Bug connu** : toute
   modification de clips pendant que ça joue est ignorée jusqu'au prochain
-  play. À refondre en **itération C** (look-ahead par fenêtre glissante).
+  play. À refondre en **itération C** (look-ahead par fenêtre glissante,
+  voir Roadmap).
 - **Lane assignment greedy, calculé au rendu** : la polyphonie (clips
   qui se chevauchent → lanes empilées) est calculée à chaque render de
   `Timeline` à partir des clips triés par position. Pas stocké dans le
   state. Raison : le calcul est O(n) et le layout se redébrouille après
   chaque drag/resize/drop sans invalidation manuelle.
+- **Piles undo/redo isolées par onglet** (Option A parmi les alternatives
+  discutées) : une pile pour Designer, une pile pour Composer. Raison :
+  un Ctrl+Z doit annuler ce que l'utilisateur vient de faire *dans
+  l'onglet où il est* ; partager une pile globale rendrait l'undo
+  imprévisible (on annulerait une action invisible faite dans l'autre
+  onglet). Conséquence : cross-onglet à gérer explicitement — un undo
+  Designer qui supprimerait un son référencé par des clips du Composer
+  est bloqué avec un Toast explicite, plutôt que d'orphaniser
+  silencieusement les clips.
 
 ## Contraintes implicites
 
