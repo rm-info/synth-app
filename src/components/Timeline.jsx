@@ -1,8 +1,9 @@
-import { useEffect, useRef, useCallback } from 'react'
+import { useEffect, useRef, useCallback, useState } from 'react'
 import './Timeline.css'
 
 const BEATS_PER_MEASURE = 4
 const SNAP_RESOLUTION = 0.25 // 16th-note snap
+const DRAG_THRESHOLD_PX = 5
 
 // Conversions zoom — centralisées ici.
 //   100% = 50px par triple croche (1/8 noire).
@@ -92,11 +93,18 @@ function Timeline({
   onSelectClip,
   onDeselectAll,
 }) {
-  // onUpdateClip sera utilisé pour le drag/resize (phases 4.2/4.3).
-  void onUpdateClip
   const wrapperRef = useRef(null)
   const dropZoneRef = useRef(null)
   const visualizerCanvasRef = useRef(null)
+
+  // --- Drag de clip ---
+  // dragRef : mutable, contient l'état live pendant le drag (évite les
+  // fermetures périmées). dragVisual : state React utilisé uniquement pour
+  // l'aperçu visuel (offset en beats) du clip traîné. clipId dans les deps
+  // de l'effet pour que les listeners ne soient ré-attachés qu'au début/fin
+  // de chaque session de drag, pas à chaque mousemove.
+  const dragRef = useRef(null)
+  const [dragVisual, setDragVisual] = useState(null)
 
   const pxPerBeat = pxPerBeatFromZoom(zoomH)
   const pxPerMeasure = pxPerBeat * BEATS_PER_MEASURE
@@ -164,6 +172,82 @@ function Timeline({
     wrapper.addEventListener('wheel', handleWheel, { passive: false })
     return () => wrapper.removeEventListener('wheel', handleWheel)
   }, [handleWheel])
+
+  // --- Drag clip : listeners globaux window, n'ont pas à se ré-attacher
+  // sur chaque mousemove (deps = clipId actif uniquement). ---
+  const activeDragClipId = dragVisual?.clipId ?? null
+  useEffect(() => {
+    if (!activeDragClipId) return
+
+    const handleMove = (e) => {
+      const d = dragRef.current
+      if (!d) return
+      const dx = e.clientX - d.startX
+      const dy = e.clientY - d.startY
+      const dist = Math.hypot(dx, dy)
+      const justStartedDragging = !d.isDragging && dist >= DRAG_THRESHOLD_PX
+      if (!d.isDragging && !justStartedDragging) return
+      if (justStartedDragging) {
+        d.isDragging = true
+        document.body.style.cursor = 'grabbing'
+        document.body.style.userSelect = 'none'
+      }
+      const rawOffsetBeats = dx / d.pxPerBeat
+      const snapped = Math.round(rawOffsetBeats / SNAP_RESOLUTION) * SNAP_RESOLUTION
+      d.offsetBeats = snapped
+      setDragVisual({ clipId: d.clipId, offsetBeats: snapped })
+    }
+
+    const handleUp = () => {
+      const d = dragRef.current
+      if (!d) {
+        setDragVisual(null)
+        return
+      }
+      document.body.style.cursor = ''
+      document.body.style.userSelect = ''
+      if (d.isDragging) {
+        const startTotal = (d.originalMeasure - 1) * BEATS_PER_MEASURE + d.originalBeat
+        const rawNew = startTotal + d.offsetBeats
+        const maxStart = Math.max(0, d.totalBeats - d.duration)
+        const clamped = Math.max(0, Math.min(maxStart, rawNew))
+        const snapped = Math.round(clamped / SNAP_RESOLUTION) * SNAP_RESOLUTION
+        const measure = Math.floor(snapped / BEATS_PER_MEASURE) + 1
+        const beat = snapped - (measure - 1) * BEATS_PER_MEASURE
+        onUpdateClip(d.clipId, { measure, beat })
+      } else {
+        onSelectClip?.(d.clipId)
+      }
+      dragRef.current = null
+      setDragVisual(null)
+    }
+
+    window.addEventListener('mousemove', handleMove)
+    window.addEventListener('mouseup', handleUp)
+    return () => {
+      window.removeEventListener('mousemove', handleMove)
+      window.removeEventListener('mouseup', handleUp)
+    }
+  }, [activeDragClipId, onUpdateClip, onSelectClip])
+
+  const handleClipMouseDown = (e, clip) => {
+    if (e.button !== 0) return
+    e.preventDefault()
+    e.stopPropagation()
+    dragRef.current = {
+      clipId: clip.id,
+      startX: e.clientX,
+      startY: e.clientY,
+      originalMeasure: clip.measure,
+      originalBeat: clip.beat,
+      duration: clip.duration,
+      offsetBeats: 0,
+      isDragging: false,
+      pxPerBeat,
+      totalBeats,
+    }
+    setDragVisual({ clipId: clip.id, offsetBeats: 0 })
+  }
 
   // --- Visualiseur persistant avec fade ---
   // intensity ∈ [0,1] : 0 = ligne plate seule ; 1 = signal pleine intensité.
@@ -288,9 +372,10 @@ function Timeline({
             style={{ minHeight: `${clipAreaHeight}px` }}
             onDragOver={handleDragOver}
             onDrop={handleDrop}
-            onClick={() => {
-              // Les clips appellent stopPropagation sur onClick, donc ce handler
+            onMouseDown={(e) => {
+              // Les clips appellent stopPropagation sur mousedown, donc ce handler
               // ne se déclenche que pour un clic dans une zone vide.
+              if (e.button !== 0) return
               onDeselectAll?.()
             }}
           >
@@ -299,7 +384,16 @@ function Timeline({
             <div className="placed-sounds-layer">
               {laidOut.map(({ clip, sound, lane }) => {
                 const start = clipBeatOffset(clip)
-                const left = (start / totalBeats) * 100
+                const isBeingDragged = dragVisual?.clipId === clip.id
+                // Offset visuel pendant le drag : on utilise l'offset snappé,
+                // clampé aux bornes (0..totalBeats-duration) pour éviter que
+                // le clip sorte de la grille pendant le mouvement.
+                let visualStart = start
+                if (isBeingDragged) {
+                  const maxStart = Math.max(0, totalBeats - clip.duration)
+                  visualStart = Math.max(0, Math.min(maxStart, start + dragVisual.offsetBeats))
+                }
+                const left = (visualStart / totalBeats) * 100
                 const width = (clip.duration / totalBeats) * 100
                 const top = lane * trackHeight + 4
                 const height = trackHeight - 8
@@ -307,7 +401,7 @@ function Timeline({
                 return (
                   <div
                     key={clip.id}
-                    className={`placed-sound ${isSelected ? 'is-selected' : ''}`}
+                    className={`placed-sound ${isSelected ? 'is-selected' : ''} ${isBeingDragged ? 'is-dragging' : ''}`}
                     style={{
                       left: `${left}%`,
                       width: `${width}%`,
@@ -317,10 +411,7 @@ function Timeline({
                       borderColor: sound.color,
                     }}
                     title={`${sound.name} — mesure ${clip.measure}, beat ${clip.beat} — Clic droit pour retirer`}
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      onSelectClip?.(clip.id)
-                    }}
+                    onMouseDown={(e) => handleClipMouseDown(e, clip)}
                     onContextMenu={(e) => {
                       e.preventDefault()
                       e.stopPropagation()
