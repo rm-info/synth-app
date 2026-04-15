@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 
 const MIN_BPM = 60
 const MAX_BPM = 240
@@ -12,17 +12,24 @@ function clamp(v) {
  * - Frappe libre (pas de clamp pendant la saisie).
  * - Commit au blur ou à Entrée : parse + clamp [60,240]. Si invalide / vide,
  *   revient à la dernière valeur valide.
- * - Échap : annule la saisie et revient à la valeur courante.
- * - ArrowUp/ArrowDown : ±1 (±10 si Shift). Commit immédiat.
+ * - Échap : annule la saisie ET toute modif faite pendant le focus (via
+ *   flèches), revient à la valeur d'AVANT le focus. Le blur qui suit Échap
+ *   ne déclenche PAS de validation (flag `skipBlurCommit`), sinon Échap
+ *   finirait par clamp/valider ce qu'on voulait justement annuler.
+ * - ArrowUp/ArrowDown : ±1 (±10 si Shift). Commit immédiat (visible par
+ *   l'utilisateur, Échap peut encore tout annuler).
  */
 function BpmInput({ value, onChange, className }) {
   const [text, setText] = useState(String(value))
   const [focused, setFocused] = useState(false)
   const [lastSeenValue, setLastSeenValue] = useState(value)
+  // Valeur au moment du focus-in. Cible du restore sur Échap.
+  const preFocusValueRef = useRef(value)
+  // Quand true, le prochain onBlur ne valide pas et restaure preFocusValue.
+  const skipBlurCommitRef = useRef(false)
 
-  // Sync depuis l'extérieur via comparaison en render (pattern React officiel
-  // pour "storing info from previous renders") — uniquement quand l'utilisateur
-  // n'est pas focus, pour ne pas écraser sa saisie.
+  // Sync depuis l'extérieur via comparaison en render (pattern React officiel)
+  // — uniquement quand l'utilisateur n'est pas focus, pour ne pas écraser sa saisie.
   if (value !== lastSeenValue && !focused) {
     setLastSeenValue(value)
     setText(String(value))
@@ -51,7 +58,7 @@ function BpmInput({ value, onChange, className }) {
       e.target.blur()
     } else if (e.key === 'Escape') {
       e.preventDefault()
-      setText(String(value))
+      skipBlurCommitRef.current = true
       e.target.blur()
     } else if (e.key === 'ArrowUp') {
       e.preventDefault()
@@ -73,10 +80,18 @@ function BpmInput({ value, onChange, className }) {
       onChange={(e) => setText(e.target.value)}
       onFocus={(e) => {
         setFocused(true)
+        preFocusValueRef.current = value
         e.target.select()
       }}
       onBlur={() => {
         setFocused(false)
+        if (skipBlurCommitRef.current) {
+          skipBlurCommitRef.current = false
+          const restored = preFocusValueRef.current
+          setText(String(restored))
+          if (value !== restored) onChange(restored)
+          return
+        }
         commit(text)
       }}
       onKeyDown={handleKeyDown}

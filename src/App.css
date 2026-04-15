@@ -44,7 +44,9 @@
 .composer-layout {
   flex: 1;
   display: grid;
-  grid-template-columns: minmax(220px, 280px) 1fr minmax(240px, 320px);
+  /* Colonnes symétriques bank/aside pour que la toolbar (qui span les 3
+     colonnes) s'aligne pixel-perfect avec le bord droit du panneau Properties. */
+  grid-template-columns: minmax(220px, 280px) 1fr minmax(220px, 280px);
   grid-template-rows: auto 1fr;
   grid-template-areas:
     "toolbar toolbar toolbar"
