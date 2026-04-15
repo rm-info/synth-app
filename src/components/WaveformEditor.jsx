@@ -118,6 +118,8 @@ function WaveformEditor({
   children,
 }) {
   const canvasRef = useRef(null)
+  const canvasContainerRef = useRef(null)
+  const adsrContainerRef = useRef(null)
   const audioCtxRef = useRef(null)
   const oscRef = useRef(null)
   const gainRef = useRef(null)
@@ -268,11 +270,15 @@ function WaveformEditor({
     drawCanvas(points)
   }, [points, drawCanvas])
 
-  // Suit la taille du conteneur du canvas waveform. Sync canvas.width/height
-  // au pixel près et redessine.
+  // Suit la taille du CONTENEUR du canvas (pas du canvas lui-même).
+  // Observer le canvas directement créé un feedback loop : canvas.width a une
+  // taille intrinsèque qui, dans un contexte flex, peut nourrir le calcul de
+  // tailles du parent. On observe donc le div parent, et le canvas est
+  // position:absolute (hors du flow) pour que sa taille n'influence rien.
   useEffect(() => {
+    const container = canvasContainerRef.current
     const canvas = canvasRef.current
-    if (!canvas || typeof ResizeObserver === 'undefined') return
+    if (!container || !canvas || typeof ResizeObserver === 'undefined') return
     const ro = new ResizeObserver((entries) => {
       for (const entry of entries) {
         const w = Math.floor(entry.contentRect.width)
@@ -285,7 +291,7 @@ function WaveformEditor({
         }
       }
     })
-    ro.observe(canvas)
+    ro.observe(container)
     return () => ro.disconnect()
   }, [drawCanvas])
 
@@ -537,8 +543,9 @@ function WaveformEditor({
   }, [drawAdsr])
 
   useEffect(() => {
+    const container = adsrContainerRef.current
     const canvas = adsrCanvasRef.current
-    if (!canvas || typeof ResizeObserver === 'undefined') return
+    if (!container || !canvas || typeof ResizeObserver === 'undefined') return
     const ro = new ResizeObserver((entries) => {
       for (const entry of entries) {
         const w = Math.floor(entry.contentRect.width)
@@ -551,7 +558,7 @@ function WaveformEditor({
         }
       }
     })
-    ro.observe(canvas)
+    ro.observe(container)
     return () => ro.disconnect()
   }, [drawAdsr])
 
@@ -728,7 +735,7 @@ function WaveformEditor({
         <button onClick={() => loadPreset('triangle')}>Triangle</button>
         <button onClick={clearCanvas}>Clear</button>
       </div>
-      <div className="canvas-container">
+      <div className="canvas-container" ref={canvasContainerRef}>
         <canvas
           ref={canvasRef}
           onMouseDown={handleMouseDown}
@@ -853,7 +860,7 @@ function WaveformEditor({
       <header className="we-area-header">
         <h3 className="we-area-title">Enveloppe ADSR</h3>
       </header>
-      <div className="adsr-canvas-container">
+      <div className="adsr-canvas-container" ref={adsrContainerRef}>
         <canvas
           ref={adsrCanvasRef}
           className="adsr-canvas"
