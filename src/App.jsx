@@ -195,6 +195,7 @@ function App() {
   const [spectrogramVisible, setSpectrogramVisible] = useState(
     initial?.spectrogramVisible ?? true,
   )
+  const [selectedClipIds, setSelectedClipIds] = useState([])
 
   const soundCounterRef = useRef(initial?.soundCounter ?? 0)
   const clipCounterRef = useRef(initial?.clipCounter ?? 0)
@@ -235,6 +236,24 @@ function App() {
     () => (currentSoundId ? savedSounds.find((s) => s.id === currentSoundId) ?? null : null),
     [currentSoundId, savedSounds],
   )
+
+  // Global Delete/Backspace — supprime les clips sélectionnés, sauf si focus
+  // dans un input/textarea/contenteditable.
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.key !== 'Delete' && e.key !== 'Backspace') return
+      if (selectedClipIds.length === 0) return
+      const target = e.target
+      const tag = target?.tagName
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return
+      if (target?.isContentEditable) return
+      e.preventDefault()
+      setClips((prev) => prev.filter((c) => !selectedClipIds.includes(c.id)))
+      setSelectedClipIds([])
+    }
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [selectedClipIds])
 
   useEffect(() => {
     try {
@@ -346,6 +365,15 @@ function App() {
 
   const handleRemoveClip = useCallback((clipId) => {
     setClips((prev) => prev.filter((c) => c.id !== clipId))
+    setSelectedClipIds((prev) => (prev.includes(clipId) ? prev.filter((id) => id !== clipId) : prev))
+  }, [])
+
+  const handleSelectClip = useCallback((clipId) => {
+    setSelectedClipIds([clipId])
+  }, [])
+
+  const handleDeselectAll = useCallback(() => {
+    setSelectedClipIds([])
   }, [])
 
   const handleUpdateClip = useCallback((clipId, updates) => {
@@ -524,10 +552,19 @@ function App() {
                   onAddClip={handleAddClip}
                   onRemoveClip={handleRemoveClip}
                   onUpdateClip={handleUpdateClip}
+                  selectedClipIds={selectedClipIds}
+                  onSelectClip={handleSelectClip}
+                  onDeselectAll={handleDeselectAll}
                 />
               </div>
               <div className="composer-aside">
-                <PropertiesPanel selectedClip={null} />
+                <PropertiesPanel
+                  selectedClipIds={selectedClipIds}
+                  clips={clips}
+                  savedSounds={savedSounds}
+                  onUpdateClip={handleUpdateClip}
+                  onRemoveClip={handleRemoveClip}
+                />
               </div>
             </main>
           </>

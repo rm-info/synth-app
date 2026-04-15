@@ -87,7 +87,13 @@ function Timeline({
   analyserRef,
   onAddClip,
   onRemoveClip,
+  onUpdateClip,
+  selectedClipIds,
+  onSelectClip,
+  onDeselectAll,
 }) {
+  // onUpdateClip sera utilisé pour le drag/resize (phases 4.2/4.3).
+  void onUpdateClip
   const wrapperRef = useRef(null)
   const dropZoneRef = useRef(null)
   const visualizerCanvasRef = useRef(null)
@@ -282,6 +288,11 @@ function Timeline({
             style={{ minHeight: `${clipAreaHeight}px` }}
             onDragOver={handleDragOver}
             onDrop={handleDrop}
+            onClick={() => {
+              // Les clips appellent stopPropagation sur onClick, donc ce handler
+              // ne se déclenche que pour un clic dans une zone vide.
+              onDeselectAll?.()
+            }}
           >
             <div className="grid-lines-layer">{gridLines}</div>
 
@@ -292,10 +303,11 @@ function Timeline({
                 const width = (clip.duration / totalBeats) * 100
                 const top = lane * trackHeight + 4
                 const height = trackHeight - 8
+                const isSelected = selectedClipIds?.includes(clip.id)
                 return (
                   <div
                     key={clip.id}
-                    className="placed-sound"
+                    className={`placed-sound ${isSelected ? 'is-selected' : ''}`}
                     style={{
                       left: `${left}%`,
                       width: `${width}%`,
@@ -305,8 +317,13 @@ function Timeline({
                       borderColor: sound.color,
                     }}
                     title={`${sound.name} — mesure ${clip.measure}, beat ${clip.beat} — Clic droit pour retirer`}
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      onSelectClip?.(clip.id)
+                    }}
                     onContextMenu={(e) => {
                       e.preventDefault()
+                      e.stopPropagation()
                       onRemoveClip(clip.id)
                     }}
                   >

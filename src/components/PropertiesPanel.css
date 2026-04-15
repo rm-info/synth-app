@@ -52,9 +52,88 @@
 
 .properties-empty {
   margin: 0;
-  color: #5a5a7a;
+  color: #8a8fa8;
   font-size: 0.8rem;
   font-style: italic;
+}
+
+.properties-multi {
+  margin: 0 0 6px 0;
+  color: #e0e0ff;
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.clip-editor {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.clip-editor .field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.clip-editor .field-label {
+  font-size: 0.7rem;
+  color: #9aa2b8;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.clip-editor .field-input {
+  background: #0f0f1a;
+  color: #e0e0ff;
+  border: 1px solid #4a4a6a;
+  border-radius: 4px;
+  padding: 6px 8px;
+  font-size: 0.82rem;
+  font-family: inherit;
+  width: 100%;
+  box-sizing: border-box;
+}
+.clip-editor .field-input:focus {
+  outline: none;
+  border-color: #00d4ff;
+}
+
+.clip-editor .field-readonly {
+  background: transparent;
+  color: #e0e0ff;
+  font-size: 0.82rem;
+  font-family: monospace;
+}
+
+.sound-select-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.sound-select-wrapper .sound-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.clip-delete-btn {
+  margin-top: 8px;
+  padding: 7px 10px;
+  background: #2a1a1f;
+  color: #ff6b8a;
+  border: 1px solid #5a2a3a;
+  border-radius: 4px;
+  font-size: 0.8rem;
+  cursor: pointer;
+  font-family: inherit;
+}
+.clip-delete-btn:hover {
+  background: #3a1a24;
+  border-color: #8a3a4a;
+  color: #ff8ca5;
 }
 
 /* Bottom-sheet collapsible sur petit/moyen écran */
