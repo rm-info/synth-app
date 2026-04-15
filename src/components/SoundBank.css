@@ -2,7 +2,7 @@
   display: flex;
   flex-direction: column;
   background: #1a1a2e;
-  border: 1px solid #2a2a4a;
+  border: 1px solid #3a3a5a;
   border-radius: 8px;
   padding: 12px;
   min-width: 200px;
@@ -18,7 +18,7 @@
   justify-content: space-between;
   margin-bottom: 10px;
   padding-bottom: 8px;
-  border-bottom: 1px solid #2a2a4a;
+  border-bottom: 1px solid #3a3a5a;
   flex-shrink: 0;
 }
 
@@ -39,7 +39,7 @@
 
 .sound-bank-empty {
   margin: 0;
-  color: #5a5a7a;
+  color: #8a8fa8;
   font-size: 0.8rem;
   font-style: italic;
 }
@@ -102,7 +102,7 @@
 }
 
 .sound-chip .chip-info {
-  color: #6a6a8a;
+  color: #9aa2b8;
   font-size: 0.7rem;
   font-family: monospace;
 }
@@ -114,7 +114,7 @@
   border-radius: 4px;
   border: none;
   background: transparent;
-  color: #6a6a8a;
+  color: #a0a8b8;
   font-size: 0.85rem;
   line-height: 1;
   display: flex;

@@ -159,6 +159,8 @@ function loadState() {
       soundCounter: parsed.soundCounter || 0,
       clipCounter:
         parsed.clipCounter ?? parsed.noteCounter ?? parsed.placementCounter ?? 0,
+      spectrogramVisible:
+        typeof parsed.spectrogramVisible === 'boolean' ? parsed.spectrogramVisible : true,
     }
   } catch {
     return null
@@ -190,6 +192,9 @@ function App() {
   const [currentSoundId, setCurrentSoundId] = useState(null)
   const [zoomH, setZoomHState] = useState(DEFAULT_ZOOM_H)
   const [defaultClipDuration, setDefaultClipDuration] = useState(DEFAULT_CLIP_DURATION)
+  const [spectrogramVisible, setSpectrogramVisible] = useState(
+    initial?.spectrogramVisible ?? true,
+  )
 
   const soundCounterRef = useRef(initial?.soundCounter ?? 0)
   const clipCounterRef = useRef(initial?.clipCounter ?? 0)
@@ -242,6 +247,7 @@ function App() {
           clips,
           bpm,
           numMeasures,
+          spectrogramVisible,
           soundCounter: soundCounterRef.current,
           clipCounter: clipCounterRef.current,
         }),
@@ -249,7 +255,7 @@ function App() {
     } catch {
       // storage unavailable
     }
-  }, [savedSounds, soundFolders, tracks, clips, bpm, numMeasures])
+  }, [savedSounds, soundFolders, tracks, clips, bpm, numMeasures, spectrogramVisible])
 
   const handleSaveSound = useCallback(
     (soundData, options = {}) => {
@@ -413,6 +419,8 @@ function App() {
         currentSound={currentSound}
         savedSounds={savedSounds}
         onSoundCreated={handleSoundCreated}
+        spectrogramVisible={spectrogramVisible}
+        onToggleSpectrogram={setSpectrogramVisible}
       >
         {({ renderCanvasArea, renderParamsArea, renderAdsrArea }) => (
           <>
@@ -444,9 +452,11 @@ function App() {
               <div className="designer-main">
                 <div className="designer-row">
                   <div className="designer-cell">{renderCanvasArea()}</div>
-                  <div className="designer-cell">
-                    <SpectrogramPlaceholder />
-                  </div>
+                  {spectrogramVisible && (
+                    <div className="designer-cell">
+                      <SpectrogramPlaceholder />
+                    </div>
+                  )}
                 </div>
                 <div className="designer-row">
                   <div className="designer-cell">{renderParamsArea()}</div>

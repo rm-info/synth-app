@@ -15,6 +15,25 @@ function noteToFrequency(noteIndex, octave) {
   return 440 * Math.pow(2, (midi - 69) / 12)
 }
 
+// Plage fréquence libre : 20 Hz → 20 kHz (bande audible). Slider linéaire
+// 0..1 mappé en log pour rendre les basses accessibles.
+const FREQ_MIN = 20
+const FREQ_MAX = 20000
+const FREQ_MIN_LOG = Math.log(FREQ_MIN)
+const FREQ_MAX_LOG = Math.log(FREQ_MAX)
+
+function sliderToFreq(v) {
+  return Math.exp(FREQ_MIN_LOG + v * (FREQ_MAX_LOG - FREQ_MIN_LOG))
+}
+function freqToSlider(hz) {
+  const clamped = Math.max(FREQ_MIN, Math.min(FREQ_MAX, hz))
+  return (Math.log(clamped) - FREQ_MIN_LOG) / (FREQ_MAX_LOG - FREQ_MIN_LOG)
+}
+function formatFreq(hz) {
+  if (hz < 1000) return `${Math.round(hz)} Hz`
+  return `${(hz / 1000).toFixed(1)} kHz`
+}
+
 // ADSR : coordonnées VIRTUELLES (le canvas peut avoir n'importe quelle taille,
 // on applique setTransform(W/ADSR_W, H/ADSR_H) avant de dessiner, et toute la
 // logique de positions/interactions reste en 400×120).
@@ -114,6 +133,8 @@ function WaveformEditor({
   currentSound,
   savedSounds,
   onSoundCreated,
+  spectrogramVisible,
+  onToggleSpectrogram,
   ref,
   children,
 }) {
@@ -723,10 +744,22 @@ function WaveformEditor({
   const renderCanvasArea = () => (
     <div className="we-canvas-area">
       <header className="we-area-header">
-        <h3 className="we-area-title">Waveform</h3>
-        <span className="we-sound-tag">
-          {currentSound ? `Édition : ${currentSound.name}` : defaultName}
-        </span>
+        <div className="we-header-left">
+          <h3 className="we-area-title">Waveform</h3>
+          <span className="we-sound-tag">
+            {currentSound ? `Édition : ${currentSound.name}` : defaultName}
+          </span>
+        </div>
+        {onToggleSpectrogram && (
+          <label className="spectro-toggle" title="Afficher le spectrogramme à côté">
+            <input
+              type="checkbox"
+              checked={!!spectrogramVisible}
+              onChange={(e) => onToggleSpectrogram(e.target.checked)}
+            />
+            <span>Spectro</span>
+          </label>
+        )}
       </header>
       <div className="presets">
         <button onClick={() => loadPreset('sine')}>Sine</button>
@@ -761,7 +794,7 @@ function WaveformEditor({
           <div className="freq-header">
             <label>
               {freeMode ? 'Fréquence libre' : 'Note'}:{' '}
-              <strong>{frequency.toFixed(1)} Hz</strong>
+              <strong>{formatFreq(frequency)}</strong>
               {!freeMode && (
                 <span className="note-display">
                   {' '}— {NOTE_NAMES[noteIndex]}{octave}
@@ -781,10 +814,15 @@ function WaveformEditor({
           {freeMode ? (
             <input
               type="range"
-              min="20"
-              max="2000"
-              value={freeFrequency}
-              onChange={(e) => setFreeFrequency(Number(e.target.value))}
+              min="0"
+              max="1"
+              step="0.001"
+              value={freqToSlider(freeFrequency)}
+              onChange={(e) => {
+                // Conversion log puis arrondi entier pour éviter la dérive FP
+                // au round-trip (dirty check resterait à true sans ça).
+                setFreeFrequency(Math.round(sliderToFreq(Number(e.target.value))))
+              }}
             />
           ) : (
             <div className="note-selectors">

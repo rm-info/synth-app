@@ -1,27 +1,18 @@
-import { useState } from 'react'
 import './SpectrogramPlaceholder.css'
 
 /**
- * Placeholder pour le spectrogramme. Toggle non fonctionnel (UX seulement).
- * Implémentation réelle prévue en itération B.
+ * Placeholder pour le spectrogramme. Implémentation réelle prévue en
+ * itération B. Le toggle on/off est désormais dans le header de la zone
+ * Waveform (phase 3.6), pour rester accessible même quand la zone
+ * Spectrogramme est masquée.
  */
 function SpectrogramPlaceholder() {
-  const [enabled, setEnabled] = useState(true)
-
   return (
     <div className="spectrogram-placeholder">
       <header className="spectrogram-header">
         <h3>Spectrogramme</h3>
-        <label className="spectrogram-toggle">
-          <input
-            type="checkbox"
-            checked={enabled}
-            onChange={(e) => setEnabled(e.target.checked)}
-          />
-          <span>{enabled ? 'On' : 'Off'}</span>
-        </label>
       </header>
-      <div className={`spectrogram-canvas-area ${enabled ? '' : 'is-off'}`}>
+      <div className="spectrogram-canvas-area">
         <span className="spectrogram-placeholder-text">
           Spectrogramme (à venir)
         </span>

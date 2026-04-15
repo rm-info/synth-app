@@ -222,6 +222,14 @@ Découpée en 6 phases. Voir le brief original pour les détails.
   Ctrl+molette zoom centré sur la souris.
 - ✅ **Phase 3.5 (fixes)** — Échap BPM corrigé (flag skipBlurCommitRef + restore
   preFocusValue), alignement Properties Composer (colonnes grid symétriques).
+- ✅ **Phase 3.6** — toggle spectrogramme fonctionnel (state `spectrogramVisible`
+  persisté dans localStorage, toggle dans le header de la zone Waveform, cell
+  spectrogramme retirée du DOM quand OFF), mini-player avec barre de progression
+  intégrée (linear-gradient --progress sur un seul élément texte, plus de bar
+  séparée), fréquence libre étendue à 20-20000 Hz avec slider log (conversion
+  via sliderToFreq/freqToSlider, arrondi entier, affichage formatFreq "X Hz"
+  ou "X.X kHz"), contrastes renforcés (bordures cards #2a2a4a→#3a3a5a, inputs
+  #3a3a5a→#4a4a6a, chip-info #6a6a8a→#9aa2b8, empty text #5a5a7a→#8a8fa8).
 - ✅ **Phase 3.5 (Designer layout)** — refonte en 2 colonnes : sidebar gauche
   (banque + mini-player stackés verticalement) + zone centrale en grid 2×2
   (waveform | spectrogramme / params+boutons | ADSR). Plus de sidebar droite
