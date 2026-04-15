@@ -243,8 +243,33 @@ Découpée en 6 phases. Voir le brief original pour les détails.
   pour préserver ses coordonnées virtuelles 400×120. Bouton "Play" éditeur
   renommé en "Test" (preview du son en édition, pas lecture timeline).
   Mini-player simplifié : plus de marqueurs de mesure, juste un trait qui avance.
+- ✅ **Phase 4** — Édition de clips (sélection + Properties + drag + resize) :
+  - **4.1** `selectedClipIds` (tableau, préparation multi-sélect phase B) géré
+    dans App ; clic clip = sélection, clic zone vide = désélection, outline
+    blanc 2px + shadow sur le clip sélectionné (classe `.is-selected`). Clic
+    droit conservé pour suppression rapide. PropertiesPanel refondu :
+    dropdown son (avec dot couleur), position "Mesure X, beat Y" en lecture
+    seule, dropdown durée (7 options), bouton Supprimer. Si 0 clips :
+    placeholder. Si >1 : "N clips sélectionnés — édition phase B". Global
+    keydown Delete/Backspace supprime les clips sélectionnés (skip si focus
+    input/textarea/select/contenteditable).
+  - **4.2** Drag à la souris via `onMouseDown` sur clip : session unifiée
+    avec refs mutables + listeners window installés à l'ouverture de la
+    session (pas de ré-attachement sur chaque mousemove). Seuil 5px
+    (distance euclidienne) différencie clic (commit select) vs drag (commit
+    measure/beat). Snap 16ᵉ, clamp `[0, totalBeats - duration]`.
+    `document.body.style.cursor = 'grabbing' + userSelect:none` pendant le
+    drag, reset sur mouseup. Layout greedy se redébrouille au commit.
+  - **4.3** Resize via zones de 7px aux bords G/D (overlay `.resize-handle`
+    positionnées absolument, cursor ew-resize). resize-right modifie
+    `duration` ; resize-left modifie `measure + beat + duration` (bord droit
+    fixe). Snap 16ᵉ, min 0.25. Bornes pré-calculées au mousedown :
+    `minStartLeft` = fin du clip précédent dans la même lane (ou 0),
+    `maxDurationRight` = espace jusqu'au clip suivant (ou fin). Drag et
+    resize unifiés dans un même système `interactionRef`/`interactionVisual`
+    avec champ `mode: 'drag' | 'resize-left' | 'resize-right'`. Resize actif
+    immédiatement, pas de seuil 5px.
 - 🔮 Backlog phase 6 — bouton "Vider la banque" (avec confirm + undoable)
-- 🔜 Phase 4 — Édition de clips (sélection, drag, resize, panneau Properties)
 - 🔜 Phase 5 — Mesures dynamiques
 - 🔜 Phase 6 — Undo/Redo (migration vers useReducer)
 
@@ -275,9 +300,9 @@ Découpée en 6 phases. Voir le brief original pour les détails.
 - Export WAV PCM 16-bit stéréo
 - Persistance localStorage + migration
 
-🔜 **Prochaine phase** : Iter A — Phase 3 (fixes UX : input BPM différé, zoom %
-continu sur triple croche, zoom V, subdivision sortie des clips, oscilloscope
-persistant, labels adaptatifs)
+🔜 **Prochaine phase** : Iter A — Phase 5 (mesures dynamiques : +/- en bout
+de composition, conservation des clips lors d'un redimensionnement, warning
+si clips perdus par réduction).
 
 ## Historique (chronologie inverse)
 
