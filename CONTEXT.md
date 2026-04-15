@@ -277,6 +277,11 @@ Découpée en 6 phases. Voir le brief original pour les détails.
   à supprimer ; si confirmé, filter les clips affectés + désélection, puis
   `numMeasures--`. Plancher 1 mesure (bouton `−` désactivé à `numMeasures === 1`).
   Pas de raccourci clavier. Insertion au milieu reportée en phase B.
+- ✅ **Phase 5.2** — Fix persistance `numMeasures` : `loadState` faisait
+  `Math.max(persisted, maxClipMeasure, DEFAULT_NUM_MEASURES)` → un user qui
+  réduisait à 8 mesures retombait sur 16 au reload. Suppression du 3ᵉ
+  argument (plancher remplacé par `1`). Audit du reste : `savedSounds || []`
+  et `soundCounter || 0` migrés vers `??` pour cohérence (pas de bug actif).
 - ✅ **Phase 5.1** — Manipulation contextuelle des mesures :
   - Section "Mesures" retirée de la toolbar.
   - × discret au survol de la dernière mesure (header `.measure-label.is-last-measure`)

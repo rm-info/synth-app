@@ -134,7 +134,7 @@ function loadState() {
     if (!raw) return null
     const parsed = JSON.parse(raw)
 
-    const savedSounds = (parsed.savedSounds || []).map(normalizeSound)
+    const savedSounds = (parsed.savedSounds ?? []).map(normalizeSound)
     const rawClips = parsed.clips ?? parsed.notes ?? parsed.placements ?? []
     const clips = rawClips.map(normalizeClip)
     const tracks = Array.isArray(parsed.tracks) && parsed.tracks.length > 0
@@ -142,11 +142,15 @@ function loadState() {
       : [makeDefaultTrack()]
     const soundFolders = Array.isArray(parsed.soundFolders) ? parsed.soundFolders : []
 
+    // Plancher à `maxClipMeasure` pour éviter qu'un clip orphelin se retrouve
+    // hors-grille après reload. Si le champ est absent (ancien state), on
+    // applique le défaut. Pas de plancher sur DEFAULT_NUM_MEASURES : si l'user
+    // a réduit à 8, on doit respecter 8.
     const maxClipMeasure = clips.reduce((m, c) => Math.max(m, c.measure || 0), 0)
     const numMeasures = Math.max(
       parsed.numMeasures ?? DEFAULT_NUM_MEASURES,
       maxClipMeasure,
-      DEFAULT_NUM_MEASURES,
+      1,
     )
 
     return {
@@ -156,7 +160,7 @@ function loadState() {
       clips,
       numMeasures,
       bpm: parsed.bpm ?? DEFAULT_BPM,
-      soundCounter: parsed.soundCounter || 0,
+      soundCounter: parsed.soundCounter ?? 0,
       clipCounter:
         parsed.clipCounter ?? parsed.noteCounter ?? parsed.placementCounter ?? 0,
       spectrogramVisible:
