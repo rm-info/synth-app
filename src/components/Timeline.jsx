@@ -90,6 +90,7 @@ function Timeline({
   onAddClip,
   onRemoveClip,
   onUpdateClip,
+  onMoveClips,
   selectedClipIds,
   onSetSelection,
   onAddMeasures,
@@ -212,13 +213,23 @@ function Timeline({
           s.isActive = true
           commitCursor('drag')
         }
-        const startTotal = s.originalStart
-        const maxStart = Math.max(0, s.totalBeats - s.originalDuration)
-        const newStart = Math.max(0, Math.min(maxStart, startTotal + dxSnapped))
-        const measure = Math.floor(newStart / BEATS_PER_MEASURE) + 1
-        const beat = newStart - (measure - 1) * BEATS_PER_MEASURE
-        s.visual = { measure, beat, duration: s.originalDuration }
-        setInteractionVisual({ clipId: s.clipId, mode: s.mode, ...s.visual })
+        // Delta groupe : tous les membres prennent le même offset. Bornes
+        // pré-calculées au mousedown → le groupe s'arrête dès que le membre
+        // le plus contraignant atteint sa limite.
+        const clampedDelta = Math.max(s.minDelta, Math.min(s.maxDelta, dxSnapped))
+        const newLeaderStart = s.originalStart + clampedDelta
+        const measure = Math.floor(newLeaderStart / BEATS_PER_MEASURE) + 1
+        const beat = newLeaderStart - (measure - 1) * BEATS_PER_MEASURE
+        s.visual = { measure, beat, duration: s.originalDuration, delta: clampedDelta }
+        setInteractionVisual({
+          clipId: s.clipId,
+          mode: s.mode,
+          measure,
+          beat,
+          duration: s.originalDuration,
+          delta: clampedDelta,
+          clipIds: s.clipIds,
+        })
         return
       }
 
@@ -266,7 +277,25 @@ function Timeline({
         // Drag sous le seuil = clic → sélection mono (remplace)
         onSetSelection?.([s.clipId])
       } else if (s.visual) {
-        onUpdateClip(s.clipId, { ...s.visual })
+        if (s.mode === 'drag' && s.clipsBeingMoved && s.clipsBeingMoved.length > 1) {
+          // Multi-drag : dispatcher MOVE_CLIPS avec toutes les nouvelles positions.
+          const delta = s.visual.delta ?? 0
+          if (delta !== 0) {
+            const moves = s.clipsBeingMoved.map((cm) => {
+              const newStart = cm.originalStart + delta
+              const m = Math.floor(newStart / BEATS_PER_MEASURE) + 1
+              const b = newStart - (m - 1) * BEATS_PER_MEASURE
+              return { id: cm.id, measure: m, beat: b }
+            })
+            onMoveClips?.(moves)
+          }
+        } else {
+          onUpdateClip(s.clipId, {
+            measure: s.visual.measure,
+            beat: s.visual.beat,
+            duration: s.visual.duration,
+          })
+        }
       }
       interactionRef.current = null
       setInteractionVisual(null)
@@ -278,13 +307,53 @@ function Timeline({
       window.removeEventListener('mousemove', handleMove)
       window.removeEventListener('mouseup', handleUp)
     }
-  }, [activeClipId, activeMode, onUpdateClip, onSetSelection])
+  }, [activeClipId, activeMode, onUpdateClip, onMoveClips, onSetSelection])
 
   const startInteraction = (e, clip, mode, bounds) => {
     if (e.button !== 0) return
     e.preventDefault()
     e.stopPropagation()
     const originalStart = (clip.measure - 1) * BEATS_PER_MEASURE + clip.beat
+
+    // Drag multi : si le clip cible est dans une multi-sélection, on prépare
+    // le groupe. Sinon (drag d'un clip non sélectionné), on remplace la
+    // sélection par ce clip et on drag en mono.
+    const curSel = selectedClipIds ?? []
+    const isInSelection = curSel.includes(clip.id)
+    const isMultiDrag = mode === 'drag' && isInSelection && curSel.length > 1
+
+    let clipsBeingMoved
+    let minDelta = -Infinity
+    let maxDelta = Infinity
+    if (isMultiDrag) {
+      clipsBeingMoved = clips
+        .filter((c) => curSel.includes(c.id))
+        .map((c) => ({
+          id: c.id,
+          originalMeasure: c.measure,
+          originalBeat: c.beat,
+          originalDuration: c.duration,
+          originalStart: (c.measure - 1) * BEATS_PER_MEASURE + c.beat,
+        }))
+      for (const cm of clipsBeingMoved) {
+        minDelta = Math.max(minDelta, -cm.originalStart)
+        maxDelta = Math.min(maxDelta, totalBeats - cm.originalStart - cm.originalDuration)
+      }
+    } else {
+      if (mode === 'drag' && !isInSelection) {
+        onSetSelection?.([clip.id])
+      }
+      clipsBeingMoved = [{
+        id: clip.id,
+        originalMeasure: clip.measure,
+        originalBeat: clip.beat,
+        originalDuration: clip.duration,
+        originalStart,
+      }]
+      minDelta = -originalStart
+      maxDelta = totalBeats - originalStart - clip.duration
+    }
+
     interactionRef.current = {
       clipId: clip.id,
       mode, // 'drag' | 'resize-left' | 'resize-right'
@@ -296,6 +365,11 @@ function Timeline({
       originalMeasure: clip.measure,
       originalBeat: clip.beat,
       originalDuration: clip.duration,
+      // Multi-drag
+      clipsBeingMoved,
+      clipIds: clipsBeingMoved.map((c) => c.id),
+      minDelta,
+      maxDelta,
       // Bornes de resize calculées au début de la session selon la lane courante.
       minStartLeft: bounds?.minStartLeft ?? 0,
       maxDurationRight: bounds?.maxDurationRight ?? (totalBeats - originalStart),
@@ -309,6 +383,7 @@ function Timeline({
       measure: clip.measure,
       beat: clip.beat,
       duration: clip.duration,
+      clipIds: clipsBeingMoved.map((c) => c.id),
     })
   }
 
@@ -564,13 +639,33 @@ function Timeline({
 
             <div className="placed-sounds-layer">
               {laidOut.map(({ clip, sound, lane }) => {
-                const isActive = interactionVisual?.clipId === clip.id
+                const isLeader = interactionVisual?.clipId === clip.id
+                // Membre non-leader d'un multi-drag : suit l'offset du leader.
+                const isGroupMember =
+                  !isLeader &&
+                  interactionVisual?.mode === 'drag' &&
+                  typeof interactionVisual?.delta === 'number' &&
+                  interactionVisual?.clipIds?.includes(clip.id)
+                const isActive = isLeader || isGroupMember
                 const mode = isActive ? interactionVisual.mode : null
                 // Position/durée visuelle : si interaction active, on utilise
                 // les valeurs live du snapshot (mesure/beat/durée courantes).
-                const visualMeasure = isActive ? interactionVisual.measure : clip.measure
-                const visualBeat = isActive ? interactionVisual.beat : clip.beat
-                const visualDuration = isActive ? interactionVisual.duration : clip.duration
+                let visualMeasure, visualBeat, visualDuration
+                if (isLeader) {
+                  visualMeasure = interactionVisual.measure
+                  visualBeat = interactionVisual.beat
+                  visualDuration = interactionVisual.duration
+                } else if (isGroupMember) {
+                  const shifted =
+                    (clip.measure - 1) * BEATS_PER_MEASURE + clip.beat + interactionVisual.delta
+                  visualMeasure = Math.floor(shifted / BEATS_PER_MEASURE) + 1
+                  visualBeat = shifted - (visualMeasure - 1) * BEATS_PER_MEASURE
+                  visualDuration = clip.duration
+                } else {
+                  visualMeasure = clip.measure
+                  visualBeat = clip.beat
+                  visualDuration = clip.duration
+                }
                 const visualStart = (visualMeasure - 1) * BEATS_PER_MEASURE + visualBeat
                 const left = (visualStart / totalBeats) * 100
                 const width = (visualDuration / totalBeats) * 100

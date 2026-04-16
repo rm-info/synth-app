@@ -236,6 +236,18 @@ export function reducer(state, action) {
         clips: state.clips.map((c) => (c.id === clipId ? { ...c, ...updates } : c)),
       }
     }
+    case 'MOVE_CLIPS': {
+      // payload: [{ id, measure, beat }] — déplacement groupé, un snapshot unique.
+      const moves = new Map(action.payload.map((m) => [m.id, m]))
+      if (moves.size === 0) return state
+      return {
+        ...state,
+        clips: state.clips.map((c) => {
+          const m = moves.get(c.id)
+          return m ? { ...c, measure: m.measure, beat: m.beat } : c
+        }),
+      }
+    }
     case 'DELETE_SELECTED_CLIPS': {
       const ids = new Set(state.selectedClipIds)
       if (ids.size === 0) return state
@@ -461,7 +473,7 @@ export function reducer(state, action) {
 const HISTORY_DEPTH = 50
 
 const COMPOSER_UNDOABLE = new Set([
-  'ADD_CLIP', 'REMOVE_CLIP', 'UPDATE_CLIP', 'DELETE_SELECTED_CLIPS',
+  'ADD_CLIP', 'REMOVE_CLIP', 'UPDATE_CLIP', 'MOVE_CLIPS', 'DELETE_SELECTED_CLIPS',
   'CLEAR_TIMELINE', 'SET_BPM', 'ADD_MEASURES', 'REMOVE_LAST_MEASURE',
 ])
 
