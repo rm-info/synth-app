@@ -1,4 +1,10 @@
 import { useState } from 'react'
+import { BEATS_PER_MEASURE } from '../reducer'
+import {
+  layoutClips,
+  computeBounds,
+  MIN_CLIP_DURATION,
+} from '../lib/timelineLayout'
 import './PropertiesPanel.css'
 
 const DURATION_OPTIONS = [
@@ -12,19 +18,35 @@ const DURATION_OPTIONS = [
 ]
 
 /**
- * Panneau Properties (Composer) — phase 4.1.
- * Sur écran <1100px : bottom-sheet collapsible. Au-dessus : sidebar fixe.
+ * Panneau Properties (Composer). Trois modes :
+ *  - vide : placeholder
+ *  - mono (1 clip) : édition complète
+ *  - multi (>1 clips, phase 2.5) : son (si homogène), durée (si homogène),
+ *    bouton supprimer la sélection.
  */
-function PropertiesPanel({ selectedClipIds, clips, savedSounds, onUpdateClip, onRemoveClip }) {
+function PropertiesPanel({
+  selectedClipIds,
+  clips,
+  savedSounds,
+  numMeasures,
+  onUpdateClip,
+  onRemoveClip,
+  onUpdateClipsSound,
+  onUpdateClipsDuration,
+  onDeleteSelected,
+}) {
   const [collapsed, setCollapsed] = useState(false)
   const count = selectedClipIds.length
-  const selectedClip =
-    count === 1 ? clips.find((c) => c.id === selectedClipIds[0]) ?? null : null
+  const selectedClips = clips.filter((c) => selectedClipIds.includes(c.id))
+  const mono = count === 1 ? selectedClips[0] ?? null : null
 
   return (
     <aside className={`properties-panel ${collapsed ? 'collapsed' : ''}`}>
       <header className="properties-header">
-        <h3>Propriétés</h3>
+        <h3>
+          Propriétés
+          {count > 1 && <span className="properties-badge">{count}</span>}
+        </h3>
         <button
           type="button"
           className="properties-toggle"
@@ -43,14 +65,19 @@ function PropertiesPanel({ selectedClipIds, clips, savedSounds, onUpdateClip, on
             </p>
           )}
           {count > 1 && (
-            <>
-              <p className="properties-multi">{count} clips sélectionnés</p>
-              <p className="properties-empty">Édition multiple en phase B.</p>
-            </>
+            <MultiClipEditor
+              selectedClips={selectedClips}
+              clips={clips}
+              savedSounds={savedSounds}
+              numMeasures={numMeasures}
+              onUpdateClipsSound={onUpdateClipsSound}
+              onUpdateClipsDuration={onUpdateClipsDuration}
+              onDeleteSelected={onDeleteSelected}
+            />
           )}
-          {count === 1 && selectedClip && (
+          {count === 1 && mono && (
             <ClipEditor
-              clip={selectedClip}
+              clip={mono}
               savedSounds={savedSounds}
               onUpdateClip={onUpdateClip}
               onRemoveClip={onRemoveClip}
@@ -119,6 +146,99 @@ function ClipEditor({ clip, savedSounds, onUpdateClip, onRemoveClip }) {
         onClick={() => onRemoveClip(clip.id)}
       >
         Supprimer ce clip
+      </button>
+    </div>
+  )
+}
+
+function MultiClipEditor({
+  selectedClips,
+  clips,
+  savedSounds,
+  numMeasures,
+  onUpdateClipsSound,
+  onUpdateClipsDuration,
+  onDeleteSelected,
+}) {
+  const firstSoundId = selectedClips[0].soundId
+  const allSameSound = selectedClips.every((c) => c.soundId === firstSoundId)
+  const firstDuration = selectedClips[0].duration
+  const allSameDuration = selectedClips.every((c) => c.duration === firstDuration)
+  const commonSound = allSameSound ? savedSounds.find((s) => s.id === firstSoundId) : null
+
+  const handleChangeSound = (newSoundId) => {
+    if (!allSameSound) return
+    if (newSoundId === firstSoundId) return
+    onUpdateClipsSound?.(selectedClips.map((c) => c.id), newSoundId)
+  }
+
+  const handleChangeDuration = (newDuration) => {
+    if (!allSameDuration) return
+    if (newDuration === firstDuration) return
+    const totalBeats = numMeasures * BEATS_PER_MEASURE
+    const { items } = layoutClips(clips, savedSounds)
+    const excludeIds = new Set(selectedClips.map((c) => c.id))
+    const updates = selectedClips.map((clip) => {
+      const b = computeBounds(clip.id, items, totalBeats, excludeIds)
+      const clamped = Math.max(MIN_CLIP_DURATION, Math.min(b.maxDurationRight, newDuration))
+      return { id: clip.id, duration: clamped }
+    })
+    onUpdateClipsDuration?.(updates)
+  }
+
+  return (
+    <div className="clip-editor">
+      <p className="properties-multi">{selectedClips.length} clips sélectionnés</p>
+
+      <label className="field">
+        <span className="field-label">Son</span>
+        {allSameSound ? (
+          <div className="sound-select-wrapper">
+            {commonSound && (
+              <span
+                className="sound-dot"
+                style={{ backgroundColor: commonSound.color }}
+                aria-hidden="true"
+              />
+            )}
+            <select
+              className="field-input"
+              value={firstSoundId}
+              onChange={(e) => handleChangeSound(e.target.value)}
+            >
+              {savedSounds.map((s) => (
+                <option key={s.id} value={s.id}>{s.name}</option>
+              ))}
+            </select>
+          </div>
+        ) : (
+          <span className="field-readonly">Sons mixtes</span>
+        )}
+      </label>
+
+      <label className="field">
+        <span className="field-label">Durée musicale</span>
+        {allSameDuration ? (
+          <select
+            className="field-input"
+            value={firstDuration}
+            onChange={(e) => handleChangeDuration(parseFloat(e.target.value))}
+          >
+            {DURATION_OPTIONS.map((o) => (
+              <option key={o.value} value={o.value}>{o.label}</option>
+            ))}
+          </select>
+        ) : (
+          <span className="field-readonly">Durées mixtes</span>
+        )}
+      </label>
+
+      <button
+        type="button"
+        className="clip-delete-btn"
+        onClick={() => onDeleteSelected?.()}
+      >
+        Supprimer la sélection
       </button>
     </div>
   )

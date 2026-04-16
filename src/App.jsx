@@ -244,6 +244,18 @@ function App() {
     dispatch({ type: 'DUPLICATE_CLIPS', payload: datas })
   }, [])
 
+  const handleUpdateClipsSound = useCallback((clipIds, soundId) => {
+    dispatch({ type: 'UPDATE_CLIPS_SOUND', payload: { clipIds, soundId } })
+  }, [])
+
+  const handleUpdateClipsDuration = useCallback((updates) => {
+    dispatch({ type: 'UPDATE_CLIPS_DURATION', payload: updates })
+  }, [])
+
+  const handleDeleteSelected = useCallback(() => {
+    dispatch({ type: 'DELETE_SELECTED_CLIPS' })
+  }, [])
+
   const handleClearTimeline = useCallback(() => {
     dispatch({ type: 'CLEAR_TIMELINE' })
   }, [])
@@ -497,8 +509,12 @@ function App() {
                   selectedClipIds={selectedClipIds}
                   clips={clips}
                   savedSounds={savedSounds}
+                  numMeasures={numMeasures}
                   onUpdateClip={handleUpdateClip}
                   onRemoveClip={handleRemoveClip}
+                  onUpdateClipsSound={handleUpdateClipsSound}
+                  onUpdateClipsDuration={handleUpdateClipsDuration}
+                  onDeleteSelected={handleDeleteSelected}
                 />
               </div>
             </main>

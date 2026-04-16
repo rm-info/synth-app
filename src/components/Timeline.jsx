@@ -1,10 +1,14 @@
 import { useEffect, useRef, useCallback, useState } from 'react'
+import {
+  layoutClips,
+  computeBounds as computeBoundsRaw,
+  SNAP_RESOLUTION,
+  MIN_CLIP_DURATION,
+} from '../lib/timelineLayout'
+import { BEATS_PER_MEASURE } from '../reducer'
 import './Timeline.css'
 
-const BEATS_PER_MEASURE = 4
-const SNAP_RESOLUTION = 0.25 // 16th-note snap
 const DRAG_THRESHOLD_PX = 5
-const MIN_CLIP_DURATION = 0.25
 
 // Conversions zoom — centralisées ici.
 //   100% = 50px par triple croche (1/8 noire).
@@ -13,34 +17,6 @@ const PX_PER_TRIPLE_AT_100 = 50
 
 function pxPerBeatFromZoom(zoomH) {
   return (zoomH / 100) * PX_PER_TRIPLE_AT_100 * 8
-}
-
-function clipBeatOffset(clip) {
-  return (clip.measure - 1) * BEATS_PER_MEASURE + clip.beat
-}
-
-function layoutClips(clips, savedSounds) {
-  const enriched = clips
-    .map((clip) => {
-      const sound = savedSounds.find((s) => s.id === clip.soundId)
-      if (!sound) return null
-      const start = clipBeatOffset(clip)
-      const end = start + clip.duration
-      return { clip, sound, start, end }
-    })
-    .filter(Boolean)
-    .sort((a, b) => a.start - b.start)
-
-  const lanes = []
-  const result = []
-  for (const item of enriched) {
-    let lane = 0
-    while (lane < lanes.length && lanes[lane] > item.start) lane++
-    if (lane === lanes.length) lanes.push(item.end)
-    else lanes[lane] = item.end
-    result.push({ ...item, lane })
-  }
-  return { items: result, laneCount: Math.max(1, lanes.length) }
 }
 
 /**
@@ -571,29 +547,9 @@ function Timeline({
     window.addEventListener('mouseup', handleUp)
   }
 
-  // Bornes de resize pour un clip donné selon la lane courante :
-  //  - minStartLeft : fin du clip précédent dans la même lane (ou 0)
-  //  - maxDurationRight : espace disponible jusqu'au clip suivant (ou fin)
-  // `excludeIds` : ignorés dans le calcul (utilisé pour le resize multi où
-  // les autres membres du groupe ne doivent pas contraindre).
-  const computeBounds = (targetClipId, laidOutItems, excludeIds = null) => {
-    const target = laidOutItems.find((it) => it.clip.id === targetClipId)
-    if (!target) return { minStartLeft: 0, maxDurationRight: totalBeats }
-    const { lane, start, clip } = target
-    let minStartLeft = 0
-    let maxEnd = totalBeats
-    for (const it of laidOutItems) {
-      if (it.clip.id === targetClipId) continue
-      if (excludeIds && excludeIds.has(it.clip.id)) continue
-      if (it.lane !== lane) continue
-      if (it.end <= start && it.end > minStartLeft) minStartLeft = it.end
-      if (it.start >= start + clip.duration && it.start < maxEnd) maxEnd = it.start
-    }
-    return {
-      minStartLeft,
-      maxDurationRight: Math.max(MIN_CLIP_DURATION, maxEnd - start),
-    }
-  }
+  // Wrapper de computeBounds avec totalBeats fermé pour éviter de le repasser.
+  const computeBounds = (targetClipId, laidOutItems, excludeIds = null) =>
+    computeBoundsRaw(targetClipId, laidOutItems, totalBeats, excludeIds)
 
   // --- Visualiseur persistant avec fade ---
   // intensity ∈ [0,1] : 0 = ligne plate seule ; 1 = signal pleine intensité.

@@ -11,9 +11,10 @@ React 19 + Vite, Web Audio API native, persistance localStorage. **Pas de
 TypeScript, pas de lib audio, pas de state manager, pas de framework UI,
 pas de routing.** Itération A (refonte UX core : 2 onglets Designer/Composer,
 dual save, zoom %, édition clips, undo/redo) **clôturée le 2026-04-15**.
-Itération B en cours : **phase 1 livrée le 2026-04-16** (spectrogramme
-statique). Reste multi-sélection, folders UI, etc. Itération C (multipiste,
-look-ahead audio) à venir.
+Itération B en cours : **phases 1 & 2 livrées le 2026-04-16**
+(spectrogramme statique ; multi-sélection + drag/resize/dup/delete
+groupés + Properties multi). Reste folders UI, copier/coller, menus
+contextuels mesures. Itération C (multipiste, look-ahead audio) à venir.
 
 ## Objectif
 
@@ -47,6 +48,8 @@ synth-app/
     ├── assets/               # résiduel template Vite (non utilisé)
     ├── hooks/
     │   └── usePlayback.js    # moteur de lecture timeline (partagé Designer/Composer)
+    ├── lib/
+    │   └── timelineLayout.js # layoutClips + computeBounds (partagés Timeline/Properties)
     └── components/
         ├── Tabs.jsx + .css                    # bascule Designer / Composer
         ├── SoundBank.jsx + .css               # banque de sons partagée
@@ -435,6 +438,45 @@ Phases listées ci-dessous dans l'ordre chronologique d'implémentation.
     supprimés.
   - Toggle On/Off dans le header Waveform inchangé (phase A.3.6) ; spec
     reste masqué côté DOM quand OFF.
+- ✅ **Phase 2** (2026-04-16) — Multi-sélection et opérations groupées.
+  Découpée en 5 sous-commits indépendants pour isoler les régressions.
+  - **2.1** Multi-sélection : clic replace, Ctrl+clic toggle, rectangle
+    de sélection sur zone vide (pointillé cyan), Shift+drag additif,
+    Ctrl+drag sur zone vide réservé (futur scroll B.2.6). Échap vide la
+    sélection. API sélection consolidée sous `onSetSelection(ids)` — le
+    caller (Timeline) calcule la nouvelle liste finale. Suppression des
+    props `onSelectClip`/`onDeselectAll`.
+  - **2.2** Drag multi : action `MOVE_CLIPS` atomique et undoable. Quand
+    le drag démarre sur un clip d'une multi-sélection, tous les membres
+    prennent le même delta ; bornes = intersection des bornes individuelles
+    (le groupe s'arrête quand le membre le plus contraignant butte). Drag
+    d'un clip hors sélection remplace la sélection puis drag mono.
+    Aperçu visuel : tous les membres du groupe rendus à leur offset.
+  - **2.3** Resize multi absolu (non-proportionnel) : action `RESIZE_CLIPS`
+    atomique. `computeBounds` généralisé avec `excludeIds` (les autres
+    membres du groupe ne se contraignent pas entre eux). Delta intersecté
+    pour respecter les min/max individuels (MIN_CLIP_DURATION et clip
+    suivant non-sélectionné). Resize-left gère l'ajustement de
+    mesure/beat + durée (bord droit de chaque membre fixe).
+  - **2.4** Duplication (Ctrl+drag sur clip) : action `DUPLICATE_CLIPS`
+    atomique qui reçoit les positions/soundId/trackId des copies,
+    attribue les ids à partir de `clipCounter+1`, remplace
+    `selectedClipIds` par les copies. Ctrl+mousedown démarre une session
+    dont l'issue est décidée au mouseup : sous seuil → toggle de
+    sélection (via `preselectionIds` capturés au mousedown), au-delà
+    → duplication à l'offset. Curseur `copy` pendant le drag, ghosts
+    pointillés à l'offset pour le preview. `selectedClipIds` ajouté aux
+    champs snapshot Composer pour que l'undo restaure la sélection pré-
+    action.
+  - **2.5** Suppression multi + Properties multi-sélection : helpers
+    `layoutClips` + `computeBounds` extraits dans `src/lib/timelineLayout.js`.
+    Nouvelles actions `UPDATE_CLIPS_SOUND` et `UPDATE_CLIPS_DURATION`
+    (durées pré-clampées par bornes individuelles côté Panel).
+    `PropertiesPanel` gère désormais 3 modes : vide, mono, multi. En
+    multi : badge du compte dans l'en-tête, dropdown Son/Durée si
+    homogène sinon "Sons mixtes"/"Durées mixtes" lecture seule, bouton
+    "Supprimer la sélection" rouge. Raccourci Delete/Backspace déjà
+    opérationnel via `DELETE_SELECTED_CLIPS` existant.
 
 **Décisions UX clés (à mémoire pour Iter A)**
 - Sauvegarde dans l'éditeur quand `currentSoundId` est non-null : 2 boutons distincts
@@ -501,11 +543,14 @@ sous-itérations correctifs/UX selon les retours.
 ### Itération B (édition avancée) — en cours
 
 - ✅ Spectrogramme statique lecture seule (phase 1)
-- Multi-sélection clips (Shift+clic, rectangle, Ctrl+clic)
-- Copier/coller/déplacer clips en groupe
-- Répertoires de sons exposés dans l'UI
-- Menu contextuel sur en-tête de mesure (insertion milieu, couper/
-  copier/coller mesures, split clips)
+- ✅ Multi-sélection + drag/resize/dup/delete groupés + Properties multi
+  (phase 2, commits 2.1–2.5)
+- Copier/couper/coller (phase B.3, non démarrée)
+- Fusion de clips (phase B.4)
+- Compléments drag Composer : Ctrl+drag scroll, Alt+drag zoom (phase B.5)
+- Répertoires de sons exposés dans l'UI (phase B.6)
+- Menu contextuel sur en-tête de mesure : insertion milieu, couper/
+  copier/coller mesures, split clips (phase B.7)
 - Spectrogramme : options (toggle dB / linéaire, zoom, FFT temps réel
   pendant la lecture, affichage post-ADSR)
 

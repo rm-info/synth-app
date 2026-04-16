@@ -262,6 +262,28 @@ export function reducer(state, action) {
         }),
       }
     }
+    case 'UPDATE_CLIPS_SOUND': {
+      // payload: { clipIds, soundId } — uniformise soundId pour plusieurs clips.
+      const { clipIds, soundId } = action.payload
+      const ids = new Set(clipIds)
+      if (ids.size === 0) return state
+      return {
+        ...state,
+        clips: state.clips.map((c) => (ids.has(c.id) ? { ...c, soundId } : c)),
+      }
+    }
+    case 'UPDATE_CLIPS_DURATION': {
+      // payload: [{ id, duration }] — durées éventuellement distinctes après
+      // clamping par bornes individuelles (calculé côté App/Panel).
+      const updates = new Map(action.payload.map((u) => [u.id, u.duration]))
+      if (updates.size === 0) return state
+      return {
+        ...state,
+        clips: state.clips.map((c) =>
+          updates.has(c.id) ? { ...c, duration: updates.get(c.id) } : c,
+        ),
+      }
+    }
     case 'DUPLICATE_CLIPS': {
       // payload: [{ trackId, soundId, measure, beat, duration }] — sans id.
       // Le reducer attribue les ids à partir de clipCounter+1 et sélectionne
@@ -511,6 +533,7 @@ const HISTORY_DEPTH = 50
 const COMPOSER_UNDOABLE = new Set([
   'ADD_CLIP', 'REMOVE_CLIP', 'UPDATE_CLIP', 'MOVE_CLIPS', 'RESIZE_CLIPS',
   'DUPLICATE_CLIPS', 'DELETE_SELECTED_CLIPS',
+  'UPDATE_CLIPS_SOUND', 'UPDATE_CLIPS_DURATION',
   'CLEAR_TIMELINE', 'SET_BPM', 'ADD_MEASURES', 'REMOVE_LAST_MEASURE',
 ])
 
