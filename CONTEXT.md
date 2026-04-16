@@ -11,10 +11,12 @@ React 19 + Vite, Web Audio API native, persistance localStorage. **Pas de
 TypeScript, pas de lib audio, pas de state manager, pas de framework UI,
 pas de routing.** Itération A (refonte UX core : 2 onglets Designer/Composer,
 dual save, zoom %, édition clips, undo/redo) **clôturée le 2026-04-15**.
-Itération B en cours : **phases 1 & 2 livrées le 2026-04-16**
+Itération B en cours : **phases 1–6 livrées le 2026-04-16**
 (spectrogramme statique ; multi-sélection + drag/resize/dup/delete
-groupés + Properties multi). Reste folders UI, copier/coller, menus
-contextuels mesures. Itération C (multipiste, look-ahead audio) à venir.
+groupés + Properties multi ; copier/coller/fusion/split clips ;
+scroll/zoom Ctrl/Alt+drag ; répertoires de sons arborescents avec
+drag interne). Reste menus contextuels mesures, spectrogramme avancé.
+Itération C (multipiste, look-ahead audio) à venir.
 
 ## Objectif
 
@@ -477,6 +479,29 @@ Phases listées ci-dessous dans l'ordre chronologique d'implémentation.
     homogène sinon "Sons mixtes"/"Durées mixtes" lecture seule, bouton
     "Supprimer la sélection" rouge. Raccourci Delete/Backspace déjà
     opérationnel via `DELETE_SELECTED_CLIPS` existant.
+- ✅ **Phase 6** (2026-04-16) — Répertoires de sons. Banque refactorée en
+  arborescence dépliable/repliable avec dossiers imbriqués. 2 commits :
+  - **6.1** UI répertoires : SoundBank passe de liste plate à arborescence.
+    Bouton "+ Dossier" (nom auto `nextAvailableFolderName`). Dossiers avec
+    chevron ▶/▼, icône 📁, badge compteur, boutons ✎/× inline.
+    Renommage inline identique aux sons. Suppression cascade : dossier +
+    sous-dossiers + sons + clips associés, avec confirmation détaillée
+    (nombre de sons/clips affectés). `folderCounter` persisté en
+    localStorage. Actions reducer `CREATE_FOLDER`, `RENAME_FOLDER`,
+    `DELETE_FOLDER` — toutes undoable (pile Designer). `DELETE_FOLDER`
+    snapshote aussi la pile Composer (dual-stack) pour restaurer les clips
+    en cascade. Tri alphabétique, état déplié/replié volatile (tous dépliés
+    par défaut). Indentation 16px par niveau de profondeur.
+  - **6.2** Drag dans l'arborescence : drag d'un son vers un dossier
+    (`folderId = folder.id`) ou vers la zone racine (`folderId = null`).
+    Drag d'un dossier vers un autre (`parentId = target.id`) avec
+    protection anti-boucle (vérification récursive des descendants). Zone
+    "Déposer ici → racine" affichée pendant le drag. Feedback visuel :
+    surbrillance cyan sur la cible, opacité réduite sur l'élément draggé.
+    Drag vers la timeline inchangé (`text/plain` payload préservé pour les
+    sons, les dossiers n'en émettent pas). Actions `MOVE_SOUND_TO_FOLDER`,
+    `MOVE_FOLDER` undoable (pile Designer). Tri alphabétique, pas de
+    sortOrder custom.
 
 **Décisions UX clés (à mémoire pour Iter A)**
 - Sauvegarde dans l'éditeur quand `currentSoundId` est non-null : 2 boutons distincts
@@ -545,10 +570,10 @@ sous-itérations correctifs/UX selon les retours.
 - ✅ Spectrogramme statique lecture seule (phase 1)
 - ✅ Multi-sélection + drag/resize/dup/delete groupés + Properties multi
   (phase 2, commits 2.1–2.5)
-- Copier/couper/coller (phase B.3, non démarrée)
-- Fusion de clips (phase B.4)
-- Compléments drag Composer : Ctrl+drag scroll, Alt+drag zoom (phase B.5)
-- Répertoires de sons exposés dans l'UI (phase B.6)
+- ✅ Copier/couper/coller (phase B.3)
+- ✅ Fusion de clips (phase B.4)
+- ✅ Compléments drag Composer : Ctrl+drag scroll, Alt+drag zoom (phase B.5)
+- ✅ Répertoires de sons : arborescence, drag interne, CRUD dossiers (phase B.6)
 - Menu contextuel sur en-tête de mesure : insertion milieu, couper/
   copier/coller mesures, split clips (phase B.7)
 - Spectrogramme : options (toggle dB / linéaire, zoom, FFT temps réel
