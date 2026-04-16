@@ -1,12 +1,13 @@
 const NUM_SAMPLES = 256
 const CANVAS_WIDTH = 600
 
-export function pointsToPeriodicWave(points, audioCtx) {
-  const real = new Float32Array(NUM_SAMPLES)
-  const imag = new Float32Array(NUM_SAMPLES)
-  real[0] = 0
-  imag[0] = 0
+export const HARMONIC_COUNT = NUM_SAMPLES
 
+// Décomposition DFT d'une période de l'onde échantillonnée sur `points`
+// (longueur CANVAS_WIDTH). Retourne les coefficients `real`/`imag` attendus
+// par `createPeriodicWave`, ainsi que les magnitudes `sqrt(real²+imag²)` —
+// utilisées pour l'affichage spectrogramme.
+export function pointsToHarmonics(points) {
   const cycle = new Float32Array(NUM_SAMPLES)
   for (let i = 0; i < NUM_SAMPLES; i++) {
     const canvasX = (i / NUM_SAMPLES) * CANVAS_WIDTH
@@ -16,6 +17,8 @@ export function pointsToPeriodicWave(points, audioCtx) {
     cycle[i] = points[x0] * (1 - frac) + points[x1] * frac
   }
 
+  const real = new Float32Array(NUM_SAMPLES)
+  const imag = new Float32Array(NUM_SAMPLES)
   for (let k = 1; k < NUM_SAMPLES; k++) {
     let re = 0
     let im = 0
@@ -28,6 +31,16 @@ export function pointsToPeriodicWave(points, audioCtx) {
     imag[k] = im / NUM_SAMPLES
   }
 
+  const magnitudes = new Float32Array(NUM_SAMPLES)
+  for (let k = 0; k < NUM_SAMPLES; k++) {
+    magnitudes[k] = Math.sqrt(real[k] * real[k] + imag[k] * imag[k])
+  }
+
+  return { real, imag, magnitudes }
+}
+
+export function pointsToPeriodicWave(points, audioCtx) {
+  const { real, imag } = pointsToHarmonics(points)
   return audioCtx.createPeriodicWave(real, imag, { disableNormalization: false })
 }
 

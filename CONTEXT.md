@@ -11,7 +11,8 @@ React 19 + Vite, Web Audio API native, persistance localStorage. **Pas de
 TypeScript, pas de lib audio, pas de state manager, pas de framework UI,
 pas de routing.** Itération A (refonte UX core : 2 onglets Designer/Composer,
 dual save, zoom %, édition clips, undo/redo) **clôturée le 2026-04-15**.
-Itération B (multi-sélection, folders UI, spectrogramme) et C (multipiste,
+Itération B en cours : **phase 1 livrée le 2026-04-16** (spectrogramme
+statique). Reste multi-sélection, folders UI, etc. Itération C (multipiste,
 look-ahead audio) à venir.
 
 ## Objectif
@@ -41,7 +42,7 @@ synth-app/
     ├── App.jsx               # orchestration, persistance, raccourcis clavier
     ├── App.css               # layout grid responsive Designer/Composer
     ├── index.css
-    ├── audio.js              # DFT -> PeriodicWave, encodage WAV, palette couleurs
+    ├── audio.js              # DFT (pointsToHarmonics, pointsToPeriodicWave), encodage WAV, palette couleurs
     ├── reducer.js            # useReducer global + withUndo (historique par onglet)
     ├── assets/               # résiduel template Vite (non utilisé)
     ├── hooks/
@@ -50,7 +51,7 @@ synth-app/
         ├── Tabs.jsx + .css                    # bascule Designer / Composer
         ├── SoundBank.jsx + .css               # banque de sons partagée
         ├── WaveformEditor.jsx + .css          # éditeur ondes (Designer)
-        ├── SpectrogramPlaceholder.jsx + .css  # placeholder iter B
+        ├── Spectrogram.jsx + .css             # spectrogramme statique (Designer)
         ├── MiniPlayer.jsx + .css              # transport simplifié (Designer)
         ├── BpmInput.jsx                       # input BPM validation différée
         ├── FreqInput.jsx                      # input fréquence libre (phase 3.7)
@@ -412,6 +413,29 @@ Phases listées ci-dessous dans l'ordre chronologique d'implémentation.
   input/textarea/select/contenteditable. Historique RAM uniquement (non
   persisté).
 
+## Itération en cours : B — édition avancée
+
+- ✅ **Phase 1** (2026-04-16) — Spectrogramme statique. Remplace le placeholder
+  par un vrai afficheur de spectre synchronisé avec l'éditeur :
+  - DFT 256 harmoniques extraite d'`audio.js` dans une fonction partagée
+    `pointsToHarmonics(points)` qui retourne `{ real, imag, magnitudes }`.
+    `pointsToPeriodicWave` l'utilise sans changement fonctionnel.
+  - Nouveau composant `Spectrogram.jsx` : canvas ResizeObserver, axe X log
+    20 Hz→20 kHz, axe Y linéaire normalisé par max(magnitudes), barres
+    verticales cyan (#00d4ff) 2px par harmonique k à fréquence k×f0.
+    Grille à 100 Hz / 1 kHz / 10 kHz avec labels. Canvas vide → message
+    "Dessinez une onde pour voir le spectre".
+  - **Lecture seule** : aucun état interne, aucune interaction. Se redessine
+    uniquement quand `editor.points` ou la fréquence fondamentale changent
+    (drafts locaux absorbent les gestes continus — le redraw n'a lieu qu'au
+    mouseup). `amplitude` n'est PAS appliquée (le spectrogramme montre la
+    forme harmonique, pas le volume).
+  - `App.jsx` calcule `editorFrequency` (freeFrequency ou note tempérée) et
+    passe `points` + `frequency` au composant. `SpectrogramPlaceholder.*`
+    supprimés.
+  - Toggle On/Off dans le header Waveform inchangé (phase A.3.6) ; spec
+    reste masqué côté DOM quand OFF.
+
 **Décisions UX clés (à mémoire pour Iter A)**
 - Sauvegarde dans l'éditeur quand `currentSoundId` est non-null : 2 boutons distincts
   ("Mettre à jour" + "Enregistrer comme nouveau"). Action "Mettre à jour" undoable.
@@ -474,14 +498,16 @@ sous-itérations correctifs/UX selon les retours.
 
 ## Roadmap & Backlog
 
-### Itération B (édition avancée) — à rediscuter
+### Itération B (édition avancée) — en cours
 
+- ✅ Spectrogramme statique lecture seule (phase 1)
 - Multi-sélection clips (Shift+clic, rectangle, Ctrl+clic)
 - Copier/coller/déplacer clips en groupe
-- Spectrogramme fonctionnel (lecture seule)
 - Répertoires de sons exposés dans l'UI
 - Menu contextuel sur en-tête de mesure (insertion milieu, couper/
   copier/coller mesures, split clips)
+- Spectrogramme : options (toggle dB / linéaire, zoom, FFT temps réel
+  pendant la lecture, affichage post-ADSR)
 
 ### Itération C (multipiste) — à rediscuter
 

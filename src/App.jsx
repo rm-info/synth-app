@@ -6,7 +6,7 @@ import SoundBank from './components/SoundBank'
 import MiniPlayer from './components/MiniPlayer'
 import Toolbar from './components/Toolbar'
 import PropertiesPanel from './components/PropertiesPanel'
-import SpectrogramPlaceholder from './components/SpectrogramPlaceholder'
+import Spectrogram from './components/Spectrogram'
 import {
   reducer,
   withUndo,
@@ -50,6 +50,10 @@ function App() {
     () => (currentSoundId ? savedSounds.find((s) => s.id === currentSoundId) ?? null : null),
     [currentSoundId, savedSounds],
   )
+
+  const editorFrequency = editor.freeMode
+    ? editor.freeFrequency
+    : 440 * Math.pow(2, ((editor.octave + 1) * 12 + editor.noteIndex - 69) / 12)
 
   // === Effets de bord ===
 
@@ -388,7 +392,7 @@ function App() {
                   <div className="designer-cell">{renderCanvasArea()}</div>
                   {spectrogramVisible && (
                     <div className="designer-cell">
-                      <SpectrogramPlaceholder />
+                      <Spectrogram points={editor.points} frequency={editorFrequency} />
                     </div>
                   )}
                 </div>

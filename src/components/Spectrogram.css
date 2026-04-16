@@ -1,4 +1,4 @@
-.spectrogram-placeholder {
+.spectrogram {
   display: flex;
   flex-direction: column;
   width: 100%;
@@ -29,20 +29,18 @@
   font-weight: 600;
 }
 
-.spectrogram-canvas-area {
+.spectrogram-canvas-container {
   flex: 1;
-  background: #0a0a1a;
-  border: 1px dashed #3a3a5a;
-  border-radius: 6px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  min-height: 0;
+  min-height: 200px;
   min-width: 0;
+  background: #0a0a1a;
+  border: 1px solid #2a2a4a;
+  border-radius: 6px;
+  overflow: hidden;
 }
 
-.spectrogram-placeholder-text {
-  color: #7a7e96;
-  font-size: 0.85rem;
-  font-style: italic;
+.spectrogram-canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
 }
