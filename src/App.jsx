@@ -34,7 +34,7 @@ function App() {
     clips, savedSounds, soundFolders, tracks, bpm, numMeasures,
     editor, activeTab, currentSoundId, zoomH, defaultClipDuration,
     spectrogramVisible, selectedClipIds, composerFlash,
-    soundCounter, clipCounter, clipboard, history, notification,
+    soundCounter, clipCounter, folderCounter, clipboard, history, notification,
   } = state
 
   const editorRef = useRef(null)
@@ -142,6 +142,7 @@ function App() {
           activeTab,
           soundCounter,
           clipCounter,
+          folderCounter,
         }),
       )
     } catch {
@@ -149,7 +150,7 @@ function App() {
     }
   }, [
     savedSounds, soundFolders, tracks, clips, bpm, numMeasures,
-    spectrogramVisible, activeTab, soundCounter, clipCounter,
+    spectrogramVisible, activeTab, soundCounter, clipCounter, folderCounter,
   ])
 
   // Hydratation de l'éditeur quand currentSoundId change. Non-undoable.
@@ -453,6 +454,26 @@ function App() {
     dispatch({ type: 'RENAME_SOUND', payload: { soundId, name: newName } })
   }, [])
 
+  const handleCreateFolder = useCallback((name) => {
+    dispatch({ type: 'CREATE_FOLDER', payload: { name } })
+  }, [])
+
+  const handleRenameFolder = useCallback((folderId, name) => {
+    dispatch({ type: 'RENAME_FOLDER', payload: { folderId, name } })
+  }, [])
+
+  const handleDeleteFolder = useCallback((folderId) => {
+    dispatch({ type: 'DELETE_FOLDER', payload: { folderId } })
+  }, [])
+
+  const handleMoveSoundToFolder = useCallback((soundId, folderId) => {
+    dispatch({ type: 'MOVE_SOUND_TO_FOLDER', payload: { soundId, folderId } })
+  }, [])
+
+  const handleMoveFolder = useCallback((folderId, parentId) => {
+    dispatch({ type: 'MOVE_FOLDER', payload: { folderId, parentId } })
+  }, [])
+
   const handleLoadSound = useCallback(
     (soundId) => {
       // Idempotent if déjà chargé sur Designer
@@ -537,12 +558,18 @@ function App() {
               <aside className="designer-sidebar">
                 <SoundBank
                   savedSounds={savedSounds}
+                  soundFolders={soundFolders}
                   clips={clips}
                   currentSoundId={currentSoundId}
                   activeTab="designer"
                   onLoadSound={handleLoadSound}
                   onRenameSound={handleRenameSound}
                   onDeleteSound={handleDeleteSound}
+                  onCreateFolder={handleCreateFolder}
+                  onRenameFolder={handleRenameFolder}
+                  onDeleteFolder={handleDeleteFolder}
+                  onMoveSoundToFolder={handleMoveSoundToFolder}
+                  onMoveFolder={handleMoveFolder}
                 />
                 <MiniPlayer
                   isPlaying={playback.isPlaying}
@@ -614,12 +641,18 @@ function App() {
               <div className="composer-sidebar">
                 <SoundBank
                   savedSounds={savedSounds}
+                  soundFolders={soundFolders}
                   clips={clips}
                   currentSoundId={currentSoundId}
                   activeTab="composer"
                   onLoadSound={handleLoadSound}
                   onRenameSound={handleRenameSound}
                   onDeleteSound={handleDeleteSound}
+                  onCreateFolder={handleCreateFolder}
+                  onRenameFolder={handleRenameFolder}
+                  onDeleteFolder={handleDeleteFolder}
+                  onMoveSoundToFolder={handleMoveSoundToFolder}
+                  onMoveFolder={handleMoveFolder}
                 />
               </div>
               <div className="composer-main">

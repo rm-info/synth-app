@@ -116,6 +116,7 @@ export function loadPersistedState() {
       soundCounter: parsed.soundCounter ?? 0,
       clipCounter:
         parsed.clipCounter ?? parsed.noteCounter ?? parsed.placementCounter ?? 0,
+      folderCounter: parsed.folderCounter ?? 0,
       spectrogramVisible:
         typeof parsed.spectrogramVisible === 'boolean' ? parsed.spectrogramVisible : true,
       activeTab: parsed.activeTab === 'composer' ? 'composer' : 'designer',
@@ -143,6 +144,7 @@ export function buildInitialState() {
     // sur undo, sinon on risque de réutiliser un id supprimé puis recréé)
     soundCounter: persisted?.soundCounter ?? 0,
     clipCounter: persisted?.clipCounter ?? 0,
+    folderCounter: persisted?.folderCounter ?? 0,
 
     // Clipboard (RAM uniquement, non persisté, non undoable)
     clipboard: null, // { clips: [{ soundId, trackId, beatOffset, duration }] }
@@ -197,6 +199,28 @@ export function soundFromEditor(editor, baseName) {
     sustain: editor.sustain,
     release: editor.release,
   }
+}
+
+export function getDescendantFolderIds(folderId, folders) {
+  const result = []
+  const queue = [folderId]
+  while (queue.length > 0) {
+    const id = queue.shift()
+    for (const f of folders) {
+      if (f.parentId === id) {
+        result.push(f.id)
+        queue.push(f.id)
+      }
+    }
+  }
+  return result
+}
+
+export function countFolderContents(folderId, folders, sounds) {
+  const descendantIds = getDescendantFolderIds(folderId, folders)
+  const allFolderIds = new Set([folderId, ...descendantIds])
+  const containedSounds = sounds.filter((s) => allFolderIds.has(s.folderId))
+  return { soundCount: containedSounds.length, folderCount: descendantIds.length, soundIds: containedSounds.map((s) => s.id) }
 }
 
 export function canSplitClip(clip, divisor) {
@@ -540,6 +564,68 @@ export function reducer(state, action) {
         savedSounds: state.savedSounds.map((s) => (s.id === soundId ? { ...s, name } : s)),
       }
     }
+    case 'CREATE_FOLDER': {
+      const { name } = action.payload
+      const newCounter = state.folderCounter + 1
+      return {
+        ...state,
+        folderCounter: newCounter,
+        soundFolders: [
+          ...state.soundFolders,
+          { id: `folder-${newCounter}`, name, parentId: null },
+        ],
+      }
+    }
+    case 'RENAME_FOLDER': {
+      const { folderId, name } = action.payload
+      return {
+        ...state,
+        soundFolders: state.soundFolders.map((f) =>
+          f.id === folderId ? { ...f, name } : f,
+        ),
+      }
+    }
+    case 'DELETE_FOLDER': {
+      const { folderId } = action.payload
+      const descendantIds = getDescendantFolderIds(folderId, state.soundFolders)
+      const allFolderIds = new Set([folderId, ...descendantIds])
+      const deletedSoundIds = new Set(
+        state.savedSounds.filter((s) => allFolderIds.has(s.folderId)).map((s) => s.id),
+      )
+      return {
+        ...state,
+        soundFolders: state.soundFolders.filter((f) => !allFolderIds.has(f.id)),
+        savedSounds: state.savedSounds.filter((s) => !deletedSoundIds.has(s.id)),
+        clips: state.clips.filter((c) => !deletedSoundIds.has(c.soundId)),
+        selectedClipIds: state.selectedClipIds.filter((id) => {
+          const clip = state.clips.find((c) => c.id === id)
+          return clip && !deletedSoundIds.has(clip.soundId)
+        }),
+        currentSoundId: deletedSoundIds.has(state.currentSoundId) ? null : state.currentSoundId,
+      }
+    }
+    case 'MOVE_SOUND_TO_FOLDER': {
+      const { soundId, folderId } = action.payload
+      return {
+        ...state,
+        savedSounds: state.savedSounds.map((s) =>
+          s.id === soundId ? { ...s, folderId } : s,
+        ),
+      }
+    }
+    case 'MOVE_FOLDER': {
+      const { folderId, parentId } = action.payload
+      if (parentId !== null) {
+        const descendants = getDescendantFolderIds(folderId, state.soundFolders)
+        if (descendants.includes(parentId) || folderId === parentId) return state
+      }
+      return {
+        ...state,
+        soundFolders: state.soundFolders.map((f) =>
+          f.id === folderId ? { ...f, parentId } : f,
+        ),
+      }
+    }
     case 'SET_EDITOR_POINTS': {
       // Le dessin/clear casse le mapping vers un preset.
       return { ...state, editor: { ...state.editor, points: action.payload, preset: null } }
@@ -644,10 +730,13 @@ const COMPOSER_UNDOABLE = new Set([
   'DUPLICATE_CLIPS', 'PASTE_CLIPS', 'SPLIT_CLIPS', 'MERGE_CLIPS', 'DELETE_SELECTED_CLIPS',
   'UPDATE_CLIPS_SOUND', 'UPDATE_CLIPS_DURATION',
   'CLEAR_TIMELINE', 'SET_BPM', 'ADD_MEASURES', 'REMOVE_LAST_MEASURE',
+  'DELETE_FOLDER',
 ])
 
 const DESIGNER_UNDOABLE = new Set([
   'SAVE_SOUND', 'UPDATE_SOUND', 'DELETE_SOUND', 'RENAME_SOUND',
+  'CREATE_FOLDER', 'RENAME_FOLDER', 'DELETE_FOLDER',
+  'MOVE_SOUND_TO_FOLDER', 'MOVE_FOLDER',
   'SET_EDITOR_POINTS', 'SET_EDITOR_NOTE', 'SET_EDITOR_OCTAVE',
   'TOGGLE_EDITOR_FREE_MODE', 'SET_EDITOR_FREQUENCY', 'SET_EDITOR_AMPLITUDE',
   'SET_EDITOR_ADSR', 'APPLY_EDITOR_PRESET', 'RESET_EDITOR',
@@ -761,31 +850,31 @@ export function withUndo(baseReducer) {
     const newState = baseReducer(state, action)
     if (newState === state) return newState // pas de changement → pas de snapshot
 
-    if (COMPOSER_UNDOABLE.has(action.type)) {
-      const snap = pickFields(state, COMPOSER_FIELDS)
-      return {
-        ...newState,
-        history: {
-          ...newState.history,
+    const isComposer = COMPOSER_UNDOABLE.has(action.type)
+    const isDesigner = DESIGNER_UNDOABLE.has(action.type)
+    if (isComposer || isDesigner) {
+      let hist = newState.history
+      if (isComposer) {
+        const snap = pickFields(state, COMPOSER_FIELDS)
+        hist = {
+          ...hist,
           composer: {
-            past: [...newState.history.composer.past, snap].slice(-HISTORY_DEPTH),
+            past: [...hist.composer.past, snap].slice(-HISTORY_DEPTH),
             future: [],
           },
-        },
+        }
       }
-    }
-    if (DESIGNER_UNDOABLE.has(action.type)) {
-      const snap = pickFields(state, DESIGNER_FIELDS)
-      return {
-        ...newState,
-        history: {
-          ...newState.history,
+      if (isDesigner) {
+        const snap = pickFields(state, DESIGNER_FIELDS)
+        hist = {
+          ...hist,
           designer: {
-            past: [...newState.history.designer.past, snap].slice(-HISTORY_DEPTH),
+            past: [...hist.designer.past, snap].slice(-HISTORY_DEPTH),
             future: [],
           },
-        },
+        }
       }
+      return { ...newState, history: hist }
     }
 
     return newState

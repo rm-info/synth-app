@@ -31,10 +31,32 @@
   font-weight: 600;
 }
 
+.sound-bank-header-right {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+
 .sound-bank-count {
   font-family: monospace;
   font-size: 0.75rem;
   color: #5a5a7a;
+}
+
+.folder-add-btn {
+  background: rgba(100, 100, 160, 0.2);
+  border: 1px solid #4a4a6a;
+  border-radius: 4px;
+  color: #a0a0c0;
+  font-size: 0.7rem;
+  padding: 2px 8px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.12s, border-color 0.12s;
+}
+.folder-add-btn:hover {
+  background: rgba(100, 100, 160, 0.35);
+  border-color: #6a6a8a;
 }
 
 .sound-bank-empty {
@@ -50,11 +72,96 @@
   padding: 0;
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 4px;
   overflow-y: auto;
   flex: 1;
   min-height: 0;
 }
+
+/* === Folder items === */
+
+.folder-item {
+  list-style: none;
+}
+
+.folder-row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 5px 8px;
+  border-radius: 6px;
+  background: rgba(80, 80, 120, 0.15);
+  border: 1px solid transparent;
+  color: #c0c0d8;
+  font-size: 0.8rem;
+  cursor: pointer;
+  user-select: none;
+  transition: background 0.12s, border-color 0.15s;
+}
+.folder-row:hover {
+  background: rgba(80, 80, 120, 0.28);
+  border-color: #4a4a6a;
+}
+.folder-row.is-drop-target {
+  background: rgba(0, 212, 255, 0.12);
+  border-color: #00d4ff;
+  box-shadow: 0 0 6px rgba(0, 212, 255, 0.25);
+}
+
+.folder-item.is-dragging > .folder-row {
+  opacity: 0.4;
+}
+
+.folder-chevron {
+  font-size: 0.55rem;
+  color: #7a7a9a;
+  transition: transform 0.15s;
+  flex-shrink: 0;
+  width: 12px;
+  text-align: center;
+}
+.folder-chevron.is-expanded {
+  transform: rotate(90deg);
+}
+
+.folder-icon {
+  font-size: 0.85rem;
+  flex-shrink: 0;
+}
+
+.folder-name {
+  flex: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.folder-badge {
+  font-family: monospace;
+  font-size: 0.65rem;
+  color: #6a6a8a;
+  background: rgba(60, 60, 90, 0.4);
+  border-radius: 8px;
+  padding: 0 5px;
+  line-height: 1.4;
+  flex-shrink: 0;
+}
+
+.folder-rename-input {
+  flex: 1;
+  min-width: 0;
+}
+
+.folder-children {
+  list-style: none;
+  margin: 0;
+  padding: 2px 0 0 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+/* === Sound chips === */
 
 .sound-bank-list .sound-chip {
   display: flex;
@@ -68,7 +175,7 @@
   font-size: 0.8rem;
   cursor: grab;
   user-select: none;
-  transition: transform 0.1s, border-color 0.15s, box-shadow 0.15s;
+  transition: transform 0.1s, border-color 0.15s, box-shadow 0.15s, opacity 0.15s;
 }
 
 .sound-bank-list .sound-chip:hover {
@@ -84,6 +191,10 @@
   background: color-mix(in srgb, var(--chip-color) 22%, #1a1a2e);
   border-color: var(--chip-color);
   box-shadow: 0 0 0 1px var(--chip-color), 0 0 8px color-mix(in srgb, var(--chip-color) 50%, transparent);
+}
+
+.sound-bank-list .sound-chip.is-dragging {
+  opacity: 0.4;
 }
 
 .sound-chip .chip-dot {
@@ -108,7 +219,9 @@
 }
 
 .sound-chip .chip-rename,
-.sound-chip .chip-delete {
+.sound-chip .chip-delete,
+.folder-row .chip-rename,
+.folder-row .chip-delete {
   width: 18px;
   height: 18px;
   border-radius: 4px;
@@ -126,16 +239,19 @@
   transition: background 0.12s, color 0.12s;
 }
 
-.sound-chip .chip-rename:hover {
+.sound-chip .chip-rename:hover,
+.folder-row .chip-rename:hover {
   background: rgba(192, 132, 252, 0.2);
   color: #c084fc;
 }
 
-.sound-chip .chip-delete {
+.sound-chip .chip-delete,
+.folder-row .chip-delete {
   font-size: 1rem;
 }
 
-.sound-chip .chip-delete:hover {
+.sound-chip .chip-delete:hover,
+.folder-row .chip-delete:hover {
   background: rgba(255, 68, 102, 0.2);
   color: #ff4466;
 }
@@ -154,6 +270,40 @@
 }
 .sound-chip .chip-rename-input:focus {
   box-shadow: 0 0 4px var(--chip-color);
+}
+
+.folder-row .chip-rename-input {
+  flex: 1;
+  min-width: 0;
+  background: rgba(0, 0, 0, 0.3);
+  border: 1px solid #6a6a8a;
+  border-radius: 4px;
+  color: #e0e0e0;
+  font-size: 0.8rem;
+  font-family: inherit;
+  padding: 2px 6px;
+  outline: none;
+}
+.folder-row .chip-rename-input:focus {
+  box-shadow: 0 0 4px #6a6a8a;
+}
+
+/* Drop root zone shown during drag */
+.drop-root-zone {
+  margin-top: 6px;
+  padding: 8px;
+  border: 1px dashed #4a4a6a;
+  border-radius: 6px;
+  text-align: center;
+  font-size: 0.7rem;
+  color: #6a6a8a;
+  transition: background 0.12s, border-color 0.15s, color 0.15s;
+  flex-shrink: 0;
+}
+.drop-root-zone.is-active {
+  background: rgba(0, 212, 255, 0.08);
+  border-color: #00d4ff;
+  color: #00d4ff;
 }
 
 /* Responsive : sur petit écran, la sidebar bascule en bandeau horizontal */
