@@ -309,6 +309,40 @@ export function reducer(state, action) {
         selectedClipIds: newClips.map((c) => c.id),
       }
     }
+    case 'MERGE_CLIPS': {
+      // payload: { selectedIds: string[] }
+      // Pré-condition : canMergeClips a déjà été vérifié par le caller.
+      const { selectedIds } = action.payload
+      if (!selectedIds || selectedIds.length < 2) return state
+      const idSet = new Set(selectedIds)
+      const selected = state.clips
+        .filter((c) => idSet.has(c.id))
+        .sort((a, b) => {
+          const aStart = (a.measure - 1) * BEATS_PER_MEASURE + a.beat
+          const bStart = (b.measure - 1) * BEATS_PER_MEASURE + b.beat
+          return aStart - bStart
+        })
+      if (selected.length < 2) return state
+      const first = selected[0]
+      const totalDuration = selected.reduce((s, c) => s + c.duration, 0)
+      const newId = `clip-${state.clipCounter + 1}`
+      return {
+        ...state,
+        clipCounter: state.clipCounter + 1,
+        clips: [
+          ...state.clips.filter((c) => !idSet.has(c.id)),
+          {
+            id: newId,
+            soundId: first.soundId,
+            trackId: first.trackId,
+            measure: first.measure,
+            beat: first.beat,
+            duration: totalDuration,
+          },
+        ],
+        selectedClipIds: [newId],
+      }
+    }
     case 'PASTE_CLIPS': {
       // payload: { clipDatas: [{ trackId, soundId, measure, beat, duration }],
       //            extraMeasures: number }
@@ -561,7 +595,7 @@ const HISTORY_DEPTH = 50
 
 const COMPOSER_UNDOABLE = new Set([
   'ADD_CLIP', 'REMOVE_CLIP', 'UPDATE_CLIP', 'MOVE_CLIPS', 'RESIZE_CLIPS',
-  'DUPLICATE_CLIPS', 'PASTE_CLIPS', 'DELETE_SELECTED_CLIPS',
+  'DUPLICATE_CLIPS', 'PASTE_CLIPS', 'MERGE_CLIPS', 'DELETE_SELECTED_CLIPS',
   'UPDATE_CLIPS_SOUND', 'UPDATE_CLIPS_DURATION',
   'CLEAR_TIMELINE', 'SET_BPM', 'ADD_MEASURES', 'REMOVE_LAST_MEASURE',
 ])

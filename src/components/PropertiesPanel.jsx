@@ -34,6 +34,8 @@ function PropertiesPanel({
   onUpdateClipsSound,
   onUpdateClipsDuration,
   onDeleteSelected,
+  mergeStatus,
+  onMergeClips,
 }) {
   const [collapsed, setCollapsed] = useState(false)
   const count = selectedClipIds.length
@@ -73,6 +75,8 @@ function PropertiesPanel({
               onUpdateClipsSound={onUpdateClipsSound}
               onUpdateClipsDuration={onUpdateClipsDuration}
               onDeleteSelected={onDeleteSelected}
+              mergeStatus={mergeStatus}
+              onMergeClips={onMergeClips}
             />
           )}
           {count === 1 && mono && (
@@ -159,6 +163,8 @@ function MultiClipEditor({
   onUpdateClipsSound,
   onUpdateClipsDuration,
   onDeleteSelected,
+  mergeStatus,
+  onMergeClips,
 }) {
   const firstSoundId = selectedClips[0].soundId
   const allSameSound = selectedClips.every((c) => c.soundId === firstSoundId)
@@ -239,6 +245,16 @@ function MultiClipEditor({
         onClick={() => onDeleteSelected?.()}
       >
         Supprimer la sélection
+      </button>
+
+      <button
+        type="button"
+        className="clip-merge-btn"
+        onClick={() => onMergeClips?.()}
+        disabled={!mergeStatus?.canMerge}
+        title={mergeStatus?.canMerge ? 'Fusionner (Ctrl+M)' : mergeStatus?.reason}
+      >
+        Fusionner
       </button>
     </div>
   )

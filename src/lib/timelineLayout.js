@@ -37,6 +37,55 @@ export function layoutClips(clips, savedSounds) {
 }
 
 /**
+ * Vérifie si les clips sélectionnés peuvent être fusionnés :
+ * - >= 2 clips sélectionnés
+ * - Même soundId
+ * - Exactement adjacents (fin de l'un = début du suivant, triés par position)
+ * - Même lane visuelle (pas de clip non-sélectionné intercalé)
+ */
+export function canMergeClips(clips, selectedIds, savedSounds) {
+  if (!selectedIds || selectedIds.length < 2) {
+    return { canMerge: false, reason: 'Sélectionnez au moins 2 clips' }
+  }
+  const idSet = new Set(selectedIds)
+  const selected = clips.filter((c) => idSet.has(c.id))
+  if (selected.length < 2) {
+    return { canMerge: false, reason: 'Sélectionnez au moins 2 clips' }
+  }
+
+  const firstSoundId = selected[0].soundId
+  if (!selected.every((c) => c.soundId === firstSoundId)) {
+    return { canMerge: false, reason: 'Sons différents' }
+  }
+
+  const sorted = selected
+    .map((c) => ({
+      id: c.id,
+      start: (c.measure - 1) * BEATS_PER_MEASURE + c.beat,
+      duration: c.duration,
+    }))
+    .sort((a, b) => a.start - b.start)
+
+  for (let i = 1; i < sorted.length; i++) {
+    const prevEnd = sorted[i - 1].start + sorted[i - 1].duration
+    const curStart = sorted[i].start
+    const diff = Math.abs(prevEnd - curStart)
+    if (diff > 1e-9) {
+      return { canMerge: false, reason: 'Clips non adjacents' }
+    }
+  }
+
+  const { items } = layoutClips(clips, savedSounds)
+  const laneMap = new Map(items.map((it) => [it.clip.id, it.lane]))
+  const firstLane = laneMap.get(selected[0].id)
+  if (firstLane === undefined || !selected.every((c) => laneMap.get(c.id) === firstLane)) {
+    return { canMerge: false, reason: 'Clips sur des lanes différentes' }
+  }
+
+  return { canMerge: true }
+}
+
+/**
  * Bornes de resize pour un clip :
  *   - minStartLeft : fin du clip précédent dans la même lane (ou 0)
  *   - maxDurationRight : espace disponible jusqu'au clip suivant (ou fin)

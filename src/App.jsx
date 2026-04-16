@@ -20,6 +20,7 @@ import {
   DEFAULT_TRACK_ID,
   sameWaveform,
 } from './reducer'
+import { canMergeClips } from './lib/timelineLayout'
 import Toast from './components/Toast'
 import { usePlayback } from './hooks/usePlayback'
 import './App.css'
@@ -261,6 +262,16 @@ function App() {
     dispatch({ type: 'DELETE_SELECTED_CLIPS' })
   }, [])
 
+  const mergeStatus = useMemo(
+    () => canMergeClips(clips, selectedClipIds, savedSounds),
+    [clips, selectedClipIds, savedSounds],
+  )
+
+  const handleMergeClips = useCallback(() => {
+    if (!mergeStatus.canMerge) return
+    dispatch({ type: 'MERGE_CLIPS', payload: { selectedIds: selectedClipIds } })
+  }, [mergeStatus.canMerge, selectedClipIds])
+
   // --- Clipboard ---
 
   const handleCopy = useCallback(() => {
@@ -352,11 +363,14 @@ function App() {
         if (!pos) return
         e.preventDefault()
         handlePaste(pos.absoluteBeat)
+      } else if (key === 'm' && mergeStatus.canMerge) {
+        e.preventDefault()
+        handleMergeClips()
       }
     }
     window.addEventListener('keydown', handler)
     return () => window.removeEventListener('keydown', handler)
-  }, [activeTab, selectedClipIds, clipboard, handleCopy, handleCut, handlePaste])
+  }, [activeTab, selectedClipIds, clipboard, mergeStatus, handleCopy, handleCut, handlePaste, handleMergeClips])
 
   const handleClearTimeline = useCallback(() => {
     dispatch({ type: 'CLEAR_TIMELINE' })
@@ -624,6 +638,8 @@ function App() {
                   onUpdateClipsSound={handleUpdateClipsSound}
                   onUpdateClipsDuration={handleUpdateClipsDuration}
                   onDeleteSelected={handleDeleteSelected}
+                  mergeStatus={mergeStatus}
+                  onMergeClips={handleMergeClips}
                 />
               </div>
             </main>
