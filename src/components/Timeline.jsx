@@ -474,17 +474,20 @@ function Timeline({
     })
   }
 
-  // Rectangle de sélection : démarré sur mousedown dans une zone vide (sans
-  // modificateur ou avec Shift pour additif). Attaches ses propres listeners
-  // window. Ctrl/Cmd+mousedown sur zone vide est réservé (futur scroll B.2.6)
-  // → géré dans le handler onMouseDown de .cells-wrapper.
+  // Rectangle de sélection confiné au wrapper scrollable de la timeline
+  // (phase 2.1, fix 2.6). Auto-scroll horizontal quand la souris sort par
+  // la gauche ou la droite (~8 px/frame ≈ 480 px/s à 60 fps).
+  const RECT_SCROLL_SPEED = 8
+
   const startRectSelection = (e) => {
     const zone = dropZoneRef.current
-    if (!zone) return
+    const wrapper = wrapperRef.current
+    if (!zone || !wrapper) return
     e.preventDefault()
-    const zoneRect = zone.getBoundingClientRect()
-    const startX = e.clientX - zoneRect.left
-    const startY = e.clientY - zoneRect.top
+
+    const zr = zone.getBoundingClientRect()
+    const startX = e.clientX - zr.left
+    const startY = e.clientY - zr.top
     const additive = e.shiftKey
     const pxPerBeatLocal = pxPerBeat
     const trackHeightLocal = trackHeight
@@ -492,26 +495,68 @@ function Timeline({
     const soundsSnap = savedSounds
     const curSelected = selectedClipIds ?? []
 
+    let lastClientX = e.clientX
+    let lastClientY = e.clientY
+    let scrollAnimId = null
+
     setRectVisual({ startX, startY, currentX: startX, currentY: startY })
 
+    // Convertit la position souris (clampée au wrapper) en espace cells-wrapper.
+    const clampedPoint = () => {
+      const wr = wrapper.getBoundingClientRect()
+      const zoneCur = zone.getBoundingClientRect()
+      const cx = Math.max(wr.left, Math.min(wr.right, lastClientX))
+      const cy = Math.max(wr.top, Math.min(wr.bottom, lastClientY))
+      return { x: cx - zoneCur.left, y: cy - zoneCur.top }
+    }
+
+    const updateVisual = () => {
+      const { x, y } = clampedPoint()
+      setRectVisual({ startX, startY, currentX: x, currentY: y })
+    }
+
+    // Auto-scroll : appelé en boucle rAF quand la souris est hors du wrapper.
+    const autoScroll = () => {
+      const wr = wrapper.getBoundingClientRect()
+      if (lastClientX < wr.left) {
+        wrapper.scrollLeft = Math.max(0, wrapper.scrollLeft - RECT_SCROLL_SPEED)
+      } else if (lastClientX > wr.right) {
+        wrapper.scrollLeft += RECT_SCROLL_SPEED
+      }
+      updateVisual()
+      scrollAnimId = requestAnimationFrame(autoScroll)
+    }
+
     const handleMove = (ev) => {
-      const r = zone.getBoundingClientRect()
-      const currentX = ev.clientX - r.left
-      const currentY = ev.clientY - r.top
-      setRectVisual({ startX, startY, currentX, currentY })
+      lastClientX = ev.clientX
+      lastClientY = ev.clientY
+      updateVisual()
+
+      const wr = wrapper.getBoundingClientRect()
+      const outsideX = ev.clientX < wr.left || ev.clientX > wr.right
+      if (outsideX && scrollAnimId == null) {
+        scrollAnimId = requestAnimationFrame(autoScroll)
+      } else if (!outsideX && scrollAnimId != null) {
+        cancelAnimationFrame(scrollAnimId)
+        scrollAnimId = null
+      }
     }
 
     const handleUp = (ev) => {
+      if (scrollAnimId != null) {
+        cancelAnimationFrame(scrollAnimId)
+        scrollAnimId = null
+      }
       window.removeEventListener('mousemove', handleMove)
       window.removeEventListener('mouseup', handleUp)
-      const r = zone.getBoundingClientRect()
-      const endX = ev.clientX - r.left
-      const endY = ev.clientY - r.top
+
+      lastClientX = ev.clientX
+      lastClientY = ev.clientY
+      const { x: endX, y: endY } = clampedPoint()
       setRectVisual(null)
 
       const moved = Math.hypot(endX - startX, endY - startY) >= DRAG_THRESHOLD_PX
       if (!moved) {
-        // Clic sur zone vide : simple clic → vide, Shift+clic → no-op
         if (!additive) onSetSelection?.([])
         return
       }
