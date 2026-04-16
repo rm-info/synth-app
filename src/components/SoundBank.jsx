@@ -35,7 +35,6 @@ function SoundBank({
   const [dragItem, setDragItem] = useState(null) // { type: 'sound'|'folder', id }
   const [dragOverTarget, setDragOverTarget] = useState(null) // folderId or 'root'
   const dragRef = useRef(null)
-  const bankRef = useRef(null)
 
   const toggleFolder = (folderId) => {
     setCollapsedFolders((prev) => {
@@ -206,6 +205,10 @@ function SoundBank({
       ? 'Clic pour éditer, glisser pour placer sur la timeline'
       : 'Double-clic pour éditer, glisser pour placer sur la timeline'
 
+    const handleChipDragOver = depth > 0
+      ? (e) => { e.stopPropagation() }
+      : undefined
+
     return (
       <li
         key={sound.id}
@@ -214,6 +217,7 @@ function SoundBank({
         draggable={!isEditing}
         onDragStart={(e) => handleDragStartInternal(e, 'sound', sound.id)}
         onDragEnd={handleDragEnd}
+        onDragOver={handleChipDragOver}
         onClick={handleSingleClick}
         onDoubleClick={handleLoad}
         title={isEditing ? undefined : titleText}
@@ -333,7 +337,7 @@ function SoundBank({
           )}
         </div>
         {isExpanded && (childFolders.length > 0 || childSounds.length > 0) && (
-          <ul className="folder-children">
+          <ul className="folder-children" onDragOver={(e) => e.stopPropagation()}>
             {childFolders.map((f) => renderFolder(f, depth + 1))}
             {childSounds.map((s) => renderSoundChip(s, depth + 1))}
           </ul>
@@ -346,7 +350,7 @@ function SoundBank({
 
   if (totalCount === 0 && soundFolders.length === 0) {
     return (
-      <aside className="sound-bank-panel" ref={bankRef}>
+      <aside className="sound-bank-panel">
         <header className="sound-bank-header">
           <h3>Banque</h3>
           <button type="button" className="folder-add-btn" onClick={handleCreateFolder} title="Nouveau dossier">
@@ -361,7 +365,7 @@ function SoundBank({
   }
 
   return (
-    <aside className="sound-bank-panel" ref={bankRef}>
+    <aside className="sound-bank-panel">
       <header className="sound-bank-header">
         <h3>Banque</h3>
         <div className="sound-bank-header-right">
