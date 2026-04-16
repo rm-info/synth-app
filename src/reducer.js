@@ -730,7 +730,6 @@ const COMPOSER_UNDOABLE = new Set([
   'DUPLICATE_CLIPS', 'PASTE_CLIPS', 'SPLIT_CLIPS', 'MERGE_CLIPS', 'DELETE_SELECTED_CLIPS',
   'UPDATE_CLIPS_SOUND', 'UPDATE_CLIPS_DURATION',
   'CLEAR_TIMELINE', 'SET_BPM', 'ADD_MEASURES', 'REMOVE_LAST_MEASURE',
-  'DELETE_FOLDER',
 ])
 
 const DESIGNER_UNDOABLE = new Set([
@@ -742,6 +741,10 @@ const DESIGNER_UNDOABLE = new Set([
   'SET_EDITOR_ADSR', 'APPLY_EDITOR_PRESET', 'RESET_EDITOR',
 ])
 
+// Actions Designer qui cascadent sur des champs Composer (clips, etc.).
+// Leur snapshot Designer inclut les champs Composer pour un undo complet.
+const DESIGNER_CASCADE = new Set(['DELETE_FOLDER', 'DELETE_SOUND'])
+
 // Champs snapshot par pile. Note : `tracks` exclu de COMPOSER pour que la
 // hauteur de piste (zoom V) ne soit pas affectée par un undo (elle vit dans
 // tracks[0].height pour des raisons de modèle, mais zoomV est non-undoable
@@ -750,6 +753,7 @@ const DESIGNER_UNDOABLE = new Set([
 // (ex : après undo de DUPLICATE_CLIPS, les originaux redeviennent sélectionnés).
 const COMPOSER_FIELDS = ['clips', 'numMeasures', 'bpm', 'selectedClipIds']
 const DESIGNER_FIELDS = ['savedSounds', 'soundFolders', 'editor']
+const DESIGNER_CASCADE_FIELDS = [...DESIGNER_FIELDS, 'clips', 'selectedClipIds']
 
 function pickFields(state, fields) {
   const out = {}
@@ -812,12 +816,17 @@ export function withUndo(baseReducer) {
       const { past, future } = state.history.designer
       if (past.length === 0) return state
       const previous = past[past.length - 1]
-      // Bloque si la restauration créerait des clips orphelins
-      const conflict = findOrphanReferences(previous.savedSounds, state.clips)
-      if (conflict) {
-        return { ...state, notification: makeOrphanNotification(conflict) }
+      const isCascade = 'clips' in previous
+      // Bloque si la restauration créerait des clips orphelins (non-cascade only:
+      // cascade snapshots include their own clips so no orphan risk)
+      if (!isCascade) {
+        const conflict = findOrphanReferences(previous.savedSounds, state.clips)
+        if (conflict) {
+          return { ...state, notification: makeOrphanNotification(conflict) }
+        }
       }
-      const current = pickFields(state, DESIGNER_FIELDS)
+      const fields = isCascade ? DESIGNER_CASCADE_FIELDS : DESIGNER_FIELDS
+      const current = pickFields(state, fields)
       return {
         ...state,
         ...previous,
@@ -831,11 +840,15 @@ export function withUndo(baseReducer) {
       const { past, future } = state.history.designer
       if (future.length === 0) return state
       const next = future[0]
-      const conflict = findOrphanReferences(next.savedSounds, state.clips)
-      if (conflict) {
-        return { ...state, notification: makeOrphanNotification(conflict) }
+      const isCascade = 'clips' in next
+      if (!isCascade) {
+        const conflict = findOrphanReferences(next.savedSounds, state.clips)
+        if (conflict) {
+          return { ...state, notification: makeOrphanNotification(conflict) }
+        }
       }
-      const current = pickFields(state, DESIGNER_FIELDS)
+      const fields = isCascade ? DESIGNER_CASCADE_FIELDS : DESIGNER_FIELDS
+      const current = pickFields(state, fields)
       return {
         ...state,
         ...next,
@@ -865,7 +878,10 @@ export function withUndo(baseReducer) {
         }
       }
       if (isDesigner) {
-        const snap = pickFields(state, DESIGNER_FIELDS)
+        const fields = DESIGNER_CASCADE.has(action.type)
+          ? DESIGNER_CASCADE_FIELDS
+          : DESIGNER_FIELDS
+        const snap = pickFields(state, fields)
         hist = {
           ...hist,
           designer: {

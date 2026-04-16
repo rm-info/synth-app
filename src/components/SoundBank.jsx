@@ -89,7 +89,7 @@ function SoundBank({
     e.stopPropagation()
     setDragItem({ type, id })
     dragRef.current = { type, id }
-    e.dataTransfer.effectAllowed = 'move'
+    e.dataTransfer.effectAllowed = type === 'sound' ? 'copyMove' : 'move'
     e.dataTransfer.setData('application/x-soundbank-drag', JSON.stringify({ type, id }))
     if (type === 'sound') {
       e.dataTransfer.setData('text/plain', id)
@@ -213,7 +213,7 @@ function SoundBank({
       <li
         key={sound.id}
         className={`sound-chip ${isCurrent ? 'is-current' : ''} ${isDragging ? 'is-dragging' : ''}`}
-        style={{ '--chip-color': sound.color, paddingLeft: `${8 + depth * 16}px` }}
+        style={{ '--chip-color': sound.color, marginLeft: `${depth * 16}px` }}
         draggable={!isEditing}
         onDragStart={(e) => handleDragStartInternal(e, 'sound', sound.id)}
         onDragEnd={handleDragEnd}
@@ -281,7 +281,7 @@ function SoundBank({
       <li key={folder.id} className={`folder-item ${isDragging ? 'is-dragging' : ''}`}>
         <div
           className={`folder-row ${isDropTarget ? 'is-drop-target' : ''}`}
-          style={{ paddingLeft: `${8 + depth * 16}px` }}
+          style={{ marginLeft: `${depth * 16}px` }}
           draggable={!isEditing}
           onDragStart={(e) => handleDragStartInternal(e, 'folder', folder.id)}
           onDragEnd={handleDragEnd}
