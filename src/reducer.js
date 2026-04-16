@@ -199,6 +199,12 @@ export function soundFromEditor(editor, baseName) {
   }
 }
 
+export function canSplitClip(clip, divisor) {
+  const part = clip.duration / divisor
+  if (part < 0.25) return false
+  return Math.abs(Math.round(part / 0.25) * 0.25 - part) < 1e-9
+}
+
 function clampZoomH(v) {
   return Math.max(MIN_ZOOM_H, Math.min(MAX_ZOOM_H, v))
 }
@@ -307,6 +313,46 @@ export function reducer(state, action) {
         clipCounter: base + datas.length,
         clips: [...state.clips, ...newClips],
         selectedClipIds: newClips.map((c) => c.id),
+      }
+    }
+    case 'SPLIT_CLIPS': {
+      // payload: { clipIds: string[], divisor: 2 | 3 }
+      // Seuls les clips satisfaisant canSplitClip sont divisés ; les autres
+      // restent intacts et sont conservés dans la sélection.
+      const { clipIds, divisor } = action.payload
+      const idSet = new Set(clipIds)
+      const toSplit = state.clips.filter((c) => idSet.has(c.id) && canSplitClip(c, divisor))
+      if (toSplit.length === 0) return state
+      const splitIds = new Set(toSplit.map((c) => c.id))
+      const keptSelectedIds = clipIds.filter((id) => idSet.has(id) && !splitIds.has(id))
+
+      let counter = state.clipCounter
+      const newClips = []
+      const newSelectedIds = [...keptSelectedIds]
+      for (const clip of toSplit) {
+        const partDuration = clip.duration / divisor
+        const startBeat = (clip.measure - 1) * BEATS_PER_MEASURE + clip.beat
+        for (let i = 0; i < divisor; i++) {
+          counter++
+          const beatPos = startBeat + i * partDuration
+          const measure = Math.floor(beatPos / BEATS_PER_MEASURE) + 1
+          const beat = beatPos - (measure - 1) * BEATS_PER_MEASURE
+          newClips.push({
+            id: `clip-${counter}`,
+            soundId: clip.soundId,
+            trackId: clip.trackId,
+            measure,
+            beat,
+            duration: partDuration,
+          })
+          newSelectedIds.push(`clip-${counter}`)
+        }
+      }
+      return {
+        ...state,
+        clipCounter: counter,
+        clips: [...state.clips.filter((c) => !splitIds.has(c.id)), ...newClips],
+        selectedClipIds: newSelectedIds,
       }
     }
     case 'MERGE_CLIPS': {
@@ -595,7 +641,7 @@ const HISTORY_DEPTH = 50
 
 const COMPOSER_UNDOABLE = new Set([
   'ADD_CLIP', 'REMOVE_CLIP', 'UPDATE_CLIP', 'MOVE_CLIPS', 'RESIZE_CLIPS',
-  'DUPLICATE_CLIPS', 'PASTE_CLIPS', 'MERGE_CLIPS', 'DELETE_SELECTED_CLIPS',
+  'DUPLICATE_CLIPS', 'PASTE_CLIPS', 'SPLIT_CLIPS', 'MERGE_CLIPS', 'DELETE_SELECTED_CLIPS',
   'UPDATE_CLIPS_SOUND', 'UPDATE_CLIPS_DURATION',
   'CLEAR_TIMELINE', 'SET_BPM', 'ADD_MEASURES', 'REMOVE_LAST_MEASURE',
 ])

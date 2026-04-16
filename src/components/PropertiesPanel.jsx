@@ -36,6 +36,9 @@ function PropertiesPanel({
   onDeleteSelected,
   mergeStatus,
   onMergeClips,
+  canSplit2,
+  canSplit3,
+  onSplitClips,
 }) {
   const [collapsed, setCollapsed] = useState(false)
   const count = selectedClipIds.length
@@ -77,6 +80,9 @@ function PropertiesPanel({
               onDeleteSelected={onDeleteSelected}
               mergeStatus={mergeStatus}
               onMergeClips={onMergeClips}
+              canSplit2={canSplit2}
+              canSplit3={canSplit3}
+              onSplitClips={onSplitClips}
             />
           )}
           {count === 1 && mono && (
@@ -85,6 +91,9 @@ function PropertiesPanel({
               savedSounds={savedSounds}
               onUpdateClip={onUpdateClip}
               onRemoveClip={onRemoveClip}
+              canSplit2={canSplit2}
+              canSplit3={canSplit3}
+              onSplitClips={onSplitClips}
             />
           )}
         </div>
@@ -93,7 +102,7 @@ function PropertiesPanel({
   )
 }
 
-function ClipEditor({ clip, savedSounds, onUpdateClip, onRemoveClip }) {
+function ClipEditor({ clip, savedSounds, onUpdateClip, onRemoveClip, canSplit2, canSplit3, onSplitClips }) {
   const currentSound = savedSounds.find((s) => s.id === clip.soundId)
 
   return (
@@ -144,6 +153,27 @@ function ClipEditor({ clip, savedSounds, onUpdateClip, onRemoveClip }) {
         </select>
       </label>
 
+      <div className="split-buttons">
+        <button
+          type="button"
+          className="clip-split-btn"
+          onClick={() => onSplitClips?.(2)}
+          disabled={!canSplit2}
+          title={canSplit2 ? 'Diviser par 2 (Ctrl+D)' : 'Durée non divisible par 2'}
+        >
+          ÷2
+        </button>
+        <button
+          type="button"
+          className="clip-split-btn"
+          onClick={() => onSplitClips?.(3)}
+          disabled={!canSplit3}
+          title={canSplit3 ? 'Diviser par 3 (Ctrl+Shift+D)' : 'Durée non divisible par 3'}
+        >
+          ÷3
+        </button>
+      </div>
+
       <button
         type="button"
         className="clip-delete-btn"
@@ -165,6 +195,9 @@ function MultiClipEditor({
   onDeleteSelected,
   mergeStatus,
   onMergeClips,
+  canSplit2,
+  canSplit3,
+  onSplitClips,
 }) {
   const firstSoundId = selectedClips[0].soundId
   const allSameSound = selectedClips.every((c) => c.soundId === firstSoundId)
@@ -247,15 +280,35 @@ function MultiClipEditor({
         Supprimer la sélection
       </button>
 
-      <button
-        type="button"
-        className="clip-merge-btn"
-        onClick={() => onMergeClips?.()}
-        disabled={!mergeStatus?.canMerge}
-        title={mergeStatus?.canMerge ? 'Fusionner (Ctrl+M)' : mergeStatus?.reason}
-      >
-        Fusionner
-      </button>
+      <div className="split-buttons">
+        <button
+          type="button"
+          className="clip-split-btn"
+          onClick={() => onSplitClips?.(2)}
+          disabled={!canSplit2}
+          title={canSplit2 ? 'Diviser par 2 (Ctrl+D)' : 'Durée non divisible par 2'}
+        >
+          ÷2
+        </button>
+        <button
+          type="button"
+          className="clip-split-btn"
+          onClick={() => onSplitClips?.(3)}
+          disabled={!canSplit3}
+          title={canSplit3 ? 'Diviser par 3 (Ctrl+Shift+D)' : 'Durée non divisible par 3'}
+        >
+          ÷3
+        </button>
+        <button
+          type="button"
+          className="clip-merge-btn"
+          onClick={() => onMergeClips?.()}
+          disabled={!mergeStatus?.canMerge}
+          title={mergeStatus?.canMerge ? 'Fusionner (Ctrl+M)' : mergeStatus?.reason}
+        >
+          Fusionner
+        </button>
+      </div>
     </div>
   )
 }

@@ -19,6 +19,7 @@ import {
   MAX_TRACK_HEIGHT,
   DEFAULT_TRACK_ID,
   sameWaveform,
+  canSplitClip,
 } from './reducer'
 import { canMergeClips } from './lib/timelineLayout'
 import Toast from './components/Toast'
@@ -272,6 +273,24 @@ function App() {
     dispatch({ type: 'MERGE_CLIPS', payload: { selectedIds: selectedClipIds } })
   }, [mergeStatus.canMerge, selectedClipIds])
 
+  const canSplit2 = useMemo(
+    () => selectedClipIds.length > 0 &&
+      clips.some((c) => selectedClipIds.includes(c.id) && canSplitClip(c, 2)),
+    [clips, selectedClipIds],
+  )
+  const canSplit3 = useMemo(
+    () => selectedClipIds.length > 0 &&
+      clips.some((c) => selectedClipIds.includes(c.id) && canSplitClip(c, 3)),
+    [clips, selectedClipIds],
+  )
+
+  const handleSplitClips = useCallback(
+    (divisor) => {
+      dispatch({ type: 'SPLIT_CLIPS', payload: { clipIds: selectedClipIds, divisor } })
+    },
+    [selectedClipIds],
+  )
+
   // --- Clipboard ---
 
   const handleCopy = useCallback(() => {
@@ -366,11 +385,18 @@ function App() {
       } else if (key === 'm' && mergeStatus.canMerge) {
         e.preventDefault()
         handleMergeClips()
+      } else if (key === 'd' && selectedClipIds.length > 0) {
+        const divisor = e.shiftKey ? 3 : 2
+        const can = divisor === 2 ? canSplit2 : canSplit3
+        if (can) {
+          e.preventDefault()
+          handleSplitClips(divisor)
+        }
       }
     }
     window.addEventListener('keydown', handler)
     return () => window.removeEventListener('keydown', handler)
-  }, [activeTab, selectedClipIds, clipboard, mergeStatus, handleCopy, handleCut, handlePaste, handleMergeClips])
+  }, [activeTab, selectedClipIds, clipboard, mergeStatus, canSplit2, canSplit3, handleCopy, handleCut, handlePaste, handleMergeClips, handleSplitClips])
 
   const handleClearTimeline = useCallback(() => {
     dispatch({ type: 'CLEAR_TIMELINE' })
@@ -640,6 +666,9 @@ function App() {
                   onDeleteSelected={handleDeleteSelected}
                   mergeStatus={mergeStatus}
                   onMergeClips={handleMergeClips}
+                  canSplit2={canSplit2}
+                  canSplit3={canSplit3}
+                  onSplitClips={handleSplitClips}
                 />
               </div>
             </main>

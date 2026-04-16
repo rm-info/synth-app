@@ -150,6 +150,34 @@
   cursor: pointer;
   font-family: inherit;
 }
+.split-buttons {
+  display: flex;
+  gap: 6px;
+  margin-top: 4px;
+}
+
+.clip-split-btn {
+  flex: 1;
+  padding: 6px 8px;
+  background: #1a1a2a;
+  color: #c084fc;
+  border: 1px solid #3a2a5a;
+  border-radius: 4px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  font-family: inherit;
+  transition: background 0.12s, border-color 0.12s;
+}
+.clip-split-btn:hover:not(:disabled) {
+  background: #2a1a3a;
+  border-color: #c084fc;
+}
+.clip-split-btn:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
 .clip-merge-btn {
   margin-top: 4px;
   padding: 7px 10px;
