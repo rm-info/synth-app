@@ -248,6 +248,20 @@ export function reducer(state, action) {
         }),
       }
     }
+    case 'RESIZE_CLIPS': {
+      // payload: [{ id, measure, beat, duration }] — resize groupé.
+      const updates = new Map(action.payload.map((m) => [m.id, m]))
+      if (updates.size === 0) return state
+      return {
+        ...state,
+        clips: state.clips.map((c) => {
+          const u = updates.get(c.id)
+          return u
+            ? { ...c, measure: u.measure, beat: u.beat, duration: u.duration }
+            : c
+        }),
+      }
+    }
     case 'DELETE_SELECTED_CLIPS': {
       const ids = new Set(state.selectedClipIds)
       if (ids.size === 0) return state
@@ -473,7 +487,7 @@ export function reducer(state, action) {
 const HISTORY_DEPTH = 50
 
 const COMPOSER_UNDOABLE = new Set([
-  'ADD_CLIP', 'REMOVE_CLIP', 'UPDATE_CLIP', 'MOVE_CLIPS', 'DELETE_SELECTED_CLIPS',
+  'ADD_CLIP', 'REMOVE_CLIP', 'UPDATE_CLIP', 'MOVE_CLIPS', 'RESIZE_CLIPS', 'DELETE_SELECTED_CLIPS',
   'CLEAR_TIMELINE', 'SET_BPM', 'ADD_MEASURES', 'REMOVE_LAST_MEASURE',
 ])
 

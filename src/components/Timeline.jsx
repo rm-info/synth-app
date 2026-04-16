@@ -91,6 +91,7 @@ function Timeline({
   onRemoveClip,
   onUpdateClip,
   onMoveClips,
+  onResizeClips,
   selectedClipIds,
   onSetSelection,
   onAddMeasures,
@@ -241,28 +242,33 @@ function Timeline({
       }
 
       if (s.mode === 'resize-right') {
-        // Bord droit bouge ; bord gauche fixe.
-        let newDuration = s.originalDuration + dxSnapped
-        newDuration = Math.max(MIN_CLIP_DURATION, Math.min(s.maxDurationRight, newDuration))
-        newDuration = Math.round(newDuration / SNAP_RESOLUTION) * SNAP_RESOLUTION
+        // Delta groupe borné par le membre le plus contraint (pré-calculé).
+        const clampedDelta = Math.max(s.resizeMinDelta, Math.min(s.resizeMaxDelta, dxSnapped))
+        const newDuration = s.originalDuration + clampedDelta
         s.visual = {
           measure: s.originalMeasure,
           beat: s.originalBeat,
           duration: newDuration,
+          delta: clampedDelta,
         }
       } else {
-        // resize-left : bord gauche bouge ; bord droit fixe.
-        const originalEnd = s.originalStart + s.originalDuration
-        let newStart = s.originalStart + dxSnapped
-        // Min = borne gauche (clip précédent ou 0). Max = originalEnd - MIN_DURATION.
-        newStart = Math.max(s.minStartLeft, Math.min(originalEnd - MIN_CLIP_DURATION, newStart))
-        newStart = Math.round(newStart / SNAP_RESOLUTION) * SNAP_RESOLUTION
-        const newDuration = originalEnd - newStart
+        // resize-left : delta = change of start position ; bord droit fixe.
+        const clampedDelta = Math.max(s.resizeMinDelta, Math.min(s.resizeMaxDelta, dxSnapped))
+        const newStart = s.originalStart + clampedDelta
+        const newDuration = s.originalDuration - clampedDelta
         const measure = Math.floor(newStart / BEATS_PER_MEASURE) + 1
         const beat = newStart - (measure - 1) * BEATS_PER_MEASURE
-        s.visual = { measure, beat, duration: newDuration }
+        s.visual = { measure, beat, duration: newDuration, delta: clampedDelta }
       }
-      setInteractionVisual({ clipId: s.clipId, mode: s.mode, ...s.visual })
+      setInteractionVisual({
+        clipId: s.clipId,
+        mode: s.mode,
+        measure: s.visual.measure,
+        beat: s.visual.beat,
+        duration: s.visual.duration,
+        delta: s.visual.delta,
+        clipIds: s.clipIds,
+      })
     }
 
     const handleUp = () => {
@@ -277,7 +283,8 @@ function Timeline({
         // Drag sous le seuil = clic → sélection mono (remplace)
         onSetSelection?.([s.clipId])
       } else if (s.visual) {
-        if (s.mode === 'drag' && s.clipsBeingMoved && s.clipsBeingMoved.length > 1) {
+        const isResize = s.mode === 'resize-left' || s.mode === 'resize-right'
+        if (s.mode === 'drag' && s.isMulti) {
           // Multi-drag : dispatcher MOVE_CLIPS avec toutes les nouvelles positions.
           const delta = s.visual.delta ?? 0
           if (delta !== 0) {
@@ -288,6 +295,31 @@ function Timeline({
               return { id: cm.id, measure: m, beat: b }
             })
             onMoveClips?.(moves)
+          }
+        } else if (isResize && s.isMulti) {
+          // Multi-resize : RESIZE_CLIPS avec nouvelles mesure/beat/durée.
+          const delta = s.visual.delta ?? 0
+          if (delta !== 0) {
+            const updates = s.clipsBeingResized.map((cr) => {
+              if (s.mode === 'resize-right') {
+                return {
+                  id: cr.id,
+                  measure: cr.originalMeasure,
+                  beat: cr.originalBeat,
+                  duration: cr.originalDuration + delta,
+                }
+              }
+              const newStart = cr.originalStart + delta
+              const m = Math.floor(newStart / BEATS_PER_MEASURE) + 1
+              const b = newStart - (m - 1) * BEATS_PER_MEASURE
+              return {
+                id: cr.id,
+                measure: m,
+                beat: b,
+                duration: cr.originalDuration - delta,
+              }
+            })
+            onResizeClips?.(updates)
           }
         } else {
           onUpdateClip(s.clipId, {
@@ -307,51 +339,82 @@ function Timeline({
       window.removeEventListener('mousemove', handleMove)
       window.removeEventListener('mouseup', handleUp)
     }
-  }, [activeClipId, activeMode, onUpdateClip, onMoveClips, onSetSelection])
+  }, [activeClipId, activeMode, onUpdateClip, onMoveClips, onResizeClips, onSetSelection])
 
-  const startInteraction = (e, clip, mode, bounds) => {
+  const startInteraction = (e, clip, mode, laidOutItems) => {
     if (e.button !== 0) return
     e.preventDefault()
     e.stopPropagation()
     const originalStart = (clip.measure - 1) * BEATS_PER_MEASURE + clip.beat
 
-    // Drag multi : si le clip cible est dans une multi-sélection, on prépare
-    // le groupe. Sinon (drag d'un clip non sélectionné), on remplace la
-    // sélection par ce clip et on drag en mono.
+    // Multi : si le clip cible est dans une multi-sélection (et mode drag ou
+    // resize), on prépare le groupe. Sinon (drag d'un clip non sélectionné),
+    // on remplace la sélection par ce clip et on opère en mono.
     const curSel = selectedClipIds ?? []
     const isInSelection = curSel.includes(clip.id)
-    const isMultiDrag = mode === 'drag' && isInSelection && curSel.length > 1
+    const isMulti = isInSelection && curSel.length > 1
 
-    let clipsBeingMoved
-    let minDelta = -Infinity
-    let maxDelta = Infinity
-    if (isMultiDrag) {
-      clipsBeingMoved = clips
-        .filter((c) => curSel.includes(c.id))
-        .map((c) => ({
-          id: c.id,
-          originalMeasure: c.measure,
-          originalBeat: c.beat,
-          originalDuration: c.duration,
-          originalStart: (c.measure - 1) * BEATS_PER_MEASURE + c.beat,
-        }))
-      for (const cm of clipsBeingMoved) {
-        minDelta = Math.max(minDelta, -cm.originalStart)
-        maxDelta = Math.min(maxDelta, totalBeats - cm.originalStart - cm.originalDuration)
-      }
+    // --- Membres du groupe ---
+    let clipsInGroup
+    if (isMulti) {
+      clipsInGroup = clips.filter((c) => curSel.includes(c.id))
     } else {
       if (mode === 'drag' && !isInSelection) {
         onSetSelection?.([clip.id])
       }
-      clipsBeingMoved = [{
-        id: clip.id,
-        originalMeasure: clip.measure,
-        originalBeat: clip.beat,
-        originalDuration: clip.duration,
-        originalStart,
-      }]
-      minDelta = -originalStart
-      maxDelta = totalBeats - originalStart - clip.duration
+      clipsInGroup = [clip]
+    }
+    const groupIds = new Set(clipsInGroup.map((c) => c.id))
+
+    // --- Drag : delta de position groupé ---
+    let clipsBeingMoved = clipsInGroup.map((c) => ({
+      id: c.id,
+      originalMeasure: c.measure,
+      originalBeat: c.beat,
+      originalDuration: c.duration,
+      originalStart: (c.measure - 1) * BEATS_PER_MEASURE + c.beat,
+    }))
+    let dragMinDelta = -Infinity
+    let dragMaxDelta = Infinity
+    for (const cm of clipsBeingMoved) {
+      dragMinDelta = Math.max(dragMinDelta, -cm.originalStart)
+      dragMaxDelta = Math.min(dragMaxDelta, totalBeats - cm.originalStart - cm.originalDuration)
+    }
+
+    // --- Resize : bornes individuelles (hors groupe) pour chaque membre ---
+    let clipsBeingResized = null
+    let resizeMinDelta = -Infinity
+    let resizeMaxDelta = Infinity
+    if (mode === 'resize-left' || mode === 'resize-right') {
+      clipsBeingResized = clipsInGroup.map((c) => {
+        const b = laidOutItems
+          ? computeBounds(c.id, laidOutItems, groupIds)
+          : { minStartLeft: 0, maxDurationRight: totalBeats }
+        const cStart = (c.measure - 1) * BEATS_PER_MEASURE + c.beat
+        return {
+          id: c.id,
+          originalMeasure: c.measure,
+          originalBeat: c.beat,
+          originalStart: cStart,
+          originalDuration: c.duration,
+          originalEnd: cStart + c.duration,
+          minStartLeft: b.minStartLeft,
+          maxDurationRight: b.maxDurationRight,
+        }
+      })
+      if (mode === 'resize-right') {
+        // delta = change in duration
+        for (const cr of clipsBeingResized) {
+          resizeMinDelta = Math.max(resizeMinDelta, MIN_CLIP_DURATION - cr.originalDuration)
+          resizeMaxDelta = Math.min(resizeMaxDelta, cr.maxDurationRight - cr.originalDuration)
+        }
+      } else {
+        // resize-left : delta = change in start (negative = earlier)
+        for (const cr of clipsBeingResized) {
+          resizeMinDelta = Math.max(resizeMinDelta, cr.minStartLeft - cr.originalStart)
+          resizeMaxDelta = Math.min(resizeMaxDelta, cr.originalDuration - MIN_CLIP_DURATION)
+        }
+      }
     }
 
     interactionRef.current = {
@@ -365,14 +428,15 @@ function Timeline({
       originalMeasure: clip.measure,
       originalBeat: clip.beat,
       originalDuration: clip.duration,
-      // Multi-drag
+      // Multi
       clipsBeingMoved,
-      clipIds: clipsBeingMoved.map((c) => c.id),
-      minDelta,
-      maxDelta,
-      // Bornes de resize calculées au début de la session selon la lane courante.
-      minStartLeft: bounds?.minStartLeft ?? 0,
-      maxDurationRight: bounds?.maxDurationRight ?? (totalBeats - originalStart),
+      clipsBeingResized,
+      clipIds: clipsInGroup.map((c) => c.id),
+      isMulti,
+      minDelta: dragMinDelta,
+      maxDelta: dragMaxDelta,
+      resizeMinDelta,
+      resizeMaxDelta,
       isActive: mode !== 'drag',
       cursorSet: false,
       visual: null,
@@ -383,7 +447,7 @@ function Timeline({
       measure: clip.measure,
       beat: clip.beat,
       duration: clip.duration,
-      clipIds: clipsBeingMoved.map((c) => c.id),
+      clipIds: clipsInGroup.map((c) => c.id),
     })
   }
 
@@ -471,7 +535,9 @@ function Timeline({
   // Bornes de resize pour un clip donné selon la lane courante :
   //  - minStartLeft : fin du clip précédent dans la même lane (ou 0)
   //  - maxDurationRight : espace disponible jusqu'au clip suivant (ou fin)
-  const computeBounds = (targetClipId, laidOutItems) => {
+  // `excludeIds` : ignorés dans le calcul (utilisé pour le resize multi où
+  // les autres membres du groupe ne doivent pas contraindre).
+  const computeBounds = (targetClipId, laidOutItems, excludeIds = null) => {
     const target = laidOutItems.find((it) => it.clip.id === targetClipId)
     if (!target) return { minStartLeft: 0, maxDurationRight: totalBeats }
     const { lane, start, clip } = target
@@ -479,6 +545,7 @@ function Timeline({
     let maxEnd = totalBeats
     for (const it of laidOutItems) {
       if (it.clip.id === targetClipId) continue
+      if (excludeIds && excludeIds.has(it.clip.id)) continue
       if (it.lane !== lane) continue
       if (it.end <= start && it.end > minStartLeft) minStartLeft = it.end
       if (it.start >= start + clip.duration && it.start < maxEnd) maxEnd = it.start
@@ -640,10 +707,9 @@ function Timeline({
             <div className="placed-sounds-layer">
               {laidOut.map(({ clip, sound, lane }) => {
                 const isLeader = interactionVisual?.clipId === clip.id
-                // Membre non-leader d'un multi-drag : suit l'offset du leader.
+                // Membre non-leader d'un multi-drag/resize : suit l'offset du leader.
                 const isGroupMember =
                   !isLeader &&
-                  interactionVisual?.mode === 'drag' &&
                   typeof interactionVisual?.delta === 'number' &&
                   interactionVisual?.clipIds?.includes(clip.id)
                 const isActive = isLeader || isGroupMember
@@ -656,11 +722,25 @@ function Timeline({
                   visualBeat = interactionVisual.beat
                   visualDuration = interactionVisual.duration
                 } else if (isGroupMember) {
-                  const shifted =
-                    (clip.measure - 1) * BEATS_PER_MEASURE + clip.beat + interactionVisual.delta
-                  visualMeasure = Math.floor(shifted / BEATS_PER_MEASURE) + 1
-                  visualBeat = shifted - (visualMeasure - 1) * BEATS_PER_MEASURE
-                  visualDuration = clip.duration
+                  const delta = interactionVisual.delta
+                  if (interactionVisual.mode === 'drag') {
+                    const shifted =
+                      (clip.measure - 1) * BEATS_PER_MEASURE + clip.beat + delta
+                    visualMeasure = Math.floor(shifted / BEATS_PER_MEASURE) + 1
+                    visualBeat = shifted - (visualMeasure - 1) * BEATS_PER_MEASURE
+                    visualDuration = clip.duration
+                  } else if (interactionVisual.mode === 'resize-right') {
+                    visualMeasure = clip.measure
+                    visualBeat = clip.beat
+                    visualDuration = clip.duration + delta
+                  } else {
+                    // resize-left : start décalé de delta, durée compensée
+                    const clipStart = (clip.measure - 1) * BEATS_PER_MEASURE + clip.beat
+                    const newStart = clipStart + delta
+                    visualMeasure = Math.floor(newStart / BEATS_PER_MEASURE) + 1
+                    visualBeat = newStart - (visualMeasure - 1) * BEATS_PER_MEASURE
+                    visualDuration = clip.duration - delta
+                  }
                 } else {
                   visualMeasure = clip.measure
                   visualBeat = clip.beat
@@ -710,13 +790,13 @@ function Timeline({
                   >
                     <div
                       className="resize-handle resize-handle-left"
-                      onMouseDown={(e) => startInteraction(e, clip, 'resize-left', computeBounds(clip.id, laidOut))}
+                      onMouseDown={(e) => startInteraction(e, clip, 'resize-left', laidOut)}
                     />
                     <span className="placed-dot" style={{ backgroundColor: sound.color }} />
                     <span className="placed-name">{sound.name}</span>
                     <div
                       className="resize-handle resize-handle-right"
-                      onMouseDown={(e) => startInteraction(e, clip, 'resize-right', computeBounds(clip.id, laidOut))}
+                      onMouseDown={(e) => startInteraction(e, clip, 'resize-right', laidOut)}
                     />
                   </div>
                 )
