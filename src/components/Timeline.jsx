@@ -95,6 +95,7 @@ function Timeline({
   // vide, pilotée par des listeners window attachés dynamiquement par
   // `startRectSelection`.
   const [rectVisual, setRectVisual] = useState(null)
+  const [zoomRectVisual, setZoomRectVisual] = useState(null)
 
   // Miroir des clips courants pour lire dans les handlers window (les listeners
   // sont attachés au début de session et closure ne serait pas à jour).
@@ -364,6 +365,12 @@ function Timeline({
 
   const startInteraction = (e, clip, mode, laidOutItems, opts = {}) => {
     if (e.button !== 0) return
+    if (e.altKey) {
+      e.preventDefault()
+      e.stopPropagation()
+      startAltZoom(e)
+      return
+    }
     e.preventDefault()
     e.stopPropagation()
     const { ctrlAtStart = false } = opts
@@ -476,6 +483,92 @@ function Timeline({
       duration: clip.duration,
       clipIds: clipsInGroup.map((c) => c.id),
     })
+  }
+
+  // Ctrl+drag sur zone vide = scroll horizontal (pan).
+  // Les curseurs sont gérés dans les handlers window (pas JSX) pour
+  // satisfaire react-hooks/immutability.
+  const startCtrlScroll = (e) => {
+    const wrapper = wrapperRef.current
+    if (!wrapper) return
+    e.preventDefault()
+    const startX = e.clientX
+    const initialScrollLeft = wrapper.scrollLeft
+    let cursorSet = false
+
+    const handleMove = (ev) => {
+      if (!cursorSet) {
+        cursorSet = true
+        document.body.style.cursor = 'grabbing'
+        document.body.style.userSelect = 'none'
+      }
+      wrapper.scrollLeft = initialScrollLeft - (ev.clientX - startX)
+    }
+    const handleUp = () => {
+      if (cursorSet) {
+        document.body.style.cursor = ''
+        document.body.style.userSelect = ''
+      }
+      window.removeEventListener('mousemove', handleMove)
+      window.removeEventListener('mouseup', handleUp)
+    }
+    window.addEventListener('mousemove', handleMove)
+    window.addEventListener('mouseup', handleUp)
+  }
+
+  // Alt+drag = zoom rectangle horizontal
+  const ZOOM_RECT_THRESHOLD = 10
+  const startAltZoom = (e) => {
+    const wrapper = wrapperRef.current
+    const zone = dropZoneRef.current
+    if (!wrapper || !zone) return
+    e.preventDefault()
+
+    const zr = zone.getBoundingClientRect()
+    const startX = e.clientX - zr.left
+    const pxPerBeatSnap = pxPerBeat
+    const zoomSnap = zoomH
+    let cursorSet = false
+
+    setZoomRectVisual({ startX, currentX: startX })
+
+    const handleMove = (ev) => {
+      if (!cursorSet) {
+        cursorSet = true
+        document.body.style.cursor = 'zoom-in'
+        document.body.style.userSelect = 'none'
+      }
+      const currentX = ev.clientX - zone.getBoundingClientRect().left
+      setZoomRectVisual({ startX, currentX })
+    }
+
+    const handleUp = (ev) => {
+      if (cursorSet) {
+        document.body.style.cursor = ''
+        document.body.style.userSelect = ''
+      }
+      window.removeEventListener('mousemove', handleMove)
+      window.removeEventListener('mouseup', handleUp)
+      const endX = ev.clientX - zone.getBoundingClientRect().left
+      setZoomRectVisual(null)
+
+      const rectWidth = Math.abs(endX - startX)
+      if (rectWidth < ZOOM_RECT_THRESHOLD) return
+
+      const wrapperWidth = wrapper.clientWidth
+      const newZoom = Math.max(zoomHMin, Math.min(zoomHMax, zoomSnap * wrapperWidth / rectWidth))
+      onSetZoomH(newZoom)
+
+      const rectCenter = (startX + endX) / 2
+      const beatCenter = rectCenter / pxPerBeatSnap
+      requestAnimationFrame(() => {
+        const newPxPerBeat = pxPerBeatFromZoom(newZoom)
+        wrapper.scrollLeft = beatCenter * newPxPerBeat - wrapperWidth / 2
+      })
+    }
+
+    window.addEventListener('mousemove', handleMove)
+    window.addEventListener('mouseup', handleUp)
   }
 
   // Rectangle de sélection confiné au wrapper scrollable de la timeline
@@ -742,9 +835,15 @@ function Timeline({
               // Les clips appellent stopPropagation sur mousedown, donc ce handler
               // ne se déclenche que pour un clic dans une zone vide.
               if (e.button !== 0) return
-              // Ctrl/Cmd+drag sur zone vide réservé (futur scroll horizontal B.2.6).
-              if (e.ctrlKey || e.metaKey) return
               setContextMenu(null)
+              if (e.altKey) {
+                startAltZoom(e)
+                return
+              }
+              if (e.ctrlKey || e.metaKey) {
+                startCtrlScroll(e)
+                return
+              }
               startRectSelection(e)
             }}
             onMouseMove={(e) => {
@@ -912,6 +1011,18 @@ function Timeline({
               <div
                 className="playback-cursor"
                 style={{ left: `${cursorPos * 100}%` }}
+              />
+            )}
+
+            {zoomRectVisual && (
+              <div
+                className="zoom-rect"
+                style={{
+                  left: `${Math.min(zoomRectVisual.startX, zoomRectVisual.currentX)}px`,
+                  top: 0,
+                  width: `${Math.abs(zoomRectVisual.currentX - zoomRectVisual.startX)}px`,
+                  bottom: 0,
+                }}
               />
             )}
 

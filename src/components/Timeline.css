@@ -202,6 +202,16 @@
   box-shadow: 0 0 10px rgba(255, 255, 255, 0.25);
 }
 
+/* Rectangle de zoom Alt+drag (phase 5) */
+.zoom-rect {
+  position: absolute;
+  border: 2px solid #fbbf24;
+  background: rgba(251, 191, 36, 0.12);
+  pointer-events: none;
+  z-index: 6;
+  box-sizing: border-box;
+}
+
 /* Rectangle de sélection (phase 2.1) */
 .selection-rect {
   position: absolute;
