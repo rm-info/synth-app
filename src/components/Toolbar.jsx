@@ -19,6 +19,10 @@ const DURATION_OPTIONS = [
 function Toolbar({
   bpm,
   onSetBpm,
+  hasSelection,
+  hasClipboard,
+  onCopy,
+  onCut,
   isPlaying,
   hasClips,
   isExporting,
@@ -129,6 +133,30 @@ function Toolbar({
           aria-label="Hauteur de piste"
         />
         <span className="zoom-value">{trackHeight}px</span>
+      </div>
+
+      <div className="toolbar-section clipboard-section">
+        <button
+          type="button"
+          className="toolbar-secondary"
+          onClick={onCopy}
+          disabled={!hasSelection}
+          title="Copier les clips sélectionnés (Ctrl+C)"
+        >
+          Copier
+        </button>
+        <button
+          type="button"
+          className="toolbar-secondary"
+          onClick={onCut}
+          disabled={!hasSelection}
+          title="Couper les clips sélectionnés (Ctrl+X)"
+        >
+          Couper
+        </button>
+        {hasClipboard && (
+          <span className="clipboard-hint">Ctrl+V ou clic droit pour coller</span>
+        )}
       </div>
 
       <div className="toolbar-section history-section">

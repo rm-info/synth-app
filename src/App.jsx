@@ -32,10 +32,15 @@ function App() {
     clips, savedSounds, soundFolders, tracks, bpm, numMeasures,
     editor, activeTab, currentSoundId, zoomH, defaultClipDuration,
     spectrogramVisible, selectedClipIds, composerFlash,
-    soundCounter, clipCounter, history, notification,
+    soundCounter, clipCounter, clipboard, history, notification,
   } = state
 
   const editorRef = useRef(null)
+
+  // Position courante de la souris dans la timeline (espace scrollable en
+  // beats). Mis à jour en continu par Timeline via onMouseMove. Null si la
+  // souris est hors de la zone timeline. Utilisé pour le collage au clavier.
+  const timelineMouseRef = useRef(null)
 
   const trackHeight = tracks[0]?.height ?? 80
 
@@ -94,8 +99,8 @@ function App() {
     return () => window.removeEventListener('keydown', handler)
   }, [activeTab])
 
-  // Global Delete/Backspace — supprime les clips sélectionnés, et Échap → vide
-  // la sélection. Sauf si focus dans un input/textarea/contenteditable.
+  // Global Delete/Backspace/Escape (les raccourcis Ctrl+C/X/V sont
+  // dans un effet séparé plus bas, après la déclaration des handlers).
   useEffect(() => {
     const handleKeyDown = (e) => {
       const isDelete = e.key === 'Delete' || e.key === 'Backspace'
@@ -255,6 +260,103 @@ function App() {
   const handleDeleteSelected = useCallback(() => {
     dispatch({ type: 'DELETE_SELECTED_CLIPS' })
   }, [])
+
+  // --- Clipboard ---
+
+  const handleCopy = useCallback(() => {
+    if (selectedClipIds.length === 0) return
+    const selected = clips.filter((c) => selectedClipIds.includes(c.id))
+    const minBeat = Math.min(
+      ...selected.map((c) => (c.measure - 1) * BEATS_PER_MEASURE + c.beat),
+    )
+    const templates = selected.map((c) => ({
+      soundId: c.soundId,
+      trackId: c.trackId,
+      beatOffset: (c.measure - 1) * BEATS_PER_MEASURE + c.beat - minBeat,
+      duration: c.duration,
+    }))
+    dispatch({ type: 'SET_CLIPBOARD', payload: { clips: templates } })
+    const n = templates.length
+    dispatch({
+      type: 'SET_COMPOSER_FLASH',
+      payload: `${n} clip${n > 1 ? 's' : ''} copié${n > 1 ? 's' : ''}`,
+    })
+  }, [selectedClipIds, clips])
+
+  const handleCut = useCallback(() => {
+    if (selectedClipIds.length === 0) return
+    const selected = clips.filter((c) => selectedClipIds.includes(c.id))
+    const minBeat = Math.min(
+      ...selected.map((c) => (c.measure - 1) * BEATS_PER_MEASURE + c.beat),
+    )
+    const templates = selected.map((c) => ({
+      soundId: c.soundId,
+      trackId: c.trackId,
+      beatOffset: (c.measure - 1) * BEATS_PER_MEASURE + c.beat - minBeat,
+      duration: c.duration,
+    }))
+    dispatch({ type: 'SET_CLIPBOARD', payload: { clips: templates } })
+    dispatch({ type: 'DELETE_SELECTED_CLIPS' })
+    const n = templates.length
+    dispatch({
+      type: 'SET_COMPOSER_FLASH',
+      payload: `${n} clip${n > 1 ? 's' : ''} coupé${n > 1 ? 's' : ''}`,
+    })
+  }, [selectedClipIds, clips])
+
+  const handlePaste = useCallback(
+    (absoluteBeat) => {
+      if (!clipboard || clipboard.clips.length === 0) return
+      const snapped = Math.round(absoluteBeat / 0.25) * 0.25
+      const clipDatas = clipboard.clips.map((t) => {
+        const beatPos = snapped + t.beatOffset
+        const measure = Math.floor(beatPos / BEATS_PER_MEASURE) + 1
+        const beat = beatPos - (measure - 1) * BEATS_PER_MEASURE
+        return {
+          trackId: t.trackId || DEFAULT_TRACK_ID,
+          soundId: t.soundId,
+          measure,
+          beat,
+          duration: t.duration,
+        }
+      })
+      const maxEnd = Math.max(
+        ...clipDatas.map((d) => (d.measure - 1) * BEATS_PER_MEASURE + d.beat + d.duration),
+      )
+      const neededMeasures = Math.ceil(maxEnd / BEATS_PER_MEASURE)
+      const extraMeasures = Math.max(0, neededMeasures - numMeasures)
+      dispatch({ type: 'PASTE_CLIPS', payload: { clipDatas, extraMeasures } })
+    },
+    [clipboard, numMeasures],
+  )
+
+  // Raccourcis Ctrl+C/X/V — après la déclaration des handlers clipboard.
+  useEffect(() => {
+    const handler = (e) => {
+      const ctrl = e.ctrlKey || e.metaKey
+      if (!ctrl) return
+      if (activeTab !== 'composer') return
+      const target = e.target
+      const tag = target?.tagName
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return
+      if (target?.isContentEditable) return
+      const key = e.key.toLowerCase()
+      if (key === 'c' && selectedClipIds.length > 0) {
+        e.preventDefault()
+        handleCopy()
+      } else if (key === 'x' && selectedClipIds.length > 0) {
+        e.preventDefault()
+        handleCut()
+      } else if (key === 'v' && clipboard) {
+        const pos = timelineMouseRef.current
+        if (!pos) return
+        e.preventDefault()
+        handlePaste(pos.absoluteBeat)
+      }
+    }
+    window.addEventListener('keydown', handler)
+    return () => window.removeEventListener('keydown', handler)
+  }, [activeTab, selectedClipIds, clipboard, handleCopy, handleCut, handlePaste])
 
   const handleClearTimeline = useCallback(() => {
     dispatch({ type: 'CLEAR_TIMELINE' })
@@ -440,6 +542,10 @@ function App() {
                 <Toolbar
                   bpm={bpm}
                   onSetBpm={setBpm}
+                  hasSelection={selectedClipIds.length > 0}
+                  hasClipboard={!!clipboard && clipboard.clips.length > 0}
+                  onCopy={handleCopy}
+                  onCut={handleCut}
                   isPlaying={playback.isPlaying}
                   hasClips={clips.length > 0}
                   isExporting={playback.isExporting}
@@ -502,6 +608,9 @@ function App() {
                   onSetSelection={handleSetSelection}
                   onAddMeasures={handleAddMeasures}
                   onRemoveLastMeasure={handleRemoveLastMeasure}
+                  mousePositionRef={timelineMouseRef}
+                  hasClipboard={!!clipboard && clipboard.clips.length > 0}
+                  onPaste={handlePaste}
                 />
               </div>
               <div className="composer-aside">

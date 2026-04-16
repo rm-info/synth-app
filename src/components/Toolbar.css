@@ -139,6 +139,13 @@
   border-color: #00d4ff;
 }
 
+.clipboard-hint {
+  font-size: 0.65rem;
+  color: #7a7a9a;
+  font-style: italic;
+  white-space: nowrap;
+}
+
 .zoom-h-section,
 .zoom-v-section,
 .history-section {

@@ -144,6 +144,9 @@ export function buildInitialState() {
     soundCounter: persisted?.soundCounter ?? 0,
     clipCounter: persisted?.clipCounter ?? 0,
 
+    // Clipboard (RAM uniquement, non persisté, non undoable)
+    clipboard: null, // { clips: [{ soundId, trackId, beatOffset, duration }] }
+
     // UI (jamais undoable)
     zoomH: DEFAULT_ZOOM_H,
     activeTab: persisted?.activeTab ?? 'designer',
@@ -304,6 +307,29 @@ export function reducer(state, action) {
         clipCounter: base + datas.length,
         clips: [...state.clips, ...newClips],
         selectedClipIds: newClips.map((c) => c.id),
+      }
+    }
+    case 'PASTE_CLIPS': {
+      // payload: { clipDatas: [{ trackId, soundId, measure, beat, duration }],
+      //            extraMeasures: number }
+      // Atomique : crée les clips + étend numMeasures si nécessaire.
+      const { clipDatas, extraMeasures = 0 } = action.payload
+      if (!clipDatas || clipDatas.length === 0) return state
+      const base = state.clipCounter
+      const newClips = clipDatas.map((d, i) => ({
+        id: `clip-${base + i + 1}`,
+        trackId: d.trackId,
+        soundId: d.soundId,
+        measure: d.measure,
+        beat: d.beat,
+        duration: d.duration,
+      }))
+      return {
+        ...state,
+        clipCounter: base + clipDatas.length,
+        clips: [...state.clips, ...newClips],
+        selectedClipIds: newClips.map((c) => c.id),
+        numMeasures: state.numMeasures + extraMeasures,
       }
     }
     case 'DELETE_SELECTED_CLIPS': {
@@ -495,6 +521,9 @@ export function reducer(state, action) {
     }
 
     // ----- Non-undoable -----
+    case 'SET_CLIPBOARD': {
+      return { ...state, clipboard: action.payload }
+    }
     case 'SET_ZOOM_H': {
       const v = typeof action.payload === 'function' ? action.payload(state.zoomH) : action.payload
       return { ...state, zoomH: clampZoomH(v) }
@@ -532,7 +561,7 @@ const HISTORY_DEPTH = 50
 
 const COMPOSER_UNDOABLE = new Set([
   'ADD_CLIP', 'REMOVE_CLIP', 'UPDATE_CLIP', 'MOVE_CLIPS', 'RESIZE_CLIPS',
-  'DUPLICATE_CLIPS', 'DELETE_SELECTED_CLIPS',
+  'DUPLICATE_CLIPS', 'PASTE_CLIPS', 'DELETE_SELECTED_CLIPS',
   'UPDATE_CLIPS_SOUND', 'UPDATE_CLIPS_DURATION',
   'CLEAR_TIMELINE', 'SET_BPM', 'ADD_MEASURES', 'REMOVE_LAST_MEASURE',
 ])

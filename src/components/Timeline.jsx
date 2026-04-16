@@ -73,10 +73,14 @@ function Timeline({
   onSetSelection,
   onAddMeasures,
   onRemoveLastMeasure,
+  mousePositionRef,
+  hasClipboard,
+  onPaste,
 }) {
   const wrapperRef = useRef(null)
   const dropZoneRef = useRef(null)
   const visualizerCanvasRef = useRef(null)
+  const [contextMenu, setContextMenu] = useState(null)
 
   // --- Interaction clip (drag / resize-left / resize-right) ---
   // interactionRef : mutable, contient l'état live pendant l'interaction
@@ -695,6 +699,7 @@ function Timeline({
       <div
         className="timeline-grid-wrapper"
         ref={wrapperRef}
+        onMouseLeave={() => { if (mousePositionRef) mousePositionRef.current = null }}
       >
         <div
           className="timeline-grid"
@@ -739,7 +744,30 @@ function Timeline({
               if (e.button !== 0) return
               // Ctrl/Cmd+drag sur zone vide réservé (futur scroll horizontal B.2.6).
               if (e.ctrlKey || e.metaKey) return
+              setContextMenu(null)
               startRectSelection(e)
+            }}
+            onMouseMove={(e) => {
+              if (mousePositionRef && dropZoneRef.current) {
+                const rect = dropZoneRef.current.getBoundingClientRect()
+                mousePositionRef.current = {
+                  absoluteBeat: (e.clientX - rect.left) / pxPerBeat,
+                }
+              }
+            }}
+            onContextMenu={(e) => {
+              // Les clips ont leur propre onContextMenu (stopPropagation), donc
+              // ce handler ne se déclenche que pour un clic droit sur zone vide.
+              e.preventDefault()
+              setContextMenu(null)
+              if (!hasClipboard) return
+              const rect = dropZoneRef.current?.getBoundingClientRect()
+              if (!rect) return
+              setContextMenu({
+                clientX: e.clientX,
+                clientY: e.clientY,
+                absoluteBeat: (e.clientX - rect.left) / pxPerBeat,
+              })
             }}
           >
             <div className="grid-lines-layer">{gridLines}</div>
@@ -939,6 +967,29 @@ function Timeline({
           Glissez-déposez un son depuis la banque pour placer un clip. Clic droit pour retirer.
           Ctrl + molette pour zoomer.
         </p>
+      )}
+
+      {contextMenu && (
+        <>
+          <div
+            className="context-menu-backdrop"
+            onMouseDown={() => setContextMenu(null)}
+          />
+          <div
+            className="timeline-context-menu"
+            style={{ left: `${contextMenu.clientX}px`, top: `${contextMenu.clientY}px` }}
+          >
+            <button
+              type="button"
+              onClick={() => {
+                onPaste?.(contextMenu.absoluteBeat)
+                setContextMenu(null)
+              }}
+            >
+              Coller ici
+            </button>
+          </div>
+        </>
       )}
     </div>
   )

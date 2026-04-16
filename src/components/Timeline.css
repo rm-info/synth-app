@@ -265,6 +265,42 @@
   height: 80px;
 }
 
+/* Menu contextuel coller (phase 3) */
+.context-menu-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 99;
+}
+
+.timeline-context-menu {
+  position: fixed;
+  z-index: 100;
+  background: #1a1a2e;
+  border: 1px solid #4a4a6a;
+  border-radius: 6px;
+  padding: 4px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5);
+}
+
+.timeline-context-menu button {
+  display: block;
+  width: 100%;
+  padding: 6px 16px;
+  background: transparent;
+  border: none;
+  border-radius: 4px;
+  color: #e0e0ff;
+  font-size: 0.82rem;
+  font-family: inherit;
+  cursor: pointer;
+  text-align: left;
+  white-space: nowrap;
+}
+.timeline-context-menu button:hover {
+  background: #2a2a4a;
+  color: #00d4ff;
+}
+
 /* Hints */
 .timeline-hint {
   text-align: center;
