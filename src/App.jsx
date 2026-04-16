@@ -240,6 +240,10 @@ function App() {
     dispatch({ type: 'RESIZE_CLIPS', payload: updates })
   }, [])
 
+  const handleDuplicateClips = useCallback((datas) => {
+    dispatch({ type: 'DUPLICATE_CLIPS', payload: datas })
+  }, [])
+
   const handleClearTimeline = useCallback(() => {
     dispatch({ type: 'CLEAR_TIMELINE' })
   }, [])
@@ -481,6 +485,7 @@ function App() {
                   onUpdateClip={handleUpdateClip}
                   onMoveClips={handleMoveClips}
                   onResizeClips={handleResizeClips}
+                  onDuplicateClips={handleDuplicateClips}
                   selectedClipIds={selectedClipIds}
                   onSetSelection={handleSetSelection}
                   onAddMeasures={handleAddMeasures}

@@ -92,6 +92,7 @@ function Timeline({
   onUpdateClip,
   onMoveClips,
   onResizeClips,
+  onDuplicateClips,
   selectedClipIds,
   onSetSelection,
   onAddMeasures,
@@ -114,6 +115,11 @@ function Timeline({
   // vide, pilotée par des listeners window attachés dynamiquement par
   // `startRectSelection`.
   const [rectVisual, setRectVisual] = useState(null)
+
+  // Miroir des clips courants pour lire dans les handlers window (les listeners
+  // sont attachés au début de session et closure ne serait pas à jour).
+  const clipsRef = useRef(clips)
+  useEffect(() => { clipsRef.current = clips }, [clips])
 
   const pxPerBeat = pxPerBeatFromZoom(zoomH)
   const pxPerMeasure = pxPerBeat * BEATS_PER_MEASURE
@@ -189,8 +195,10 @@ function Timeline({
   useEffect(() => {
     if (!activeClipId) return
 
-    const commitCursor = (mode) => {
-      if (mode === 'drag') {
+    const commitCursor = (mode, duplicating = false) => {
+      if (duplicating) {
+        document.body.style.cursor = 'copy'
+      } else if (mode === 'drag') {
         document.body.style.cursor = 'grabbing'
       } else {
         document.body.style.cursor = 'ew-resize'
@@ -212,7 +220,7 @@ function Timeline({
         if (!s.isActive && !justStarted) return
         if (justStarted) {
           s.isActive = true
-          commitCursor('drag')
+          commitCursor('drag', s.ctrlAtStart)
         }
         // Delta groupe : tous les membres prennent le même offset. Bornes
         // pré-calculées au mousedown → le groupe s'arrête dès que le membre
@@ -230,6 +238,7 @@ function Timeline({
           duration: s.originalDuration,
           delta: clampedDelta,
           clipIds: s.clipIds,
+          isDuplicating: s.ctrlAtStart,
         })
         return
       }
@@ -280,11 +289,43 @@ function Timeline({
         return
       }
       if (!s.isActive) {
-        // Drag sous le seuil = clic → sélection mono (remplace)
-        onSetSelection?.([s.clipId])
+        // Drag sous le seuil = clic
+        if (s.ctrlAtStart) {
+          // Ctrl+clic : toggle de la sélection (à partir de l'état pré-mouseup)
+          const pre = s.preselectionIds
+          const next = pre.includes(s.clipId)
+            ? pre.filter((id) => id !== s.clipId)
+            : [...pre, s.clipId]
+          onSetSelection?.(next)
+        } else {
+          // Clic simple : remplace la sélection par ce clip
+          onSetSelection?.([s.clipId])
+        }
       } else if (s.visual) {
         const isResize = s.mode === 'resize-left' || s.mode === 'resize-right'
-        if (s.mode === 'drag' && s.isMulti) {
+        if (s.mode === 'drag' && s.ctrlAtStart) {
+          // Ctrl+drag : duplication des clipsBeingMoved à l'offset
+          const delta = s.visual.delta ?? 0
+          if (delta !== 0) {
+            const datas = s.clipsBeingMoved
+              .map((cm) => {
+                const src = clipsRef.current.find((c) => c.id === cm.id)
+                if (!src) return null
+                const newStart = cm.originalStart + delta
+                const m = Math.floor(newStart / BEATS_PER_MEASURE) + 1
+                const b = newStart - (m - 1) * BEATS_PER_MEASURE
+                return {
+                  trackId: src.trackId,
+                  soundId: src.soundId,
+                  measure: m,
+                  beat: b,
+                  duration: cm.originalDuration,
+                }
+              })
+              .filter(Boolean)
+            if (datas.length > 0) onDuplicateClips?.(datas)
+          }
+        } else if (s.mode === 'drag' && s.isMulti) {
           // Multi-drag : dispatcher MOVE_CLIPS avec toutes les nouvelles positions.
           const delta = s.visual.delta ?? 0
           if (delta !== 0) {
@@ -339,17 +380,18 @@ function Timeline({
       window.removeEventListener('mousemove', handleMove)
       window.removeEventListener('mouseup', handleUp)
     }
-  }, [activeClipId, activeMode, onUpdateClip, onMoveClips, onResizeClips, onSetSelection])
+  }, [activeClipId, activeMode, onUpdateClip, onMoveClips, onResizeClips, onDuplicateClips, onSetSelection])
 
-  const startInteraction = (e, clip, mode, laidOutItems) => {
+  const startInteraction = (e, clip, mode, laidOutItems, opts = {}) => {
     if (e.button !== 0) return
     e.preventDefault()
     e.stopPropagation()
+    const { ctrlAtStart = false } = opts
     const originalStart = (clip.measure - 1) * BEATS_PER_MEASURE + clip.beat
 
     // Multi : si le clip cible est dans une multi-sélection (et mode drag ou
     // resize), on prépare le groupe. Sinon (drag d'un clip non sélectionné),
-    // on remplace la sélection par ce clip et on opère en mono.
+    // on remplace la sélection par ce clip (sauf en Ctrl+drag, voir 2.4).
     const curSel = selectedClipIds ?? []
     const isInSelection = curSel.includes(clip.id)
     const isMulti = isInSelection && curSel.length > 1
@@ -359,7 +401,9 @@ function Timeline({
     if (isMulti) {
       clipsInGroup = clips.filter((c) => curSel.includes(c.id))
     } else {
-      if (mode === 'drag' && !isInSelection) {
+      // Remplace la sélection pour drag simple (pas pour Ctrl+drag, qui
+      // pourrait devenir un toggle au mouseup sous seuil — on ne préjuge pas).
+      if (mode === 'drag' && !isInSelection && !ctrlAtStart) {
         onSetSelection?.([clip.id])
       }
       clipsInGroup = [clip]
@@ -437,6 +481,9 @@ function Timeline({
       maxDelta: dragMaxDelta,
       resizeMinDelta,
       resizeMaxDelta,
+      // Ctrl+drag : décidé au mouseup (toggle si < seuil, dup si drag)
+      ctrlAtStart,
+      preselectionIds: curSel,
       isActive: mode !== 'drag',
       cursorSet: false,
       visual: null,
@@ -522,14 +569,6 @@ function Timeline({
 
     window.addEventListener('mousemove', handleMove)
     window.addEventListener('mouseup', handleUp)
-  }
-
-  const toggleClipSelection = (clipId) => {
-    const cur = selectedClipIds ?? []
-    const next = cur.includes(clipId)
-      ? cur.filter((id) => id !== clipId)
-      : [...cur, clipId]
-    onSetSelection?.(next)
   }
 
   // Bornes de resize pour un clip donné selon la lane courante :
@@ -707,17 +746,22 @@ function Timeline({
             <div className="placed-sounds-layer">
               {laidOut.map(({ clip, sound, lane }) => {
                 const isLeader = interactionVisual?.clipId === clip.id
+                const isDuplicating = interactionVisual?.isDuplicating
                 // Membre non-leader d'un multi-drag/resize : suit l'offset du leader.
                 const isGroupMember =
                   !isLeader &&
+                  !isDuplicating &&
                   typeof interactionVisual?.delta === 'number' &&
                   interactionVisual?.clipIds?.includes(clip.id)
-                const isActive = isLeader || isGroupMember
+                // En Ctrl+drag (duplication), les originaux restent immobiles ;
+                // seul le leader s'efface un peu (is-dragging), les copies
+                // sont rendues en ghosts dans un second passage.
+                const isActive = !isDuplicating && (isLeader || isGroupMember)
                 const mode = isActive ? interactionVisual.mode : null
                 // Position/durée visuelle : si interaction active, on utilise
                 // les valeurs live du snapshot (mesure/beat/durée courantes).
                 let visualMeasure, visualBeat, visualDuration
-                if (isLeader) {
+                if (isActive && isLeader) {
                   visualMeasure = interactionVisual.measure
                   visualBeat = interactionVisual.beat
                   visualDuration = interactionVisual.duration
@@ -773,14 +817,12 @@ function Timeline({
                     title={`${sound.name} — mesure ${clip.measure}, beat ${clip.beat} — Clic droit pour retirer`}
                     onMouseDown={(e) => {
                       if (e.button !== 0) return
-                      if (e.ctrlKey || e.metaKey) {
-                        // Ctrl+clic : toggle la sélection, pas de drag.
-                        e.preventDefault()
-                        e.stopPropagation()
-                        toggleClipSelection(clip.id)
-                        return
-                      }
-                      startInteraction(e, clip, 'drag', null)
+                      // Ctrl/Cmd+mousedown démarre une session : devient
+                      // duplication si l'utilisateur drag au-delà du seuil,
+                      // sinon toggle de sélection au mouseup.
+                      startInteraction(e, clip, 'drag', laidOut, {
+                        ctrlAtStart: e.ctrlKey || e.metaKey,
+                      })
                     }}
                     onContextMenu={(e) => {
                       e.preventDefault()
@@ -802,6 +844,37 @@ function Timeline({
                 )
               })}
             </div>
+
+            {/* Ghost copies pendant Ctrl+drag (duplication) */}
+            {interactionVisual?.isDuplicating &&
+              typeof interactionVisual.delta === 'number' &&
+              laidOut
+                .filter((it) => interactionVisual.clipIds?.includes(it.clip.id))
+                .map(({ clip, sound, lane }) => {
+                  const origStart = (clip.measure - 1) * BEATS_PER_MEASURE + clip.beat
+                  const newStart = origStart + interactionVisual.delta
+                  const left = (newStart / totalBeats) * 100
+                  const width = (clip.duration / totalBeats) * 100
+                  const top = lane * trackHeight + 4
+                  const height = trackHeight - 8
+                  return (
+                    <div
+                      key={`ghost-${clip.id}`}
+                      className="placed-sound is-ghost"
+                      style={{
+                        left: `${left}%`,
+                        width: `${width}%`,
+                        top: `${top}px`,
+                        height: `${height}px`,
+                        backgroundColor: sound.color + '33',
+                        borderColor: sound.color,
+                      }}
+                    >
+                      <span className="placed-dot" style={{ backgroundColor: sound.color }} />
+                      <span className="placed-name">{sound.name}</span>
+                    </div>
+                  )
+                })}
 
             {(isPlaying || cursorPos > 0) && (
               <div

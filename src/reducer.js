@@ -262,6 +262,28 @@ export function reducer(state, action) {
         }),
       }
     }
+    case 'DUPLICATE_CLIPS': {
+      // payload: [{ trackId, soundId, measure, beat, duration }] — sans id.
+      // Le reducer attribue les ids à partir de clipCounter+1 et sélectionne
+      // les copies (les originaux sont désélectionnés).
+      const datas = action.payload
+      if (!datas || datas.length === 0) return state
+      const base = state.clipCounter
+      const newClips = datas.map((d, i) => ({
+        id: `clip-${base + i + 1}`,
+        trackId: d.trackId,
+        soundId: d.soundId,
+        measure: d.measure,
+        beat: d.beat,
+        duration: d.duration,
+      }))
+      return {
+        ...state,
+        clipCounter: base + datas.length,
+        clips: [...state.clips, ...newClips],
+        selectedClipIds: newClips.map((c) => c.id),
+      }
+    }
     case 'DELETE_SELECTED_CLIPS': {
       const ids = new Set(state.selectedClipIds)
       if (ids.size === 0) return state
@@ -487,7 +509,8 @@ export function reducer(state, action) {
 const HISTORY_DEPTH = 50
 
 const COMPOSER_UNDOABLE = new Set([
-  'ADD_CLIP', 'REMOVE_CLIP', 'UPDATE_CLIP', 'MOVE_CLIPS', 'RESIZE_CLIPS', 'DELETE_SELECTED_CLIPS',
+  'ADD_CLIP', 'REMOVE_CLIP', 'UPDATE_CLIP', 'MOVE_CLIPS', 'RESIZE_CLIPS',
+  'DUPLICATE_CLIPS', 'DELETE_SELECTED_CLIPS',
   'CLEAR_TIMELINE', 'SET_BPM', 'ADD_MEASURES', 'REMOVE_LAST_MEASURE',
 ])
 
@@ -502,7 +525,9 @@ const DESIGNER_UNDOABLE = new Set([
 // hauteur de piste (zoom V) ne soit pas affectée par un undo (elle vit dans
 // tracks[0].height pour des raisons de modèle, mais zoomV est non-undoable
 // par spec). Ré-inclure quand des opérations de track viendront en phase B.
-const COMPOSER_FIELDS = ['clips', 'numMeasures', 'bpm']
+// selectedClipIds inclus pour que undo/redo restaure la sélection pré-action
+// (ex : après undo de DUPLICATE_CLIPS, les originaux redeviennent sélectionnés).
+const COMPOSER_FIELDS = ['clips', 'numMeasures', 'bpm', 'selectedClipIds']
 const DESIGNER_FIELDS = ['savedSounds', 'soundFolders', 'editor']
 
 function pickFields(state, fields) {

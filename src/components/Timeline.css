@@ -175,6 +175,14 @@
   z-index: 4;
 }
 
+/* Ghost copies pendant Ctrl+drag (duplication, phase 2.4) */
+.placed-sound.is-ghost {
+  opacity: 0.7;
+  border-style: dashed;
+  z-index: 5;
+  pointer-events: none;
+}
+
 /* Zones de resize (bords G/D) */
 .resize-handle {
   position: absolute;
