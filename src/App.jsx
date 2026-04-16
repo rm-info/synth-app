@@ -94,18 +94,24 @@ function App() {
     return () => window.removeEventListener('keydown', handler)
   }, [activeTab])
 
-  // Global Delete/Backspace — supprime les clips sélectionnés, sauf si focus
-  // dans un input/textarea/contenteditable.
+  // Global Delete/Backspace — supprime les clips sélectionnés, et Échap → vide
+  // la sélection. Sauf si focus dans un input/textarea/contenteditable.
   useEffect(() => {
     const handleKeyDown = (e) => {
-      if (e.key !== 'Delete' && e.key !== 'Backspace') return
+      const isDelete = e.key === 'Delete' || e.key === 'Backspace'
+      const isEscape = e.key === 'Escape'
+      if (!isDelete && !isEscape) return
       if (selectedClipIds.length === 0) return
       const target = e.target
       const tag = target?.tagName
       if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return
       if (target?.isContentEditable) return
       e.preventDefault()
-      dispatch({ type: 'DELETE_SELECTED_CLIPS' })
+      if (isDelete) {
+        dispatch({ type: 'DELETE_SELECTED_CLIPS' })
+      } else {
+        dispatch({ type: 'SELECT_CLIPS', payload: [] })
+      }
     }
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
@@ -216,12 +222,10 @@ function App() {
     dispatch({ type: 'REMOVE_CLIP', payload: { clipId } })
   }, [])
 
-  const handleSelectClip = useCallback((clipId) => {
-    dispatch({ type: 'SELECT_CLIPS', payload: [clipId] })
-  }, [])
-
-  const handleDeselectAll = useCallback(() => {
-    dispatch({ type: 'SELECT_CLIPS', payload: [] })
+  // Unique point d'entrée pour mettre à jour la sélection : le caller
+  // (Timeline) calcule la nouvelle liste finale (toggle, additif, etc.).
+  const handleSetSelection = useCallback((ids) => {
+    dispatch({ type: 'SELECT_CLIPS', payload: ids })
   }, [])
 
   const handleUpdateClip = useCallback((clipId, updates) => {
@@ -468,8 +472,7 @@ function App() {
                   onRemoveClip={handleRemoveClip}
                   onUpdateClip={handleUpdateClip}
                   selectedClipIds={selectedClipIds}
-                  onSelectClip={handleSelectClip}
-                  onDeselectAll={handleDeselectAll}
+                  onSetSelection={handleSetSelection}
                   onAddMeasures={handleAddMeasures}
                   onRemoveLastMeasure={handleRemoveLastMeasure}
                 />

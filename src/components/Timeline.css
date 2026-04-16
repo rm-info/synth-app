@@ -194,6 +194,16 @@
   box-shadow: 0 0 10px rgba(255, 255, 255, 0.25);
 }
 
+/* Rectangle de sélection (phase 2.1) */
+.selection-rect {
+  position: absolute;
+  border: 1px dashed #00d4ff;
+  background: rgba(0, 212, 255, 0.12);
+  pointer-events: none;
+  z-index: 6;
+  box-sizing: border-box;
+}
+
 .placed-dot {
   width: 6px;
   height: 6px;

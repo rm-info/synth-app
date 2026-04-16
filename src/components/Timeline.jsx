@@ -91,8 +91,7 @@ function Timeline({
   onRemoveClip,
   onUpdateClip,
   selectedClipIds,
-  onSelectClip,
-  onDeselectAll,
+  onSetSelection,
   onAddMeasures,
   onRemoveLastMeasure,
 }) {
@@ -107,6 +106,12 @@ function Timeline({
   // ré-attachement au début/fin de chaque session, pas à chaque mousemove.
   const interactionRef = useRef(null)
   const [interactionVisual, setInteractionVisual] = useState(null)
+
+  // --- Rectangle de sélection (phase 2.1) ---
+  // Session indépendante du clip drag : démarrée sur mousedown dans une zone
+  // vide, pilotée par des listeners window attachés dynamiquement par
+  // `startRectSelection`.
+  const [rectVisual, setRectVisual] = useState(null)
 
   const pxPerBeat = pxPerBeatFromZoom(zoomH)
   const pxPerMeasure = pxPerBeat * BEATS_PER_MEASURE
@@ -258,8 +263,8 @@ function Timeline({
         return
       }
       if (!s.isActive) {
-        // Drag sous le seuil = clic → sélection
-        onSelectClip?.(s.clipId)
+        // Drag sous le seuil = clic → sélection mono (remplace)
+        onSetSelection?.([s.clipId])
       } else if (s.visual) {
         onUpdateClip(s.clipId, { ...s.visual })
       }
@@ -273,7 +278,7 @@ function Timeline({
       window.removeEventListener('mousemove', handleMove)
       window.removeEventListener('mouseup', handleUp)
     }
-  }, [activeClipId, activeMode, onUpdateClip, onSelectClip])
+  }, [activeClipId, activeMode, onUpdateClip, onSetSelection])
 
   const startInteraction = (e, clip, mode, bounds) => {
     if (e.button !== 0) return
@@ -305,6 +310,87 @@ function Timeline({
       beat: clip.beat,
       duration: clip.duration,
     })
+  }
+
+  // Rectangle de sélection : démarré sur mousedown dans une zone vide (sans
+  // modificateur ou avec Shift pour additif). Attaches ses propres listeners
+  // window. Ctrl/Cmd+mousedown sur zone vide est réservé (futur scroll B.2.6)
+  // → géré dans le handler onMouseDown de .cells-wrapper.
+  const startRectSelection = (e) => {
+    const zone = dropZoneRef.current
+    if (!zone) return
+    e.preventDefault()
+    const zoneRect = zone.getBoundingClientRect()
+    const startX = e.clientX - zoneRect.left
+    const startY = e.clientY - zoneRect.top
+    const additive = e.shiftKey
+    const pxPerBeatLocal = pxPerBeat
+    const trackHeightLocal = trackHeight
+    const clipsSnap = clips
+    const soundsSnap = savedSounds
+    const curSelected = selectedClipIds ?? []
+
+    setRectVisual({ startX, startY, currentX: startX, currentY: startY })
+
+    const handleMove = (ev) => {
+      const r = zone.getBoundingClientRect()
+      const currentX = ev.clientX - r.left
+      const currentY = ev.clientY - r.top
+      setRectVisual({ startX, startY, currentX, currentY })
+    }
+
+    const handleUp = (ev) => {
+      window.removeEventListener('mousemove', handleMove)
+      window.removeEventListener('mouseup', handleUp)
+      const r = zone.getBoundingClientRect()
+      const endX = ev.clientX - r.left
+      const endY = ev.clientY - r.top
+      setRectVisual(null)
+
+      const moved = Math.hypot(endX - startX, endY - startY) >= DRAG_THRESHOLD_PX
+      if (!moved) {
+        // Clic sur zone vide : simple clic → vide, Shift+clic → no-op
+        if (!additive) onSetSelection?.([])
+        return
+      }
+
+      const rectPx = {
+        left: Math.min(startX, endX),
+        top: Math.min(startY, endY),
+        right: Math.max(startX, endX),
+        bottom: Math.max(startY, endY),
+      }
+      const { items } = layoutClips(clipsSnap, soundsSnap)
+      const intersecting = items
+        .filter((it) => {
+          const clipLeft = it.start * pxPerBeatLocal
+          const clipRight = it.end * pxPerBeatLocal
+          const clipTop = it.lane * trackHeightLocal + 4
+          const clipBottom = (it.lane + 1) * trackHeightLocal - 4
+          return (
+            clipLeft < rectPx.right &&
+            clipRight > rectPx.left &&
+            clipTop < rectPx.bottom &&
+            clipBottom > rectPx.top
+          )
+        })
+        .map((it) => it.clip.id)
+      const finalIds = additive
+        ? [...new Set([...curSelected, ...intersecting])]
+        : intersecting
+      onSetSelection?.(finalIds)
+    }
+
+    window.addEventListener('mousemove', handleMove)
+    window.addEventListener('mouseup', handleUp)
+  }
+
+  const toggleClipSelection = (clipId) => {
+    const cur = selectedClipIds ?? []
+    const next = cur.includes(clipId)
+      ? cur.filter((id) => id !== clipId)
+      : [...cur, clipId]
+    onSetSelection?.(next)
   }
 
   // Bornes de resize pour un clip donné selon la lane courante :
@@ -469,7 +555,9 @@ function Timeline({
               // Les clips appellent stopPropagation sur mousedown, donc ce handler
               // ne se déclenche que pour un clic dans une zone vide.
               if (e.button !== 0) return
-              onDeselectAll?.()
+              // Ctrl/Cmd+drag sur zone vide réservé (futur scroll horizontal B.2.6).
+              if (e.ctrlKey || e.metaKey) return
+              startRectSelection(e)
             }}
           >
             <div className="grid-lines-layer">{gridLines}</div>
@@ -508,7 +596,17 @@ function Timeline({
                       borderColor: sound.color,
                     }}
                     title={`${sound.name} — mesure ${clip.measure}, beat ${clip.beat} — Clic droit pour retirer`}
-                    onMouseDown={(e) => startInteraction(e, clip, 'drag', null)}
+                    onMouseDown={(e) => {
+                      if (e.button !== 0) return
+                      if (e.ctrlKey || e.metaKey) {
+                        // Ctrl+clic : toggle la sélection, pas de drag.
+                        e.preventDefault()
+                        e.stopPropagation()
+                        toggleClipSelection(clip.id)
+                        return
+                      }
+                      startInteraction(e, clip, 'drag', null)
+                    }}
                     onContextMenu={(e) => {
                       e.preventDefault()
                       e.stopPropagation()
@@ -534,6 +632,18 @@ function Timeline({
               <div
                 className="playback-cursor"
                 style={{ left: `${cursorPos * 100}%` }}
+              />
+            )}
+
+            {rectVisual && (
+              <div
+                className="selection-rect"
+                style={{
+                  left: `${Math.min(rectVisual.startX, rectVisual.currentX)}px`,
+                  top: `${Math.min(rectVisual.startY, rectVisual.currentY)}px`,
+                  width: `${Math.abs(rectVisual.currentX - rectVisual.startX)}px`,
+                  height: `${Math.abs(rectVisual.currentY - rectVisual.startY)}px`,
+                }}
               />
             )}
           </div>
