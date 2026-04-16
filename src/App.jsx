@@ -264,8 +264,8 @@ function App() {
   }, [])
 
   const mergeStatus = useMemo(
-    () => canMergeClips(clips, selectedClipIds, savedSounds),
-    [clips, selectedClipIds, savedSounds],
+    () => canMergeClips(clips, selectedClipIds),
+    [clips, selectedClipIds],
   )
 
   const handleMergeClips = useCallback(() => {
@@ -378,20 +378,17 @@ function App() {
         e.preventDefault()
         handleCut()
       } else if (key === 'v' && clipboard) {
+        e.preventDefault()
         const pos = timelineMouseRef.current
-        if (!pos) return
+        if (pos) handlePaste(pos.absoluteBeat)
+      } else if (key === 'm' && selectedClipIds.length >= 2) {
         e.preventDefault()
-        handlePaste(pos.absoluteBeat)
-      } else if (key === 'm' && mergeStatus.canMerge) {
-        e.preventDefault()
-        handleMergeClips()
+        if (mergeStatus.canMerge) handleMergeClips()
       } else if (key === 'd' && selectedClipIds.length > 0) {
+        e.preventDefault()
         const divisor = e.shiftKey ? 3 : 2
         const can = divisor === 2 ? canSplit2 : canSplit3
-        if (can) {
-          e.preventDefault()
-          handleSplitClips(divisor)
-        }
+        if (can) handleSplitClips(divisor)
       }
     }
     window.addEventListener('keydown', handler)

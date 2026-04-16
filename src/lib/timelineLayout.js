@@ -41,9 +41,8 @@ export function layoutClips(clips, savedSounds) {
  * - >= 2 clips sélectionnés
  * - Même soundId
  * - Exactement adjacents (fin de l'un = début du suivant, triés par position)
- * - Même lane visuelle (pas de clip non-sélectionné intercalé)
  */
-export function canMergeClips(clips, selectedIds, savedSounds) {
+export function canMergeClips(clips, selectedIds) {
   if (!selectedIds || selectedIds.length < 2) {
     return { canMerge: false, reason: 'Sélectionnez au moins 2 clips' }
   }
@@ -69,17 +68,9 @@ export function canMergeClips(clips, selectedIds, savedSounds) {
   for (let i = 1; i < sorted.length; i++) {
     const prevEnd = sorted[i - 1].start + sorted[i - 1].duration
     const curStart = sorted[i].start
-    const diff = Math.abs(prevEnd - curStart)
-    if (diff > 1e-9) {
+    if (Math.abs(prevEnd - curStart) > 1e-9) {
       return { canMerge: false, reason: 'Clips non adjacents' }
     }
-  }
-
-  const { items } = layoutClips(clips, savedSounds)
-  const laneMap = new Map(items.map((it) => [it.clip.id, it.lane]))
-  const firstLane = laneMap.get(selected[0].id)
-  if (firstLane === undefined || !selected.every((c) => laneMap.get(c.id) === firstLane)) {
-    return { canMerge: false, reason: 'Clips sur des lanes différentes' }
   }
 
   return { canMerge: true }

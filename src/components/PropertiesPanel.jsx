@@ -17,6 +17,15 @@ const DURATION_OPTIONS = [
   { label: 'Double croche', value: 0.25 },
 ]
 
+const KNOWN_DURATIONS = new Set(DURATION_OPTIONS.map((o) => o.value))
+
+function durationOptionsFor(value) {
+  if (KNOWN_DURATIONS.has(value)) return DURATION_OPTIONS
+  const r = Math.round(value * 100) / 100
+  const label = Number.isInteger(r) ? `${r} beats` : `${r} beats`
+  return [{ label, value }, ...DURATION_OPTIONS]
+}
+
 /**
  * Panneau Properties (Composer). Trois modes :
  *  - vide : placeholder
@@ -145,7 +154,7 @@ function ClipEditor({ clip, savedSounds, onUpdateClip, onRemoveClip, canSplit2, 
           value={clip.duration}
           onChange={(e) => onUpdateClip(clip.id, { duration: parseFloat(e.target.value) })}
         >
-          {DURATION_OPTIONS.map((o) => (
+          {durationOptionsFor(clip.duration).map((o) => (
             <option key={o.value} value={o.value}>
               {o.label}
             </option>
@@ -263,7 +272,7 @@ function MultiClipEditor({
             value={firstDuration}
             onChange={(e) => handleChangeDuration(parseFloat(e.target.value))}
           >
-            {DURATION_OPTIONS.map((o) => (
+            {durationOptionsFor(firstDuration).map((o) => (
               <option key={o.value} value={o.value}>{o.label}</option>
             ))}
           </select>
