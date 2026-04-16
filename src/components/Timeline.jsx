@@ -755,6 +755,9 @@ function Timeline({
                 }
               }
             }}
+            onMouseLeave={() => {
+              if (mousePositionRef) mousePositionRef.current = null
+            }}
             onContextMenu={(e) => {
               // Les clips ont leur propre onContextMenu (stopPropagation), donc
               // ce handler ne se déclenche que pour un clic droit sur zone vide.
