@@ -11,12 +11,11 @@ React 19 + Vite, Web Audio API native, persistance localStorage. **Pas de
 TypeScript, pas de lib audio, pas de state manager, pas de framework UI,
 pas de routing.** Itération A (refonte UX core : 2 onglets Designer/Composer,
 dual save, zoom %, édition clips, undo/redo) **clôturée le 2026-04-15**.
-Itération B en cours : **phases 1–7 livrées le 2026-04-17**
-(spectrogramme statique ; multi-sélection + drag/resize/dup/delete
-groupés + Properties multi ; copier/coller/fusion/split clips ;
-scroll/zoom Ctrl/Alt+drag ; répertoires de sons arborescents avec
-drag interne ; menu contextuel mesures avec supprimer/insérer/couper/
-copier/coller). Reste spectrogramme avancé.
+Itération B **clôturée le 2026-04-17** (spectrogramme statique ;
+multi-sélection + drag/resize/dup/delete groupés + Properties multi ;
+copier/coller/fusion/split clips ; scroll/zoom Ctrl/Alt+drag ;
+répertoires de sons arborescents avec drag interne ; menu contextuel
+mesures avec supprimer/insérer/couper/copier/coller).
 Itération C (multipiste, look-ahead audio) à venir.
 
 ## Objectif
@@ -567,9 +566,21 @@ Phases listées ci-dessous dans l'ordre chronologique d'implémentation.
 - Export WAV PCM 16-bit stéréo
 - Persistance localStorage + migration
 
-✅ **Itération A terminée**. Prochaine étape : itération B (folders, multi-
-sélection, multipiste, insertion de mesures au milieu, etc.) ou
-sous-itérations correctifs/UX selon les retours.
+✅ **Itération A terminée**.
+
+✅ **Itération B terminée** (2026-04-17)
+- Spectrogramme statique synchronisé (DFT, échelle log)
+- Multi-sélection (rectangle, Ctrl+clic, Shift+drag additionnel)
+- Drag/resize/duplication multi avec bornes groupées
+- Copier/couper/coller clips (Ctrl+C/X/V, clic droit, positionnement souris)
+- Fusion (Ctrl+M) et split (Ctrl+D ÷2, Ctrl+Shift+D ÷3)
+- Ctrl+drag scroll horizontal, Alt+drag zoom rectangle
+- Répertoires de sons arborescents (CRUD, drag interne, indentation)
+- Suppression sons/dossiers avec blocage si clips référencent + assistance
+- Check undo symétrique cross-onglet (Designer ↔ Composer)
+- Menu contextuel mesures : supprimer/insérer/couper/copier/coller
+  avec split automatique des clips à cheval
+- Properties panel multi-sélection (son/durée mixtes, actions groupées)
 
 ## Historique (chronologie inverse)
 
@@ -602,7 +613,7 @@ sous-itérations correctifs/UX selon les retours.
 
 ## Roadmap & Backlog
 
-### Itération B (édition avancée) — en cours
+### Itération B (édition avancée) — clôturée 2026-04-17
 
 - ✅ Spectrogramme statique lecture seule (phase 1)
 - ✅ Multi-sélection + drag/resize/dup/delete groupés + Properties multi
@@ -613,8 +624,6 @@ sous-itérations correctifs/UX selon les retours.
 - ✅ Répertoires de sons : arborescence, drag interne, CRUD dossiers (phase B.6)
 - ✅ Menu contextuel mesures : supprimer/insérer/couper/copier/coller
   avec split clips à cheval (phase B.7)
-- Spectrogramme : options (toggle dB / linéaire, zoom, FFT temps réel
-  pendant la lecture, affichage post-ADSR)
 
 ### Itération C (multipiste) — à rediscuter
 
@@ -624,6 +633,8 @@ sous-itérations correctifs/UX selon les retours.
 
 ### Backlog général (à caser quand pertinent)
 
+- Spectrogramme avancé : toggle dB / linéaire, zoom, FFT temps réel
+  pendant la lecture, affichage post-ADSR
 - Bouton "Vider la banque" (avec undo)
 - Notes/octaves en boutons type clavier au lieu de dropdowns
 - Concept "patch/instrument" : son sans fréquence, hauteur appliquée
