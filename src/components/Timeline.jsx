@@ -212,18 +212,23 @@ function Timeline({
     if (e.button !== 0 || tracks.length <= 1) return
     e.preventDefault()
     let currentHoverIndex = trackIndex
-    let cursorSet = false
     const headersCol = e.currentTarget.closest('.track-headers-column')
     const headerRect = headersCol?.getBoundingClientRect()
     const ghostOffsetY = e.clientY - e.currentTarget.getBoundingClientRect().top
+    let cursorSet = false
     setTrackReorder({ dragIndex: trackIndex, hoverIndex: trackIndex, ghostY: e.clientY - (headerRect?.top ?? 0) - ghostOffsetY })
 
+    // Premier appel immédiat pour poser le curseur sans attendre un mousemove
+    const applyCursor = () => {
+      if (cursorSet) return
+      cursorSet = true
+      document.documentElement.style.cursor = 'grabbing'
+      document.documentElement.style.userSelect = 'none'
+    }
+    requestAnimationFrame(applyCursor)
+
     const handleMove = (ev) => {
-      if (!cursorSet) {
-        cursorSet = true
-        document.body.style.cursor = 'grabbing'
-        document.body.style.userSelect = 'none'
-      }
+      applyCursor()
       if (!headersCol) return
       const colRect = headersCol.getBoundingClientRect()
       const headers = headersCol.querySelectorAll('.track-header')
@@ -243,10 +248,8 @@ function Timeline({
     }
 
     const handleUp = () => {
-      if (cursorSet) {
-        document.body.style.cursor = ''
-        document.body.style.userSelect = ''
-      }
+      document.documentElement.style.cursor = ''
+      document.documentElement.style.userSelect = ''
       window.removeEventListener('mousemove', handleMove)
       window.removeEventListener('mouseup', handleUp)
       setTrackReorder(null)

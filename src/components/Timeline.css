@@ -290,6 +290,11 @@
   background: rgba(0, 212, 255, 0.06);
 }
 
+/* Override cursor on html element (set by JS during track reorder drag) */
+html[style*="cursor"] * {
+  cursor: inherit !important;
+}
+
 /* Track corridors (visual lanes in grid) */
 .track-corridors-layer {
   position: absolute;
