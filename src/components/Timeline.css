@@ -183,6 +183,65 @@
   text-overflow: ellipsis;
   flex: 1;
   min-width: 0;
+  cursor: default;
+}
+
+.track-rename-input {
+  flex: 1;
+  min-width: 0;
+  font-size: 0.72rem;
+  font-family: inherit;
+  color: #e0e0ff;
+  background: #2a2a4a;
+  border: 1px solid #00d4ff;
+  border-radius: 3px;
+  padding: 1px 4px;
+  outline: none;
+}
+
+.track-delete-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  background: transparent;
+  border: none;
+  border-radius: 3px;
+  color: #ff6b8a;
+  font-size: 0.95rem;
+  line-height: 1;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.15s, background 0.12s;
+  padding: 0;
+  flex-shrink: 0;
+}
+.track-header:hover .track-delete-btn {
+  opacity: 1;
+}
+.track-delete-btn:hover {
+  background: rgba(255, 107, 138, 0.18);
+  color: #ff8ca5;
+}
+
+.track-add-btn {
+  display: block;
+  width: 100%;
+  padding: 6px 8px;
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid #2a2a4a;
+  color: #5a5a7a;
+  font-size: 0.72rem;
+  font-family: inherit;
+  cursor: pointer;
+  text-align: left;
+  transition: color 0.12s, background 0.12s;
+}
+.track-add-btn:hover {
+  color: #00d4ff;
+  background: rgba(0, 212, 255, 0.06);
 }
 
 /* Track corridors (visual lanes in grid) */

@@ -13,6 +13,7 @@ export const DEFAULT_ZOOM_H = 5
 export const MIN_TRACK_HEIGHT = 30
 export const MAX_TRACK_HEIGHT = 200
 export const DEFAULT_CLIP_DURATION = 1
+export const MAX_TRACKS = 16
 export const POINTS_RESOLUTION = 600
 
 export const DEFAULT_ADSR = { attack: 10, decay: 100, sustain: 0.7, release: 200 }
@@ -126,6 +127,10 @@ export function loadPersistedState() {
       clipCounter:
         parsed.clipCounter ?? parsed.noteCounter ?? parsed.placementCounter ?? 0,
       folderCounter: parsed.folderCounter ?? 0,
+      trackCounter: parsed.trackCounter ?? Math.max(0, ...tracks.map(t => {
+        const m = t.id.match(/^track-(\d+)$/)
+        return m ? parseInt(m[1], 10) : 0
+      })),
       spectrogramVisible:
         typeof parsed.spectrogramVisible === 'boolean' ? parsed.spectrogramVisible : true,
       activeTab: parsed.activeTab === 'composer' ? 'composer' : 'designer',
@@ -154,6 +159,7 @@ export function buildInitialState() {
     soundCounter: persisted?.soundCounter ?? 0,
     clipCounter: persisted?.clipCounter ?? 0,
     folderCounter: persisted?.folderCounter ?? 0,
+    trackCounter: persisted?.trackCounter ?? 0,
 
     // Clipboard (RAM uniquement, non persisté, non undoable)
     clipboard: null, // { clips: [{ soundId, trackId, beatOffset, duration }] }
@@ -664,6 +670,47 @@ export function reducer(state, action) {
         selectedClipIds: [],
       }
     }
+    case 'CREATE_TRACK': {
+      if (state.tracks.length >= MAX_TRACKS) return state
+      const newCounter = state.trackCounter + 1
+      const colorIdx = state.tracks.length % TRACK_COLORS.length
+      return {
+        ...state,
+        trackCounter: newCounter,
+        tracks: [
+          ...state.tracks,
+          {
+            id: `track-${newCounter}`,
+            name: `Piste ${state.tracks.length + 1}`,
+            color: TRACK_COLORS[colorIdx],
+            muted: false,
+            solo: false,
+            volume: 1,
+            height: state.tracks[0]?.height ?? 80,
+          },
+        ],
+      }
+    }
+    case 'RENAME_TRACK': {
+      const { trackId, name } = action.payload
+      return {
+        ...state,
+        tracks: state.tracks.map(t => t.id === trackId ? { ...t, name } : t),
+      }
+    }
+    case 'DELETE_TRACK': {
+      const { trackId } = action.payload
+      if (state.tracks.length <= 1) return state
+      const deletedClipIds = new Set(
+        state.clips.filter(c => c.trackId === trackId).map(c => c.id),
+      )
+      return {
+        ...state,
+        tracks: state.tracks.filter(t => t.id !== trackId),
+        clips: state.clips.filter(c => c.trackId !== trackId),
+        selectedClipIds: state.selectedClipIds.filter(id => !deletedClipIds.has(id)),
+      }
+    }
     case 'SET_TRACK_HEIGHT': {
       const next = clampTrackHeight(action.payload)
       if (state.tracks.every(t => t.height === next)) return state
@@ -917,6 +964,7 @@ const COMPOSER_UNDOABLE = new Set([
   'UPDATE_CLIPS_SOUND', 'UPDATE_CLIPS_DURATION',
   'CLEAR_TIMELINE', 'SET_BPM', 'ADD_MEASURES', 'REMOVE_LAST_MEASURE',
   'DELETE_MEASURE', 'INSERT_MEASURES_AT', 'CUT_MEASURE', 'PASTE_MEASURES',
+  'CREATE_TRACK', 'RENAME_TRACK', 'DELETE_TRACK',
 ])
 
 const DESIGNER_UNDOABLE = new Set([
@@ -928,13 +976,12 @@ const DESIGNER_UNDOABLE = new Set([
   'SET_EDITOR_ADSR', 'APPLY_EDITOR_PRESET', 'RESET_EDITOR',
 ])
 
-// Champs snapshot par pile. Note : `tracks` exclu de COMPOSER pour que la
-// hauteur de piste (zoom V) ne soit pas affectée par un undo (elle vit dans
-// tracks[0].height pour des raisons de modèle, mais zoomV est non-undoable
-// par spec). Ré-inclure quand des opérations de track viendront en phase B.
+// Champs snapshot par pile. `tracks` inclus pour les opérations de piste
+// (CREATE/DELETE/RENAME_TRACK). Conséquence : un undo peut aussi revert
+// la hauteur de piste (SET_TRACK_HEIGHT), mais c'est un compromis acceptable.
 // selectedClipIds inclus pour que undo/redo restaure la sélection pré-action
 // (ex : après undo de DUPLICATE_CLIPS, les originaux redeviennent sélectionnés).
-const COMPOSER_FIELDS = ['clips', 'numMeasures', 'bpm', 'selectedClipIds']
+const COMPOSER_FIELDS = ['clips', 'numMeasures', 'bpm', 'selectedClipIds', 'tracks']
 const DESIGNER_FIELDS = ['savedSounds', 'soundFolders', 'editor']
 
 function pickFields(state, fields) {

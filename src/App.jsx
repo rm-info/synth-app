@@ -17,6 +17,7 @@ import {
   MAX_ZOOM_H,
   MIN_TRACK_HEIGHT,
   MAX_TRACK_HEIGHT,
+  MAX_TRACKS,
   DEFAULT_TRACK_ID,
   sameWaveform,
   canSplitClip,
@@ -35,7 +36,7 @@ function App() {
     clips, savedSounds, soundFolders, tracks, bpm, numMeasures,
     editor, activeTab, currentSoundId, zoomH, defaultClipDuration,
     spectrogramVisible, selectedClipIds, composerFlash,
-    soundCounter, clipCounter, folderCounter, clipboard, measureClipboard, history, notification,
+    soundCounter, clipCounter, folderCounter, trackCounter, clipboard, measureClipboard, history, notification,
   } = state
 
   const editorRef = useRef(null)
@@ -144,6 +145,7 @@ function App() {
           soundCounter,
           clipCounter,
           folderCounter,
+          trackCounter,
         }),
       )
     } catch {
@@ -151,7 +153,7 @@ function App() {
     }
   }, [
     savedSounds, soundFolders, tracks, clips, bpm, numMeasures,
-    spectrogramVisible, activeTab, soundCounter, clipCounter, folderCounter,
+    spectrogramVisible, activeTab, soundCounter, clipCounter, folderCounter, trackCounter,
   ])
 
   // Hydratation de l'éditeur quand currentSoundId change. Non-undoable.
@@ -179,6 +181,25 @@ function App() {
     const cur = (s) => Math.max(MIN_TRACK_HEIGHT, Math.min(MAX_TRACK_HEIGHT, typeof next === 'function' ? next(s) : next))
     dispatch({ type: 'SET_TRACK_HEIGHT', payload: cur(trackHeight) })
   }, [trackHeight])
+
+  const handleCreateTrack = useCallback(() => {
+    dispatch({ type: 'CREATE_TRACK' })
+  }, [])
+
+  const handleRenameTrack = useCallback((trackId, name) => {
+    dispatch({ type: 'RENAME_TRACK', payload: { trackId, name } })
+  }, [])
+
+  const handleDeleteTrack = useCallback((trackId) => {
+    const track = tracks.find(t => t.id === trackId)
+    const trackClips = clips.filter(c => c.trackId === trackId)
+    if (trackClips.length > 0) {
+      const name = track?.name || trackId
+      const n = trackClips.length
+      if (!window.confirm(`Supprimer la piste "${name}" et ses ${n} clip${n > 1 ? 's' : ''} ?`)) return
+    }
+    dispatch({ type: 'DELETE_TRACK', payload: { trackId } })
+  }, [tracks, clips])
 
   const setDefaultClipDuration = useCallback((v) => {
     dispatch({ type: 'SET_DEFAULT_CLIP_DURATION', payload: v })
@@ -922,6 +943,10 @@ function App() {
                   savedSounds={savedSounds}
                   clips={clips}
                   tracks={tracks}
+                  maxTracks={MAX_TRACKS}
+                  onCreateTrack={handleCreateTrack}
+                  onRenameTrack={handleRenameTrack}
+                  onDeleteTrack={handleDeleteTrack}
                   numMeasures={numMeasures}
                   zoomH={zoomH}
                   onSetZoomH={setZoomH}

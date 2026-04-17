@@ -126,6 +126,10 @@ function Timeline({
   savedSounds,
   clips,
   tracks,
+  maxTracks,
+  onCreateTrack,
+  onRenameTrack,
+  onDeleteTrack,
   numMeasures,
   zoomH,
   onSetZoomH,
@@ -159,6 +163,9 @@ function Timeline({
   const dropZoneRef = useRef(null)
   const visualizerCanvasRef = useRef(null)
   const [contextMenu, setContextMenu] = useState(null)
+  const [renamingTrackId, setRenamingTrackId] = useState(null)
+  const [renameValue, setRenameValue] = useState('')
+  const renameInputRef = useRef(null)
 
   // --- Interaction clip (drag / resize-left / resize-right) ---
   // interactionRef : mutable, contient l'état live pendant l'interaction
@@ -898,13 +905,58 @@ function Timeline({
           {trackLayoutData.map((tl, i) => {
             const track = tracks[i]
             const color = track.color || TRACK_COLORS[i % TRACK_COLORS.length]
+            const isRenaming = renamingTrackId === track.id
             return (
               <div key={tl.trackId} className="track-header" style={{ height: `${tl.corridorHeight}px` }}>
                 <span className="track-color-dot" style={{ backgroundColor: color }} />
-                <span className="track-name">{track.name}</span>
+                {isRenaming ? (
+                  <input
+                    ref={renameInputRef}
+                    className="track-rename-input"
+                    value={renameValue}
+                    onChange={(e) => setRenameValue(e.target.value)}
+                    onBlur={() => {
+                      const trimmed = renameValue.trim()
+                      if (trimmed && trimmed !== track.name) onRenameTrack?.(track.id, trimmed)
+                      setRenamingTrackId(null)
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') { e.preventDefault(); e.target.blur() }
+                      if (e.key === 'Escape') { e.preventDefault(); setRenamingTrackId(null) }
+                    }}
+                  />
+                ) : (
+                  <span
+                    className="track-name"
+                    onDoubleClick={() => {
+                      setRenamingTrackId(track.id)
+                      setRenameValue(track.name)
+                      requestAnimationFrame(() => renameInputRef.current?.select())
+                    }}
+                  >
+                    {track.name}
+                  </span>
+                )}
+                {tracks.length > 1 && (
+                  <button
+                    type="button"
+                    className="track-delete-btn"
+                    onClick={() => onDeleteTrack?.(track.id)}
+                    title={`Supprimer ${track.name}`}
+                  >×</button>
+                )}
               </div>
             )
           })}
+          {tracks.length < (maxTracks || 16) && (
+            <button
+              type="button"
+              className="track-add-btn"
+              onClick={() => onCreateTrack?.()}
+            >
+              + Piste
+            </button>
+          )}
         </div>
         <div
           className="timeline-grid"
