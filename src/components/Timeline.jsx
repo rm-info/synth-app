@@ -163,6 +163,7 @@ function Timeline({
   const dropZoneRef = useRef(null)
   const visualizerCanvasRef = useRef(null)
   const [contextMenu, setContextMenu] = useState(null)
+  const [dragOverTrackId, setDragOverTrackId] = useState(null)
   const [renamingTrackId, setRenamingTrackId] = useState(null)
   const [renameValue, setRenameValue] = useState('')
   const renameInputRef = useRef(null)
@@ -193,26 +194,52 @@ function Timeline({
   const gridWidth = pxPerMeasure * numMeasures
 
   // --- Drag & drop ---
+  // Identifie la piste correspondant à une coordonnée Y dans le cells-wrapper.
+  // trackLayoutData est défini plus bas dans le composant mais sera initialisé
+  // au moment où ces handlers sont appelés (post-render).
+  const findTrackAtY = (yInCells) => {
+    const layouts = trackLayoutData
+    for (const tl of layouts) {
+      if (yInCells < tl.yOffset + tl.corridorHeight) return tl.trackId
+    }
+    return layouts.length > 0 ? layouts[layouts.length - 1].trackId : null
+  }
+
   const handleDragOver = (e) => {
     e.preventDefault()
     e.dataTransfer.dropEffect = 'copy'
+    const zone = dropZoneRef.current
+    if (zone) {
+      const rect = zone.getBoundingClientRect()
+      const yInCells = e.clientY - rect.top
+      setDragOverTrackId(findTrackAtY(yInCells))
+    }
+  }
+
+  const handleDragLeave = (e) => {
+    // Ne clear que si on quitte vraiment la zone (pas un enfant)
+    if (!e.currentTarget.contains(e.relatedTarget)) {
+      setDragOverTrackId(null)
+    }
   }
 
   const handleDrop = (e) => {
     e.preventDefault()
+    setDragOverTrackId(null)
     const soundId = e.dataTransfer.getData('text/plain')
     if (!soundId) return
     const zone = dropZoneRef.current
     if (!zone) return
     const rect = zone.getBoundingClientRect()
     const xInGrid = e.clientX - rect.left
+    const yInCells = e.clientY - rect.top
     const rawBeat = xInGrid / pxPerBeat
     const snapped = Math.round(rawBeat / SNAP_RESOLUTION) * SNAP_RESOLUTION
     const clamped = Math.max(0, Math.min(snapped, Math.max(0, totalBeats - SNAP_RESOLUTION)))
     const measure = Math.floor(clamped / BEATS_PER_MEASURE) + 1
     const beat = clamped - (measure - 1) * BEATS_PER_MEASURE
-    // duration = undefined → App utilise defaultClipDuration
-    onAddClip(soundId, measure, beat)
+    const trackId = findTrackAtY(yInCells)
+    onAddClip(soundId, measure, beat, undefined, trackId)
   }
 
   // --- Ctrl+molette : zoom centré sur la position de la souris ---
@@ -1004,6 +1031,7 @@ function Timeline({
             ref={dropZoneRef}
             style={{ minHeight: `${clipAreaHeight}px` }}
             onDragOver={handleDragOver}
+            onDragLeave={handleDragLeave}
             onDrop={handleDrop}
             onMouseDown={(e) => {
               // Les clips appellent stopPropagation sur mousedown, donc ce handler
@@ -1053,7 +1081,7 @@ function Timeline({
                 return (
                   <div
                     key={tl.trackId}
-                    className={`track-corridor${i % 2 === 1 ? ' track-corridor-odd' : ''}`}
+                    className={`track-corridor${i % 2 === 1 ? ' track-corridor-odd' : ''}${dragOverTrackId === tl.trackId ? ' track-corridor-hover' : ''}`}
                     style={{
                       top: `${tl.yOffset}px`,
                       height: `${tl.corridorHeight}px`,

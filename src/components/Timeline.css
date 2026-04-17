@@ -264,6 +264,10 @@
   background: rgba(255, 255, 255, 0.02);
 }
 
+.track-corridor-hover {
+  background: rgba(0, 212, 255, 0.06);
+}
+
 .grid-line-measure { background: #4a4a6a; }
 .grid-line-beat    { background: #3a3a5a; }
 .grid-line-croche  { background: rgba(80, 80, 130, 0.55); }
