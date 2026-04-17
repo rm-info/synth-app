@@ -378,6 +378,11 @@ html[style*="cursor"] * {
   background: rgba(0, 212, 255, 0.06);
 }
 
+.track-corridor-paste-target {
+  background: rgba(0, 212, 255, 0.08);
+  border-left-width: 4px;
+}
+
 .grid-line-measure { background: #4a4a6a; }
 .grid-line-beat    { background: #3a3a5a; }
 .grid-line-croche  { background: rgba(80, 80, 130, 0.55); }

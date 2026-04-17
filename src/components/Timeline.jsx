@@ -153,6 +153,7 @@ function Timeline({
   onRemoveLastMeasure,
   mousePositionRef,
   hasClipboard,
+  clipboard,
   onPaste,
   onDeleteMeasure,
   onInsertMeasures,
@@ -171,6 +172,8 @@ function Timeline({
   const renameInputRef = useRef(null)
   const [trackReorder, setTrackReorder] = useState(null) // { dragIndex, hoverIndex, ghostY }
   const [volumeDraft, setVolumeDraft] = useState(null) // { trackId, value } — draft pendant le drag du slider
+  const [pasteTargetTrackIds, setPasteTargetTrackIds] = useState([]) // highlight during paste context menu
+  const closeContextMenu = () => { closeContextMenu(); setPasteTargetTrackIds([]) }
 
   // --- Interaction clip (drag / resize-left / resize-right) ---
   // interactionRef : mutable, contient l'état live pendant l'interaction
@@ -1215,7 +1218,7 @@ function Timeline({
               // Les clips appellent stopPropagation sur mousedown, donc ce handler
               // ne se déclenche que pour un clic dans une zone vide.
               if (e.button !== 0) return
-              setContextMenu(null)
+              closeContextMenu()
               if (e.altKey) {
                 startAltZoom(e)
                 return
@@ -1231,6 +1234,7 @@ function Timeline({
                 const rect = dropZoneRef.current.getBoundingClientRect()
                 mousePositionRef.current = {
                   absoluteBeat: (e.clientX - rect.left) / pxPerBeat,
+                  trackId: findTrackAtY(e.clientY - rect.top),
                 }
               }
             }}
@@ -1241,17 +1245,34 @@ function Timeline({
               // Les clips ont leur propre onContextMenu (stopPropagation), donc
               // ce handler ne se déclenche que pour un clic droit sur zone vide.
               e.preventDefault()
-              setContextMenu(null)
+              closeContextMenu()
+              setPasteTargetTrackIds([])
               if (!hasClipboard) return
               const rect = dropZoneRef.current?.getBoundingClientRect()
               if (!rect) return
               const yInCells = e.clientY - rect.top
+              const targetTrackId = findTrackAtY(yInCells)
               setContextMenu({
                 clientX: e.clientX,
                 clientY: e.clientY,
                 absoluteBeat: (e.clientX - rect.left) / pxPerBeat,
-                trackId: findTrackAtY(yInCells),
+                trackId: targetTrackId,
               })
+              // Compute paste target tracks for highlight
+              if (clipboard?.clips?.length > 0 && targetTrackId) {
+                const trackOrder = tracks.map(t => t.id)
+                const refTrackId = clipboard.clips[0]?.trackId
+                const refIdx = trackOrder.indexOf(refTrackId)
+                const targetIdx = trackOrder.indexOf(targetTrackId)
+                const delta = (refIdx >= 0 && targetIdx >= 0) ? targetIdx - refIdx : 0
+                const targetIds = new Set()
+                for (const t of clipboard.clips) {
+                  const origIdx = trackOrder.indexOf(t.trackId)
+                  const newIdx = Math.max(0, Math.min(trackOrder.length - 1, origIdx + delta))
+                  targetIds.add(trackOrder[newIdx])
+                }
+                setPasteTargetTrackIds([...targetIds])
+              }
             }}
           >
             <div className="track-corridors-layer">
@@ -1261,7 +1282,7 @@ function Timeline({
                 return (
                   <div
                     key={tl.trackId}
-                    className={`track-corridor${i % 2 === 1 ? ' track-corridor-odd' : ''}${dragOverTrackId === tl.trackId ? ' track-corridor-hover' : ''}`}
+                    className={`track-corridor${i % 2 === 1 ? ' track-corridor-odd' : ''}${dragOverTrackId === tl.trackId ? ' track-corridor-hover' : ''}${pasteTargetTrackIds.includes(tl.trackId) ? ' track-corridor-paste-target' : ''}`}
                     style={{
                       top: `${tl.yOffset}px`,
                       height: `${tl.corridorHeight}px`,
@@ -1503,7 +1524,7 @@ function Timeline({
         <>
           <div
             className="context-menu-backdrop"
-            onMouseDown={() => setContextMenu(null)}
+            onMouseDown={() => closeContextMenu()}
           />
           <div
             className="timeline-context-menu"
@@ -1516,32 +1537,32 @@ function Timeline({
                 hasMeasureClipboard={hasMeasureClipboard}
                 onDelete={() => {
                   onDeleteMeasure?.(contextMenu.measure)
-                  setContextMenu(null)
+                  closeContextMenu()
                 }}
                 onInsert={(position, count) => {
                   onInsertMeasures?.(contextMenu.measure, position, count)
-                  setContextMenu(null)
+                  closeContextMenu()
                 }}
                 onCopy={() => {
                   onCopyMeasure?.(contextMenu.measure)
-                  setContextMenu(null)
+                  closeContextMenu()
                 }}
                 onCut={() => {
                   onCutMeasure?.(contextMenu.measure)
-                  setContextMenu(null)
+                  closeContextMenu()
                 }}
                 onPaste={(position) => {
                   onPasteMeasures?.(contextMenu.measure, position)
-                  setContextMenu(null)
+                  closeContextMenu()
                 }}
-                onClose={() => setContextMenu(null)}
+                onClose={() => closeContextMenu()}
               />
             ) : (
               <button
                 type="button"
                 onClick={() => {
                   onPaste?.(contextMenu.absoluteBeat, contextMenu.trackId)
-                  setContextMenu(null)
+                  closeContextMenu()
                 }}
               >
                 Coller ici

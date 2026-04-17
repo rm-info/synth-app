@@ -430,7 +430,7 @@ function App() {
       } else if (key === 'v' && clipboard) {
         e.preventDefault()
         const pos = timelineMouseRef.current
-        if (pos) handlePaste(pos.absoluteBeat)
+        if (pos) handlePaste(pos.absoluteBeat, pos.trackId)
       } else if (key === 'm' && selectedClipIds.length >= 2) {
         e.preventDefault()
         if (mergeStatus.canMerge) handleMergeClips()
@@ -997,6 +997,7 @@ function App() {
                   onRemoveLastMeasure={handleRemoveLastMeasure}
                   mousePositionRef={timelineMouseRef}
                   hasClipboard={!!clipboard && clipboard.clips.length > 0}
+                  clipboard={clipboard}
                   onPaste={handlePaste}
                   onDeleteMeasure={handleDeleteMeasure}
                   onInsertMeasures={handleInsertMeasures}
