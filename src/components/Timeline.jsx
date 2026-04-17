@@ -130,6 +130,7 @@ function Timeline({
   onCreateTrack,
   onRenameTrack,
   onDeleteTrack,
+  onReorderTracks,
   numMeasures,
   zoomH,
   onSetZoomH,
@@ -167,6 +168,7 @@ function Timeline({
   const [renamingTrackId, setRenamingTrackId] = useState(null)
   const [renameValue, setRenameValue] = useState('')
   const renameInputRef = useRef(null)
+  const [trackReorder, setTrackReorder] = useState(null) // { dragIndex, hoverIndex }
 
   // --- Interaction clip (drag / resize-left / resize-right) ---
   // interactionRef : mutable, contient l'état live pendant l'interaction
@@ -203,6 +205,57 @@ function Timeline({
       if (yInCells < tl.yOffset + tl.corridorHeight) return tl.trackId
     }
     return layouts.length > 0 ? layouts[layouts.length - 1].trackId : null
+  }
+
+  // --- Track reorder drag (mousedown sur en-tête de piste) ---
+  const startTrackReorder = (e, trackIndex) => {
+    if (e.button !== 0 || tracks.length <= 1) return
+    e.preventDefault()
+    let currentHoverIndex = trackIndex
+    let cursorSet = false
+    setTrackReorder({ dragIndex: trackIndex, hoverIndex: trackIndex })
+
+    const handleMove = (ev) => {
+      if (!cursorSet) {
+        cursorSet = true
+        document.body.style.cursor = 'grabbing'
+        document.body.style.userSelect = 'none'
+      }
+      // Determine hover index from mouse Y relative to track headers
+      const headersCol = document.querySelector('.track-headers-column')
+      if (!headersCol) return
+      const headers = headersCol.querySelectorAll('.track-header')
+      let newHover = trackIndex
+      for (let i = 0; i < headers.length; i++) {
+        const rect = headers[i].getBoundingClientRect()
+        const midY = rect.top + rect.height / 2
+        if (ev.clientY > midY) newHover = i
+      }
+      if (ev.clientY < headers[0]?.getBoundingClientRect().top) newHover = 0
+      if (newHover !== currentHoverIndex) {
+        currentHoverIndex = newHover
+        setTrackReorder({ dragIndex: trackIndex, hoverIndex: newHover })
+      }
+    }
+
+    const handleUp = () => {
+      if (cursorSet) {
+        document.body.style.cursor = ''
+        document.body.style.userSelect = ''
+      }
+      window.removeEventListener('mousemove', handleMove)
+      window.removeEventListener('mouseup', handleUp)
+      setTrackReorder(null)
+      if (currentHoverIndex !== trackIndex) {
+        const newOrder = [...tracks.map(t => t.id)]
+        const [removed] = newOrder.splice(trackIndex, 1)
+        newOrder.splice(currentHoverIndex, 0, removed)
+        onReorderTracks?.(newOrder)
+      }
+    }
+
+    window.addEventListener('mousemove', handleMove)
+    window.addEventListener('mouseup', handleUp)
   }
 
   const handleDragOver = (e) => {
@@ -968,7 +1021,16 @@ function Timeline({
             const color = track.color || TRACK_COLORS[i % TRACK_COLORS.length]
             const isRenaming = renamingTrackId === track.id
             return (
-              <div key={tl.trackId} className="track-header" style={{ height: `${tl.corridorHeight}px` }}>
+              <div
+                key={tl.trackId}
+                className={`track-header${trackReorder?.dragIndex === i ? ' track-header-dragging' : ''}${trackReorder && trackReorder.dragIndex !== i && trackReorder.hoverIndex === i ? ' track-header-drop-target' : ''}`}
+                style={{ height: `${tl.corridorHeight}px` }}
+                onMouseDown={(e) => {
+                  // Ne pas démarrer le reorder si on double-clique (renommage) ou si on clique sur un bouton
+                  if (e.target.closest('button') || e.target.closest('input')) return
+                  startTrackReorder(e, i)
+                }}
+              >
                 <span className="track-color-dot" style={{ backgroundColor: color }} />
                 {isRenaming ? (
                   <input

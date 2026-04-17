@@ -701,6 +701,15 @@ export function reducer(state, action) {
         tracks: state.tracks.map(t => t.id === trackId ? { ...t, name } : t),
       }
     }
+    case 'REORDER_TRACKS': {
+      // payload: [trackId1, trackId2, ...] — nouvel ordre complet
+      const newOrder = action.payload
+      if (!Array.isArray(newOrder) || newOrder.length !== state.tracks.length) return state
+      const trackMap = new Map(state.tracks.map(t => [t.id, t]))
+      const reordered = newOrder.map(id => trackMap.get(id)).filter(Boolean)
+      if (reordered.length !== state.tracks.length) return state
+      return { ...state, tracks: reordered }
+    }
     case 'DELETE_TRACK': {
       const { trackId } = action.payload
       if (state.tracks.length <= 1) return state
@@ -967,7 +976,7 @@ const COMPOSER_UNDOABLE = new Set([
   'UPDATE_CLIPS_SOUND', 'UPDATE_CLIPS_DURATION',
   'CLEAR_TIMELINE', 'SET_BPM', 'ADD_MEASURES', 'REMOVE_LAST_MEASURE',
   'DELETE_MEASURE', 'INSERT_MEASURES_AT', 'CUT_MEASURE', 'PASTE_MEASURES',
-  'CREATE_TRACK', 'RENAME_TRACK', 'DELETE_TRACK',
+  'CREATE_TRACK', 'RENAME_TRACK', 'DELETE_TRACK', 'REORDER_TRACKS',
 ])
 
 const DESIGNER_UNDOABLE = new Set([

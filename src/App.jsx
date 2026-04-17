@@ -190,6 +190,10 @@ function App() {
     dispatch({ type: 'RENAME_TRACK', payload: { trackId, name } })
   }, [])
 
+  const handleReorderTracks = useCallback((newOrder) => {
+    dispatch({ type: 'REORDER_TRACKS', payload: newOrder })
+  }, [])
+
   const handleDeleteTrack = useCallback((trackId) => {
     const track = tracks.find(t => t.id === trackId)
     const trackClips = clips.filter(c => c.trackId === trackId)
@@ -947,6 +951,7 @@ function App() {
                   onCreateTrack={handleCreateTrack}
                   onRenameTrack={handleRenameTrack}
                   onDeleteTrack={handleDeleteTrack}
+                  onReorderTracks={handleReorderTracks}
                   numMeasures={numMeasures}
                   zoomH={zoomH}
                   onSetZoomH={setZoomH}
