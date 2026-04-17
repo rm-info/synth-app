@@ -17,7 +17,7 @@ copier/coller/fusion/split clips ; scroll/zoom Ctrl/Alt+drag ;
 répertoires de sons arborescents avec drag interne ; menu contextuel
 mesures avec supprimer/insérer/couper/copier/coller).
 Itération C **en cours** (multipiste : UI multi-tracks, mute/solo/volume,
-moteur audio look-ahead — phases 1-3 terminées).
+moteur audio look-ahead, adaptation features A/B — phases 1-4 terminées).
 
 ## Objectif
 
@@ -145,20 +145,19 @@ Seuls les **placements timeline** s'appellent "clips".
 ## Composants
 
 ### `App.jsx` — racine
-- Détient tout l'état du modèle : `savedSounds`, `soundFolders`, `tracks`, `clips`,
-  `bpm`, `numMeasures` + refs counters (`soundCounterRef`, `clipCounterRef`)
-- État UI : `activeTab`, `currentSoundId`, `measureWidth` (zoom ancien, refondu en phase 3)
-- Détention d'une `editorRef` (imperative handle) pour interroger le `WaveformEditor`
-  sur son état dirty avant de charger un nouveau son.
-- Persistance auto via `useEffect` (n'inclut PAS l'UI state).
-- Handlers : `handleSaveSound` (retourne `{duplicate, id}`), `handleUpdateSound`
-  (MAJ d'un son existant), `handleAddClip`, `handleRemoveClip`, `handleUpdateClip`,
-  `handleClearTimeline`, `handleDeleteSound`, `handleRenameSound`, `handleLoadSound`
-  (avec confirm si dirty), `handleSoundCreated` (set currentSoundId au nouveau).
-- Appelle `usePlayback({ clips, savedSounds, bpm, totalDurationSec })` UNE fois ;
-  les contrôles (play/stop/cursorPos/etc.) sont distribués au MiniPlayer (Designer)
-  et au Toolbar/Timeline (Composer).
-- État restant à venir : `selectedClipIds`, `zoomH/V` (% continus), tracks/folders.
+- Un seul `useReducer(withUndo(reducer))` détient tout l'état : `savedSounds`,
+  `soundFolders`, `tracks`, `clips`, `bpm`, `numMeasures`, `editor`,
+  compteurs (`soundCounter`, `clipCounter`, `folderCounter`, `trackCounter`),
+  `selectedClipIds`, `zoomH`, `clipboard`, `measureClipboard`, etc.
+- `editorRef` (imperative handle) pour le dirty check de `WaveformEditor`.
+- Persistance auto via `useEffect` (données métier uniquement, pas l'UI state).
+- Appelle `usePlayback({ clips, savedSounds, tracks, bpm, totalDurationSec })` ;
+  useEffect synchro `updateTrackGains(tracks)` quand mute/solo/volume changent
+  pendant la lecture.
+- Handlers CRUD pistes : `handleCreateTrack`, `handleRenameTrack`,
+  `handleDeleteTrack` (confirm si clips), `handleUpdateTrack`, `handleReorderTracks`.
+- Handlers clipboard cross-piste : `handlePaste(absoluteBeat, targetTrackId)` calcule
+  un delta de piste si targetTrackId fourni (clic droit ou Ctrl+V).
 
 ### `WaveformEditor.jsx`
 - Canvas 600×300 dessinable à la souris (interpolation linéaire)
@@ -182,14 +181,23 @@ Seuls les **placements timeline** s'appellent "clips".
 - Header affiche soit le nom prochain (création) soit "Édition : NOM" (chargé).
 
 ### `Timeline.jsx` (Composer)
-- Reçu en props : `cursorPos`, `isPlaying`, `analyserRef` (depuis `usePlayback`),
-  `measureWidth`, `numMeasures`, handlers de clips.
-- Grille : `numMeasures` × 4 `.beat-cell` (pointillés), drop unique sur `.cells-wrapper`
-  avec snap 16ᵉ + clamp anti-débordement.
-- Clips placés (couche absolue) : lane layout greedy pour polyphonie, `<select>` durée
-  embarqué (sortira en phase 3), clic droit = retirer.
-- Curseur de lecture + visualiseur oscilloscope visible pendant lecture (persistant en phase 3).
-- Plus de header ni de banque (déplacés vers Toolbar / SoundBank).
+- Layout multipiste : colonne d'en-têtes de piste (sticky left, 120px) +
+  grille scrollable (overflow-x/y) + zone d'extension (+1/+4/+16 mesures).
+- En-tête de piste (2 lignes) : pastille couleur + nom (double-clic renomme) +
+  × supprime | boutons M/S + slider volume. Drag en-tête = réordonnancement.
+  Ghost flottant + indicateur d'insertion pendant le drag.
+- Couloirs de piste : fond alternant, bordure gauche colorée, lane assignment
+  greedy par piste, surbrillance au survol pendant drop/paste.
+- Drop de sons : `findTrackAtY` identifie la piste cible depuis la coordonnée Y.
+- Drag de clips cross-piste : `trackDelta` via `mouseStartTrackIndex`,
+  `effectiveLane = 0` pendant le preview, commit `trackId` au drop.
+- Clips : position absolue, snap 16ᵉ, drag/resize/duplication, multi-sélection
+  (rectangle, Ctrl+clic, Shift+drag). Clic droit clip = retirer.
+- Grille : lignes absolues, subdivision adaptative (noire/croche/double/triple),
+  Ctrl+molette zoom centré souris. Numéros de mesure sticky top.
+- Menu contextuel : clic droit zone vide = "Coller ici" (avec surbrillance
+  pistes cibles), clic droit mesure = CRUD mesure. Échap ferme le menu.
+- Curseur de lecture + visualiseur oscilloscope persistant.
 
 ### `SoundBank.jsx` (partagé Designer & Composer)
 - Liste verticale de chips (responsive : bandeau horizontal en <900px).
@@ -305,7 +313,7 @@ Choix non évidents pris pour de bonnes raisons. À ne pas remettre en question
 - **Lanes = mécanisme d'affichage** : le lane assignment est greedy,
   recalculé à chaque rendu, jamais stocké dans le clip. Conséquence :
   la fusion (Ctrl+M) ignore les lanes et ne considère que l'adjacence
-  temporelle et le soundId.
+  temporelle, le soundId et le trackId (même piste obligatoire).
 - **Lane assignment par piste** : depuis C.1, le layout greedy est
   calculé indépendamment pour chaque piste (clips filtrés par trackId).
   Chaque piste a son propre `laneCount` et sa propre hauteur de
@@ -324,8 +332,8 @@ Conventions tacites. Les enfreindre sans raison crée des bugs subtils.
 - **Pas de TypeScript** : choix initial, pas de migration en cours de
   projet. Le modèle est documenté en TS-like dans ce fichier à titre
   de référence uniquement.
-- **IDs via compteurs persistés** (`soundCounter`, `clipCounter`) :
-  jamais les recalculer depuis `savedSounds.length` ou `clips.length`.
+- **IDs via compteurs persistés** (`soundCounter`, `clipCounter`,
+  `folderCounter`, `trackCounter`) : jamais les recalculer depuis `.length`.
   Après des suppressions, deux créations successives auraient le même
   ID → collisions silencieuses.
 - **Snapshots historique : mouseup pour gestes continus, dispatch direct
@@ -470,8 +478,8 @@ Phases listées ci-dessous dans l'ordre chronologique d'implémentation.
   et Composer indépendants). `withUndo(reducer)` wrapper qui gère
   `UNDO_*` / `REDO_*` et enregistre les snapshots avant chaque action
   undoable. Profondeur 50 actions/pile, FIFO. Snapshots par champs :
-  Composer = `[clips, numMeasures, bpm]` (tracks exclu pour préserver
-  zoom V), Designer = `[savedSounds, soundFolders, editor]`. Vérification
+  Composer = `[clips, numMeasures, bpm, selectedClipIds, tracks]`,
+  Designer = `[savedSounds, soundFolders, editor]`. Vérification
   cross-onglet : un undo Designer qui ferait disparaître un son utilisé
   par des clips est bloqué + Toast d'erreur (composant Toast.jsx, auto-clear
   4.5s). Boutons ⟲/⟳ dans la toolbar Composer et dans l'en-tête de la
@@ -545,8 +553,8 @@ Phases listées ci-dessous dans l'ordre chronologique d'implémentation.
   arborescence dépliable/repliable avec dossiers imbriqués. 2 commits :
   - **6.1** UI répertoires : SoundBank passe de liste plate à arborescence.
     Bouton "+ Dossier" (nom auto `nextAvailableFolderName`). Dossiers avec
-    chevron ▶/▼, icône 📁, badge compteur, boutons ✎/× inline.
-    Renommage inline identique aux sons. Suppression bloquée si des clips
+    chevron ▶/▼, icône 📁, badge compteur, bouton × inline.
+    Renommage par double-clic (✎ retiré des dossiers en C). Suppression bloquée si des clips
     référencent les sons (toast + auto-sélection + bascule Composer) ;
     sinon confirmation si dossier non-vide puis suppression directe.
     `folderCounter` persisté en localStorage. Actions reducer
@@ -603,16 +611,6 @@ Phases listées ci-dessous dans l'ordre chronologique d'implémentation.
 ## Itération en cours : C — Multipiste
 
 - ✅ **Phase 1** (2026-04-17) — UI Multi-tracks (5 sous-commits, voir Roadmap)
-- ✅ **Phase 1.6b** — Fix scroll vertical timeline interne (`.app` height:100vh
-  + overflow:hidden, min-height:0 sur layouts) + feedback réordonnancement
-  (ghost flottant, indicateur d'insertion 3px cyan, curseur grab)
-- ✅ **Phase 1.6c** — Fix curseur grabbing constant pendant drag
-  réordonnancement (cursor sur `documentElement` + CSS inherit !important)
-- ✅ **Refactor banque** — double-clic = renommer partout (sons, dossiers),
-  crayon = éditer dans Designer (Composer only), crayon retiré des dossiers
-- ✅ **Fix cross-piste** — delta calculé depuis le couloir sous la souris
-  (`mouseStartTrackIndex`) ; lane forcée à 0 pendant le preview drag
-  cross-piste (évite le débordement sous la dernière piste)
 - ✅ **Phase 2** (2026-04-17) — Mute/Solo/Volume par piste (voir Roadmap)
 - ✅ **Phase 3** (2026-04-17) — Refonte moteur audio look-ahead (voir Roadmap)
 - ✅ **Phase 4** (2026-04-17) — Adaptation features A/B au multipiste (voir Roadmap)
@@ -662,16 +660,13 @@ Phases listées ci-dessous dans l'ordre chronologique d'implémentation.
 
 🔧 **Itération C en cours** (2026-04-17)
 - UI multi-tracks : en-têtes + couloirs, CRUD pistes, drop/drag cross-piste,
-  réordonnancement par drag (phase 1, 5 commits)
-- Fixes : scroll vertical interne, feedback réordonnancement (ghost +
-  indicateur insertion), curseur grabbing, drag cross-piste (lane > 0)
-- Refactor banque : double-clic = renommer, crayon = éditer (Composer only)
+  réordonnancement par drag, refactor banque double-clic=renommer (phase 1)
 - Mute/Solo/Volume par piste : UI M/S/slider, logique solo DAW, GainNode
   per-track, gains temps réel, atténuation visuelle clips (phase 2)
 - Moteur audio look-ahead : scheduler fenêtre glissante, réactivité temps
   réel aux modifications de clips pendant lecture (phase 3)
-- Adaptation multipiste : fusion check trackId, coller clic droit cross-piste,
-  PropertiesPanel affiche piste (phase 4)
+- Adaptation multipiste : fusion check trackId, coller cross-piste (clic droit
+  + Ctrl+V), PropertiesPanel affiche piste, Échap ferme menu contextuel (phase 4)
 
 ## Historique (chronologie inverse)
 
@@ -756,11 +751,15 @@ Phases listées ci-dessous dans l'ordre chronologique d'implémentation.
     soundId:trackId) : clips modifiés/supprimés invalidés et
     reprogrammés en temps réel. Export WAV inchangé (one-shot).
 - ✅ **Phase 4** (2026-04-17) — Adaptation features A/B au multipiste.
-    `canMergeClips` vérifie même trackId. Coller clic droit cross-piste
-    avec delta de piste (clamp aux bornes). PropertiesPanel affiche la
-    piste (mono: nom, multi: "Pistes mixtes"). Audit : clipboard, measure
-    clipboard, split, delete/insert mesure, export WAV, multi-sélection
-    cross-piste — tous déjà corrects.
+    `canMergeClips` vérifie même trackId. Coller cross-piste : clic droit
+    et Ctrl+V passent le trackId de la piste survolée → delta de piste
+    appliqué à tous les clips collés (clampé aux bornes). Surbrillance
+    des pistes cibles au clic droit "Coller ici". `mousePositionRef`
+    enrichi avec `trackId`. PropertiesPanel affiche la piste (mono: nom,
+    multi: "Pistes mixtes"). Échap ferme le menu contextuel timeline
+    (listener capture phase, priorité sur désélection globale).
+    Audit : clipboard, measure clipboard, split, delete/insert mesure,
+    export WAV, multi-sélection cross-piste — tous déjà corrects.
 
 ### Backlog général (à caser quand pertinent)
 
