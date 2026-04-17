@@ -175,6 +175,19 @@ function Timeline({
   const [pasteTargetTrackIds, setPasteTargetTrackIds] = useState([]) // highlight during paste context menu
   const closeContextMenu = () => { setContextMenu(null); setPasteTargetTrackIds([]) }
 
+  // Échap ferme le menu contextuel (priorité sur la désélection globale)
+  useEffect(() => {
+    if (!contextMenu) return
+    const handler = (e) => {
+      if (e.key === 'Escape') {
+        e.stopPropagation()
+        closeContextMenu()
+      }
+    }
+    window.addEventListener('keydown', handler, true) // capture phase
+    return () => window.removeEventListener('keydown', handler, true)
+  }, [contextMenu])
+
   // --- Interaction clip (drag / resize-left / resize-right) ---
   // interactionRef : mutable, contient l'état live pendant l'interaction
   // (évite les fermetures périmées). interactionVisual : state React pour
