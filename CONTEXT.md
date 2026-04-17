@@ -615,6 +615,7 @@ Phases listées ci-dessous dans l'ordre chronologique d'implémentation.
   cross-piste (évite le débordement sous la dernière piste)
 - ✅ **Phase 2** (2026-04-17) — Mute/Solo/Volume par piste (voir Roadmap)
 - ✅ **Phase 3** (2026-04-17) — Refonte moteur audio look-ahead (voir Roadmap)
+- ✅ **Phase 4** (2026-04-17) — Adaptation features A/B au multipiste (voir Roadmap)
 
 **Décisions UX clés (à mémoire pour Iter A)**
 - Sauvegarde dans l'éditeur quand `currentSoundId` est non-null : 2 boutons distincts
@@ -669,6 +670,8 @@ Phases listées ci-dessous dans l'ordre chronologique d'implémentation.
   per-track, gains temps réel, atténuation visuelle clips (phase 2)
 - Moteur audio look-ahead : scheduler fenêtre glissante, réactivité temps
   réel aux modifications de clips pendant lecture (phase 3)
+- Adaptation multipiste : fusion check trackId, coller clic droit cross-piste,
+  PropertiesPanel affiche piste (phase 4)
 
 ## Historique (chronologie inverse)
 
@@ -752,6 +755,12 @@ Phases listées ci-dessous dans l'ordre chronologique d'implémentation.
     Détection de changements par signatures (measure:beat:duration:
     soundId:trackId) : clips modifiés/supprimés invalidés et
     reprogrammés en temps réel. Export WAV inchangé (one-shot).
+- ✅ **Phase 4** (2026-04-17) — Adaptation features A/B au multipiste.
+    `canMergeClips` vérifie même trackId. Coller clic droit cross-piste
+    avec delta de piste (clamp aux bornes). PropertiesPanel affiche la
+    piste (mono: nom, multi: "Pistes mixtes"). Audit : clipboard, measure
+    clipboard, split, delete/insert mesure, export WAV, multi-sélection
+    cross-piste — tous déjà corrects.
 
 ### Backlog général (à caser quand pertinent)
 
