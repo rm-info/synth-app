@@ -396,7 +396,7 @@ function Timeline({
               targetIdx = i; break
             }
           }
-          trackDelta = Math.max(s.minTrackDelta, Math.min(s.maxTrackDelta, targetIdx - s.leaderTrackIndex))
+          trackDelta = Math.max(s.minTrackDelta, Math.min(s.maxTrackDelta, targetIdx - s.mouseStartTrackIndex))
         }
         s.trackDelta = trackDelta
         s.visual = { measure, beat, duration: s.originalDuration, delta: clampedDelta }
@@ -670,8 +670,22 @@ function Timeline({
       resizeMinDelta,
       resizeMaxDelta,
       // Track info for cross-track drag
+      // mouseStartTrackIndex: the corridor the mouse is in at mousedown
+      // (not the clip's track — a clip on lane 1 has its visual center
+      // lower than the corridor top, so using clip.trackId would cause
+      // jumps when dragging from a high lane)
       trackOrder: tracks.map(t => t.id),
       leaderTrackIndex: tracks.findIndex(t => t.id === clip.trackId),
+      mouseStartTrackIndex: (() => {
+        const zone = dropZoneRef.current
+        if (!zone) return tracks.findIndex(t => t.id === clip.trackId)
+        const zoneRect = zone.getBoundingClientRect()
+        const yInCells = e.clientY - zoneRect.top
+        for (let i = 0; i < trackLayoutData.length; i++) {
+          if (yInCells < trackLayoutData[i].yOffset + trackLayoutData[i].corridorHeight) return i
+        }
+        return trackLayoutData.length - 1
+      })(),
       minTrackDelta: -(Math.min(...clipsInGroup.map(c => tracks.findIndex(t => t.id === c.trackId)))),
       maxTrackDelta: (tracks.length - 1) - Math.max(...clipsInGroup.map(c => tracks.findIndex(t => t.id === c.trackId))),
       clipsTrackIds: Object.fromEntries(clipsInGroup.map(c => [c.id, c.trackId])),
