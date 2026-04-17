@@ -322,6 +322,21 @@ function Timeline({
         const newLeaderStart = s.originalStart + clampedDelta
         const measure = Math.floor(newLeaderStart / BEATS_PER_MEASURE) + 1
         const beat = newLeaderStart - (measure - 1) * BEATS_PER_MEASURE
+        // Vertical: compute track delta from mouse Y
+        let trackDelta = 0
+        const zone = dropZoneRef.current
+        if (zone && s.trackLayouts.length > 1) {
+          const zoneRect = zone.getBoundingClientRect()
+          const yInCells = e.clientY - zoneRect.top
+          let targetIdx = s.trackLayouts.length - 1
+          for (let i = 0; i < s.trackLayouts.length; i++) {
+            if (yInCells < s.trackLayouts[i].yOffset + s.trackLayouts[i].corridorHeight) {
+              targetIdx = i; break
+            }
+          }
+          trackDelta = Math.max(s.minTrackDelta, Math.min(s.maxTrackDelta, targetIdx - s.leaderTrackIndex))
+        }
+        s.trackDelta = trackDelta
         s.visual = { measure, beat, duration: s.originalDuration, delta: clampedDelta }
         setInteractionVisual({
           clipId: s.clipId,
@@ -330,6 +345,7 @@ function Timeline({
           beat,
           duration: s.originalDuration,
           delta: clampedDelta,
+          trackDelta,
           clipIds: s.clipIds,
           isDuplicating: s.ctrlAtStart,
         })
@@ -396,10 +412,18 @@ function Timeline({
         }
       } else if (s.visual) {
         const isResize = s.mode === 'resize-left' || s.mode === 'resize-right'
+        // Helper: compute new trackId for a clip after vertical drag
+        const getNewTrackId = (clipId) => {
+          const origTrackId = s.clipsTrackIds[clipId]
+          const origIdx = s.trackOrder.indexOf(origTrackId)
+          const newIdx = origIdx + (s.trackDelta || 0)
+          return s.trackOrder[Math.max(0, Math.min(s.trackOrder.length - 1, newIdx))]
+        }
+        const hasMoved = (s.visual.delta ?? 0) !== 0 || (s.trackDelta || 0) !== 0
         if (s.mode === 'drag' && s.ctrlAtStart) {
           // Ctrl+drag : duplication des clipsBeingMoved à l'offset
-          const delta = s.visual.delta ?? 0
-          if (delta !== 0) {
+          if (hasMoved) {
+            const delta = s.visual.delta ?? 0
             const datas = s.clipsBeingMoved
               .map((cm) => {
                 const src = clipsRef.current.find((c) => c.id === cm.id)
@@ -408,7 +432,7 @@ function Timeline({
                 const m = Math.floor(newStart / BEATS_PER_MEASURE) + 1
                 const b = newStart - (m - 1) * BEATS_PER_MEASURE
                 return {
-                  trackId: src.trackId,
+                  trackId: getNewTrackId(cm.id),
                   soundId: src.soundId,
                   measure: m,
                   beat: b,
@@ -420,13 +444,13 @@ function Timeline({
           }
         } else if (s.mode === 'drag' && s.isMulti) {
           // Multi-drag : dispatcher MOVE_CLIPS avec toutes les nouvelles positions.
-          const delta = s.visual.delta ?? 0
-          if (delta !== 0) {
+          if (hasMoved) {
+            const delta = s.visual.delta ?? 0
             const moves = s.clipsBeingMoved.map((cm) => {
               const newStart = cm.originalStart + delta
               const m = Math.floor(newStart / BEATS_PER_MEASURE) + 1
               const b = newStart - (m - 1) * BEATS_PER_MEASURE
-              return { id: cm.id, measure: m, beat: b }
+              return { id: cm.id, measure: m, beat: b, trackId: getNewTrackId(cm.id) }
             })
             onMoveClips?.(moves)
           }
@@ -456,11 +480,13 @@ function Timeline({
             onResizeClips?.(updates)
           }
         } else {
-          onUpdateClip(s.clipId, {
+          const updates = {
             measure: s.visual.measure,
             beat: s.visual.beat,
             duration: s.visual.duration,
-          })
+          }
+          if ((s.trackDelta || 0) !== 0) updates.trackId = getNewTrackId(s.clipId)
+          onUpdateClip(s.clipId, updates)
         }
       }
       interactionRef.current = null
@@ -581,6 +607,14 @@ function Timeline({
       maxDelta: dragMaxDelta,
       resizeMinDelta,
       resizeMaxDelta,
+      // Track info for cross-track drag
+      trackOrder: tracks.map(t => t.id),
+      leaderTrackIndex: tracks.findIndex(t => t.id === clip.trackId),
+      minTrackDelta: -(Math.min(...clipsInGroup.map(c => tracks.findIndex(t => t.id === c.trackId)))),
+      maxTrackDelta: (tracks.length - 1) - Math.max(...clipsInGroup.map(c => tracks.findIndex(t => t.id === c.trackId))),
+      clipsTrackIds: Object.fromEntries(clipsInGroup.map(c => [c.id, c.trackId])),
+      trackLayouts: trackLayoutData.map(tl => ({ trackId: tl.trackId, yOffset: tl.yOffset, corridorHeight: tl.corridorHeight })),
+      trackDelta: 0,
       // Ctrl+drag : décidé au mouseup (toggle si < seuil, dup si drag)
       ctrlAtStart,
       preselectionIds: curSel,
@@ -1143,7 +1177,13 @@ function Timeline({
                 const visualStart = (visualMeasure - 1) * BEATS_PER_MEASURE + visualBeat
                 const left = (visualStart / totalBeats) * 100
                 const width = (visualDuration / totalBeats) * 100
-                const top = trackYOffset + lane * trackHeight + 4
+                let effectiveTrackYOffset = trackYOffset
+                if (isActive && interactionVisual?.mode === 'drag' && interactionVisual?.trackDelta) {
+                  const origIdx = tracks.findIndex(t => t.id === clip.trackId)
+                  const newIdx = Math.max(0, Math.min(tracks.length - 1, origIdx + interactionVisual.trackDelta))
+                  effectiveTrackYOffset = trackLayoutData[newIdx]?.yOffset ?? trackYOffset
+                }
+                const top = effectiveTrackYOffset + lane * trackHeight + 4
                 const height = trackHeight - 8
                 const isSelected = selectedClipIds?.includes(clip.id)
                 const classNames = [
@@ -1205,7 +1245,13 @@ function Timeline({
                   const newStart = origStart + interactionVisual.delta
                   const left = (newStart / totalBeats) * 100
                   const width = (clip.duration / totalBeats) * 100
-                  const top = trackYOffset + lane * trackHeight + 4
+                  let ghostTrackYOffset = trackYOffset
+                  if (interactionVisual.trackDelta) {
+                    const origIdx = tracks.findIndex(t => t.id === clip.trackId)
+                    const newIdx = Math.max(0, Math.min(tracks.length - 1, origIdx + interactionVisual.trackDelta))
+                    ghostTrackYOffset = trackLayoutData[newIdx]?.yOffset ?? trackYOffset
+                  }
+                  const top = ghostTrackYOffset + lane * trackHeight + 4
                   const height = trackHeight - 8
                   return (
                     <div

@@ -307,7 +307,10 @@ export function reducer(state, action) {
         ...state,
         clips: state.clips.map((c) => {
           const m = moves.get(c.id)
-          return m ? { ...c, measure: m.measure, beat: m.beat } : c
+          if (!m) return c
+      const updated = { ...c, measure: m.measure, beat: m.beat }
+      if (m.trackId) updated.trackId = m.trackId
+      return updated
         }),
       }
     }
