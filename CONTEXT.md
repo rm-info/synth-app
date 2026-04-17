@@ -215,10 +215,13 @@ Seuls les **placements timeline** s'appellent "clips".
 
 ## Architecture audio
 
-- **Live** : chaque clip → `OscillatorNode` (PeriodicWave) → `GainNode` (ADSR) →
-  `trackGainNode` → `analyserGain` → `AnalyserNode` + `destination`.
-  Un `GainNode` par piste ; gain = `track.volume` si audible, 0 si
-  muté/solo-exclu. Modifiable en temps réel via `updateTrackGains()`.
+- **Live (look-ahead)** : scheduler à fenêtre glissante (25ms tick,
+  100ms look-ahead). Chaque clip → `OscillatorNode` (PeriodicWave) →
+  `GainNode` (ADSR) → `trackGainNode` → `analyserGain` →
+  `AnalyserNode` + `destination`. Un `GainNode` par piste ;
+  gain = `track.volume` si audible, 0 si muté/solo-exclu.
+  Changements de clips détectés par comparaison de signatures ;
+  clips modifiés invalidés et reprogrammés.
 - **Export WAV** : `OfflineAudioContext(2, sampleRate * totalDurationSec, 44100)`,
   même routage per-track GainNode, mono up-mixé en stéréo, encodage RIFF/PCM16
 - **ADSR par note** : rampes linéaires attack→peak→sustain→hold→release→0
@@ -245,12 +248,13 @@ Choix non évidents pris pour de bonnes raisons. À ne pas remettre en question
   est un clone superficiel des champs trackés. Le partage de références
   via l'immutabilité du reducer rend ça bon marché en mémoire (un clip
   non modifié est la même référence dans tous les snapshots).
-- **Moteur audio schedule tout au démarrage** : `usePlayback` appelle
-  `scheduleNotes()` une fois au `play()` pour tous les clips. Pas de
-  look-ahead, pas de re-schedule pendant lecture. **Bug connu** : toute
-  modification de clips pendant que ça joue est ignorée jusqu'au prochain
-  play. À refondre en **itération C** (look-ahead par fenêtre glissante,
-  voir Roadmap).
+- **Moteur audio look-ahead** : `usePlayback` utilise un scheduler à
+  fenêtre glissante (setInterval 25ms, look-ahead 100ms) qui programme
+  les clips par petits blocs à l'avance. Les modifications de clips
+  pendant la lecture sont prises en compte : le scheduler compare
+  les signatures des clips à chaque tick et invalide/reprogramme les
+  clips modifiés, supprimés ou ajoutés. L'export WAV conserve le
+  scheduling one-shot (optimal pour OfflineAudioContext).
 - **Lane assignment greedy, calculé au rendu** : la polyphonie (clips
   qui se chevauchent → lanes empilées) est calculée à chaque render de
   `Timeline` à partir des clips triés par position. Pas stocké dans le
@@ -586,6 +590,7 @@ Phases listées ci-dessous dans l'ordre chronologique d'implémentation.
 
 - ✅ **Phase 1** (2026-04-17) — UI Multi-tracks (5 sous-commits, voir Roadmap)
 - ✅ **Phase 2** (2026-04-17) — Mute/Solo/Volume par piste (voir Roadmap)
+- ✅ **Phase 3** (2026-04-17) — Refonte moteur audio look-ahead (voir Roadmap)
 
 **Décisions UX clés (à mémoire pour Iter A)**
 - Sauvegarde dans l'éditeur quand `currentSoundId` est non-null : 2 boutons distincts
@@ -635,6 +640,8 @@ Phases listées ci-dessous dans l'ordre chronologique d'implémentation.
   réordonnancement par drag (phase 1, 5 commits)
 - Mute/Solo/Volume par piste : UI M/S/slider, logique solo DAW, GainNode
   per-track, gains temps réel, atténuation visuelle clips (phase 2)
+- Moteur audio look-ahead : scheduler fenêtre glissante, réactivité temps
+  réel aux modifications de clips pendant lecture (phase 3)
 
 ## Historique (chronologie inverse)
 
@@ -710,7 +717,12 @@ Phases listées ci-dessous dans l'ordre chronologique d'implémentation.
     lecture. Export WAV respecte mute/solo/volume. Clips des pistes
     mutées/solo-exclues affichés à opacité réduite. `UPDATE_TRACK`
     action undoable (pile Composer).
-- Refonte moteur audio en look-ahead (résout bug modif pendant lecture)
+- ✅ **Phase 3** (2026-04-17) — Refonte moteur audio look-ahead.
+    Scheduler à fenêtre glissante (25ms tick, 100ms look-ahead).
+    Clips programmés par petits blocs au lieu d'un seul burst.
+    Détection de changements par signatures (measure:beat:duration:
+    soundId:trackId) : clips modifiés/supprimés invalidés et
+    reprogrammés en temps réel. Export WAV inchangé (one-shot).
 
 ### Backlog général (à caser quand pertinent)
 
