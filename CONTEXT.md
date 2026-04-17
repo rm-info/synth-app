@@ -16,7 +16,8 @@ multi-sélection + drag/resize/dup/delete groupés + Properties multi ;
 copier/coller/fusion/split clips ; scroll/zoom Ctrl/Alt+drag ;
 répertoires de sons arborescents avec drag interne ; menu contextuel
 mesures avec supprimer/insérer/couper/copier/coller).
-Itération C **en cours** (multipiste : UI multi-tracks phase 1 terminée).
+Itération C **en cours** (multipiste : UI multi-tracks, mute/solo/volume,
+moteur audio look-ahead — phases 1-3 terminées).
 
 ## Objectif
 
@@ -193,19 +194,32 @@ Seuls les **placements timeline** s'appellent "clips".
 ### `SoundBank.jsx` (partagé Designer & Composer)
 - Liste verticale de chips (responsive : bandeau horizontal en <900px).
 - Drag → payload `text/plain` = soundId (drop sur Timeline).
-- Click ou double-click → `onLoadSound(id)` (App fait dirty check + tab switch).
-- Bouton ✎ rename inline ; bouton × supprime (confirm si utilisé).
-- Chip avec `currentSoundId` reçoit la classe `is-current` (highlight bordure).
+- **Designer** : clic charge le son dans l'éditeur ; double-clic = renommer
+  inline ; pas de bouton ✎ (le clic suffit). × supprime.
+- **Composer** : clic = no-op ; double-clic = renommer inline ; ✎ = éditer
+  dans Designer (dirty check + bascule onglet) ; × supprime.
+- **Dossiers** : clic = toggle ; double-clic = renommer inline ; × supprime.
+  Pas de bouton ✎.
+- Chip avec `currentSoundId` reçoit la classe `is-current` (highlight bordure,
+  Designer only).
 
 ### `usePlayback` (hook, `src/hooks/usePlayback.js`)
 - Une instance dans App. Singleton de fait pour le moteur audio timeline.
 - Retourne `{ isPlaying, cursorPos, currentTime, isExporting, analyserRef,
   play, stop, exportWav, updateTrackGains }`.
 - AudioContext créé paresseusement. Cleanup à l'unmount d'App.
+- **Scheduler look-ahead** : `setInterval` 25ms programme les clips dans
+  une fenêtre de 100ms d'avance. Refs (`clipsRef`, `tracksRef`,
+  `savedSoundsRef`, `bpmRef`) pour lire le state frais à chaque tick.
+  Détection de changements par signatures ; clips modifiés/supprimés
+  invalidés et reprogrammés. `scheduledClipIds` (Set) évite le
+  double-scheduling. `activeNodesRef` stocke les oscillators actifs.
 - **GainNode par piste** (`trackGainNodesRef`) : chaque piste a son propre
   gain, tous convergent vers `analyserGain` → `AnalyserNode` + `destination`.
 - `updateTrackGains(tracks)` : met à jour les gains en temps réel pendant
   la lecture (appelé par un useEffect dans App quand `tracks` change).
+- **Export WAV** : scheduling one-shot via `scheduleAllClips` (pas de
+  look-ahead dans l'OfflineAudioContext).
 
 ### `audio.js`
 - `pointsToPeriodicWave(points, ctx)` — DFT 256 points
@@ -589,6 +603,16 @@ Phases listées ci-dessous dans l'ordre chronologique d'implémentation.
 ## Itération en cours : C — Multipiste
 
 - ✅ **Phase 1** (2026-04-17) — UI Multi-tracks (5 sous-commits, voir Roadmap)
+- ✅ **Phase 1.6b** — Fix scroll vertical timeline interne (`.app` height:100vh
+  + overflow:hidden, min-height:0 sur layouts) + feedback réordonnancement
+  (ghost flottant, indicateur d'insertion 3px cyan, curseur grab)
+- ✅ **Phase 1.6c** — Fix curseur grabbing constant pendant drag
+  réordonnancement (cursor sur `documentElement` + CSS inherit !important)
+- ✅ **Refactor banque** — double-clic = renommer partout (sons, dossiers),
+  crayon = éditer dans Designer (Composer only), crayon retiré des dossiers
+- ✅ **Fix cross-piste** — delta calculé depuis le couloir sous la souris
+  (`mouseStartTrackIndex`) ; lane forcée à 0 pendant le preview drag
+  cross-piste (évite le débordement sous la dernière piste)
 - ✅ **Phase 2** (2026-04-17) — Mute/Solo/Volume par piste (voir Roadmap)
 - ✅ **Phase 3** (2026-04-17) — Refonte moteur audio look-ahead (voir Roadmap)
 
@@ -638,6 +662,9 @@ Phases listées ci-dessous dans l'ordre chronologique d'implémentation.
 🔧 **Itération C en cours** (2026-04-17)
 - UI multi-tracks : en-têtes + couloirs, CRUD pistes, drop/drag cross-piste,
   réordonnancement par drag (phase 1, 5 commits)
+- Fixes : scroll vertical interne, feedback réordonnancement (ghost +
+  indicateur insertion), curseur grabbing, drag cross-piste (lane > 0)
+- Refactor banque : double-clic = renommer, crayon = éditer (Composer only)
 - Mute/Solo/Volume par piste : UI M/S/slider, logique solo DAW, GainNode
   per-track, gains temps réel, atténuation visuelle clips (phase 2)
 - Moteur audio look-ahead : scheduler fenêtre glissante, réactivité temps
@@ -703,9 +730,11 @@ Phases listées ci-dessous dans l'ordre chronologique d'implémentation.
     le couloir cible depuis la coordonnée Y, surbrillance cyan du couloir
     pendant le drag, `trackId` passé à `onAddClip`.
   - **1.4** Drag de clips entre pistes : `trackDelta` calculé en temps réel
-    depuis le Y de la souris. Multi-sélection cross-piste : même delta
-    appliqué à tous, bornes intersectées. Mono-drag, multi-drag, Ctrl+drag
-    (duplication) gèrent tous le changement de piste. `MOVE_CLIPS` enrichi
+    depuis le Y de la souris via `mouseStartTrackIndex` (corridor sous le
+    curseur au mousedown, pas le track du clip — évite les sauts depuis
+    lane > 0). Preview : `effectiveLane = 0` quand trackDelta ≠ 0 (la lane
+    réelle est recalculée au drop). Multi-sélection cross-piste : même
+    delta appliqué à tous, bornes intersectées. `MOVE_CLIPS` enrichi
     avec `trackId` optionnel.
   - **1.5** Réordonnancement des pistes par drag : mousedown sur l'en-tête
     + drag vertical. `REORDER_TRACKS` action (undoable). Feedback visuel :
