@@ -1,5 +1,5 @@
 import { useState, useCallback, useRef } from 'react'
-import { getDescendantFolderIds, countFolderContents } from '../reducer'
+import { getDescendantFolderIds } from '../reducer'
 import './SoundBank.css'
 
 function nextAvailableFolderName(base, existingFolders) {
@@ -13,7 +13,6 @@ function nextAvailableFolderName(base, existingFolders) {
 function SoundBank({
   savedSounds,
   soundFolders,
-  clips,
   currentSoundId,
   activeTab,
   onLoadSound,
@@ -70,16 +69,6 @@ function SoundBank({
   }
 
   const handleDeleteFolder = (folder) => {
-    const { soundCount, soundIds } = countFolderContents(folder.id, soundFolders, savedSounds)
-    const descendantCount = getDescendantFolderIds(folder.id, soundFolders).length
-    const totalElements = soundCount + descendantCount
-    if (totalElements > 0) {
-      const clipCount = clips.filter((c) => soundIds.includes(c.soundId)).length
-      const msg = clipCount > 0
-        ? `Supprimer le dossier "${folder.name}" (${soundCount} son(s), ${clipCount} clip(s) associé(s)) ? Cette action est annulable.`
-        : `Supprimer le dossier "${folder.name}" et les ${totalElements} élément(s) qu'il contient ? Cette action est annulable.`
-      if (!window.confirm(msg)) return
-    }
     onDeleteFolder(folder.id)
   }
 
@@ -178,19 +167,12 @@ function SoundBank({
   }
 
   const renderSoundChip = (sound, depth) => {
-    const usedCount = clips.filter((c) => c.soundId === sound.id).length
     const isEditing = editingId === sound.id
     const isCurrent = loadOnSingleClick && currentSoundId === sound.id
     const isDragging = dragItem?.type === 'sound' && dragItem?.id === sound.id
 
     const handleDelete = (e) => {
       e.stopPropagation()
-      if (usedCount > 0) {
-        const ok = window.confirm(
-          `Supprimer "${sound.name}" ? Il est utilisé ${usedCount} fois sur la timeline.`,
-        )
-        if (!ok) return
-      }
       onDeleteSound(sound.id)
     }
     const handleLoad = () => {

@@ -20,6 +20,7 @@ import {
   DEFAULT_TRACK_ID,
   sameWaveform,
   canSplitClip,
+  getDescendantFolderIds,
 } from './reducer'
 import { canMergeClips } from './lib/timelineLayout'
 import Toast from './components/Toast'
@@ -447,8 +448,25 @@ function App() {
   }, [numMeasures, clips])
 
   const handleDeleteSound = useCallback((soundId) => {
+    const referencingClips = clips.filter((c) => c.soundId === soundId)
+    if (referencingClips.length > 0) {
+      const n = referencingClips.length
+      dispatch({
+        type: 'SET_NOTIFICATION',
+        payload: {
+          message: `Ce son est utilisé par ${n} clip(s). Supprimez-les d'abord.`,
+          type: 'error',
+          timestamp: Date.now(),
+        },
+      })
+      dispatch({ type: 'SELECT_CLIPS', payload: referencingClips.map((c) => c.id) })
+      if (activeTab === 'designer') {
+        dispatch({ type: 'SET_ACTIVE_TAB', payload: 'composer' })
+      }
+      return
+    }
     dispatch({ type: 'DELETE_SOUND', payload: { soundId } })
-  }, [])
+  }, [clips, activeTab])
 
   const handleRenameSound = useCallback((soundId, newName) => {
     dispatch({ type: 'RENAME_SOUND', payload: { soundId, name: newName } })
@@ -463,8 +481,36 @@ function App() {
   }, [])
 
   const handleDeleteFolder = useCallback((folderId) => {
+    const descendantIds = getDescendantFolderIds(folderId, soundFolders)
+    const allFolderIds = new Set([folderId, ...descendantIds])
+    const folderSoundIds = new Set(
+      savedSounds.filter((s) => allFolderIds.has(s.folderId)).map((s) => s.id),
+    )
+    const referencingClips = clips.filter((c) => folderSoundIds.has(c.soundId))
+    if (referencingClips.length > 0) {
+      const usedSoundCount = new Set(referencingClips.map((c) => c.soundId)).size
+      const n = referencingClips.length
+      dispatch({
+        type: 'SET_NOTIFICATION',
+        payload: {
+          message: `${usedSoundCount} son(s) de ce dossier sont utilisés par ${n} clip(s). Supprimez les clips d'abord.`,
+          type: 'error',
+          timestamp: Date.now(),
+        },
+      })
+      dispatch({ type: 'SELECT_CLIPS', payload: referencingClips.map((c) => c.id) })
+      if (activeTab === 'designer') {
+        dispatch({ type: 'SET_ACTIVE_TAB', payload: 'composer' })
+      }
+      return
+    }
+    if (folderSoundIds.size > 0) {
+      const folder = soundFolders.find((f) => f.id === folderId)
+      const name = folder ? folder.name : folderId
+      if (!window.confirm(`Supprimer le dossier "${name}" et ses ${folderSoundIds.size} son(s) ?`)) return
+    }
     dispatch({ type: 'DELETE_FOLDER', payload: { folderId } })
-  }, [])
+  }, [clips, savedSounds, soundFolders, activeTab])
 
   const handleMoveSoundToFolder = useCallback((soundId, folderId) => {
     dispatch({ type: 'MOVE_SOUND_TO_FOLDER', payload: { soundId, folderId } })
@@ -559,7 +605,6 @@ function App() {
                 <SoundBank
                   savedSounds={savedSounds}
                   soundFolders={soundFolders}
-                  clips={clips}
                   currentSoundId={currentSoundId}
                   activeTab="designer"
                   onLoadSound={handleLoadSound}
@@ -642,7 +687,6 @@ function App() {
                 <SoundBank
                   savedSounds={savedSounds}
                   soundFolders={soundFolders}
-                  clips={clips}
                   currentSoundId={currentSoundId}
                   activeTab="composer"
                   onLoadSound={handleLoadSound}

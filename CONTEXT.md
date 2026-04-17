@@ -11,7 +11,7 @@ React 19 + Vite, Web Audio API native, persistance localStorage. **Pas de
 TypeScript, pas de lib audio, pas de state manager, pas de framework UI,
 pas de routing.** Itération A (refonte UX core : 2 onglets Designer/Composer,
 dual save, zoom %, édition clips, undo/redo) **clôturée le 2026-04-15**.
-Itération B en cours : **phases 1–6 livrées le 2026-04-16**
+Itération B en cours : **phases 1–6.4 livrées le 2026-04-17**
 (spectrogramme statique ; multi-sélection + drag/resize/dup/delete
 groupés + Properties multi ; copier/coller/fusion/split clips ;
 scroll/zoom Ctrl/Alt+drag ; répertoires de sons arborescents avec
@@ -255,8 +255,9 @@ Choix non évidents pris pour de bonnes raisons. À ne pas remettre en question
   imprévisible (on annulerait une action invisible faite dans l'autre
   onglet). Conséquence : cross-onglet à gérer explicitement — un undo
   Designer qui supprimerait un son référencé par des clips du Composer
-  est bloqué avec un Toast explicite, plutôt que d'orphaniser
-  silencieusement les clips.
+  est bloqué avec un Toast explicite, et symétriquement un undo
+  Composer qui restaurerait des clips dont le son a été supprimé est
+  aussi bloqué. Pas d'états incohérents possibles.
 
 ## Contraintes implicites
 
@@ -484,14 +485,13 @@ Phases listées ci-dessous dans l'ordre chronologique d'implémentation.
   - **6.1** UI répertoires : SoundBank passe de liste plate à arborescence.
     Bouton "+ Dossier" (nom auto `nextAvailableFolderName`). Dossiers avec
     chevron ▶/▼, icône 📁, badge compteur, boutons ✎/× inline.
-    Renommage inline identique aux sons. Suppression cascade : dossier +
-    sous-dossiers + sons + clips associés, avec confirmation détaillée
-    (nombre de sons/clips affectés). `folderCounter` persisté en
-    localStorage. Actions reducer `CREATE_FOLDER`, `RENAME_FOLDER`,
-    `DELETE_FOLDER` — toutes undoable (pile Designer). `DELETE_FOLDER`
-    snapshote aussi la pile Composer (dual-stack) pour restaurer les clips
-    en cascade. Tri alphabétique, état déplié/replié volatile (tous dépliés
-    par défaut). Indentation 16px par niveau de profondeur.
+    Renommage inline identique aux sons. Suppression bloquée si des clips
+    référencent les sons (toast + auto-sélection + bascule Composer) ;
+    sinon confirmation si dossier non-vide puis suppression directe.
+    `folderCounter` persisté en localStorage. Actions reducer
+    `CREATE_FOLDER`, `RENAME_FOLDER`, `DELETE_FOLDER` — toutes undoable
+    (pile Designer). Tri alphabétique, état déplié/replié volatile (tous
+    dépliés par défaut). Indentation 16px par niveau de profondeur.
   - **6.2** Drag dans l'arborescence : drag d'un son vers un dossier
     (`folderId = folder.id`) ou vers la zone racine (`folderId = null`).
     Drag d'un dossier vers un autre (`parentId = target.id`) avec
@@ -502,6 +502,23 @@ Phases listées ci-dessous dans l'ordre chronologique d'implémentation.
     sons, les dossiers n'en émettent pas). Actions `MOVE_SOUND_TO_FOLDER`,
     `MOVE_FOLDER` undoable (pile Designer). Tri alphabétique, pas de
     sortOrder custom.
+  - **6.4** Refonte suppression sons/dossiers + check undo symétrique.
+    La suppression cascade (son/dossier → clips supprimés) est remplacée
+    par un **blocage avec assistance** : si des clips référencent le son
+    (ou des sons du dossier), la suppression est bloquée, un toast
+    s'affiche, les clips concernés sont auto-sélectionnés et on bascule
+    vers le Composer pour que l'utilisateur les supprime manuellement.
+    Si aucun clip ne référence : suppression directe (avec confirmation
+    pour les dossiers non-vides). Retrait de `DESIGNER_CASCADE` /
+    `DESIGNER_CASCADE_FIELDS` — les snapshots Designer ne capturent plus
+    les champs Composer. `DELETE_FOLDER` et `DELETE_SOUND` ne touchent
+    plus aux clips. Check undo Composer symétrique ajouté :
+    `UNDO_COMPOSER` / `REDO_COMPOSER` vérifient via `checkClipReferences`
+    que le snapshot à restaurer ne contient pas de clips dont le soundId
+    est absent des `savedSounds` actuels ; si oui, toast d'erreur et
+    undo bloqué. Le check undo Designer existant (`findOrphanReferences`)
+    est simplifié (plus de branche cascade). SoundBank ne reçoit plus
+    la prop `clips` (logique de blocage remontée dans App.jsx).
 
 **Décisions UX clés (à mémoire pour Iter A)**
 - Sauvegarde dans l'éditeur quand `currentSoundId` est non-null : 2 boutons distincts

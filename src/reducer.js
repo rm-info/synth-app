@@ -553,7 +553,6 @@ export function reducer(state, action) {
       return {
         ...state,
         savedSounds: state.savedSounds.filter((s) => s.id !== soundId),
-        clips: state.clips.filter((c) => c.soundId !== soundId),
         currentSoundId: state.currentSoundId === soundId ? null : state.currentSoundId,
       }
     }
@@ -596,11 +595,6 @@ export function reducer(state, action) {
         ...state,
         soundFolders: state.soundFolders.filter((f) => !allFolderIds.has(f.id)),
         savedSounds: state.savedSounds.filter((s) => !deletedSoundIds.has(s.id)),
-        clips: state.clips.filter((c) => !deletedSoundIds.has(c.soundId)),
-        selectedClipIds: state.selectedClipIds.filter((id) => {
-          const clip = state.clips.find((c) => c.id === id)
-          return clip && !deletedSoundIds.has(clip.soundId)
-        }),
         currentSoundId: deletedSoundIds.has(state.currentSoundId) ? null : state.currentSoundId,
       }
     }
@@ -741,10 +735,6 @@ const DESIGNER_UNDOABLE = new Set([
   'SET_EDITOR_ADSR', 'APPLY_EDITOR_PRESET', 'RESET_EDITOR',
 ])
 
-// Actions Designer qui cascadent sur des champs Composer (clips, etc.).
-// Leur snapshot Designer inclut les champs Composer pour un undo complet.
-const DESIGNER_CASCADE = new Set(['DELETE_FOLDER', 'DELETE_SOUND'])
-
 // Champs snapshot par pile. Note : `tracks` exclu de COMPOSER pour que la
 // hauteur de piste (zoom V) ne soit pas affectée par un undo (elle vit dans
 // tracks[0].height pour des raisons de modèle, mais zoomV est non-undoable
@@ -753,7 +743,6 @@ const DESIGNER_CASCADE = new Set(['DELETE_FOLDER', 'DELETE_SOUND'])
 // (ex : après undo de DUPLICATE_CLIPS, les originaux redeviennent sélectionnés).
 const COMPOSER_FIELDS = ['clips', 'numMeasures', 'bpm', 'selectedClipIds']
 const DESIGNER_FIELDS = ['savedSounds', 'soundFolders', 'editor']
-const DESIGNER_CASCADE_FIELDS = [...DESIGNER_FIELDS, 'clips', 'selectedClipIds']
 
 function pickFields(state, fields) {
   const out = {}
@@ -771,11 +760,42 @@ function findOrphanReferences(restoredSavedSounds, currentClips) {
   return { clipCount: orphans.length, soundIds: orphanSoundIds }
 }
 
+// Vérifie que les clips d'un snapshot Composer ne référencent pas des sons
+// absents du state Designer actuel. Retourne null si OK, ou
+// { type: 'missing-sounds', soundIds, clipCount } si conflit.
+function checkClipReferences(composerSnapshot, currentSavedSounds) {
+  const currentSoundIds = new Set(currentSavedSounds.map((s) => s.id))
+  const orphanClips = composerSnapshot.clips.filter(
+    (c) => !currentSoundIds.has(c.soundId),
+  )
+  if (orphanClips.length === 0) return null
+  const missingSoundIds = [...new Set(orphanClips.map((c) => c.soundId))]
+  return { type: 'missing-sounds', soundIds: missingSoundIds, clipCount: orphanClips.length }
+}
+
 function makeOrphanNotification(orphans) {
   const n = orphans.clipCount
   const plural = n > 1 ? 's' : ''
   return {
     message: `Action impossible : ce son est utilisé par ${n} clip${plural}. Supprimez-${n > 1 ? 'les' : 'le'} d'abord depuis l'onglet Composition.`,
+    type: 'error',
+    timestamp: Date.now(),
+  }
+}
+
+function makeMissingSoundNotification(conflict, savedSounds) {
+  const count = conflict.soundIds.length
+  if (count === 1) {
+    const sound = savedSounds.find((s) => s.id === conflict.soundIds[0])
+    const name = sound ? sound.name : conflict.soundIds[0]
+    return {
+      message: `Impossible : le son "${name}" a été supprimé. Restaurez-le d'abord depuis l'onglet Designer.`,
+      type: 'error',
+      timestamp: Date.now(),
+    }
+  }
+  return {
+    message: `Impossible : ${count} son(s) ont été supprimés. Restaurez-les d'abord depuis l'onglet Designer.`,
     type: 'error',
     timestamp: Date.now(),
   }
@@ -788,6 +808,10 @@ export function withUndo(baseReducer) {
       const { past, future } = state.history.composer
       if (past.length === 0) return state
       const previous = past[past.length - 1]
+      const conflict = checkClipReferences(previous, state.savedSounds)
+      if (conflict) {
+        return { ...state, notification: makeMissingSoundNotification(conflict, state.savedSounds) }
+      }
       const current = pickFields(state, COMPOSER_FIELDS)
       return {
         ...state,
@@ -802,6 +826,10 @@ export function withUndo(baseReducer) {
       const { past, future } = state.history.composer
       if (future.length === 0) return state
       const next = future[0]
+      const conflict = checkClipReferences(next, state.savedSounds)
+      if (conflict) {
+        return { ...state, notification: makeMissingSoundNotification(conflict, state.savedSounds) }
+      }
       const current = pickFields(state, COMPOSER_FIELDS)
       return {
         ...state,
@@ -816,17 +844,11 @@ export function withUndo(baseReducer) {
       const { past, future } = state.history.designer
       if (past.length === 0) return state
       const previous = past[past.length - 1]
-      const isCascade = 'clips' in previous
-      // Bloque si la restauration créerait des clips orphelins (non-cascade only:
-      // cascade snapshots include their own clips so no orphan risk)
-      if (!isCascade) {
-        const conflict = findOrphanReferences(previous.savedSounds, state.clips)
-        if (conflict) {
-          return { ...state, notification: makeOrphanNotification(conflict) }
-        }
+      const conflict = findOrphanReferences(previous.savedSounds, state.clips)
+      if (conflict) {
+        return { ...state, notification: makeOrphanNotification(conflict) }
       }
-      const fields = isCascade ? DESIGNER_CASCADE_FIELDS : DESIGNER_FIELDS
-      const current = pickFields(state, fields)
+      const current = pickFields(state, DESIGNER_FIELDS)
       return {
         ...state,
         ...previous,
@@ -840,15 +862,11 @@ export function withUndo(baseReducer) {
       const { past, future } = state.history.designer
       if (future.length === 0) return state
       const next = future[0]
-      const isCascade = 'clips' in next
-      if (!isCascade) {
-        const conflict = findOrphanReferences(next.savedSounds, state.clips)
-        if (conflict) {
-          return { ...state, notification: makeOrphanNotification(conflict) }
-        }
+      const conflict = findOrphanReferences(next.savedSounds, state.clips)
+      if (conflict) {
+        return { ...state, notification: makeOrphanNotification(conflict) }
       }
-      const fields = isCascade ? DESIGNER_CASCADE_FIELDS : DESIGNER_FIELDS
-      const current = pickFields(state, fields)
+      const current = pickFields(state, DESIGNER_FIELDS)
       return {
         ...state,
         ...next,
@@ -878,10 +896,7 @@ export function withUndo(baseReducer) {
         }
       }
       if (isDesigner) {
-        const fields = DESIGNER_CASCADE.has(action.type)
-          ? DESIGNER_CASCADE_FIELDS
-          : DESIGNER_FIELDS
-        const snap = pickFields(state, fields)
+        const snap = pickFields(state, DESIGNER_FIELDS)
         hist = {
           ...hist,
           designer: {
