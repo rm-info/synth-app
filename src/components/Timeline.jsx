@@ -1322,12 +1322,14 @@ function Timeline({
                 const left = (visualStart / totalBeats) * 100
                 const width = (visualDuration / totalBeats) * 100
                 let effectiveTrackYOffset = trackYOffset
+                let effectiveLane = lane
                 if (isActive && interactionVisual?.mode === 'drag' && interactionVisual?.trackDelta) {
                   const origIdx = tracks.findIndex(t => t.id === clip.trackId)
                   const newIdx = Math.max(0, Math.min(tracks.length - 1, origIdx + interactionVisual.trackDelta))
                   effectiveTrackYOffset = trackLayoutData[newIdx]?.yOffset ?? trackYOffset
+                  effectiveLane = 0 // lane réelle recalculée au drop
                 }
-                const top = effectiveTrackYOffset + lane * trackHeight + 4
+                const top = effectiveTrackYOffset + effectiveLane * trackHeight + 4
                 const height = trackHeight - 8
                 const isSelected = selectedClipIds?.includes(clip.id)
                 const classNames = [
@@ -1391,12 +1393,14 @@ function Timeline({
                   const left = (newStart / totalBeats) * 100
                   const width = (clip.duration / totalBeats) * 100
                   let ghostTrackYOffset = trackYOffset
+                  let ghostLane = lane
                   if (interactionVisual.trackDelta) {
                     const origIdx = tracks.findIndex(t => t.id === clip.trackId)
                     const newIdx = Math.max(0, Math.min(tracks.length - 1, origIdx + interactionVisual.trackDelta))
                     ghostTrackYOffset = trackLayoutData[newIdx]?.yOffset ?? trackYOffset
+                    ghostLane = 0
                   }
-                  const top = ghostTrackYOffset + lane * trackHeight + 4
+                  const top = ghostTrackYOffset + ghostLane * trackHeight + 4
                   const height = trackHeight - 8
                   return (
                     <div
