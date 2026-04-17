@@ -168,7 +168,7 @@ function Timeline({
   const [renamingTrackId, setRenamingTrackId] = useState(null)
   const [renameValue, setRenameValue] = useState('')
   const renameInputRef = useRef(null)
-  const [trackReorder, setTrackReorder] = useState(null) // { dragIndex, hoverIndex }
+  const [trackReorder, setTrackReorder] = useState(null) // { dragIndex, hoverIndex, ghostY }
 
   // --- Interaction clip (drag / resize-left / resize-right) ---
   // interactionRef : mutable, contient l'état live pendant l'interaction
@@ -213,7 +213,10 @@ function Timeline({
     e.preventDefault()
     let currentHoverIndex = trackIndex
     let cursorSet = false
-    setTrackReorder({ dragIndex: trackIndex, hoverIndex: trackIndex })
+    const headersCol = e.currentTarget.closest('.track-headers-column')
+    const headerRect = headersCol?.getBoundingClientRect()
+    const ghostOffsetY = e.clientY - e.currentTarget.getBoundingClientRect().top
+    setTrackReorder({ dragIndex: trackIndex, hoverIndex: trackIndex, ghostY: e.clientY - (headerRect?.top ?? 0) - ghostOffsetY })
 
     const handleMove = (ev) => {
       if (!cursorSet) {
@@ -221,9 +224,8 @@ function Timeline({
         document.body.style.cursor = 'grabbing'
         document.body.style.userSelect = 'none'
       }
-      // Determine hover index from mouse Y relative to track headers
-      const headersCol = document.querySelector('.track-headers-column')
       if (!headersCol) return
+      const colRect = headersCol.getBoundingClientRect()
       const headers = headersCol.querySelectorAll('.track-header')
       let newHover = trackIndex
       for (let i = 0; i < headers.length; i++) {
@@ -231,11 +233,13 @@ function Timeline({
         const midY = rect.top + rect.height / 2
         if (ev.clientY > midY) newHover = i
       }
-      if (ev.clientY < headers[0]?.getBoundingClientRect().top) newHover = 0
-      if (newHover !== currentHoverIndex) {
-        currentHoverIndex = newHover
-        setTrackReorder({ dragIndex: trackIndex, hoverIndex: newHover })
-      }
+      if (headers[0] && ev.clientY < headers[0].getBoundingClientRect().top) newHover = 0
+      currentHoverIndex = newHover
+      setTrackReorder({
+        dragIndex: trackIndex,
+        hoverIndex: newHover,
+        ghostY: ev.clientY - colRect.top - ghostOffsetY,
+      })
     }
 
     const handleUp = () => {
@@ -1023,10 +1027,14 @@ function Timeline({
             return (
               <div
                 key={tl.trackId}
-                className={`track-header${trackReorder?.dragIndex === i ? ' track-header-dragging' : ''}${trackReorder && trackReorder.dragIndex !== i && trackReorder.hoverIndex === i ? ' track-header-drop-target' : ''}`}
+                className={[
+                  'track-header',
+                  trackReorder?.dragIndex === i && 'track-header-dragging',
+                  trackReorder != null && trackReorder.hoverIndex === i && trackReorder.hoverIndex < trackReorder.dragIndex && 'track-header-insert-above',
+                  trackReorder != null && trackReorder.hoverIndex === i && trackReorder.hoverIndex > trackReorder.dragIndex && 'track-header-insert-below',
+                ].filter(Boolean).join(' ')}
                 style={{ height: `${tl.corridorHeight}px` }}
                 onMouseDown={(e) => {
-                  // Ne pas démarrer le reorder si on double-clique (renommage) ou si on clique sur un bouton
                   if (e.target.closest('button') || e.target.closest('input')) return
                   startTrackReorder(e, i)
                 }}
@@ -1080,6 +1088,22 @@ function Timeline({
               + Piste
             </button>
           )}
+          {trackReorder != null && (() => {
+            const dragTrack = tracks[trackReorder.dragIndex]
+            const dragColor = dragTrack?.color || TRACK_COLORS[trackReorder.dragIndex % TRACK_COLORS.length]
+            return (
+              <div
+                className="track-reorder-ghost"
+                style={{
+                  top: `${trackReorder.ghostY}px`,
+                  borderColor: dragColor,
+                }}
+              >
+                <span className="track-color-dot" style={{ backgroundColor: dragColor }} />
+                <span className="track-name">{dragTrack?.name}</span>
+              </div>
+            )
+          })()}
         </div>
         <div
           className="timeline-grid"

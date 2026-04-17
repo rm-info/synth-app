@@ -166,6 +166,8 @@
   border-bottom: 1px solid #2a2a4a;
   box-sizing: border-box;
   overflow: hidden;
+  cursor: grab;
+  position: relative;
 }
 
 .track-color-dot {
@@ -226,11 +228,47 @@
 }
 
 .track-header-dragging {
-  opacity: 0.5;
+  opacity: 0.3;
 }
 
-.track-header-drop-target {
-  border-top: 2px solid #00d4ff;
+.track-header-insert-above::before {
+  content: '';
+  position: absolute;
+  top: -2px;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: #00d4ff;
+  z-index: 2;
+}
+
+.track-header-insert-below::after {
+  content: '';
+  position: absolute;
+  bottom: -2px;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: #00d4ff;
+  z-index: 2;
+}
+
+/* Ghost during track reorder */
+.track-reorder-ghost {
+  position: absolute;
+  left: 0;
+  right: 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 8px;
+  background: #2a2a4a;
+  border: 2px solid;
+  border-radius: 4px;
+  opacity: 0.8;
+  pointer-events: none;
+  z-index: 10;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
 }
 
 .track-add-btn {

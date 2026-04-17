@@ -1,9 +1,10 @@
 .app {
-  min-height: 100vh;
+  height: 100vh;
   display: flex;
   flex-direction: column;
   background: #0f0f1a;
   color: #e0e0e0;
+  overflow: hidden;
 }
 
 /* Override la règle UA `[hidden] { display: none }` qui serait masquée par
@@ -15,6 +16,7 @@
 /* ======================= DESIGNER ======================= */
 .designer-layout {
   flex: 1;
+  min-height: 0;
   display: grid;
   grid-template-columns: 220px 1fr;
   grid-template-rows: 1fr;
@@ -81,6 +83,7 @@
 /* ======================= COMPOSER ======================= */
 .composer-layout {
   flex: 1;
+  min-height: 0;
   display: grid;
   /* Colonnes symétriques bank/aside pour que la toolbar (qui span les 3
      colonnes) s'aligne pixel-perfect avec le bord droit du panneau Properties. */
