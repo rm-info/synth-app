@@ -200,8 +200,12 @@ Seuls les **placements timeline** s'appellent "clips".
 ### `usePlayback` (hook, `src/hooks/usePlayback.js`)
 - Une instance dans App. Singleton de fait pour le moteur audio timeline.
 - Retourne `{ isPlaying, cursorPos, currentTime, isExporting, analyserRef,
-  play, stop, exportWav }`.
+  play, stop, exportWav, updateTrackGains }`.
 - AudioContext créé paresseusement. Cleanup à l'unmount d'App.
+- **GainNode par piste** (`trackGainNodesRef`) : chaque piste a son propre
+  gain, tous convergent vers `analyserGain` → `AnalyserNode` + `destination`.
+- `updateTrackGains(tracks)` : met à jour les gains en temps réel pendant
+  la lecture (appelé par un useEffect dans App quand `tracks` change).
 
 ### `audio.js`
 - `pointsToPeriodicWave(points, ctx)` — DFT 256 points
@@ -211,10 +215,12 @@ Seuls les **placements timeline** s'appellent "clips".
 
 ## Architecture audio
 
-- **Live** : chaque note → `OscillatorNode` (PeriodicWave) → `GainNode` (ADSR) →
-  `analyserGain` → `AnalyserNode` + `destination`
+- **Live** : chaque clip → `OscillatorNode` (PeriodicWave) → `GainNode` (ADSR) →
+  `trackGainNode` → `analyserGain` → `AnalyserNode` + `destination`.
+  Un `GainNode` par piste ; gain = `track.volume` si audible, 0 si
+  muté/solo-exclu. Modifiable en temps réel via `updateTrackGains()`.
 - **Export WAV** : `OfflineAudioContext(2, sampleRate * totalDurationSec, 44100)`,
-  même `scheduleNotes()`, mono up-mixé en stéréo, encodage RIFF/PCM16
+  même routage per-track GainNode, mono up-mixé en stéréo, encodage RIFF/PCM16
 - **ADSR par note** : rampes linéaires attack→peak→sustain→hold→release→0
   avec `clipDuration = max(noteDurationSec, attack+decay+release)`
 
@@ -579,6 +585,7 @@ Phases listées ci-dessous dans l'ordre chronologique d'implémentation.
 ## Itération en cours : C — Multipiste
 
 - ✅ **Phase 1** (2026-04-17) — UI Multi-tracks (5 sous-commits, voir Roadmap)
+- ✅ **Phase 2** (2026-04-17) — Mute/Solo/Volume par piste (voir Roadmap)
 
 **Décisions UX clés (à mémoire pour Iter A)**
 - Sauvegarde dans l'éditeur quand `currentSoundId` est non-null : 2 boutons distincts
@@ -626,6 +633,8 @@ Phases listées ci-dessous dans l'ordre chronologique d'implémentation.
 🔧 **Itération C en cours** (2026-04-17)
 - UI multi-tracks : en-têtes + couloirs, CRUD pistes, drop/drag cross-piste,
   réordonnancement par drag (phase 1, 5 commits)
+- Mute/Solo/Volume par piste : UI M/S/slider, logique solo DAW, GainNode
+  per-track, gains temps réel, atténuation visuelle clips (phase 2)
 
 ## Historique (chronologie inverse)
 
@@ -694,7 +703,13 @@ Phases listées ci-dessous dans l'ordre chronologique d'implémentation.
   - **1.5** Réordonnancement des pistes par drag : mousedown sur l'en-tête
     + drag vertical. `REORDER_TRACKS` action (undoable). Feedback visuel :
     opacité réduite + bordure cyan d'insertion.
-- Mute/Solo/volume par piste (phase C.2 — à venir)
+- ✅ **Phase 2** (2026-04-17) — Mute/Solo/Volume par piste. UI dans
+    l'en-tête : boutons M/S toggle + slider volume compact. Logique
+    solo standard DAW (mute prioritaire sur solo). GainNode par piste
+    dans le graphe audio, gains mis à jour en temps réel pendant la
+    lecture. Export WAV respecte mute/solo/volume. Clips des pistes
+    mutées/solo-exclues affichés à opacité réduite. `UPDATE_TRACK`
+    action undoable (pile Composer).
 - Refonte moteur audio en look-ahead (résout bug modif pendant lecture)
 
 ### Backlog général (à caser quand pertinent)
