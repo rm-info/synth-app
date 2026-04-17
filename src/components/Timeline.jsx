@@ -1245,10 +1245,12 @@ function Timeline({
               if (!hasClipboard) return
               const rect = dropZoneRef.current?.getBoundingClientRect()
               if (!rect) return
+              const yInCells = e.clientY - rect.top
               setContextMenu({
                 clientX: e.clientX,
                 clientY: e.clientY,
                 absoluteBeat: (e.clientX - rect.left) / pxPerBeat,
+                trackId: findTrackAtY(yInCells),
               })
             }}
           >
@@ -1538,7 +1540,7 @@ function Timeline({
               <button
                 type="button"
                 onClick={() => {
-                  onPaste?.(contextMenu.absoluteBeat)
+                  onPaste?.(contextMenu.absoluteBeat, contextMenu.trackId)
                   setContextMenu(null)
                 }}
               >

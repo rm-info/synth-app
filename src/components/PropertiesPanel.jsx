@@ -37,6 +37,7 @@ function PropertiesPanel({
   selectedClipIds,
   clips,
   savedSounds,
+  tracks,
   numMeasures,
   onUpdateClip,
   onRemoveClip,
@@ -83,6 +84,7 @@ function PropertiesPanel({
               selectedClips={selectedClips}
               clips={clips}
               savedSounds={savedSounds}
+              tracks={tracks}
               numMeasures={numMeasures}
               onUpdateClipsSound={onUpdateClipsSound}
               onUpdateClipsDuration={onUpdateClipsDuration}
@@ -98,6 +100,7 @@ function PropertiesPanel({
             <ClipEditor
               clip={mono}
               savedSounds={savedSounds}
+              tracks={tracks}
               onUpdateClip={onUpdateClip}
               onRemoveClip={onRemoveClip}
               canSplit2={canSplit2}
@@ -111,8 +114,9 @@ function PropertiesPanel({
   )
 }
 
-function ClipEditor({ clip, savedSounds, onUpdateClip, onRemoveClip, canSplit2, canSplit3, onSplitClips }) {
+function ClipEditor({ clip, savedSounds, tracks, onUpdateClip, onRemoveClip, canSplit2, canSplit3, onSplitClips }) {
   const currentSound = savedSounds.find((s) => s.id === clip.soundId)
+  const clipTrack = tracks?.find(t => t.id === clip.trackId)
 
   return (
     <div className="clip-editor">
@@ -146,6 +150,13 @@ function ClipEditor({ clip, savedSounds, onUpdateClip, onRemoveClip, canSplit2, 
           Mesure {clip.measure}, beat {formatBeat(clip.beat)}
         </span>
       </div>
+
+      {clipTrack && (
+        <div className="field">
+          <span className="field-label">Piste</span>
+          <span className="field-readonly">{clipTrack.name}</span>
+        </div>
+      )}
 
       <label className="field">
         <span className="field-label">Durée musicale</span>
@@ -198,6 +209,7 @@ function MultiClipEditor({
   selectedClips,
   clips,
   savedSounds,
+  tracks,
   numMeasures,
   onUpdateClipsSound,
   onUpdateClipsDuration,
@@ -237,6 +249,25 @@ function MultiClipEditor({
   return (
     <div className="clip-editor">
       <p className="properties-multi">{selectedClips.length} clips sélectionnés</p>
+
+      {tracks && (() => {
+        const trackIds = new Set(selectedClips.map(c => c.trackId))
+        if (trackIds.size === 1) {
+          const t = tracks.find(tr => tr.id === selectedClips[0].trackId)
+          return t ? (
+            <div className="field">
+              <span className="field-label">Piste</span>
+              <span className="field-readonly">{t.name}</span>
+            </div>
+          ) : null
+        }
+        return (
+          <div className="field">
+            <span className="field-label">Piste</span>
+            <span className="field-readonly">Pistes mixtes</span>
+          </div>
+        )
+      })()}
 
       <label className="field">
         <span className="field-label">Son</span>

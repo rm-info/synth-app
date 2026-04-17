@@ -52,6 +52,11 @@ export function canMergeClips(clips, selectedIds) {
     return { canMerge: false, reason: 'Sélectionnez au moins 2 clips' }
   }
 
+  const firstTrackId = selected[0].trackId
+  if (!selected.every((c) => c.trackId === firstTrackId)) {
+    return { canMerge: false, reason: 'Pistes différentes' }
+  }
+
   const firstSoundId = selected[0].soundId
   if (!selected.every((c) => c.soundId === firstSoundId)) {
     return { canMerge: false, reason: 'Sons différents' }

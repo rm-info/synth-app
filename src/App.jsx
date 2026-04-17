@@ -372,20 +372,33 @@ function App() {
   }, [selectedClipIds, clips])
 
   const handlePaste = useCallback(
-    (absoluteBeat) => {
+    (absoluteBeat, targetTrackId) => {
       if (!clipboard || clipboard.clips.length === 0) return
       const snapped = Math.round(absoluteBeat / 0.25) * 0.25
+
+      // Compute track delta if pasting onto a specific track (right-click)
+      const trackOrder = tracks.map(t => t.id)
+      let trackDelta = 0
+      if (targetTrackId) {
+        // Reference track = track of the first clip template (beatOffset=0)
+        const refTrackId = clipboard.clips[0]?.trackId || DEFAULT_TRACK_ID
+        const refIdx = trackOrder.indexOf(refTrackId)
+        const targetIdx = trackOrder.indexOf(targetTrackId)
+        if (refIdx >= 0 && targetIdx >= 0) trackDelta = targetIdx - refIdx
+      }
+
       const clipDatas = clipboard.clips.map((t) => {
         const beatPos = snapped + t.beatOffset
         const measure = Math.floor(beatPos / BEATS_PER_MEASURE) + 1
         const beat = beatPos - (measure - 1) * BEATS_PER_MEASURE
-        return {
-          trackId: t.trackId || DEFAULT_TRACK_ID,
-          soundId: t.soundId,
-          measure,
-          beat,
-          duration: t.duration,
+        // Apply track delta, clamp to valid range
+        let trackId = t.trackId || DEFAULT_TRACK_ID
+        if (trackDelta !== 0) {
+          const origIdx = trackOrder.indexOf(trackId)
+          const newIdx = Math.max(0, Math.min(trackOrder.length - 1, origIdx + trackDelta))
+          trackId = trackOrder[newIdx]
         }
+        return { trackId, soundId: t.soundId, measure, beat, duration: t.duration }
       })
       const maxEnd = Math.max(
         ...clipDatas.map((d) => (d.measure - 1) * BEATS_PER_MEASURE + d.beat + d.duration),
@@ -394,7 +407,7 @@ function App() {
       const extraMeasures = Math.max(0, neededMeasures - numMeasures)
       dispatch({ type: 'PASTE_CLIPS', payload: { clipDatas, extraMeasures } })
     },
-    [clipboard, numMeasures],
+    [clipboard, numMeasures, tracks],
   )
 
   // Raccourcis Ctrl+C/X/V — après la déclaration des handlers clipboard.
@@ -997,6 +1010,7 @@ function App() {
                 <PropertiesPanel
                   selectedClipIds={selectedClipIds}
                   clips={clips}
+                  tracks={tracks}
                   savedSounds={savedSounds}
                   numMeasures={numMeasures}
                   onUpdateClip={handleUpdateClip}
