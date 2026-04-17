@@ -2,6 +2,8 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { pointsToPeriodicWave, audioBufferToWav, downloadWav } from '../audio'
 
 const BEATS_PER_MEASURE = 4
+const LOOK_AHEAD = 0.1    // seconds of audio to schedule ahead
+const SCHED_INTERVAL = 25 // ms between scheduler ticks
 
 function beatToSeconds(beats, bpm) {
   return (beats * 60) / bpm
@@ -11,23 +13,69 @@ function clipBeatOffset(clip) {
   return (clip.measure - 1) * BEATS_PER_MEASURE + clip.beat
 }
 
-/**
- * Calcule si une piste est audible en fonction de mute/solo.
- */
 function trackPlays(track, anySolo) {
   if (track.muted) return false
   if (anySolo && !track.solo) return false
   return true
 }
 
-function scheduleClips(ctx, clips, savedSounds, startTime, trackGainNodes, defaultDest, bpm) {
+/**
+ * Schedule a single clip into the audio context. Returns { osc, gain, clipId }
+ * or null if the clip's track is muted.
+ */
+function scheduleOneClip(ctx, clip, sound, startTime, trackGainNodes, defaultDest, bpm, tracks) {
+  const track = tracks.find(t => t.id === clip.trackId)
+  const anySolo = tracks.some(t => t.solo)
+  if (track && !trackPlays(track, anySolo)) return null
+
+  const dest = trackGainNodes?.[clip.trackId] ?? defaultDest
+
+  const wave = pointsToPeriodicWave(sound.points, ctx)
+  const osc = ctx.createOscillator()
+  const gain = ctx.createGain()
+  osc.setPeriodicWave(wave)
+
+  const beatOffset = clipBeatOffset(clip)
+  const clipStart = startTime + beatToSeconds(beatOffset, bpm)
+  const a = (sound.attack ?? 10) / 1000
+  const d = (sound.decay ?? 100) / 1000
+  const r = (sound.release ?? 100) / 1000
+  const sus = sound.sustain ?? 0.7
+  const amp = sound.amplitude
+  const sustainLevel = sus * amp
+  const placedDuration = beatToSeconds(clip.duration, bpm)
+  const minDuration = a + d + r
+  const totalDuration = Math.max(placedDuration, minDuration)
+  const releaseStart = clipStart + totalDuration - r
+
+  osc.frequency.setValueAtTime(sound.frequency, clipStart)
+  gain.gain.setValueAtTime(0, clipStart)
+  gain.gain.linearRampToValueAtTime(amp, clipStart + a)
+  gain.gain.linearRampToValueAtTime(sustainLevel, clipStart + a + d)
+  gain.gain.linearRampToValueAtTime(sustainLevel, releaseStart)
+  gain.gain.linearRampToValueAtTime(0, clipStart + totalDuration)
+
+  osc.connect(gain)
+  gain.connect(dest)
+  osc.start(clipStart)
+  osc.stop(clipStart + totalDuration)
+
+  return { osc, gain, clipId: clip.id, endTime: clipStart + totalDuration }
+}
+
+/**
+ * One-shot schedule all clips (used for WAV export only).
+ */
+function scheduleAllClips(ctx, clips, savedSounds, startTime, trackGainNodes, defaultDest, bpm, tracks) {
   const nodes = []
+  const anySolo = tracks.some(t => t.solo)
   for (const clip of clips) {
-    const sound = savedSounds.find((s) => s.id === clip.soundId)
+    const sound = savedSounds.find(s => s.id === clip.soundId)
     if (!sound) continue
+    const track = tracks.find(t => t.id === clip.trackId)
+    if (track && !trackPlays(track, anySolo)) continue
 
     const dest = trackGainNodes?.[clip.trackId] ?? defaultDest
-
     const wave = pointsToPeriodicWave(sound.points, ctx)
     const osc = ctx.createOscillator()
     const gain = ctx.createGain()
@@ -64,33 +112,63 @@ function scheduleClips(ctx, clips, savedSounds, startTime, trackGainNodes, defau
 }
 
 /**
- * Hook moteur de lecture timeline : partagé entre le Mini-player (Designer)
- * et la Toolbar (Composer). UNE seule instance dans App, pour qu'un Play depuis
- * Designer puisse être stoppé depuis Composer (et inversement) — et surtout
- * pour ne pas dupliquer l'AudioContext.
+ * Hook moteur de lecture timeline avec scheduler look-ahead.
+ *
+ * Au lieu de programmer tous les clips d'un coup au play(), un scheduler
+ * tourne en boucle (setInterval 25ms) et programme les clips dans une
+ * fenêtre d'avance de 100ms. Cela permet de réagir aux modifications
+ * du state (clips, tracks, sons) en temps réel pendant la lecture.
  */
 export function usePlayback({ clips, savedSounds, tracks, bpm, totalDurationSec }) {
   const audioCtxRef = useRef(null)
-  const scheduledNodesRef = useRef([])
   const animFrameRef = useRef(null)
   const analyserRef = useRef(null)
   const analyserGainRef = useRef(null)
-  const trackGainNodesRef = useRef({}) // { trackId: GainNode }
+  const trackGainNodesRef = useRef({})
+
+  // Scheduler state (refs for access inside setInterval)
+  const schedulerTimerRef = useRef(null)
+  const startTimeRef = useRef(0)
+  const scheduledClipIdsRef = useRef(new Set())
+  const activeNodesRef = useRef([]) // [{ osc, gain, clipId, endTime }]
+  const prevClipsRef = useRef(null) // for change detection
+
+  // Refs for fresh state inside scheduler tick
+  const clipsRef = useRef(clips)
+  useEffect(() => { clipsRef.current = clips }, [clips])
+  const tracksRef = useRef(tracks)
+  useEffect(() => { tracksRef.current = tracks }, [tracks])
+  const savedSoundsRef = useRef(savedSounds)
+  useEffect(() => { savedSoundsRef.current = savedSounds }, [savedSounds])
+  const bpmRef = useRef(bpm)
+  useEffect(() => { bpmRef.current = bpm }, [bpm])
+  const totalDurationRef = useRef(totalDurationSec)
+  useEffect(() => { totalDurationRef.current = totalDurationSec }, [totalDurationSec])
 
   const [isPlaying, setIsPlaying] = useState(false)
   const [cursorPos, setCursorPos] = useState(0)
   const [currentTime, setCurrentTime] = useState(0)
   const [isExporting, setIsExporting] = useState(false)
 
-  const stop = useCallback(() => {
-    for (const node of scheduledNodesRef.current) {
-      try { node.osc.stop() } catch { /* already stopped */ }
-      try { node.osc.disconnect() } catch { /* already disconnected */ }
-      try { node.gain.disconnect() } catch { /* already disconnected */ }
+  const stopScheduler = useCallback(() => {
+    if (schedulerTimerRef.current != null) {
+      clearInterval(schedulerTimerRef.current)
+      schedulerTimerRef.current = null
     }
-    scheduledNodesRef.current = []
+    // Stop all active oscillators
+    for (const node of activeNodesRef.current) {
+      try { node.osc.stop() } catch { /* already stopped */ }
+      try { node.osc.disconnect() } catch { /* disconnected */ }
+      try { node.gain.disconnect() } catch { /* disconnected */ }
+    }
+    activeNodesRef.current = []
+    scheduledClipIdsRef.current.clear()
+    prevClipsRef.current = null
+  }, [])
+
+  const stop = useCallback(() => {
+    stopScheduler()
     if (animFrameRef.current) cancelAnimationFrame(animFrameRef.current)
-    // Disconnect track gain nodes
     for (const gn of Object.values(trackGainNodesRef.current)) {
       try { gn.disconnect() } catch { /* idem */ }
     }
@@ -106,7 +184,7 @@ export function usePlayback({ clips, savedSounds, tracks, bpm, totalDurationSec 
     setIsPlaying(false)
     setCursorPos(0)
     setCurrentTime(0)
-  }, [])
+  }, [stopScheduler])
 
   const play = useCallback(() => {
     if (clips.length === 0) return
@@ -135,24 +213,120 @@ export function usePlayback({ clips, savedSounds, tracks, bpm, totalDurationSec 
     trackGainNodesRef.current = tgNodes
 
     const startTime = ctx.currentTime + 0.05
-    const nodes = scheduleClips(ctx, clips, savedSounds, startTime, tgNodes, analyserGain, bpm)
-    scheduledNodesRef.current = nodes
+    startTimeRef.current = startTime
+    scheduledClipIdsRef.current.clear()
+    activeNodesRef.current = []
+    prevClipsRef.current = clipsRef.current
+
     setIsPlaying(true)
     setCursorPos(0)
     setCurrentTime(0)
 
+    // --- Scheduler look-ahead ---
+    const schedulerTick = () => {
+      const now = ctx.currentTime
+      const elapsed = now - startTime
+      if (elapsed >= totalDurationRef.current) {
+        // Will be caught by the animation loop
+        return
+      }
+
+      const currentClips = clipsRef.current
+      const currentTracks = tracksRef.current
+      const currentSounds = savedSoundsRef.current
+      const currentBpm = bpmRef.current
+
+      // Detect clip changes: invalidate scheduled clips that were modified/removed
+      if (currentClips !== prevClipsRef.current) {
+        const currentIds = new Set(currentClips.map(c => c.id))
+        // Build a signature map for current clips to detect modifications
+        const currentSigMap = new Map()
+        for (const c of currentClips) {
+          currentSigMap.set(c.id, `${c.measure}:${c.beat}:${c.duration}:${c.soundId}:${c.trackId}`)
+        }
+        const prevSigMap = new Map()
+        if (prevClipsRef.current) {
+          for (const c of prevClipsRef.current) {
+            prevSigMap.set(c.id, `${c.measure}:${c.beat}:${c.duration}:${c.soundId}:${c.trackId}`)
+          }
+        }
+
+        // Find removed or modified clip IDs
+        const invalidIds = new Set()
+        for (const id of scheduledClipIdsRef.current) {
+          if (!currentIds.has(id)) {
+            invalidIds.add(id) // removed
+          } else if (currentSigMap.get(id) !== prevSigMap.get(id)) {
+            invalidIds.add(id) // modified
+          }
+        }
+
+        // Cancel oscillators for invalid clips
+        if (invalidIds.size > 0) {
+          for (const id of invalidIds) {
+            scheduledClipIdsRef.current.delete(id)
+          }
+          const toRemove = []
+          for (let i = activeNodesRef.current.length - 1; i >= 0; i--) {
+            const node = activeNodesRef.current[i]
+            if (invalidIds.has(node.clipId)) {
+              try { node.osc.stop() } catch { /* already stopped */ }
+              try { node.osc.disconnect() } catch { /* disconnected */ }
+              try { node.gain.disconnect() } catch { /* disconnected */ }
+              toRemove.push(i)
+            }
+          }
+          for (const idx of toRemove) {
+            activeNodesRef.current.splice(idx, 1)
+          }
+        }
+
+        prevClipsRef.current = currentClips
+      }
+
+      // Purge ended oscillators
+      for (let i = activeNodesRef.current.length - 1; i >= 0; i--) {
+        if (activeNodesRef.current[i].endTime <= now) {
+          activeNodesRef.current.splice(i, 1)
+        }
+      }
+
+      // Schedule clips in the look-ahead window
+      const scheduleUntilSec = elapsed + LOOK_AHEAD
+      for (const clip of currentClips) {
+        if (scheduledClipIdsRef.current.has(clip.id)) continue
+        const clipStartSec = beatToSeconds(clipBeatOffset(clip), currentBpm)
+        if (clipStartSec >= elapsed && clipStartSec < scheduleUntilSec) {
+          const sound = currentSounds.find(s => s.id === clip.soundId)
+          if (!sound) continue
+          const result = scheduleOneClip(
+            ctx, clip, sound, startTime, tgNodes, analyserGain, currentBpm, currentTracks,
+          )
+          if (result) {
+            activeNodesRef.current.push(result)
+          }
+          scheduledClipIdsRef.current.add(clip.id)
+        }
+      }
+    }
+
+    // Run first tick immediately
+    schedulerTick()
+    schedulerTimerRef.current = setInterval(schedulerTick, SCHED_INTERVAL)
+
+    // --- Cursor animation (unchanged) ---
     const animate = () => {
       const elapsed = ctx.currentTime - startTime
-      if (elapsed >= totalDurationSec) {
+      if (elapsed >= totalDurationRef.current) {
         stop()
         return
       }
-      setCursorPos(elapsed / totalDurationSec)
+      setCursorPos(elapsed / totalDurationRef.current)
       setCurrentTime(elapsed)
       animFrameRef.current = requestAnimationFrame(animate)
     }
     animFrameRef.current = requestAnimationFrame(animate)
-  }, [clips, savedSounds, tracks, bpm, totalDurationSec, stop])
+  }, [clips, tracks, stop])
 
   // Update track gains in real-time when tracks change (mute/solo/volume)
   const updateTrackGains = useCallback((currentTracks) => {
@@ -178,7 +352,6 @@ export function usePlayback({ clips, savedSounds, tracks, bpm, totalDurationSec 
         sampleRate,
       )
 
-      // Per-track gain nodes for export
       const anySolo = tracks.some(t => t.solo)
       const tgNodes = {}
       for (const track of tracks) {
@@ -188,7 +361,7 @@ export function usePlayback({ clips, savedSounds, tracks, bpm, totalDurationSec 
         tgNodes[track.id] = gn
       }
 
-      scheduleClips(offlineCtx, clips, savedSounds, 0, tgNodes, offlineCtx.destination, bpm)
+      scheduleAllClips(offlineCtx, clips, savedSounds, 0, tgNodes, offlineCtx.destination, bpm, tracks)
       const renderedBuffer = await offlineCtx.startRendering()
       const wav = audioBufferToWav(renderedBuffer)
       downloadWav(wav, 'composition.wav')
@@ -199,8 +372,9 @@ export function usePlayback({ clips, savedSounds, tracks, bpm, totalDurationSec 
 
   useEffect(() => {
     return () => {
+      if (schedulerTimerRef.current != null) clearInterval(schedulerTimerRef.current)
       if (animFrameRef.current) cancelAnimationFrame(animFrameRef.current)
-      for (const node of scheduledNodesRef.current) {
+      for (const node of activeNodesRef.current) {
         try { node.osc.stop() } catch { /* already stopped */ }
         try { node.osc.disconnect() } catch { /* idem */ }
         try { node.gain.disconnect() } catch { /* idem */ }
