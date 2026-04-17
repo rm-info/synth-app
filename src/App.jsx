@@ -35,7 +35,7 @@ function App() {
     clips, savedSounds, soundFolders, tracks, bpm, numMeasures,
     editor, activeTab, currentSoundId, zoomH, defaultClipDuration,
     spectrogramVisible, selectedClipIds, composerFlash,
-    soundCounter, clipCounter, folderCounter, clipboard, history, notification,
+    soundCounter, clipCounter, folderCounter, clipboard, measureClipboard, history, notification,
   } = state
 
   const editorRef = useRef(null)
@@ -542,6 +542,129 @@ function App() {
     })
   }, [clips])
 
+  const buildMeasureClipboardData = useCallback((measureNum) => {
+    const mStart = (measureNum - 1) * BEATS_PER_MEASURE
+    const mEnd = measureNum * BEATS_PER_MEASURE
+    const snap = (v) => Math.round(v / 0.25) * 0.25
+    const templates = []
+    for (const c of clips) {
+      const start = (c.measure - 1) * BEATS_PER_MEASURE + c.beat
+      const end = start + c.duration
+      if (end <= mStart || start >= mEnd) continue
+      const clampedStart = Math.max(start, mStart)
+      const clampedEnd = Math.min(end, mEnd)
+      const dur = snap(clampedEnd - clampedStart)
+      if (dur < 0.25) continue
+      templates.push({
+        soundId: c.soundId,
+        trackId: c.trackId,
+        beatOffset: snap(clampedStart - mStart),
+        duration: dur,
+      })
+    }
+    return { measures: 1, clips: templates }
+  }, [clips])
+
+  const handleCopyMeasure = useCallback((measureNum) => {
+    const data = buildMeasureClipboardData(measureNum)
+    dispatch({ type: 'SET_MEASURE_CLIPBOARD', payload: data })
+    dispatch({
+      type: 'SET_COMPOSER_FLASH',
+      payload: `Mesure ${measureNum} copiée (${data.clips.length} clip${data.clips.length > 1 ? 's' : ''})`,
+    })
+  }, [buildMeasureClipboardData])
+
+  const handleCutMeasure = useCallback((measureNum) => {
+    if (numMeasures <= 1) return
+    const clipboardData = buildMeasureClipboardData(measureNum)
+    const mStart = (measureNum - 1) * BEATS_PER_MEASURE
+    const mEnd = measureNum * BEATS_PER_MEASURE
+
+    const deletedIds = []
+    const truncated = []
+    const splitParts = []
+    const snap = (v) => Math.round(v / 0.25) * 0.25
+    const toMB = (abs) => {
+      const m = Math.floor(abs / BEATS_PER_MEASURE) + 1
+      return { measure: m, beat: snap(abs - (m - 1) * BEATS_PER_MEASURE) }
+    }
+
+    for (const c of clips) {
+      const start = (c.measure - 1) * BEATS_PER_MEASURE + c.beat
+      const end = start + c.duration
+      if (end <= mStart || start >= mEnd) continue
+      if (start >= mStart && end <= mEnd) {
+        deletedIds.push(c.id)
+      } else if (start < mStart && end <= mEnd) {
+        const leftDur = snap(mStart - start)
+        if (leftDur >= 0.25) truncated.push({ id: c.id, newDuration: leftDur })
+        else deletedIds.push(c.id)
+      } else if (start >= mStart && end > mEnd) {
+        const rightDur = snap(end - mEnd)
+        deletedIds.push(c.id)
+        if (rightDur >= 0.25) {
+          const mb = toMB(snap(mEnd - BEATS_PER_MEASURE))
+          splitParts.push({ originalId: c.id, soundId: c.soundId, trackId: c.trackId, ...mb, duration: rightDur })
+        }
+      } else {
+        const leftDur = snap(mStart - start)
+        const rightDur = snap(end - mEnd)
+        if (leftDur >= 0.25) truncated.push({ id: c.id, newDuration: leftDur })
+        else deletedIds.push(c.id)
+        if (rightDur >= 0.25) {
+          const mb = toMB(snap(mStart))
+          splitParts.push({ originalId: leftDur >= 0.25 ? null : c.id, soundId: c.soundId, trackId: c.trackId, ...mb, duration: rightDur })
+        }
+      }
+    }
+
+    dispatch({
+      type: 'CUT_MEASURE',
+      payload: { measure: measureNum, deletedIds, truncated, splitParts, clipboardData },
+    })
+  }, [numMeasures, clips, buildMeasureClipboardData])
+
+  const handlePasteMeasures = useCallback((measureNum, position) => {
+    if (!measureClipboard) return
+    const { measures: count, clips: templates } = measureClipboard
+    const beatPosition = position === 'before'
+      ? (measureNum - 1) * BEATS_PER_MEASURE
+      : measureNum * BEATS_PER_MEASURE
+
+    const splitParts = []
+    const snap = (v) => Math.round(v / 0.25) * 0.25
+    for (const c of clips) {
+      const start = (c.measure - 1) * BEATS_PER_MEASURE + c.beat
+      const end = start + c.duration
+      if (start < beatPosition && end > beatPosition) {
+        const leftDur = snap(beatPosition - start)
+        const rightDur = snap(end - beatPosition)
+        const shiftAmount = count * BEATS_PER_MEASURE
+        if (leftDur >= 0.25 && rightDur >= 0.25) {
+          const rightStart = snap(beatPosition + shiftAmount)
+          const mR = Math.floor(rightStart / BEATS_PER_MEASURE) + 1
+          const bR = snap(rightStart - (mR - 1) * BEATS_PER_MEASURE)
+          splitParts.push(
+            { originalId: c.id, soundId: c.soundId, trackId: c.trackId, measure: c.measure, beat: c.beat, duration: leftDur },
+            { originalId: c.id, soundId: c.soundId, trackId: c.trackId, measure: mR, beat: bR, duration: rightDur },
+          )
+        }
+      }
+    }
+
+    const pastedClips = templates.map((t) => {
+      const absStart = snap(beatPosition + t.beatOffset)
+      const m = Math.floor(absStart / BEATS_PER_MEASURE) + 1
+      const b = snap(absStart - (m - 1) * BEATS_PER_MEASURE)
+      return { soundId: t.soundId, trackId: t.trackId, measure: m, beat: b, duration: t.duration }
+    })
+
+    dispatch({
+      type: 'PASTE_MEASURES',
+      payload: { beatPosition, count, splitParts, pastedClips },
+    })
+  }, [clips, measureClipboard])
+
   const handleDeleteSound = useCallback((soundId) => {
     const referencingClips = clips.filter((c) => c.soundId === soundId)
     if (referencingClips.length > 0) {
@@ -822,6 +945,10 @@ function App() {
                   onPaste={handlePaste}
                   onDeleteMeasure={handleDeleteMeasure}
                   onInsertMeasures={handleInsertMeasures}
+                  onCopyMeasure={handleCopyMeasure}
+                  onCutMeasure={handleCutMeasure}
+                  onPasteMeasures={handlePasteMeasures}
+                  hasMeasureClipboard={!!measureClipboard}
                 />
               </div>
               <div className="composer-aside">

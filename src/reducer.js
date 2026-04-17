@@ -148,6 +148,7 @@ export function buildInitialState() {
 
     // Clipboard (RAM uniquement, non persisté, non undoable)
     clipboard: null, // { clips: [{ soundId, trackId, beatOffset, duration }] }
+    measureClipboard: null, // { measures, clips: [{ soundId, trackId, beatOffset, duration }] }
 
     // UI (jamais undoable)
     zoomH: DEFAULT_ZOOM_H,
@@ -563,6 +564,97 @@ export function reducer(state, action) {
         selectedClipIds: [],
       }
     }
+    case 'SET_MEASURE_CLIPBOARD': {
+      return { ...state, measureClipboard: action.payload }
+    }
+    case 'CUT_MEASURE': {
+      const { measure, deletedIds, truncated, splitParts, clipboardData } = action.payload
+      const mEnd = measure * BEATS_PER_MEASURE
+      const shift = -BEATS_PER_MEASURE
+      const deleteSet = new Set(deletedIds)
+      const truncateMap = new Map(truncated.map((t) => [t.id, t.newDuration]))
+      const splitSet = new Set(splitParts.filter((s) => s.originalId).map((s) => s.originalId))
+      let counter = state.clipCounter
+      const newClips = []
+      for (const part of splitParts) {
+        counter++
+        newClips.push({
+          id: `clip-${counter}`,
+          soundId: part.soundId,
+          trackId: part.trackId,
+          measure: part.measure,
+          beat: part.beat,
+          duration: part.duration,
+        })
+      }
+      const kept = state.clips
+        .filter((c) => !deleteSet.has(c.id) && !splitSet.has(c.id))
+        .map((c) => {
+          const dur = truncateMap.has(c.id) ? truncateMap.get(c.id) : c.duration
+          const start = clipAbsoluteStart(c)
+          if (start >= mEnd) {
+            const newStart = snapBeat(start + shift)
+            const mb = beatToMeasureBeat(newStart)
+            return { ...c, measure: mb.measure, beat: mb.beat, duration: dur }
+          }
+          return dur !== c.duration ? { ...c, duration: dur } : c
+        })
+      return {
+        ...state,
+        clipCounter: counter,
+        numMeasures: Math.max(1, state.numMeasures - 1),
+        clips: [...kept, ...newClips],
+        selectedClipIds: [],
+        measureClipboard: clipboardData,
+      }
+    }
+    case 'PASTE_MEASURES': {
+      const { beatPosition, count, splitParts, pastedClips } = action.payload
+      const shiftAmount = count * BEATS_PER_MEASURE
+      let counter = state.clipCounter
+      const splitOriginalIds = new Set(splitParts.map((s) => s.originalId))
+      const newClips = []
+      for (const part of splitParts) {
+        counter++
+        newClips.push({
+          id: `clip-${counter}`,
+          soundId: part.soundId,
+          trackId: part.trackId,
+          measure: part.measure,
+          beat: part.beat,
+          duration: part.duration,
+        })
+      }
+      for (const pc of pastedClips) {
+        counter++
+        newClips.push({
+          id: `clip-${counter}`,
+          soundId: pc.soundId,
+          trackId: pc.trackId,
+          measure: pc.measure,
+          beat: pc.beat,
+          duration: pc.duration,
+        })
+      }
+      const shifted = state.clips
+        .filter((c) => !splitOriginalIds.has(c.id))
+        .map((c) => {
+          const start = clipAbsoluteStart(c)
+          if (start >= beatPosition) {
+            const newStart = snapBeat(start + shiftAmount)
+            const mb = beatToMeasureBeat(newStart)
+            return { ...c, measure: mb.measure, beat: mb.beat }
+          }
+          return c
+        })
+      return {
+        ...state,
+        clipCounter: counter,
+        numMeasures: state.numMeasures + count,
+        clips: [...shifted, ...newClips],
+        selectedClipIds: [],
+      }
+    }
     case 'SET_TRACK_HEIGHT': {
       const next = clampTrackHeight(action.payload)
       const t0 = state.tracks[0]
@@ -816,7 +908,7 @@ const COMPOSER_UNDOABLE = new Set([
   'DUPLICATE_CLIPS', 'PASTE_CLIPS', 'SPLIT_CLIPS', 'MERGE_CLIPS', 'DELETE_SELECTED_CLIPS',
   'UPDATE_CLIPS_SOUND', 'UPDATE_CLIPS_DURATION',
   'CLEAR_TIMELINE', 'SET_BPM', 'ADD_MEASURES', 'REMOVE_LAST_MEASURE',
-  'DELETE_MEASURE', 'INSERT_MEASURES_AT',
+  'DELETE_MEASURE', 'INSERT_MEASURES_AT', 'CUT_MEASURE', 'PASTE_MEASURES',
 ])
 
 const DESIGNER_UNDOABLE = new Set([

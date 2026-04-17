@@ -11,11 +11,12 @@ React 19 + Vite, Web Audio API native, persistance localStorage. **Pas de
 TypeScript, pas de lib audio, pas de state manager, pas de framework UI,
 pas de routing.** Itération A (refonte UX core : 2 onglets Designer/Composer,
 dual save, zoom %, édition clips, undo/redo) **clôturée le 2026-04-15**.
-Itération B en cours : **phases 1–6.4 livrées le 2026-04-17**
+Itération B en cours : **phases 1–7 livrées le 2026-04-17**
 (spectrogramme statique ; multi-sélection + drag/resize/dup/delete
 groupés + Properties multi ; copier/coller/fusion/split clips ;
 scroll/zoom Ctrl/Alt+drag ; répertoires de sons arborescents avec
-drag interne). Reste menus contextuels mesures, spectrogramme avancé.
+drag interne ; menu contextuel mesures avec supprimer/insérer/couper/
+copier/coller). Reste spectrogramme avancé.
 Itération C (multipiste, look-ahead audio) à venir.
 
 ## Objectif
@@ -524,6 +525,20 @@ Phases listées ci-dessous dans l'ordre chronologique d'implémentation.
     le check de référence : auto-sélection des clips orphelins +
     bascule vers Composer. Quand `UNDO_COMPOSER` / `REDO_COMPOSER`
     est bloqué par des sons manquants : bascule vers Designer.
+- ✅ **Phase 7** (2026-04-17) — Menu contextuel sur en-tête de mesure.
+  - **7.1** Clic droit sur un numéro de mesure → menu contextuel avec
+    "Supprimer cette mesure" (split/truncate/shift des clips affectés,
+    confirmation si destructif), "Insérer avant…" / "Insérer après…"
+    (input inline nombre de mesures, split des clips à cheval, shift).
+    Actions reducer `DELETE_MEASURE` et `INSERT_MEASURES_AT`, undoable.
+    Helpers `snapBeat`, `beatToMeasureBeat`, `clipAbsoluteStart`
+    extraits dans le reducer. Phase 7.2 grisée dans le menu.
+  - **7.2** Couper/Copier/Coller mesures. `measureClipboard` volatile
+    en RAM (séparé du clipboard clips). Copier copie les clips de la
+    mesure (tronqués aux bords) avec offsets relatifs. Couper = copie +
+    suppression. Coller avant/après insère N mesures et y place les
+    clips du clipboard. Actions `CUT_MEASURE`, `PASTE_MEASURES`,
+    `SET_MEASURE_CLIPBOARD`. Boutons activés dans le menu contextuel.
 
 **Décisions UX clés (à mémoire pour Iter A)**
 - Sauvegarde dans l'éditeur quand `currentSoundId` est non-null : 2 boutons distincts
@@ -596,8 +611,8 @@ sous-itérations correctifs/UX selon les retours.
 - ✅ Fusion de clips (phase B.4)
 - ✅ Compléments drag Composer : Ctrl+drag scroll, Alt+drag zoom (phase B.5)
 - ✅ Répertoires de sons : arborescence, drag interne, CRUD dossiers (phase B.6)
-- Menu contextuel sur en-tête de mesure : insertion milieu, couper/
-  copier/coller mesures, split clips (phase B.7)
+- ✅ Menu contextuel mesures : supprimer/insérer/couper/copier/coller
+  avec split clips à cheval (phase B.7)
 - Spectrogramme : options (toggle dB / linéaire, zoom, FFT temps réel
   pendant la lecture, affichage post-ADSR)
 

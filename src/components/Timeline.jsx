@@ -47,7 +47,7 @@ function gridLineLevel(i, subdiv) {
   return 'triple'
 }
 
-function MeasureContextMenu({ measure, canDelete, hasMeasureClipboard, onDelete, onInsert, onClose }) {
+function MeasureContextMenu({ measure, canDelete, hasMeasureClipboard, onDelete, onInsert, onCopy, onCut, onPaste, onClose }) {
   const [insertMode, setInsertMode] = useState(null)
   const [insertCount, setInsertCount] = useState('1')
   const inputRef = useRef(null)
@@ -106,10 +106,14 @@ function MeasureContextMenu({ measure, canDelete, hasMeasureClipboard, onDelete,
         Insérer après…
       </button>
       <div className="context-menu-separator" />
-      <button type="button" disabled className="context-menu-disabled">Couper</button>
-      <button type="button" disabled className="context-menu-disabled">Copier</button>
-      <button type="button" disabled={!hasMeasureClipboard} className="context-menu-disabled">Coller avant</button>
-      <button type="button" disabled={!hasMeasureClipboard} className="context-menu-disabled">Coller après</button>
+      <button type="button" disabled={!canDelete} onClick={onCut}>Couper</button>
+      <button type="button" onClick={onCopy}>Copier</button>
+      <button type="button" disabled={!hasMeasureClipboard} onClick={() => onPaste('before')}>
+        Coller avant
+      </button>
+      <button type="button" disabled={!hasMeasureClipboard} onClick={() => onPaste('after')}>
+        Coller après
+      </button>
     </>
   )
 }
@@ -145,6 +149,10 @@ function Timeline({
   onPaste,
   onDeleteMeasure,
   onInsertMeasures,
+  onCopyMeasure,
+  onCutMeasure,
+  onPasteMeasures,
+  hasMeasureClipboard,
 }) {
   const wrapperRef = useRef(null)
   const dropZoneRef = useRef(null)
@@ -1176,13 +1184,25 @@ function Timeline({
               <MeasureContextMenu
                 measure={contextMenu.measure}
                 canDelete={numMeasures > 1}
-                hasMeasureClipboard={false}
+                hasMeasureClipboard={hasMeasureClipboard}
                 onDelete={() => {
                   onDeleteMeasure?.(contextMenu.measure)
                   setContextMenu(null)
                 }}
                 onInsert={(position, count) => {
                   onInsertMeasures?.(contextMenu.measure, position, count)
+                  setContextMenu(null)
+                }}
+                onCopy={() => {
+                  onCopyMeasure?.(contextMenu.measure)
+                  setContextMenu(null)
+                }}
+                onCut={() => {
+                  onCutMeasure?.(contextMenu.measure)
+                  setContextMenu(null)
+                }}
+                onPaste={(position) => {
+                  onPasteMeasures?.(contextMenu.measure, position)
                   setContextMenu(null)
                 }}
                 onClose={() => setContextMenu(null)}
