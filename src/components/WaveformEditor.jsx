@@ -48,7 +48,17 @@ const ADSR_PEAK_Y = ADSR_H * 0.05
 const ADSR_HIT_RADIUS = 10
 const ADSR_HANDLE_RADIUS = 4
 
-function nextAvailableName(base, existingSounds) {
+function stripSuffix(name) {
+  let s = name
+  for (;;) {
+    const m = s.match(/^(.*?)\s*\(\d+\)$/)
+    if (!m) return s
+    s = m[1]
+  }
+}
+
+function nextAvailableName(rawBase, existingSounds) {
+  const base = stripSuffix(rawBase)
   const taken = new Set(existingSounds.map((s) => s.name))
   if (!taken.has(base)) return base
   let i = 2
