@@ -173,7 +173,7 @@ function Timeline({
   const [trackReorder, setTrackReorder] = useState(null) // { dragIndex, hoverIndex, ghostY }
   const [volumeDraft, setVolumeDraft] = useState(null) // { trackId, value } — draft pendant le drag du slider
   const [pasteTargetTrackIds, setPasteTargetTrackIds] = useState([]) // highlight during paste context menu
-  const closeContextMenu = () => { closeContextMenu(); setPasteTargetTrackIds([]) }
+  const closeContextMenu = () => { setContextMenu(null); setPasteTargetTrackIds([]) }
 
   // --- Interaction clip (drag / resize-left / resize-right) ---
   // interactionRef : mutable, contient l'état live pendant l'interaction
