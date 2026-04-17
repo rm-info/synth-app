@@ -5,7 +5,7 @@ import {
   SNAP_RESOLUTION,
   MIN_CLIP_DURATION,
 } from '../lib/timelineLayout'
-import { BEATS_PER_MEASURE } from '../reducer'
+import { BEATS_PER_MEASURE, TRACK_COLORS } from '../reducer'
 import './Timeline.css'
 
 const DRAG_THRESHOLD_PX = 5
@@ -125,6 +125,7 @@ function MeasureContextMenu({ measure, canDelete, hasMeasureClipboard, onDelete,
 function Timeline({
   savedSounds,
   clips,
+  tracks,
   numMeasures,
   zoomH,
   onSetZoomH,
@@ -495,8 +496,9 @@ function Timeline({
     let resizeMaxDelta = Infinity
     if (mode === 'resize-left' || mode === 'resize-right') {
       clipsBeingResized = clipsInGroup.map((c) => {
-        const b = laidOutItems
-          ? computeBounds(c.id, laidOutItems, groupIds)
+        const sameTrackItems = laidOutItems?.filter(it => it.clip.trackId === c.trackId)
+        const b = sameTrackItems?.length
+          ? computeBounds(c.id, sameTrackItems, groupIds)
           : { minStartLeft: 0, maxDurationRight: totalBeats }
         const cStart = (c.measure - 1) * BEATS_PER_MEASURE + c.beat
         return {
@@ -667,6 +669,7 @@ function Timeline({
     const trackHeightLocal = trackHeight
     const clipsSnap = clips
     const soundsSnap = savedSounds
+    const tracksSnap = tracks
     const curSelected = selectedClipIds ?? []
 
     let lastClientX = e.clientX
@@ -741,13 +744,20 @@ function Timeline({
         right: Math.max(startX, endX),
         bottom: Math.max(startY, endY),
       }
-      const { items } = layoutClips(clipsSnap, soundsSnap)
-      const intersecting = items
+      const allItems = []
+      let yOff = 0
+      for (const t of tracksSnap) {
+        const tc = clipsSnap.filter(c => c.trackId === t.id)
+        const { items, laneCount } = layoutClips(tc, soundsSnap)
+        for (const item of items) allItems.push({ ...item, trackYOffset: yOff })
+        yOff += Math.max(1, laneCount) * trackHeightLocal
+      }
+      const intersecting = allItems
         .filter((it) => {
           const clipLeft = it.start * pxPerBeatLocal
           const clipRight = it.end * pxPerBeatLocal
-          const clipTop = it.lane * trackHeightLocal + 4
-          const clipBottom = (it.lane + 1) * trackHeightLocal - 4
+          const clipTop = it.trackYOffset + it.lane * trackHeightLocal + 4
+          const clipBottom = it.trackYOffset + (it.lane + 1) * trackHeightLocal - 4
           return (
             clipLeft < rectPx.right &&
             clipRight > rectPx.left &&
@@ -840,7 +850,19 @@ function Timeline({
     return () => cancelAnimationFrame(frameId)
   }, [isPlaying, analyserRef])
 
-  const { items: laidOut, laneCount } = layoutClips(clips, savedSounds)
+  // Per-track lane layout
+  const trackLayoutData = []
+  let totalClipAreaHeight = 0
+  for (const track of tracks) {
+    const trackClips = clips.filter(c => c.trackId === track.id)
+    const { items, laneCount } = layoutClips(trackClips, savedSounds)
+    const corridorHeight = Math.max(1, laneCount) * trackHeight
+    trackLayoutData.push({ trackId: track.id, items, laneCount, yOffset: totalClipAreaHeight, corridorHeight })
+    totalClipAreaHeight += corridorHeight
+  }
+  const allLaidOut = trackLayoutData.flatMap(tl =>
+    tl.items.map(item => ({ ...item, trackYOffset: tl.yOffset }))
+  )
   const hasNoClips = clips.length === 0
 
   // Grille : génération des lignes
@@ -860,7 +882,7 @@ function Timeline({
     )
   }
 
-  const clipAreaHeight = laneCount * trackHeight
+  const clipAreaHeight = totalClipAreaHeight
 
   const canDeleteMeasure = numMeasures > 1
 
@@ -871,6 +893,19 @@ function Timeline({
         ref={wrapperRef}
         onMouseLeave={() => { if (mousePositionRef) mousePositionRef.current = null }}
       >
+        <div className="track-headers-column">
+          <div className="track-header-spacer" />
+          {trackLayoutData.map((tl, i) => {
+            const track = tracks[i]
+            const color = track.color || TRACK_COLORS[i % TRACK_COLORS.length]
+            return (
+              <div key={tl.trackId} className="track-header" style={{ height: `${tl.corridorHeight}px` }}>
+                <span className="track-color-dot" style={{ backgroundColor: color }} />
+                <span className="track-name">{track.name}</span>
+              </div>
+            )
+          })}
+        </div>
         <div
           className="timeline-grid"
           style={{
@@ -959,10 +994,27 @@ function Timeline({
               })
             }}
           >
+            <div className="track-corridors-layer">
+              {trackLayoutData.map((tl, i) => {
+                const track = tracks[i]
+                const color = track.color || TRACK_COLORS[i % TRACK_COLORS.length]
+                return (
+                  <div
+                    key={tl.trackId}
+                    className={`track-corridor${i % 2 === 1 ? ' track-corridor-odd' : ''}`}
+                    style={{
+                      top: `${tl.yOffset}px`,
+                      height: `${tl.corridorHeight}px`,
+                      borderLeftColor: color,
+                    }}
+                  />
+                )
+              })}
+            </div>
             <div className="grid-lines-layer">{gridLines}</div>
 
             <div className="placed-sounds-layer">
-              {laidOut.map(({ clip, sound, lane }) => {
+              {allLaidOut.map(({ clip, sound, lane, trackYOffset }) => {
                 const isLeader = interactionVisual?.clipId === clip.id
                 const isDuplicating = interactionVisual?.isDuplicating
                 // Membre non-leader d'un multi-drag/resize : suit l'offset du leader.
@@ -1011,7 +1063,7 @@ function Timeline({
                 const visualStart = (visualMeasure - 1) * BEATS_PER_MEASURE + visualBeat
                 const left = (visualStart / totalBeats) * 100
                 const width = (visualDuration / totalBeats) * 100
-                const top = lane * trackHeight + 4
+                const top = trackYOffset + lane * trackHeight + 4
                 const height = trackHeight - 8
                 const isSelected = selectedClipIds?.includes(clip.id)
                 const classNames = [
@@ -1038,7 +1090,7 @@ function Timeline({
                       // Ctrl/Cmd+mousedown démarre une session : devient
                       // duplication si l'utilisateur drag au-delà du seuil,
                       // sinon toggle de sélection au mouseup.
-                      startInteraction(e, clip, 'drag', laidOut, {
+                      startInteraction(e, clip, 'drag', allLaidOut, {
                         ctrlAtStart: e.ctrlKey || e.metaKey,
                       })
                     }}
@@ -1050,13 +1102,13 @@ function Timeline({
                   >
                     <div
                       className="resize-handle resize-handle-left"
-                      onMouseDown={(e) => startInteraction(e, clip, 'resize-left', laidOut)}
+                      onMouseDown={(e) => startInteraction(e, clip, 'resize-left', allLaidOut)}
                     />
                     <span className="placed-dot" style={{ backgroundColor: sound.color }} />
                     <span className="placed-name">{sound.name}</span>
                     <div
                       className="resize-handle resize-handle-right"
-                      onMouseDown={(e) => startInteraction(e, clip, 'resize-right', laidOut)}
+                      onMouseDown={(e) => startInteraction(e, clip, 'resize-right', allLaidOut)}
                     />
                   </div>
                 )
@@ -1066,14 +1118,14 @@ function Timeline({
             {/* Ghost copies pendant Ctrl+drag (duplication) */}
             {interactionVisual?.isDuplicating &&
               typeof interactionVisual.delta === 'number' &&
-              laidOut
+              allLaidOut
                 .filter((it) => interactionVisual.clipIds?.includes(it.clip.id))
-                .map(({ clip, sound, lane }) => {
+                .map(({ clip, sound, lane, trackYOffset }) => {
                   const origStart = (clip.measure - 1) * BEATS_PER_MEASURE + clip.beat
                   const newStart = origStart + interactionVisual.delta
                   const left = (newStart / totalBeats) * 100
                   const width = (clip.duration / totalBeats) * 100
-                  const top = lane * trackHeight + 4
+                  const top = trackYOffset + lane * trackHeight + 4
                   const height = trackHeight - 8
                   return (
                     <div

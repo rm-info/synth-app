@@ -132,6 +132,79 @@
   width: 1px;
 }
 
+/* Track headers (sticky left column) */
+.track-headers-column {
+  position: sticky;
+  left: 0;
+  z-index: 6;
+  flex: 0 0 120px;
+  background: #1a1a2e;
+  border-right: 1px solid #2a2a4a;
+}
+
+.track-header-spacer {
+  position: sticky;
+  top: 0;
+  z-index: 7;
+  background: #1a1a2e;
+  border-bottom: 1px solid #2a2a4a;
+  padding: 4px 8px;
+  box-sizing: border-box;
+}
+.track-header-spacer::after {
+  content: '\00a0';
+  font-size: 0.65rem;
+  font-family: monospace;
+  display: block;
+}
+
+.track-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 8px;
+  border-bottom: 1px solid #2a2a4a;
+  box-sizing: border-box;
+  overflow: hidden;
+}
+
+.track-color-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.track-name {
+  font-size: 0.72rem;
+  color: #c0c0e0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  flex: 1;
+  min-width: 0;
+}
+
+/* Track corridors (visual lanes in grid) */
+.track-corridors-layer {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.track-corridor {
+  position: absolute;
+  left: 0;
+  right: 0;
+  border-bottom: 1px solid #2a2a4a;
+  border-left: 3px solid;
+  box-sizing: border-box;
+}
+
+.track-corridor-odd {
+  background: rgba(255, 255, 255, 0.02);
+}
+
 .grid-line-measure { background: #4a4a6a; }
 .grid-line-beat    { background: #3a3a5a; }
 .grid-line-croche  { background: rgba(80, 80, 130, 0.55); }

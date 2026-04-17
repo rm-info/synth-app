@@ -16,6 +16,11 @@ export const DEFAULT_CLIP_DURATION = 1
 export const POINTS_RESOLUTION = 600
 
 export const DEFAULT_ADSR = { attack: 10, decay: 100, sustain: 0.7, release: 200 }
+
+export const TRACK_COLORS = [
+  '#5a8a7a', '#7a6a9a', '#9a8a5a', '#5a7a9a',
+  '#9a5a7a', '#6a9a5a', '#5a6a9a', '#9a7a5a',
+]
 export const DEFAULT_EDITOR = {
   points: new Array(POINTS_RESOLUTION).fill(0),
   freeMode: false,
@@ -31,7 +36,7 @@ export function makeDefaultTrack() {
   return {
     id: DEFAULT_TRACK_ID,
     name: 'Piste 1',
-    color: null,
+    color: TRACK_COLORS[0],
     muted: false,
     solo: false,
     volume: 1,
@@ -94,9 +99,13 @@ export function loadPersistedState() {
     const savedSounds = (parsed.savedSounds ?? []).map(normalizeSound)
     const rawClips = parsed.clips ?? parsed.notes ?? parsed.placements ?? []
     const clips = rawClips.map(normalizeClip)
-    const tracks = Array.isArray(parsed.tracks) && parsed.tracks.length > 0
+    const tracks = (Array.isArray(parsed.tracks) && parsed.tracks.length > 0
       ? parsed.tracks
       : [makeDefaultTrack()]
+    ).map((t, i) => ({
+      ...t,
+      color: t.color ?? TRACK_COLORS[i % TRACK_COLORS.length],
+    }))
     const soundFolders = Array.isArray(parsed.soundFolders) ? parsed.soundFolders : []
 
     const maxClipMeasure = clips.reduce((m, c) => Math.max(m, c.measure || 0), 0)
@@ -657,11 +666,10 @@ export function reducer(state, action) {
     }
     case 'SET_TRACK_HEIGHT': {
       const next = clampTrackHeight(action.payload)
-      const t0 = state.tracks[0]
-      if (!t0 || t0.height === next) return state
+      if (state.tracks.every(t => t.height === next)) return state
       return {
         ...state,
-        tracks: state.tracks.map((t, i) => (i === 0 ? { ...t, height: next } : t)),
+        tracks: state.tracks.map(t => ({ ...t, height: next })),
       }
     }
 

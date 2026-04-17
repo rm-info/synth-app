@@ -921,6 +921,7 @@ function App() {
                 <Timeline
                   savedSounds={savedSounds}
                   clips={clips}
+                  tracks={tracks}
                   numMeasures={numMeasures}
                   zoomH={zoomH}
                   onSetZoomH={setZoomH}
