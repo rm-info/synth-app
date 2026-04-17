@@ -229,6 +229,20 @@ export function canSplitClip(clip, divisor) {
   return Math.abs(Math.round(part / 0.25) * 0.25 - part) < 1e-9
 }
 
+function snapBeat(v) {
+  return Math.round(v / 0.25) * 0.25
+}
+
+function beatToMeasureBeat(absoluteBeat) {
+  const measure = Math.floor(absoluteBeat / BEATS_PER_MEASURE) + 1
+  const beat = snapBeat(absoluteBeat - (measure - 1) * BEATS_PER_MEASURE)
+  return { measure, beat }
+}
+
+function clipAbsoluteStart(c) {
+  return (c.measure - 1) * BEATS_PER_MEASURE + c.beat
+}
+
 function clampZoomH(v) {
   return Math.max(MIN_ZOOM_H, Math.min(MAX_ZOOM_H, v))
 }
@@ -469,6 +483,84 @@ export function reducer(state, action) {
           .filter((c) => !deleteSet.has(c.id))
           .map((c) => (truncateMap.has(c.id) ? { ...c, duration: truncateMap.get(c.id) } : c)),
         selectedClipIds: state.selectedClipIds.filter((id) => !deleteSet.has(id)),
+      }
+    }
+    case 'DELETE_MEASURE': {
+      // payload pre-computed by App handler
+      const { measure, deletedIds, truncated, splitParts } = action.payload
+      const mEnd = measure * BEATS_PER_MEASURE
+      const shift = -BEATS_PER_MEASURE
+      const deleteSet = new Set(deletedIds)
+      const truncateMap = new Map(truncated.map((t) => [t.id, t.newDuration]))
+      const splitSet = new Set(splitParts.filter((s) => s.originalId).map((s) => s.originalId))
+      let counter = state.clipCounter
+      const newClips = []
+      for (const part of splitParts) {
+        counter++
+        newClips.push({
+          id: `clip-${counter}`,
+          soundId: part.soundId,
+          trackId: part.trackId,
+          measure: part.measure,
+          beat: part.beat,
+          duration: part.duration,
+        })
+      }
+      const kept = state.clips
+        .filter((c) => !deleteSet.has(c.id) && !splitSet.has(c.id))
+        .map((c) => {
+          const dur = truncateMap.has(c.id) ? truncateMap.get(c.id) : c.duration
+          const start = clipAbsoluteStart(c)
+          if (start >= mEnd) {
+            const newStart = snapBeat(start + shift)
+            const mb = beatToMeasureBeat(newStart)
+            return { ...c, measure: mb.measure, beat: mb.beat, duration: dur }
+          }
+          return dur !== c.duration ? { ...c, duration: dur } : c
+        })
+      return {
+        ...state,
+        clipCounter: counter,
+        numMeasures: Math.max(1, state.numMeasures - 1),
+        clips: [...kept, ...newClips],
+        selectedClipIds: [],
+      }
+    }
+    case 'INSERT_MEASURES_AT': {
+      // payload: { beatPosition, count, splitParts }
+      const { beatPosition, count, splitParts } = action.payload
+      const shiftAmount = count * BEATS_PER_MEASURE
+      let counter = state.clipCounter
+      const splitOriginalIds = new Set(splitParts.map((s) => s.originalId))
+      const newClips = []
+      for (const part of splitParts) {
+        counter++
+        newClips.push({
+          id: `clip-${counter}`,
+          soundId: part.soundId,
+          trackId: part.trackId,
+          measure: part.measure,
+          beat: part.beat,
+          duration: part.duration,
+        })
+      }
+      const shifted = state.clips
+        .filter((c) => !splitOriginalIds.has(c.id))
+        .map((c) => {
+          const start = clipAbsoluteStart(c)
+          if (start >= beatPosition) {
+            const newStart = snapBeat(start + shiftAmount)
+            const mb = beatToMeasureBeat(newStart)
+            return { ...c, measure: mb.measure, beat: mb.beat }
+          }
+          return c
+        })
+      return {
+        ...state,
+        clipCounter: counter,
+        numMeasures: state.numMeasures + count,
+        clips: [...shifted, ...newClips],
+        selectedClipIds: [],
       }
     }
     case 'SET_TRACK_HEIGHT': {
@@ -724,6 +816,7 @@ const COMPOSER_UNDOABLE = new Set([
   'DUPLICATE_CLIPS', 'PASTE_CLIPS', 'SPLIT_CLIPS', 'MERGE_CLIPS', 'DELETE_SELECTED_CLIPS',
   'UPDATE_CLIPS_SOUND', 'UPDATE_CLIPS_DURATION',
   'CLEAR_TIMELINE', 'SET_BPM', 'ADD_MEASURES', 'REMOVE_LAST_MEASURE',
+  'DELETE_MEASURE', 'INSERT_MEASURES_AT',
 ])
 
 const DESIGNER_UNDOABLE = new Set([

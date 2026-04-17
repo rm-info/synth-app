@@ -306,9 +306,61 @@
   text-align: left;
   white-space: nowrap;
 }
-.timeline-context-menu button:hover {
+.timeline-context-menu button:hover:not(:disabled) {
   background: #2a2a4a;
   color: #00d4ff;
+}
+.timeline-context-menu button:disabled {
+  color: #4a4a6a;
+  cursor: default;
+}
+
+.context-menu-separator {
+  height: 1px;
+  background: #3a3a5a;
+  margin: 3px 4px;
+}
+
+.measure-insert-form {
+  padding: 6px 10px;
+  font-size: 0.82rem;
+  color: #e0e0ff;
+}
+.measure-insert-form label {
+  display: block;
+  margin-bottom: 6px;
+  white-space: nowrap;
+}
+.measure-insert-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.measure-insert-row input {
+  width: 48px;
+  padding: 3px 6px;
+  background: #2a2a4a;
+  border: 1px solid #4a4a6a;
+  border-radius: 4px;
+  color: #e0e0ff;
+  font-size: 0.82rem;
+  text-align: center;
+}
+.measure-insert-row span {
+  color: #9aa2b8;
+  font-size: 0.78rem;
+}
+.measure-insert-row button {
+  padding: 3px 10px;
+  background: #00b4d8;
+  border: none;
+  border-radius: 4px;
+  color: #fff;
+  font-size: 0.78rem;
+  cursor: pointer;
+}
+.measure-insert-row button:hover {
+  background: #00d4ff;
 }
 
 /* Hints */

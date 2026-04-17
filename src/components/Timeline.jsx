@@ -47,6 +47,73 @@ function gridLineLevel(i, subdiv) {
   return 'triple'
 }
 
+function MeasureContextMenu({ measure, canDelete, hasMeasureClipboard, onDelete, onInsert, onClose }) {
+  const [insertMode, setInsertMode] = useState(null)
+  const [insertCount, setInsertCount] = useState('1')
+  const inputRef = useRef(null)
+
+  useEffect(() => {
+    if (insertMode && inputRef.current) inputRef.current.focus()
+  }, [insertMode])
+
+  useEffect(() => {
+    const handler = (e) => { if (e.key === 'Escape') onClose() }
+    window.addEventListener('keydown', handler)
+    return () => window.removeEventListener('keydown', handler)
+  }, [onClose])
+
+  const commitInsert = () => {
+    const n = Math.max(1, Math.min(64, parseInt(insertCount, 10) || 1))
+    onInsert(insertMode, n)
+  }
+
+  if (insertMode) {
+    return (
+      <div className="measure-insert-form">
+        <label>
+          {insertMode === 'before' ? `Insérer avant mesure ${measure}` : `Insérer après mesure ${measure}`}
+        </label>
+        <div className="measure-insert-row">
+          <input
+            ref={inputRef}
+            type="number"
+            min="1"
+            max="64"
+            value={insertCount}
+            onChange={(e) => setInsertCount(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') { e.preventDefault(); commitInsert() }
+              if (e.key === 'Escape') { e.preventDefault(); onClose() }
+            }}
+          />
+          <span>mesure(s)</span>
+          <button type="button" onClick={commitInsert}>OK</button>
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <>
+      <button type="button" disabled={!canDelete} onClick={onDelete}>
+        Supprimer cette mesure
+      </button>
+      <div className="context-menu-separator" />
+      <button type="button" onClick={() => setInsertMode('before')}>
+        Insérer avant…
+      </button>
+      <button type="button" onClick={() => setInsertMode('after')}>
+        Insérer après…
+      </button>
+      <div className="context-menu-separator" />
+      <button type="button" disabled className="context-menu-disabled">Couper</button>
+      <button type="button" disabled className="context-menu-disabled">Copier</button>
+      <button type="button" disabled={!hasMeasureClipboard} className="context-menu-disabled">Coller avant</button>
+      <button type="button" disabled={!hasMeasureClipboard} className="context-menu-disabled">Coller après</button>
+    </>
+  )
+}
+
 /**
  * Timeline grid (Composer). Reçoit zoomH (en %) + trackHeight, calcule
  * pxPerBeat / pxPerMeasure et rend la grille en lignes absolument positionnées.
@@ -76,6 +143,8 @@ function Timeline({
   mousePositionRef,
   hasClipboard,
   onPaste,
+  onDeleteMeasure,
+  onInsertMeasures,
 }) {
   const wrapperRef = useRef(null)
   const dropZoneRef = useRef(null)
@@ -809,6 +878,16 @@ function Timeline({
                   key={i}
                   className={`measure-label ${isLast ? 'is-last-measure' : ''}`}
                   style={{ width: `${pxPerMeasure}px` }}
+                  onContextMenu={(e) => {
+                    e.preventDefault()
+                    e.stopPropagation()
+                    setContextMenu({
+                      type: 'measure',
+                      measure: i + 1,
+                      clientX: e.clientX,
+                      clientY: e.clientY,
+                    })
+                  }}
                 >
                   <span className="measure-number">{i + 1}</span>
                   {isLast && canDeleteMeasure && (
@@ -1093,15 +1172,32 @@ function Timeline({
             className="timeline-context-menu"
             style={{ left: `${contextMenu.clientX}px`, top: `${contextMenu.clientY}px` }}
           >
-            <button
-              type="button"
-              onClick={() => {
-                onPaste?.(contextMenu.absoluteBeat)
-                setContextMenu(null)
-              }}
-            >
-              Coller ici
-            </button>
+            {contextMenu.type === 'measure' ? (
+              <MeasureContextMenu
+                measure={contextMenu.measure}
+                canDelete={numMeasures > 1}
+                hasMeasureClipboard={false}
+                onDelete={() => {
+                  onDeleteMeasure?.(contextMenu.measure)
+                  setContextMenu(null)
+                }}
+                onInsert={(position, count) => {
+                  onInsertMeasures?.(contextMenu.measure, position, count)
+                  setContextMenu(null)
+                }}
+                onClose={() => setContextMenu(null)}
+              />
+            ) : (
+              <button
+                type="button"
+                onClick={() => {
+                  onPaste?.(contextMenu.absoluteBeat)
+                  setContextMenu(null)
+                }}
+              >
+                Coller ici
+              </button>
+            )}
           </div>
         </>
       )}
