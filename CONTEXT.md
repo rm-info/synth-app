@@ -16,8 +16,8 @@ multi-sélection + drag/resize/dup/delete groupés + Properties multi ;
 copier/coller/fusion/split clips ; scroll/zoom Ctrl/Alt+drag ;
 répertoires de sons arborescents avec drag interne ; menu contextuel
 mesures avec supprimer/insérer/couper/copier/coller).
-Itération C **en cours** (multipiste : UI multi-tracks, mute/solo/volume,
-moteur audio look-ahead, adaptation features A/B — phases 1-4 terminées).
+Itération C **clôturée le 2026-04-18** (multipiste : UI multi-tracks,
+mute/solo/volume, moteur audio look-ahead, adaptation features A/B).
 
 ## Objectif
 
@@ -658,7 +658,7 @@ Phases listées ci-dessous dans l'ordre chronologique d'implémentation.
   avec split automatique des clips à cheval
 - Properties panel multi-sélection (son/durée mixtes, actions groupées)
 
-🔧 **Itération C en cours** (2026-04-17)
+✅ **Itération C terminée** (2026-04-18)
 - UI multi-tracks : en-têtes + couloirs, CRUD pistes, drop/drag cross-piste,
   réordonnancement par drag, refactor banque double-clic=renommer (phase 1)
 - Mute/Solo/Volume par piste : UI M/S/slider, logique solo DAW, GainNode
@@ -711,7 +711,7 @@ Phases listées ci-dessous dans l'ordre chronologique d'implémentation.
 - ✅ Menu contextuel mesures : supprimer/insérer/couper/copier/coller
   avec split clips à cheval (phase B.7)
 
-### Itération C (multipiste) — en cours
+### Itération C (multipiste) — clôturée 2026-04-18
 
 - ✅ **Phase 1** (2026-04-17) — UI Multi-tracks. 5 sous-commits :
   - **1.1** En-têtes de pistes + couloirs visuels : refonte layout timeline
@@ -787,3 +787,7 @@ Phases listées ci-dessous dans l'ordre chronologique d'implémentation.
   sur la timeline
 - Bug intermittent : Ctrl+D déclenche parfois le bookmark navigateur
   malgré preventDefault (mode opératoire à reproduire)
+- DynamicsCompressorNode sur master bus (protection clipping quand
+  plusieurs pistes jouent simultanément, identifié en C.2)
+- Loop : marqueurs de boucle, activation, affichage (rendu possible
+  par le scheduler look-ahead de C.3)
