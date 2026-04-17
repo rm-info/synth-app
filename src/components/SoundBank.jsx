@@ -183,9 +183,13 @@ function SoundBank({
       if (isEditing) return
       if (loadOnSingleClick) handleLoad()
     }
+    const handleDoubleClick = () => {
+      if (isEditing) return
+      startEdit(sound.id, sound.name)
+    }
     const titleText = loadOnSingleClick
-      ? 'Clic pour éditer, glisser pour placer sur la timeline'
-      : 'Double-clic pour éditer, glisser pour placer sur la timeline'
+      ? 'Clic pour éditer, double-clic pour renommer'
+      : 'Double-clic pour renommer, glisser pour placer sur la timeline'
 
     const handleChipDragOver = depth > 0
       ? (e) => { e.stopPropagation() }
@@ -201,7 +205,7 @@ function SoundBank({
         onDragEnd={handleDragEnd}
         onDragOver={handleChipDragOver}
         onClick={handleSingleClick}
-        onDoubleClick={handleLoad}
+        onDoubleClick={handleDoubleClick}
         title={isEditing ? undefined : titleText}
       >
         <span className="chip-dot" />
@@ -224,17 +228,19 @@ function SoundBank({
           <>
             <span className="chip-name">{sound.name}</span>
             <span className="chip-info">{sound.frequency.toFixed(0)} Hz</span>
-            <button
-              type="button"
-              className="chip-rename"
-              onClick={(e) => { e.stopPropagation(); startEdit(sound.id, sound.name) }}
-              onMouseDown={(e) => e.stopPropagation()}
-              draggable={false}
-              title={`Renommer ${sound.name}`}
-              aria-label={`Renommer ${sound.name}`}
-            >
-              ✎
-            </button>
+            {!loadOnSingleClick && (
+              <button
+                type="button"
+                className="chip-rename"
+                onClick={(e) => { e.stopPropagation(); handleLoad() }}
+                onMouseDown={(e) => e.stopPropagation()}
+                draggable={false}
+                title="Éditer le son"
+                aria-label={`Éditer ${sound.name}`}
+              >
+                ✎
+              </button>
+            )}
             <button
               type="button"
               className="chip-delete"
@@ -271,6 +277,7 @@ function SoundBank({
           onDragLeave={handleDragLeave}
           onDrop={(e) => handleDropOnFolder(e, folder.id)}
           onClick={() => { if (!isEditing) toggleFolder(folder.id) }}
+          onDoubleClick={(e) => { e.stopPropagation(); if (!isEditing) startEdit(folder.id, folder.name) }}
         >
           <span className={`folder-chevron ${isExpanded ? 'is-expanded' : ''}`}>▶</span>
           <span className="folder-icon">📁</span>
@@ -293,17 +300,6 @@ function SoundBank({
             <>
               <span className="folder-name">{folder.name}</span>
               <span className="folder-badge">{childSounds.length + childFolders.length}</span>
-              <button
-                type="button"
-                className="chip-rename"
-                onClick={(e) => { e.stopPropagation(); startEdit(folder.id, folder.name) }}
-                onMouseDown={(e) => e.stopPropagation()}
-                draggable={false}
-                title={`Renommer ${folder.name}`}
-                aria-label={`Renommer ${folder.name}`}
-              >
-                ✎
-              </button>
               <button
                 type="button"
                 className="chip-delete"
