@@ -519,6 +519,11 @@ Phases listées ci-dessous dans l'ordre chronologique d'implémentation.
     undo bloqué. Le check undo Designer existant (`findOrphanReferences`)
     est simplifié (plus de branche cascade). SoundBank ne reçoit plus
     la prop `clips` (logique de blocage remontée dans App.jsx).
+  - **6.5** Alignement undo bloqué avec le comportement de suppression
+    directe. Quand `UNDO_DESIGNER` / `REDO_DESIGNER` est bloqué par
+    le check de référence : auto-sélection des clips orphelins +
+    bascule vers Composer. Quand `UNDO_COMPOSER` / `REDO_COMPOSER`
+    est bloqué par des sons manquants : bascule vers Designer.
 
 **Décisions UX clés (à mémoire pour Iter A)**
 - Sauvegarde dans l'éditeur quand `currentSoundId` est non-null : 2 boutons distincts

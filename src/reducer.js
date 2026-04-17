@@ -810,7 +810,11 @@ export function withUndo(baseReducer) {
       const previous = past[past.length - 1]
       const conflict = checkClipReferences(previous, state.savedSounds)
       if (conflict) {
-        return { ...state, notification: makeMissingSoundNotification(conflict, state.savedSounds) }
+        return {
+          ...state,
+          activeTab: 'designer',
+          notification: makeMissingSoundNotification(conflict, state.savedSounds),
+        }
       }
       const current = pickFields(state, COMPOSER_FIELDS)
       return {
@@ -828,7 +832,11 @@ export function withUndo(baseReducer) {
       const next = future[0]
       const conflict = checkClipReferences(next, state.savedSounds)
       if (conflict) {
-        return { ...state, notification: makeMissingSoundNotification(conflict, state.savedSounds) }
+        return {
+          ...state,
+          activeTab: 'designer',
+          notification: makeMissingSoundNotification(conflict, state.savedSounds),
+        }
       }
       const current = pickFields(state, COMPOSER_FIELDS)
       return {
@@ -846,7 +854,15 @@ export function withUndo(baseReducer) {
       const previous = past[past.length - 1]
       const conflict = findOrphanReferences(previous.savedSounds, state.clips)
       if (conflict) {
-        return { ...state, notification: makeOrphanNotification(conflict) }
+        const orphanClipIds = state.clips
+          .filter((c) => conflict.soundIds.includes(c.soundId))
+          .map((c) => c.id)
+        return {
+          ...state,
+          selectedClipIds: orphanClipIds,
+          activeTab: 'composer',
+          notification: makeOrphanNotification(conflict),
+        }
       }
       const current = pickFields(state, DESIGNER_FIELDS)
       return {
@@ -864,7 +880,15 @@ export function withUndo(baseReducer) {
       const next = future[0]
       const conflict = findOrphanReferences(next.savedSounds, state.clips)
       if (conflict) {
-        return { ...state, notification: makeOrphanNotification(conflict) }
+        const orphanClipIds = state.clips
+          .filter((c) => conflict.soundIds.includes(c.soundId))
+          .map((c) => c.id)
+        return {
+          ...state,
+          selectedClipIds: orphanClipIds,
+          activeTab: 'composer',
+          notification: makeOrphanNotification(conflict),
+        }
       }
       const current = pickFields(state, DESIGNER_FIELDS)
       return {
