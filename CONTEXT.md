@@ -16,7 +16,7 @@ multi-sélection + drag/resize/dup/delete groupés + Properties multi ;
 copier/coller/fusion/split clips ; scroll/zoom Ctrl/Alt+drag ;
 répertoires de sons arborescents avec drag interne ; menu contextuel
 mesures avec supprimer/insérer/couper/copier/coller).
-Itération C (multipiste, look-ahead audio) à venir.
+Itération C **en cours** (multipiste : UI multi-tracks phase 1 terminée).
 
 ## Objectif
 
@@ -102,7 +102,7 @@ type SavedSound = {
 type Track = {
   id: string                      // "track-N"
   name: string                    // "Piste 1" par défaut
-  color: string | null
+  color: string                    // hex, palette TRACK_COLORS (8 couleurs muted)
   muted: boolean
   solo: boolean
   volume: number                  // 0..1
@@ -121,7 +121,8 @@ type Clip = {                     // ex-Note (placement timeline)
 
 // Persistance (localStorage, clé "synth-app-state") :
 // { savedSounds, soundFolders, tracks, clips, bpm, numMeasures,
-//   spectrogramVisible, activeTab, soundCounter, clipCounter }
+//   spectrogramVisible, activeTab, soundCounter, clipCounter,
+//   folderCounter, trackCounter }
 // NON persisté (volatile) : selectedClipIds, currentSoundId, zoomH,
 // defaultClipDuration, composerFlash, editor (éditeur vide au reload),
 // piles undo/redo.
@@ -133,7 +134,8 @@ type Clip = {                     // ex-Note (placement timeline)
 Seuls les **placements timeline** s'appellent "clips".
 
 **Track par défaut** (créé en migration si absent) :
-`{ id:"track-default", name:"Piste 1", color:null, muted:false, solo:false, volume:1, height:80 }`
+`{ id:"track-default", name:"Piste 1", color:TRACK_COLORS[0], muted:false, solo:false, volume:1, height:80 }`
+**MAX_TRACKS** = 16. `trackCounter` persisté pour IDs uniques (`track-N`).
 
 **Constantes** : `BEATS_PER_MEASURE=4`, BPM 60-240 (défaut 120),
 `numMeasures` 16 par défaut (modifiable, prochainement).
@@ -280,6 +282,16 @@ Choix non évidents pris pour de bonnes raisons. À ne pas remettre en question
   recalculé à chaque rendu, jamais stocké dans le clip. Conséquence :
   la fusion (Ctrl+M) ignore les lanes et ne considère que l'adjacence
   temporelle et le soundId.
+- **Lane assignment par piste** : depuis C.1, le layout greedy est
+  calculé indépendamment pour chaque piste (clips filtrés par trackId).
+  Chaque piste a son propre `laneCount` et sa propre hauteur de
+  corridor (`max(1, laneCount) × trackHeight`). Les bornes de resize
+  (`computeBounds`) sont aussi filtrées par piste.
+- **`tracks` dans COMPOSER_FIELDS** : inclus pour que CREATE/DELETE/
+  RENAME_TRACK soient undoable. Conséquence : un undo d'action
+  Composer peut aussi revert un changement de hauteur de piste
+  (SET_TRACK_HEIGHT). Compromis accepté — la hauteur est un détail
+  d'UI, pas une donnée métier.
 
 ## Contraintes implicites
 
@@ -444,7 +456,7 @@ Phases listées ci-dessous dans l'ordre chronologique d'implémentation.
   input/textarea/select/contenteditable. Historique RAM uniquement (non
   persisté).
 
-## Itération en cours : B — édition avancée
+## Itération terminée : B — édition avancée
 
 - ✅ **Phase 1** (2026-04-16) — Spectrogramme statique. Remplace le placeholder
   par un vrai afficheur de spectre synchronisé avec l'éditeur :
@@ -564,6 +576,10 @@ Phases listées ci-dessous dans l'ordre chronologique d'implémentation.
     clips du clipboard. Actions `CUT_MEASURE`, `PASTE_MEASURES`,
     `SET_MEASURE_CLIPBOARD`. Boutons activés dans le menu contextuel.
 
+## Itération en cours : C — Multipiste
+
+- ✅ **Phase 1** (2026-04-17) — UI Multi-tracks (5 sous-commits, voir Roadmap)
+
 **Décisions UX clés (à mémoire pour Iter A)**
 - Sauvegarde dans l'éditeur quand `currentSoundId` est non-null : 2 boutons distincts
   ("Mettre à jour" + "Enregistrer comme nouveau"). Action "Mettre à jour" undoable.
@@ -606,6 +622,10 @@ Phases listées ci-dessous dans l'ordre chronologique d'implémentation.
 - Menu contextuel mesures : supprimer/insérer/couper/copier/coller
   avec split automatique des clips à cheval
 - Properties panel multi-sélection (son/durée mixtes, actions groupées)
+
+🔧 **Itération C en cours** (2026-04-17)
+- UI multi-tracks : en-têtes + couloirs, CRUD pistes, drop/drag cross-piste,
+  réordonnancement par drag (phase 1, 5 commits)
 
 ## Historique (chronologie inverse)
 
@@ -650,10 +670,31 @@ Phases listées ci-dessous dans l'ordre chronologique d'implémentation.
 - ✅ Menu contextuel mesures : supprimer/insérer/couper/copier/coller
   avec split clips à cheval (phase B.7)
 
-### Itération C (multipiste) — à rediscuter
+### Itération C (multipiste) — en cours
 
-- UI multi-tracks (créer/renommer/supprimer/réordonner)
-- Mute/Solo/volume par piste
+- ✅ **Phase 1** (2026-04-17) — UI Multi-tracks. 5 sous-commits :
+  - **1.1** En-têtes de pistes + couloirs visuels : refonte layout timeline
+    en empilement vertical de couloirs. Colonne d'en-têtes sticky left (120px)
+    avec pastille couleur + nom. Palette `TRACK_COLORS` (8 couleurs muted).
+    Lane assignment greedy par piste. Fond alternant pair/impair. Bordure
+    gauche colorée par corridor. Migration tracks color null → palette.
+    `SET_TRACK_HEIGHT` appliqué uniformément à toutes les pistes.
+  - **1.2** Création/renommage/suppression : `CREATE_TRACK` (bouton "+ Piste",
+    max 16), `RENAME_TRACK` (double-clic input inline), `DELETE_TRACK`
+    (× au survol, confirmation si clips, cascade suppression, plancher 1).
+    `trackCounter` persisté. `tracks` ajouté à `COMPOSER_FIELDS` pour undo.
+  - **1.3** Drop de sons sur la piste survolée : `findTrackAtY` identifie
+    le couloir cible depuis la coordonnée Y, surbrillance cyan du couloir
+    pendant le drag, `trackId` passé à `onAddClip`.
+  - **1.4** Drag de clips entre pistes : `trackDelta` calculé en temps réel
+    depuis le Y de la souris. Multi-sélection cross-piste : même delta
+    appliqué à tous, bornes intersectées. Mono-drag, multi-drag, Ctrl+drag
+    (duplication) gèrent tous le changement de piste. `MOVE_CLIPS` enrichi
+    avec `trackId` optionnel.
+  - **1.5** Réordonnancement des pistes par drag : mousedown sur l'en-tête
+    + drag vertical. `REORDER_TRACKS` action (undoable). Feedback visuel :
+    opacité réduite + bordure cyan d'insertion.
+- Mute/Solo/volume par piste (phase C.2 — à venir)
 - Refonte moteur audio en look-ahead (résout bug modif pendant lecture)
 
 ### Backlog général (à caser quand pertinent)
