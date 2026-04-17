@@ -160,14 +160,28 @@
 
 .track-header {
   display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 0 8px;
+  flex-direction: column;
+  justify-content: center;
+  gap: 2px;
+  padding: 4px 8px;
   border-bottom: 1px solid #2a2a4a;
   box-sizing: border-box;
   overflow: hidden;
   cursor: grab;
   position: relative;
+}
+
+.track-header-row1 {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.track-header-row2 {
+  display: flex;
+  align-items: center;
+  gap: 4px;
 }
 
 .track-color-dot {
@@ -225,6 +239,51 @@
 .track-delete-btn:hover {
   background: rgba(255, 107, 138, 0.18);
   color: #ff8ca5;
+}
+
+/* Mute / Solo buttons */
+.track-mute-btn,
+.track-solo-btn {
+  width: 18px;
+  height: 16px;
+  padding: 0;
+  border: 1px solid #3a3a5a;
+  border-radius: 3px;
+  font-size: 0.6rem;
+  font-weight: 700;
+  font-family: inherit;
+  cursor: pointer;
+  background: transparent;
+  color: #5a5a7a;
+  line-height: 1;
+  flex-shrink: 0;
+  transition: background 0.1s, color 0.1s, border-color 0.1s;
+}
+.track-mute-btn:hover { border-color: #ff6b8a; color: #ff6b8a; }
+.track-solo-btn:hover { border-color: #fbbf24; color: #fbbf24; }
+.track-mute-btn.is-active {
+  background: #c0392b;
+  color: #fff;
+  border-color: #c0392b;
+}
+.track-solo-btn.is-active {
+  background: #d4a017;
+  color: #111;
+  border-color: #d4a017;
+}
+
+/* Volume slider */
+.track-volume-slider {
+  flex: 1;
+  min-width: 0;
+  height: 4px;
+  cursor: pointer;
+  accent-color: #00d4ff;
+}
+
+/* Clip muted visual */
+.placed-sound.is-track-muted {
+  opacity: 0.35;
 }
 
 .track-header-dragging {

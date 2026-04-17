@@ -131,6 +131,7 @@ function Timeline({
   onRenameTrack,
   onDeleteTrack,
   onReorderTracks,
+  onUpdateTrack,
   numMeasures,
   zoomH,
   onSetZoomH,
@@ -169,6 +170,7 @@ function Timeline({
   const [renameValue, setRenameValue] = useState('')
   const renameInputRef = useRef(null)
   const [trackReorder, setTrackReorder] = useState(null) // { dragIndex, hoverIndex, ghostY }
+  const [volumeDraft, setVolumeDraft] = useState(null) // { trackId, value } — draft pendant le drag du slider
 
   // --- Interaction clip (drag / resize-left / resize-right) ---
   // interactionRef : mutable, contient l'état live pendant l'interaction
@@ -1012,6 +1014,12 @@ function Timeline({
 
   const clipAreaHeight = totalClipAreaHeight
 
+  // Compute which tracks are effectively muted (for visual attenuation)
+  const anySolo = tracks.some(t => t.solo)
+  const mutedTrackIds = new Set(
+    tracks.filter(t => t.muted || (anySolo && !t.solo)).map(t => t.id),
+  )
+
   const canDeleteMeasure = numMeasures > 1
 
   return (
@@ -1042,43 +1050,76 @@ function Timeline({
                   startTrackReorder(e, i)
                 }}
               >
-                <span className="track-color-dot" style={{ backgroundColor: color }} />
-                {isRenaming ? (
-                  <input
-                    ref={renameInputRef}
-                    className="track-rename-input"
-                    value={renameValue}
-                    onChange={(e) => setRenameValue(e.target.value)}
-                    onBlur={() => {
-                      const trimmed = renameValue.trim()
-                      if (trimmed && trimmed !== track.name) onRenameTrack?.(track.id, trimmed)
-                      setRenamingTrackId(null)
-                    }}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') { e.preventDefault(); e.target.blur() }
-                      if (e.key === 'Escape') { e.preventDefault(); setRenamingTrackId(null) }
-                    }}
-                  />
-                ) : (
-                  <span
-                    className="track-name"
-                    onDoubleClick={() => {
-                      setRenamingTrackId(track.id)
-                      setRenameValue(track.name)
-                      requestAnimationFrame(() => renameInputRef.current?.select())
-                    }}
-                  >
-                    {track.name}
-                  </span>
-                )}
-                {tracks.length > 1 && (
+                <div className="track-header-row1">
+                  <span className="track-color-dot" style={{ backgroundColor: color }} />
+                  {isRenaming ? (
+                    <input
+                      ref={renameInputRef}
+                      className="track-rename-input"
+                      value={renameValue}
+                      onChange={(e) => setRenameValue(e.target.value)}
+                      onBlur={() => {
+                        const trimmed = renameValue.trim()
+                        if (trimmed && trimmed !== track.name) onRenameTrack?.(track.id, trimmed)
+                        setRenamingTrackId(null)
+                      }}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') { e.preventDefault(); e.target.blur() }
+                        if (e.key === 'Escape') { e.preventDefault(); setRenamingTrackId(null) }
+                      }}
+                    />
+                  ) : (
+                    <span
+                      className="track-name"
+                      onDoubleClick={() => {
+                        setRenamingTrackId(track.id)
+                        setRenameValue(track.name)
+                        requestAnimationFrame(() => renameInputRef.current?.select())
+                      }}
+                    >
+                      {track.name}
+                    </span>
+                  )}
+                  {tracks.length > 1 && (
+                    <button
+                      type="button"
+                      className="track-delete-btn"
+                      onClick={() => onDeleteTrack?.(track.id)}
+                      title={`Supprimer ${track.name}`}
+                    >×</button>
+                  )}
+                </div>
+                <div className="track-header-row2">
                   <button
                     type="button"
-                    className="track-delete-btn"
-                    onClick={() => onDeleteTrack?.(track.id)}
-                    title={`Supprimer ${track.name}`}
-                  >×</button>
-                )}
+                    className={`track-mute-btn${track.muted ? ' is-active' : ''}`}
+                    onClick={(e) => { e.stopPropagation(); onUpdateTrack?.(track.id, { muted: !track.muted }) }}
+                    title={track.muted ? 'Unmute' : 'Mute'}
+                  >M</button>
+                  <button
+                    type="button"
+                    className={`track-solo-btn${track.solo ? ' is-active' : ''}`}
+                    onClick={(e) => { e.stopPropagation(); onUpdateTrack?.(track.id, { solo: !track.solo }) }}
+                    title={track.solo ? 'Désactiver solo' : 'Solo'}
+                  >S</button>
+                  <input
+                    type="range"
+                    className="track-volume-slider"
+                    min="0"
+                    max="1"
+                    step="0.01"
+                    value={volumeDraft?.trackId === track.id ? volumeDraft.value : track.volume}
+                    onChange={(e) => setVolumeDraft({ trackId: track.id, value: parseFloat(e.target.value) })}
+                    onMouseUp={() => {
+                      if (volumeDraft?.trackId === track.id) {
+                        onUpdateTrack?.(track.id, { volume: volumeDraft.value })
+                        setVolumeDraft(null)
+                      }
+                    }}
+                    onMouseDown={(e) => e.stopPropagation()}
+                    title={`Volume: ${Math.round((volumeDraft?.trackId === track.id ? volumeDraft.value : track.volume) * 100)}%`}
+                  />
+                </div>
               </div>
             )
           })}
@@ -1280,6 +1321,7 @@ function Timeline({
                   isSelected && 'is-selected',
                   mode === 'drag' && 'is-dragging',
                   (mode === 'resize-left' || mode === 'resize-right') && 'is-resizing',
+                  mutedTrackIds.has(clip.trackId) && 'is-track-muted',
                 ].filter(Boolean).join(' ')
                 return (
                   <div

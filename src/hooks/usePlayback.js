@@ -11,11 +11,22 @@ function clipBeatOffset(clip) {
   return (clip.measure - 1) * BEATS_PER_MEASURE + clip.beat
 }
 
-function scheduleClips(ctx, clips, savedSounds, startTime, destination, bpm) {
+/**
+ * Calcule si une piste est audible en fonction de mute/solo.
+ */
+function trackPlays(track, anySolo) {
+  if (track.muted) return false
+  if (anySolo && !track.solo) return false
+  return true
+}
+
+function scheduleClips(ctx, clips, savedSounds, startTime, trackGainNodes, defaultDest, bpm) {
   const nodes = []
   for (const clip of clips) {
     const sound = savedSounds.find((s) => s.id === clip.soundId)
     if (!sound) continue
+
+    const dest = trackGainNodes?.[clip.trackId] ?? defaultDest
 
     const wave = pointsToPeriodicWave(sound.points, ctx)
     const osc = ctx.createOscillator()
@@ -43,7 +54,7 @@ function scheduleClips(ctx, clips, savedSounds, startTime, destination, bpm) {
     gain.gain.linearRampToValueAtTime(0, clipStart + totalDuration)
 
     osc.connect(gain)
-    gain.connect(destination)
+    gain.connect(dest)
     osc.start(clipStart)
     osc.stop(clipStart + totalDuration)
 
@@ -58,12 +69,13 @@ function scheduleClips(ctx, clips, savedSounds, startTime, destination, bpm) {
  * Designer puisse être stoppé depuis Composer (et inversement) — et surtout
  * pour ne pas dupliquer l'AudioContext.
  */
-export function usePlayback({ clips, savedSounds, bpm, totalDurationSec }) {
+export function usePlayback({ clips, savedSounds, tracks, bpm, totalDurationSec }) {
   const audioCtxRef = useRef(null)
   const scheduledNodesRef = useRef([])
   const animFrameRef = useRef(null)
   const analyserRef = useRef(null)
   const analyserGainRef = useRef(null)
+  const trackGainNodesRef = useRef({}) // { trackId: GainNode }
 
   const [isPlaying, setIsPlaying] = useState(false)
   const [cursorPos, setCursorPos] = useState(0)
@@ -78,6 +90,11 @@ export function usePlayback({ clips, savedSounds, bpm, totalDurationSec }) {
     }
     scheduledNodesRef.current = []
     if (animFrameRef.current) cancelAnimationFrame(animFrameRef.current)
+    // Disconnect track gain nodes
+    for (const gn of Object.values(trackGainNodesRef.current)) {
+      try { gn.disconnect() } catch { /* idem */ }
+    }
+    trackGainNodesRef.current = {}
     if (analyserGainRef.current) {
       try { analyserGainRef.current.disconnect() } catch { /* idem */ }
       analyserGainRef.current = null
@@ -106,8 +123,19 @@ export function usePlayback({ clips, savedSounds, bpm, totalDurationSec }) {
     analyserRef.current = analyser
     analyserGainRef.current = analyserGain
 
+    // Create per-track gain nodes
+    const anySolo = tracks.some(t => t.solo)
+    const tgNodes = {}
+    for (const track of tracks) {
+      const gn = ctx.createGain()
+      gn.gain.value = trackPlays(track, anySolo) ? track.volume : 0
+      gn.connect(analyserGain)
+      tgNodes[track.id] = gn
+    }
+    trackGainNodesRef.current = tgNodes
+
     const startTime = ctx.currentTime + 0.05
-    const nodes = scheduleClips(ctx, clips, savedSounds, startTime, analyserGain, bpm)
+    const nodes = scheduleClips(ctx, clips, savedSounds, startTime, tgNodes, analyserGain, bpm)
     scheduledNodesRef.current = nodes
     setIsPlaying(true)
     setCursorPos(0)
@@ -124,7 +152,20 @@ export function usePlayback({ clips, savedSounds, bpm, totalDurationSec }) {
       animFrameRef.current = requestAnimationFrame(animate)
     }
     animFrameRef.current = requestAnimationFrame(animate)
-  }, [clips, savedSounds, bpm, totalDurationSec, stop])
+  }, [clips, savedSounds, tracks, bpm, totalDurationSec, stop])
+
+  // Update track gains in real-time when tracks change (mute/solo/volume)
+  const updateTrackGains = useCallback((currentTracks) => {
+    const tgNodes = trackGainNodesRef.current
+    if (!tgNodes || Object.keys(tgNodes).length === 0) return
+    const anySolo = currentTracks.some(t => t.solo)
+    for (const track of currentTracks) {
+      const gn = tgNodes[track.id]
+      if (gn) {
+        gn.gain.value = trackPlays(track, anySolo) ? track.volume : 0
+      }
+    }
+  }, [])
 
   const exportWav = useCallback(async () => {
     if (clips.length === 0 || isExporting) return
@@ -136,14 +177,25 @@ export function usePlayback({ clips, savedSounds, bpm, totalDurationSec }) {
         Math.ceil(sampleRate * totalDurationSec),
         sampleRate,
       )
-      scheduleClips(offlineCtx, clips, savedSounds, 0, offlineCtx.destination, bpm)
+
+      // Per-track gain nodes for export
+      const anySolo = tracks.some(t => t.solo)
+      const tgNodes = {}
+      for (const track of tracks) {
+        const gn = offlineCtx.createGain()
+        gn.gain.value = trackPlays(track, anySolo) ? track.volume : 0
+        gn.connect(offlineCtx.destination)
+        tgNodes[track.id] = gn
+      }
+
+      scheduleClips(offlineCtx, clips, savedSounds, 0, tgNodes, offlineCtx.destination, bpm)
       const renderedBuffer = await offlineCtx.startRendering()
       const wav = audioBufferToWav(renderedBuffer)
       downloadWav(wav, 'composition.wav')
     } finally {
       setIsExporting(false)
     }
-  }, [clips, savedSounds, bpm, totalDurationSec, isExporting])
+  }, [clips, savedSounds, tracks, bpm, totalDurationSec, isExporting])
 
   useEffect(() => {
     return () => {
@@ -165,5 +217,6 @@ export function usePlayback({ clips, savedSounds, bpm, totalDurationSec }) {
     play,
     stop,
     exportWav,
+    updateTrackGains,
   }
 }

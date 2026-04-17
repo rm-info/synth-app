@@ -53,7 +53,7 @@ function App() {
   const totalBeats = numMeasures * BEATS_PER_MEASURE
   const totalDurationSec = (totalBeats * 60) / bpm
 
-  const playback = usePlayback({ clips, savedSounds, bpm, totalDurationSec })
+  const playback = usePlayback({ clips, savedSounds, tracks, bpm, totalDurationSec })
 
   const currentSound = useMemo(
     () => (currentSoundId ? savedSounds.find((s) => s.id === currentSoundId) ?? null : null),
@@ -65,6 +65,12 @@ function App() {
     : 440 * Math.pow(2, ((editor.octave + 1) * 12 + editor.noteIndex - 69) / 12)
 
   // === Effets de bord ===
+
+  // Sync track gains en temps réel pendant la lecture (mute/solo/volume)
+  const { isPlaying: pbIsPlaying, updateTrackGains } = playback
+  useEffect(() => {
+    if (pbIsPlaying) updateTrackGains(tracks)
+  }, [tracks, pbIsPlaying, updateTrackGains])
 
   // Auto-clear du flash composer après 3s
   useEffect(() => {
@@ -188,6 +194,10 @@ function App() {
 
   const handleRenameTrack = useCallback((trackId, name) => {
     dispatch({ type: 'RENAME_TRACK', payload: { trackId, name } })
+  }, [])
+
+  const handleUpdateTrack = useCallback((trackId, updates) => {
+    dispatch({ type: 'UPDATE_TRACK', payload: { trackId, updates } })
   }, [])
 
   const handleReorderTracks = useCallback((newOrder) => {
@@ -952,6 +962,7 @@ function App() {
                   onRenameTrack={handleRenameTrack}
                   onDeleteTrack={handleDeleteTrack}
                   onReorderTracks={handleReorderTracks}
+                  onUpdateTrack={handleUpdateTrack}
                   numMeasures={numMeasures}
                   zoomH={zoomH}
                   onSetZoomH={setZoomH}
