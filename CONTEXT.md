@@ -160,8 +160,8 @@ Seuls les **placements timeline** s'appellent "clips".
 ### `WaveformEditor.jsx`
 - Canvas 600×300 dessinable à la souris (interpolation linéaire)
 - Presets Sine / Square / Sawtooth / Triangle / Clear (tracking `activePreset`)
-- Sélecteur note + octave (tempérament égal) OU slider fréquence libre 20-2000 Hz,
-  toggle entre les deux modes
+- Sélecteur note + octave (tempérament égal) OU slider fréquence libre 20-20000 Hz
+  (échelle logarithmique), toggle entre les deux modes
 - Éditeur ADSR **visuel** 400×120 : 4 poignées draggables (P1 attack, P2 decay+sustain,
   P3 fin sustain non-draggable, P4 release), courbe cyan + remplissage, sliders read-only
   en dessous
@@ -258,6 +258,28 @@ Choix non évidents pris pour de bonnes raisons. À ne pas remettre en question
   est bloqué avec un Toast explicite, et symétriquement un undo
   Composer qui restaurerait des clips dont le son a été supprimé est
   aussi bloqué. Pas d'états incohérents possibles.
+- **Suppression sons/dossiers : blocage avec assistance, pas de
+  cascade**. Si des clips référencent le son, on bloque la suppression,
+  on affiche un toast, on auto-sélectionne les clips concernés et on
+  bascule vers Composer. Raison : la cascade (supprimer sons + clips
+  en une seule action) nécessitait un dual-stack undo complexe avec des
+  edge cases insolubles (actions intercalées entre les deux piles). Le
+  blocage est simple, robuste, et l'utilisateur garde le contrôle total.
+- **Check undo symétrique bidirectionnel** : UNDO_DESIGNER vérifie que
+  les clips actuels ne deviennent pas orphelins ; UNDO_COMPOSER vérifie
+  que les sons référencés existent. Dans les deux cas : blocage + toast
+  + auto-sélection des éléments concernés + bascule vers l'onglet
+  approprié.
+- **Deux clipboards séparés** : un pour les clips (Ctrl+C/X/V,
+  positionné à la souris) et un pour les mesures (menu contextuel
+  en-tête de mesure). Les deux sont volatils (RAM, non persistés).
+  Raison : les deux opérations de collage ont des sémantiques
+  différentes (clips = positionnement libre, mesures = insertion
+  structurelle avec décalage).
+- **Lanes = mécanisme d'affichage** : le lane assignment est greedy,
+  recalculé à chaque rendu, jamais stocké dans le clip. Conséquence :
+  la fusion (Ctrl+M) ignore les lanes et ne considère que l'adjacence
+  temporelle et le soundId.
 
 ## Contraintes implicites
 
@@ -278,6 +300,9 @@ Conventions tacites. Les enfreindre sans raison crée des bugs subtils.
   `selectedClipIds`, l'éditeur (drafts + state complet), l'historique
   undo/redo, `currentSoundId`, `composerFlash`. Au reload on retombe
   sur un état "propre" côté UI, seules les données métier survivent.
+- **Lanes = affichage, pas de champ Clip** : le lane assignment est un
+  calcul greedy au rendu (O(n) à chaque render de Timeline), jamais
+  stocké dans le type Clip. Ne pas ajouter de champ `lane` au modèle.
 
 ## Itération terminée : A — Refonte UX core
 
@@ -647,3 +672,13 @@ Phases listées ci-dessous dans l'ordre chronologique d'implémentation.
 - Optimisation stockage localStorage (résolution points, quantification,
   ou IndexedDB)
 - Fréquence libre : flèches haut/bas dans FreqInput pour incréments fins
+- Anti-aliasing / qualité de synthèse audio (harmoniques parasites
+  découvertes via spectrogramme sur les basses fréquences, voir
+  image triangle C1)
+- Refonte système notes/durées : boutons au lieu de dropdowns pour
+  note/octave, durées manquantes dans le sélecteur (blanche pointée,
+  ronde pointée, double-pointées)
+- Pause/reprise de lecture + curseur de lecture déplaçable par clic
+  sur la timeline
+- Bug intermittent : Ctrl+D déclenche parfois le bookmark navigateur
+  malgré preventDefault (mode opératoire à reproduire)
