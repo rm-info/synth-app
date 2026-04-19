@@ -31,7 +31,11 @@ Pas de migration : ancien localStorage détecté → reset propre.
 Phase 2 (2026-04-19) : la note s'affiche dans chaque clip (label
 adaptatif selon largeur), s'édite dans Properties via un mini-clavier
 (ou un FreqInput en mode libre), et s'ajuste au clavier (↑↓ demi-ton,
-Shift octave, ←→ ±0.25 beat, Shift+←→ ±1 beat).
+Shift octave, ←→ ±0.25 beat, Shift+←→ ±1 beat). Phase 3 (2026-04-19) :
+le Designer devient un instrument de test polyphonique — clic/mouseup
+sur le clavier, raccourcis QWERTY physique (SDFGHJK + ERYUI), Shift/Ctrl
+seul pour décaler l'octave, Espace = pédale de sustain. Les 3 anciens
+boutons Test impact/court/tenu sont retirés.
 
 ## Objectif
 
@@ -797,6 +801,44 @@ Phases listées ci-dessous dans l'ordre chronologique d'implémentation.
     ne peut pas bouger. Clips free ignorés pour ↑↓ (édition libre
     via input Hz). Exclusions : input/textarea/select/contenteditable,
     `.timeline-context-menu` ouvert, body cursor en drag.
+- ✅ **Phase 3** (2026-04-19) — Designer = instrument de test
+  polyphonique. 5 sous-commits :
+  - **3.1** PianoKeyboard accepte `onKeyPress(idx)` / `onKeyRelease(idx)`
+    + prop `activeNotes` (Set). mousedown → onSelectNote + onKeyPress ;
+    un listener window mouseup déclenche onKeyRelease (option B : la
+    note tient tant que la souris n'est pas relâchée, même hors de la
+    touche). WaveformEditor maintient `activeNotesMapRef` (Map<idx,
+    {osc, gain, octave}>) et `instrumentParamsRef` (valeurs ADSR /
+    amplitude / testOctave fraîches pour les handlers). Cleanup à
+    l'unmount et au changement de patch. Classe `.is-playing` jaune
+    vif pour les touches actives (distincte du cyan is-active).
+  - **3.2** Mapping `event.code` → noteIndex : KeyS/D/F/G/H/J/K pour
+    les blanches (C D E F G A B), KeyE/R/Y/U/I pour les noires. Utilise
+    event.code (position physique) donc fonctionne identiquement QWERTY /
+    AZERTY / DVORAK. event.repeat ignoré. `instrumentBridgeRef` stable
+    sert de pont entre le listener (attaché une fois par activeTab) et
+    les fonctions play/release recréées à chaque render. Sortie du
+    Designer = stopAllInstrumentNotes.
+  - **3.3** Shift/Ctrl "seuls" décalent testOctave. shiftAloneRef /
+    ctrlAloneRef posés au keydown, invalidés par toute autre touche OU
+    par un mousedown (Shift+clic ne doit pas faire +1 octave). Au
+    keyup si le flag est encore true, dispatch setTestOctave(±1) avec
+    bornes [0, 10]. Shift+↑↓ du Composer n'interfère pas (activeTab
+    différent).
+  - **3.4** Pédale de sustain : Espace maintenue = sustainActiveRef.
+    Le release est extrait dans `performRelease` et
+    `releaseInstrumentNote` le diffère vers `sustainedNotesRef` quand
+    sustain est actif. Au relâchement de Espace, performRelease est
+    appelé sur toutes les notes sustainées. `playInstrumentNote`
+    gère le retrigger : si la note est déjà active (sustainée ou non),
+    la voix existante est coupée net avant d'en démarrer une nouvelle.
+    preventDefault sur Space (empêche scroll). Badge SUSTAIN orange
+    à côté du label "Note".
+  - **3.5** Suppression des 3 boutons Test impact/court/tenu et toute
+    la logique associée (startAudio, stopAudio, handleTestClick,
+    playingMode, oscRef/gainRef, COURT_HOLD_SEC, useEffect live
+    frequency/amplitude, CSS .test-btn-mode/.test-buttons). Le test
+    d'un patch passe exclusivement par le clavier interactif.
 
 ## Historique (chronologie inverse)
 
@@ -906,8 +948,11 @@ Phases listées ci-dessous dans l'ordre chronologique d'implémentation.
 - ✅ **Phase 2** (2026-04-19) — Affichage note dans les clips, édition
   via Properties (mini-clavier + octave), flèches clavier pour ajuster
   note/position. 3 sous-commits (2.1, 2.2, 2.3).
-- ⏳ **Phase 3** — Designer comme instrument de test : clavier QWERTY,
-  Espace sustain, mousedown/mouseup comme piano.
+- ✅ **Phase 3** (2026-04-19) — Designer = instrument de test
+  polyphonique : mousedown/mouseup sur le clavier, raccourcis QWERTY
+  physique (event.code), Shift/Ctrl seul pour décaler l'octave, pédale
+  de sustain Espace. 5 sous-commits (3.1, 3.2, 3.3, 3.4, 3.5). Les 3
+  boutons Test impact/court/tenu sont retirés.
 - ⏳ **Phase 4** — Drop intelligent : raccourcis clavier au drop,
   placement contigu, override de note au drop.
 
