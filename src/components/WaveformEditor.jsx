@@ -589,6 +589,13 @@ function WaveformEditor({
     setTestNoteIndex: editorActions.setTestNoteIndex,
   }
 
+  // Shift/Ctrl "seuls" décalent l'octave courante. Tap sur Shift sans autre
+  // touche → octave+1 ; tap sur Ctrl seul → octave-1. Dès qu'une autre touche
+  // ou un clic survient pendant la maintien, le flag est invalidé → les combos
+  // Shift+clic, Ctrl+C, etc. ne déclenchent rien.
+  const shiftAloneRef = useRef(false)
+  const ctrlAloneRef = useRef(false)
+
   // Raccourcis QWERTY (event.code) pour jouer les notes au clavier physique.
   // Actif uniquement quand l'onglet Designer est visible. Ignore event.repeat
   // (sinon la note se relance en boucle tant que la touche est maintenue).
@@ -597,6 +604,8 @@ function WaveformEditor({
       // En quittant le Designer, on coupe toute voix active pour éviter des
       // notes fantômes qui continueraient pendant le Composer.
       stopAllInstrumentNotes()
+      shiftAloneRef.current = false
+      ctrlAloneRef.current = false
       return
     }
 
@@ -607,8 +616,22 @@ function WaveformEditor({
     }
 
     const onKeyDown = (e) => {
-      if (e.repeat) return
       if (isFormField(e.target)) return
+
+      if (e.key === 'Shift') {
+        if (!e.repeat) shiftAloneRef.current = true
+        return
+      }
+      if (e.key === 'Control') {
+        if (!e.repeat) ctrlAloneRef.current = true
+        return
+      }
+
+      // Toute autre touche invalide les flags "seul" — ce n'est pas un tap isolé.
+      shiftAloneRef.current = false
+      ctrlAloneRef.current = false
+
+      if (e.repeat) return
       const idx = KEY_CODE_TO_NOTE_INDEX[e.code]
       if (idx === undefined) return
       e.preventDefault()
@@ -620,6 +643,28 @@ function WaveformEditor({
 
     const onKeyUp = (e) => {
       if (isFormField(e.target)) return
+
+      if (e.key === 'Shift') {
+        if (shiftAloneRef.current) {
+          shiftAloneRef.current = false
+          const params = instrumentParamsRef.current
+          if (params.testOctave < 10) {
+            editorActions.setTestOctave(params.testOctave + 1)
+          }
+        }
+        return
+      }
+      if (e.key === 'Control') {
+        if (ctrlAloneRef.current) {
+          ctrlAloneRef.current = false
+          const params = instrumentParamsRef.current
+          if (params.testOctave > 0) {
+            editorActions.setTestOctave(params.testOctave - 1)
+          }
+        }
+        return
+      }
+
       const idx = KEY_CODE_TO_NOTE_INDEX[e.code]
       if (idx === undefined) return
       const bridge = instrumentBridgeRef.current
@@ -627,13 +672,22 @@ function WaveformEditor({
       bridge.release(idx)
     }
 
+    // Un clic souris pendant le maintien de Shift/Ctrl invalide le flag :
+    // empêche un Shift+clic de déclencher un changement d'octave au relâchement.
+    const onMouseDown = () => {
+      shiftAloneRef.current = false
+      ctrlAloneRef.current = false
+    }
+
     window.addEventListener('keydown', onKeyDown)
     window.addEventListener('keyup', onKeyUp)
+    window.addEventListener('mousedown', onMouseDown)
     return () => {
       window.removeEventListener('keydown', onKeyDown)
       window.removeEventListener('keyup', onKeyUp)
+      window.removeEventListener('mousedown', onMouseDown)
     }
-  }, [activeTab])
+  }, [activeTab, editorActions])
 
   const clearCanvas = () => {
     editorActions.setPoints(blankPointsArray())
