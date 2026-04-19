@@ -1,86 +1,14 @@
 import { useRef, useState, useCallback, useEffect, useImperativeHandle } from 'react'
 import { pointsToPeriodicWave } from '../audio'
 import FreqInput from './FreqInput'
+import { PianoKeyboard, OctaveSelector, NOTE_NAMES } from './PianoKeyboard'
 import './WaveformEditor.css'
 
 const POINTS_RESOLUTION = 600
 
-const NOTE_NAMES = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B']
-
-const WHITE_KEYS = [0, 2, 4, 5, 7, 9, 11] // C D E F G A B
-const BLACK_KEYS = [
-  { note: 1,  afterWhite: 0 },
-  { note: 3,  afterWhite: 1 },
-  { note: 6,  afterWhite: 3 },
-  { note: 8,  afterWhite: 4 },
-  { note: 10, afterWhite: 5 },
-]
-
-const OCTAVES = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
-const REFERENCE_OCTAVE = 4
-
 function noteToFrequency(noteIndex, octave) {
   const midi = (octave + 1) * 12 + noteIndex
   return 440 * Math.pow(2, (midi - 69) / 12)
-}
-
-function PianoKeyboard({ noteIndex, onSelectNote }) {
-  return (
-    <div className="piano-keyboard" role="group" aria-label="Clavier piano">
-      <div className="piano-whites">
-        {WHITE_KEYS.map((idx) => (
-          <button
-            key={idx}
-            type="button"
-            className={`piano-key piano-key-white${noteIndex === idx ? ' is-active' : ''}`}
-            onClick={() => onSelectNote(idx)}
-            aria-label={NOTE_NAMES[idx]}
-            aria-pressed={noteIndex === idx}
-          >
-            <span className="piano-key-label">{NOTE_NAMES[idx]}</span>
-          </button>
-        ))}
-      </div>
-      <div className="piano-blacks">
-        {BLACK_KEYS.map(({ note, afterWhite }) => (
-          <button
-            key={note}
-            type="button"
-            className={`piano-key piano-key-black${noteIndex === note ? ' is-active' : ''}`}
-            style={{ left: `${((afterWhite + 1) / WHITE_KEYS.length) * 100}%` }}
-            onClick={() => onSelectNote(note)}
-            title={NOTE_NAMES[note]}
-            aria-label={NOTE_NAMES[note]}
-            aria-pressed={noteIndex === note}
-          />
-        ))}
-      </div>
-    </div>
-  )
-}
-
-function OctaveSelector({ octave, onSelectOctave }) {
-  return (
-    <div className="octave-selector" role="group" aria-label="Sélecteur d'octave">
-      {OCTAVES.map((o) => {
-        const classes = ['octave-btn']
-        if (o === REFERENCE_OCTAVE) classes.push('is-reference')
-        if (o === octave) classes.push('is-active')
-        return (
-          <button
-            key={o}
-            type="button"
-            className={classes.join(' ')}
-            onClick={() => onSelectOctave(o)}
-            aria-label={`Octave ${o}`}
-            aria-pressed={o === octave}
-          >
-            {o}
-          </button>
-        )
-      })}
-    </div>
-  )
 }
 
 const FREQ_MIN = 16

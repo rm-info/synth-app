@@ -126,6 +126,50 @@
   font-family: monospace;
 }
 
+/* --- Éditeur de note (mini-clavier compact + octave + affichage Hz) --- */
+.note-editor {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.note-editor-display {
+  font-size: 0.78rem;
+  font-family: monospace;
+  color: #e0e0ff;
+}
+
+.note-editor-hz {
+  color: #9aa2b8;
+}
+
+.note-editor-free {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  background: #0f0f1a;
+  border: 1px solid #4a4a6a;
+  border-radius: 4px;
+  padding: 6px 8px;
+}
+
+.note-editor-free .freq-input {
+  flex: 1;
+  background: transparent;
+  border: none;
+  color: #e0e0ff;
+  font-family: monospace;
+  font-size: 0.82rem;
+  outline: none;
+  min-width: 0;
+}
+
+.note-editor-unit {
+  color: #9aa2b8;
+  font-size: 0.78rem;
+  font-family: monospace;
+}
+
 .sound-select-wrapper {
   display: flex;
   align-items: center;

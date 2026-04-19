@@ -358,6 +358,26 @@ export function reducer(state, action) {
         ),
       }
     }
+    case 'UPDATE_CLIPS_PITCH': {
+      // payload: [{ id, tuningSystem?, noteIndex?, octave?, frequency? }]
+      // Met à jour uniquement les champs explicitement présents dans chaque
+      // update (les autres restent inchangés sur le clip).
+      const updates = new Map(action.payload.map((u) => [u.id, u]))
+      if (updates.size === 0) return state
+      return {
+        ...state,
+        clips: state.clips.map((c) => {
+          const u = updates.get(c.id)
+          if (!u) return c
+          const next = { ...c }
+          if ('tuningSystem' in u) next.tuningSystem = u.tuningSystem
+          if ('noteIndex' in u) next.noteIndex = u.noteIndex
+          if ('octave' in u) next.octave = u.octave
+          if ('frequency' in u) next.frequency = u.frequency
+          return next
+        }),
+      }
+    }
     case 'DUPLICATE_CLIPS': {
       // payload: [{ trackId, patchId, measure, beat, duration,
       //             tuningSystem, noteIndex, octave, frequency }]
@@ -1005,7 +1025,7 @@ const HISTORY_DEPTH = 50
 const COMPOSER_UNDOABLE = new Set([
   'ADD_CLIP', 'REMOVE_CLIP', 'UPDATE_CLIP', 'MOVE_CLIPS', 'RESIZE_CLIPS',
   'DUPLICATE_CLIPS', 'PASTE_CLIPS', 'SPLIT_CLIPS', 'MERGE_CLIPS', 'DELETE_SELECTED_CLIPS',
-  'UPDATE_CLIPS_PATCH', 'UPDATE_CLIPS_DURATION',
+  'UPDATE_CLIPS_PATCH', 'UPDATE_CLIPS_DURATION', 'UPDATE_CLIPS_PITCH',
   'CLEAR_TIMELINE', 'SET_BPM', 'ADD_MEASURES', 'REMOVE_LAST_MEASURE',
   'DELETE_MEASURE', 'INSERT_MEASURES_AT', 'CUT_MEASURE', 'PASTE_MEASURES',
   'CREATE_TRACK', 'RENAME_TRACK', 'DELETE_TRACK', 'REORDER_TRACKS', 'UPDATE_TRACK',

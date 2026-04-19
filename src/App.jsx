@@ -267,6 +267,10 @@ function App() {
     dispatch({ type: 'UPDATE_CLIPS_DURATION', payload: updates })
   }, [])
 
+  const handleUpdateClipsPitch = useCallback((updates) => {
+    dispatch({ type: 'UPDATE_CLIPS_PITCH', payload: updates })
+  }, [])
+
   const handleDeleteSelected = useCallback(() => {
     dispatch({ type: 'DELETE_SELECTED_CLIPS' })
   }, [])
@@ -1021,6 +1025,7 @@ function App() {
                   onRemoveClip={handleRemoveClip}
                   onUpdateClipsPatch={handleUpdateClipsPatch}
                   onUpdateClipsDuration={handleUpdateClipsDuration}
+                  onUpdateClipsPitch={handleUpdateClipsPitch}
                   onDeleteSelected={handleDeleteSelected}
                   mergeStatus={mergeStatus}
                   onMergeClips={handleMergeClips}

@@ -5,6 +5,9 @@ import {
   computeBounds,
   MIN_CLIP_DURATION,
 } from '../lib/timelineLayout'
+import { formatClipNote } from '../lib/clipNote'
+import { PianoKeyboard, OctaveSelector } from './PianoKeyboard'
+import FreqInput from './FreqInput'
 import './PropertiesPanel.css'
 
 const DURATION_OPTIONS = [
@@ -19,6 +22,9 @@ const DURATION_OPTIONS = [
 
 const KNOWN_DURATIONS = new Set(DURATION_OPTIONS.map((o) => o.value))
 
+const FREE_FREQ_MIN = 16
+const FREE_FREQ_MAX = 32768
+
 function durationOptionsFor(value) {
   if (KNOWN_DURATIONS.has(value)) return DURATION_OPTIONS
   const r = Math.round(value * 100) / 100
@@ -26,12 +32,19 @@ function durationOptionsFor(value) {
   return [{ label, value }, ...DURATION_OPTIONS]
 }
 
+// Comparaison stricte de hauteur : même tuningSystem ET mêmes coordonnées.
+function sameClipPitch(a, b) {
+  if (a.tuningSystem !== b.tuningSystem) return false
+  if (a.tuningSystem === 'free') return a.frequency === b.frequency
+  return a.noteIndex === b.noteIndex && a.octave === b.octave
+}
+
 /**
  * Panneau Properties (Composer). Trois modes :
  *  - vide : placeholder
- *  - mono (1 clip) : édition complète
- *  - multi (>1 clips) : patch (si homogène), durée (si homogène),
- *    bouton supprimer la sélection.
+ *  - mono (1 clip) : édition complète (patch + note + durée)
+ *  - multi (>1 clips) : patch (si homogène), note (si homogène),
+ *    durée (si homogène), bouton supprimer la sélection.
  */
 function PropertiesPanel({
   selectedClipIds,
@@ -43,6 +56,7 @@ function PropertiesPanel({
   onRemoveClip,
   onUpdateClipsPatch,
   onUpdateClipsDuration,
+  onUpdateClipsPitch,
   onDeleteSelected,
   mergeStatus,
   onMergeClips,
@@ -88,6 +102,7 @@ function PropertiesPanel({
               numMeasures={numMeasures}
               onUpdateClipsPatch={onUpdateClipsPatch}
               onUpdateClipsDuration={onUpdateClipsDuration}
+              onUpdateClipsPitch={onUpdateClipsPitch}
               onDeleteSelected={onDeleteSelected}
               mergeStatus={mergeStatus}
               onMergeClips={onMergeClips}
@@ -102,6 +117,7 @@ function PropertiesPanel({
               patches={patches}
               tracks={tracks}
               onUpdateClip={onUpdateClip}
+              onUpdateClipsPitch={onUpdateClipsPitch}
               onRemoveClip={onRemoveClip}
               canSplit2={canSplit2}
               canSplit3={canSplit3}
@@ -114,7 +130,55 @@ function PropertiesPanel({
   )
 }
 
-function ClipEditor({ clip, patches, tracks, onUpdateClip, onRemoveClip, canSplit2, canSplit3, onSplitClips }) {
+// Éditeur de hauteur : mini-clavier + octave en 12-TET, FreqInput en Libre.
+// `clipIds` est un tableau — utilisé aussi bien pour mono (1 élément) que
+// pour multi homogène (N éléments) afin que l'action propage à tous les clips.
+function NoteEditor({ clipIds, tuningSystem, noteIndex, octave, frequency, onUpdateClipsPitch }) {
+  const isFree = tuningSystem === 'free'
+
+  const applyNote = (newNoteIndex) => {
+    onUpdateClipsPitch?.(clipIds.map((id) => ({ id, noteIndex: newNoteIndex })))
+  }
+  const applyOctave = (newOctave) => {
+    onUpdateClipsPitch?.(clipIds.map((id) => ({ id, octave: newOctave })))
+  }
+  const applyFrequency = (hz) => {
+    onUpdateClipsPitch?.(clipIds.map((id) => ({ id, frequency: hz })))
+  }
+
+  if (isFree) {
+    return (
+      <div className="note-editor">
+        <div className="note-editor-free">
+          <FreqInput
+            value={frequency ?? 440}
+            onChange={applyFrequency}
+            min={FREE_FREQ_MIN}
+            max={FREE_FREQ_MAX}
+            className="freq-input"
+          />
+          <span className="note-editor-unit">Hz</span>
+        </div>
+      </div>
+    )
+  }
+
+  const midi = (octave + 1) * 12 + noteIndex
+  const displayFreq = 440 * Math.pow(2, (midi - 69) / 12)
+
+  return (
+    <div className="note-editor">
+      <PianoKeyboard compact noteIndex={noteIndex} onSelectNote={applyNote} />
+      <OctaveSelector compact octave={octave} onSelectOctave={applyOctave} />
+      <div className="note-editor-display">
+        <strong>{formatClipNote({ tuningSystem: '12-TET', noteIndex, octave })}</strong>
+        <span className="note-editor-hz"> — {displayFreq.toFixed(1)} Hz</span>
+      </div>
+    </div>
+  )
+}
+
+function ClipEditor({ clip, patches, tracks, onUpdateClip, onUpdateClipsPitch, onRemoveClip, canSplit2, canSplit3, onSplitClips }) {
   const currentPatch = patches.find((p) => p.id === clip.patchId)
   const clipTrack = tracks?.find(t => t.id === clip.trackId)
 
@@ -143,6 +207,18 @@ function ClipEditor({ clip, patches, tracks, onUpdateClip, onRemoveClip, canSpli
           </select>
         </div>
       </label>
+
+      <div className="field field-note">
+        <span className="field-label">Note</span>
+        <NoteEditor
+          clipIds={[clip.id]}
+          tuningSystem={clip.tuningSystem}
+          noteIndex={clip.noteIndex}
+          octave={clip.octave}
+          frequency={clip.frequency}
+          onUpdateClipsPitch={onUpdateClipsPitch}
+        />
+      </div>
 
       <div className="field">
         <span className="field-label">Position</span>
@@ -213,6 +289,7 @@ function MultiClipEditor({
   numMeasures,
   onUpdateClipsPatch,
   onUpdateClipsDuration,
+  onUpdateClipsPitch,
   onDeleteSelected,
   mergeStatus,
   onMergeClips,
@@ -220,11 +297,13 @@ function MultiClipEditor({
   canSplit3,
   onSplitClips,
 }) {
-  const firstPatchId = selectedClips[0].patchId
+  const first = selectedClips[0]
+  const firstPatchId = first.patchId
   const allSamePatch = selectedClips.every((c) => c.patchId === firstPatchId)
-  const firstDuration = selectedClips[0].duration
+  const firstDuration = first.duration
   const allSameDuration = selectedClips.every((c) => c.duration === firstDuration)
   const commonPatch = allSamePatch ? patches.find((p) => p.id === firstPatchId) : null
+  const allSamePitch = selectedClips.every((c) => sameClipPitch(c, first))
 
   const handleChangePatch = (newPatchId) => {
     if (!allSamePatch) return
@@ -294,6 +373,22 @@ function MultiClipEditor({
           <span className="field-readonly">Patches mixtes</span>
         )}
       </label>
+
+      <div className="field field-note">
+        <span className="field-label">Note</span>
+        {allSamePitch ? (
+          <NoteEditor
+            clipIds={selectedClips.map((c) => c.id)}
+            tuningSystem={first.tuningSystem}
+            noteIndex={first.noteIndex}
+            octave={first.octave}
+            frequency={first.frequency}
+            onUpdateClipsPitch={onUpdateClipsPitch}
+          />
+        ) : (
+          <span className="field-readonly">Notes mixtes</span>
+        )}
+      </div>
 
       <label className="field">
         <span className="field-label">Durée musicale</span>
