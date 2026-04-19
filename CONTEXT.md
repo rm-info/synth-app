@@ -22,12 +22,16 @@ Itération D (Designer UX) **clôturée le 2026-04-19** : Phase 1 — sélecteur
 de système `tuningSystem` (12-TET + Libre), mode libre étendu à 2^4-2^15
 Hz (16-32768), clavier piano 12 notes + sélecteur d'octave 0-10, trois
 boutons Test (impact/court/tenu).
-Itération E (Patches vs Notes) **en cours** : Phase 1 (2026-04-19) —
-refonte conceptuelle majeure. Les **sons** deviennent des **patches**
+Itération E (Patches vs Notes) **en cours** — refonte conceptuelle
+majeure. Phase 1 (2026-04-19) : les **sons** deviennent des **patches**
 sans fréquence ni note ; la hauteur est portée par chaque **clip**
 (tuningSystem + noteIndex/octave en 12-TET, ou frequency en Libre).
 Un patch peut être joué à n'importe quelle hauteur sans duplication.
 Pas de migration : ancien localStorage détecté → reset propre.
+Phase 2 (2026-04-19) : la note s'affiche dans chaque clip (label
+adaptatif selon largeur), s'édite dans Properties via un mini-clavier
+(ou un FreqInput en mode libre), et s'ajuste au clavier (↑↓ demi-ton,
+Shift octave, ←→ ±0.25 beat, Shift+←→ ±1 beat).
 
 ## Objectif
 
@@ -768,6 +772,31 @@ Phases listées ci-dessous dans l'ordre chronologique d'implémentation.
     résolution fréquence via `clipFrequency(clip)` à l'attaque de
     chaque clip (live + export WAV). Signature de changement inclut
     les champs de hauteur pour invalider les clips reprogrammés.
+- ✅ **Phase 2** (2026-04-19) — Affichage note dans clips + édition
+  Properties + flèches clavier. 3 sous-commits :
+  - **2.1** Label adaptatif : `src/lib/clipNote.js` exporte
+    `formatClipNote(clip)` (12-TET → "A4", free → "440.0 Hz") et
+    `NOTE_NAMES` avec ♯ Unicode. Dans Timeline, la `.placed-name` est
+    scindée en `.placed-note` (gras) + `.placed-patch-name` (opacité
+    0.7). Container queries : patch name masqué sous 120px, tout
+    masqué sous 30px.
+  - **2.2** `PianoKeyboard`/`OctaveSelector` extraits dans
+    `src/components/PianoKeyboard.{jsx,css}`, prop `compact` pour la
+    variante Properties (56px de haut, pas de labels). Action
+    `UPDATE_CLIPS_PITCH` (payload `[{id, tuningSystem?, noteIndex?,
+    octave?, frequency?}]`, undoable pile Composer). Handler
+    `handleUpdateClipsPitch`. PropertiesPanel mono : nouveau champ
+    "Note" entre Patch et Position (mini-clavier + octave en 12-TET,
+    FreqInput en Libre). PropertiesPanel multi : éditable si toutes
+    les hauteurs identiques, sinon "Notes mixtes" lecture seule.
+  - **2.3** Listener keydown global (App, activeTab=composer). ↑↓ :
+    ±1 demi-ton via arithmétique midi (passage d'octave auto).
+    Shift+↑↓ : ±1 octave entière. ←→ : ±0.25 beat. Shift+←→ : ±1 beat.
+    Bornes intersectées : midi ∈ [12, 143] (C0..B10), position ∈
+    [0, totalBeats]. Groupe bloqué si le membre le plus contraint
+    ne peut pas bouger. Clips free ignorés pour ↑↓ (édition libre
+    via input Hz). Exclusions : input/textarea/select/contenteditable,
+    `.timeline-context-menu` ouvert, body cursor en drag.
 
 ## Historique (chronologie inverse)
 
@@ -874,8 +903,9 @@ Phases listées ci-dessous dans l'ordre chronologique d'implémentation.
 
 - ✅ **Phase 1** (2026-04-19) — Refonte modèle : patches remplacent sounds,
   notes portées par les clips. Commit unique. Voir section État actuel.
-- ⏳ **Phase 2** — Affichage note dans les clips, mini-clavier dans
-  Properties, flèches pour ajuster.
+- ✅ **Phase 2** (2026-04-19) — Affichage note dans les clips, édition
+  via Properties (mini-clavier + octave), flèches clavier pour ajuster
+  note/position. 3 sous-commits (2.1, 2.2, 2.3).
 - ⏳ **Phase 3** — Designer comme instrument de test : clavier QWERTY,
   Espace sustain, mousedown/mouseup comme piano.
 - ⏳ **Phase 4** — Drop intelligent : raccourcis clavier au drop,
