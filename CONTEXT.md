@@ -18,6 +18,10 @@ répertoires de sons arborescents avec drag interne ; menu contextuel
 mesures avec supprimer/insérer/couper/copier/coller).
 Itération C **clôturée le 2026-04-18** (multipiste : UI multi-tracks,
 mute/solo/volume, moteur audio look-ahead, adaptation features A/B).
+Itération D (Designer UX) **en cours** : Phase 1 (2026-04-19) — sélecteur
+de système `tuningSystem` (12-TET + Libre), mode libre étendu à 2^4-2^15
+Hz (16-32768), clavier piano 12 notes + sélecteur d'octave 0-10, trois
+boutons Test (impact/court/tenu).
 
 ## Objectif
 
@@ -89,9 +93,9 @@ type SavedSound = {
   points: number[]                // 600 échantillons [-1, 1] — résolution canvas
   frequency: number               // Hz
   amplitude: number               // 0..1
-  mode: 'note' | 'free'           // détecte les doublons
-  noteIndex: number | null        // 0-11 (C..B), null en free
-  octave: number | null           // 1-7
+  tuningSystem: '12-TET' | 'free' // système d'accordage (détecte les doublons)
+  noteIndex: number | null        // 0-11 (C..B), null en Libre
+  octave: number | null           // 0-10 en 12-TET, null en Libre
   preset: 'sine'|'square'|'sawtooth'|'triangle'|null  // null = dessin custom
   attack: number                  // ms, 0-500
   decay: number                   // ms, 0-500
@@ -162,12 +166,23 @@ Seuls les **placements timeline** s'appellent "clips".
 ### `WaveformEditor.jsx`
 - Canvas 600×300 dessinable à la souris (interpolation linéaire)
 - Presets Sine / Square / Sawtooth / Triangle / Clear (tracking `activePreset`)
-- Sélecteur note + octave (tempérament égal) OU slider fréquence libre 20-20000 Hz
-  (échelle logarithmique), toggle entre les deux modes
+- Dropdown "Système" (12-TET / Libre) qui bascule entre deux UIs :
+  - 12-TET : clavier piano 12 notes (7 blanches + 5 noires) + rangée 11 boutons
+    d'octave (0-10). Octave 4 en fond "référence" permanent, sélection en accent
+    cyan. Affichage "Note : 440.0 Hz — A4" en dessous. Bascule 12-TET → Libre
+    conserve la fréquence (freeFrequency = freq calculée). Libre → 12-TET snap à
+    la note la plus proche via `frequencyToNearestNote` (midi clampé [12,143]).
+  - Libre : slider fréquence log 2^4-2^15 Hz (16-32768) + input FreqInput
+    éditable au clavier.
 - Éditeur ADSR **visuel** 400×120 : 4 poignées draggables (P1 attack, P2 decay+sustain,
   P3 fin sustain non-draggable, P4 release), courbe cyan + remplissage, sliders read-only
   en dessous
-- Preview Play/Stop avec enveloppe AD→sustain hold puis release, cleanup via `osc.onended`
+- **Trois boutons Test** (impact •, court ━, tenu ∞) : impact joue A→D→R,
+  court ajoute un hold 1s entre decay et release, tenu joue indéfiniment
+  jusqu'à clic Stop (■). Auto-fin pour impact/court via `osc.onended`.
+  Pendant une lecture, les deux autres boutons sont désactivés (évite le
+  chevauchement). Pas de hot-swap waveform/ADSR pendant un test en cours ;
+  seules amplitude et fréquence gardent un effet live (exception spec).
 - Hydratation auto depuis `currentSound` (prop) via `useEffect` qui compare l'id
   contre `hydratedFromIdRef`. Pas de re-hydrate si même id.
 - **Dirty check** exposé via `useImperativeHandle` (`isDirty()`). Compare l'état local
@@ -668,6 +683,13 @@ Phases listées ci-dessous dans l'ordre chronologique d'implémentation.
 - Adaptation multipiste : fusion check trackId, coller cross-piste (clic droit
   + Ctrl+V), PropertiesPanel affiche piste, Échap ferme menu contextuel (phase 4)
 
+🚧 **Itération D en cours** — Refonte Designer
+- ✅ **Phase 1** (2026-04-19) — Refonte sélecteur de notes + boutons Test :
+  dropdown "Système" (12-TET / Libre), clavier piano 12 notes, sélecteur
+  d'octave 0-10, extension mode libre 2^4-2^15 Hz, trois boutons Test
+  (impact/court/tenu). Modèle : `mode: 'note' | 'free'` → `tuningSystem:
+  '12-TET' | 'free'` (migration transparente via `normalizeSound`).
+
 ## Historique (chronologie inverse)
 
 00. **Iter A — Phase 2** : split onglets Designer/Composer + responsive (grid),
@@ -761,12 +783,31 @@ Phases listées ci-dessous dans l'ordre chronologique d'implémentation.
     Audit : clipboard, measure clipboard, split, delete/insert mesure,
     export WAV, multi-sélection cross-piste — tous déjà corrects.
 
+### Itération D (Designer UX) — en cours
+
+- ✅ **Phase 1** (2026-04-19) — Refonte sélecteur de notes + boutons Test :
+  - **1.1** Sélecteur de système : dropdown "Système" (12-TET, Libre)
+    remplace le toggle "Mode libre". Champ `tuningSystem` sur SavedSound
+    (migration `mode` legacy transparente). Mode libre étendu à 2^4-2^15
+    Hz (16-32768) ; slider, FreqInput et Spectrogram alignés. Bascule
+    12-TET ↔ Libre préserve l'intention (conversion réciproque via
+    `frequencyToNearestNote` côté reducer).
+  - **1.2** Clavier piano 12 notes : 7 touches blanches (C D E F G A B)
+    + 5 noires (C# D# F# G# A#) en absolu, labels discrets, responsive
+    min-width 210px. Rangée 11 boutons d'octave 0-10 ; octave 4 en fond
+    "référence" bleuté permanent, sélection en accent cyan. Dropdowns
+    Note/Octave retirés. Affichage "Note : 440.0 Hz — A4" sous le clavier.
+    `frequencyToNearestNote` clampe désormais à midi 143 (B10).
+  - **1.3** Trois boutons Test : impact (•, A+D+R), court (━, A+D+1s+R),
+    tenu (∞, indéfini jusqu'à Stop ■). Pendant une lecture, les deux
+    autres boutons sont désactivés. Auto-fin pour impact/court via
+    `osc.onended`. Plus de hot-swap waveform pendant un test en cours.
+
 ### Backlog général (à caser quand pertinent)
 
 - Spectrogramme avancé : toggle dB / linéaire, zoom, FFT temps réel
   pendant la lecture, affichage post-ADSR
 - Bouton "Vider la banque" (avec undo)
-- Notes/octaves en boutons type clavier au lieu de dropdowns
 - Concept "patch/instrument" : son sans fréquence, hauteur appliquée
   par le clip (refonte conceptuelle majeure, à rediscuter)
 - Toggle thème clair/sombre
