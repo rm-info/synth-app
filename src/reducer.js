@@ -44,10 +44,10 @@ export function noteToFrequency(noteIndex, octave) {
 }
 
 // Inverse : trouve la note 12-TET la plus proche d'une fréquence donnée.
-// Clamp midi ∈ [12, 131] (C0..B10) pour rester dans les bornes de l'UI.
+// Clamp midi ∈ [12, 143] (C0..B10) pour rester dans les bornes de l'UI.
 export function frequencyToNearestNote(hz) {
   const midi = Math.round(69 + 12 * Math.log2(hz / 440))
-  const clamped = Math.max(12, Math.min(131, midi))
+  const clamped = Math.max(12, Math.min(143, midi))
   return {
     noteIndex: ((clamped % 12) + 12) % 12,
     octave: Math.floor(clamped / 12) - 1,

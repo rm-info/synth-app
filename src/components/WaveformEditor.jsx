@@ -9,11 +9,85 @@ import './WaveformEditor.css'
 const POINTS_RESOLUTION = 600
 
 const NOTE_NAMES = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B']
-const OCTAVES = [1, 2, 3, 4, 5, 6, 7]
+
+// Clavier piano : 7 touches blanches (diatoniques), 5 touches noires (altérées).
+// Les touches noires se placent entre deux blanches ; rien entre E-F et B-C
+// (demi-tons diatoniques). `afterWhite` = index (0-based) de la blanche qui
+// précède la noire dans le rang des 7 blanches.
+const WHITE_KEYS = [0, 2, 4, 5, 7, 9, 11] // C D E F G A B
+const BLACK_KEYS = [
+  { note: 1,  afterWhite: 0 }, // C# entre C et D
+  { note: 3,  afterWhite: 1 }, // D# entre D et E
+  { note: 6,  afterWhite: 3 }, // F# entre F et G
+  { note: 8,  afterWhite: 4 }, // G# entre G et A
+  { note: 10, afterWhite: 5 }, // A# entre A et B
+]
+
+const OCTAVES = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+const REFERENCE_OCTAVE = 4 // Octave "référence commune" (A4 = 440 Hz)
 
 function noteToFrequency(noteIndex, octave) {
   const midi = (octave + 1) * 12 + noteIndex
   return 440 * Math.pow(2, (midi - 69) / 12)
+}
+
+function PianoKeyboard({ noteIndex, onSelectNote }) {
+  return (
+    <div className="piano-keyboard" role="group" aria-label="Clavier piano">
+      <div className="piano-whites">
+        {WHITE_KEYS.map((idx) => (
+          <button
+            key={idx}
+            type="button"
+            className={`piano-key piano-key-white${noteIndex === idx ? ' is-active' : ''}`}
+            onClick={() => onSelectNote(idx)}
+            aria-label={NOTE_NAMES[idx]}
+            aria-pressed={noteIndex === idx}
+          >
+            <span className="piano-key-label">{NOTE_NAMES[idx]}</span>
+          </button>
+        ))}
+      </div>
+      <div className="piano-blacks">
+        {BLACK_KEYS.map(({ note, afterWhite }) => (
+          <button
+            key={note}
+            type="button"
+            className={`piano-key piano-key-black${noteIndex === note ? ' is-active' : ''}`}
+            style={{ left: `${((afterWhite + 1) / WHITE_KEYS.length) * 100}%` }}
+            onClick={() => onSelectNote(note)}
+            title={NOTE_NAMES[note]}
+            aria-label={NOTE_NAMES[note]}
+            aria-pressed={noteIndex === note}
+          />
+        ))}
+      </div>
+    </div>
+  )
+}
+
+function OctaveSelector({ octave, onSelectOctave }) {
+  return (
+    <div className="octave-selector" role="group" aria-label="Sélecteur d'octave">
+      {OCTAVES.map((o) => {
+        const classes = ['octave-btn']
+        if (o === REFERENCE_OCTAVE) classes.push('is-reference')
+        if (o === octave) classes.push('is-active')
+        return (
+          <button
+            key={o}
+            type="button"
+            className={classes.join(' ')}
+            onClick={() => onSelectOctave(o)}
+            aria-label={`Octave ${o}`}
+            aria-pressed={o === octave}
+          >
+            {o}
+          </button>
+        )
+      })}
+    </div>
+  )
 }
 
 // Plage fréquence libre : 2^4 → 2^15 Hz (16 Hz → 32768 Hz). Couvre pile les
@@ -854,10 +928,10 @@ function WaveformEditor({
         </div>
 
         <div className="control-group">
-          <div className="freq-label">
-            {freeMode ? 'Fréquence libre' : 'Note'}:{' '}
-            {freeMode ? (
-              <>
+          {freeMode ? (
+            <>
+              <div className="freq-label">
+                Fréquence libre :{' '}
                 <FreqInput
                   value={freeFrequency}
                   onChange={editorActions.setFrequency}
@@ -866,51 +940,37 @@ function WaveformEditor({
                   className="freq-input"
                 />
                 <span className="freq-unit"> Hz</span>
-              </>
-            ) : (
-              <>
-                <strong>{formatFreq(frequency)}</strong>
+              </div>
+              <input
+                type="range"
+                min="0"
+                max="1"
+                step="0.001"
+                value={freqToSlider(freeFrequency)}
+                onChange={(e) => {
+                  const hz = sliderToFreq(Number(e.target.value))
+                  setDraftFreq(Math.round(hz * 10) / 10)
+                }}
+                {...sliderCommitter(commitDraftFreq)}
+              />
+            </>
+          ) : (
+            <>
+              <PianoKeyboard
+                noteIndex={noteIndex}
+                onSelectNote={editorActions.setNoteIndex}
+              />
+              <OctaveSelector
+                octave={octave}
+                onSelectOctave={editorActions.setOctave}
+              />
+              <div className="freq-label">
+                Note : <strong>{formatFreq(frequency)}</strong>
                 <span className="note-display">
                   {' '}— {NOTE_NAMES[noteIndex]}{octave}
                 </span>
-              </>
-            )}
-          </div>
-
-          {freeMode ? (
-            <input
-              type="range"
-              min="0"
-              max="1"
-              step="0.001"
-              value={freqToSlider(freeFrequency)}
-              onChange={(e) => {
-                const hz = sliderToFreq(Number(e.target.value))
-                setDraftFreq(Math.round(hz * 10) / 10)
-              }}
-              {...sliderCommitter(commitDraftFreq)}
-            />
-          ) : (
-            <div className="note-selectors">
-              <select
-                value={noteIndex}
-                onChange={(e) => editorActions.setNoteIndex(Number(e.target.value))}
-                aria-label="Note"
-              >
-                {NOTE_NAMES.map((n, i) => (
-                  <option key={n} value={i}>{n}</option>
-                ))}
-              </select>
-              <select
-                value={octave}
-                onChange={(e) => editorActions.setOctave(Number(e.target.value))}
-                aria-label="Octave"
-              >
-                {OCTAVES.map((o) => (
-                  <option key={o} value={o}>Octave {o}</option>
-                ))}
-              </select>
-            </div>
+              </div>
+            </>
           )}
         </div>
 
