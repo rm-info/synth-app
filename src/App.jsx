@@ -1318,6 +1318,7 @@ function App() {
                   totalDurationSec={totalDurationSec}
                   composerFlash={composerFlash}
                   pressedNoteLabel={pressedNoteLabel}
+                  testOctave={editor.testOctave}
                   canUndo={composerCanUndo}
                   canRedo={composerCanRedo}
                   onUndo={handleUndoComposer}

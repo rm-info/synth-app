@@ -39,6 +39,7 @@ function Toolbar({
   totalDurationSec,
   composerFlash,
   pressedNoteLabel,
+  testOctave,
   canUndo,
   canRedo,
   onUndo,
@@ -178,6 +179,14 @@ function Toolbar({
       </div>
 
       <div className="toolbar-section toolbar-spacer">
+        {typeof testOctave === 'number' && (
+          <span
+            className={`toolbar-octave${testOctave === 4 ? ' is-reference' : ''}`}
+            title="Octave courante — Shift seul = +1, Ctrl seul = −1"
+          >
+            Octave : <strong>{testOctave}</strong>
+          </span>
+        )}
         {pressedNoteLabel && (
           <span className="toolbar-pressed-note" role="status" title="Note ciblée (touche maintenue)">
             ♪ {pressedNoteLabel}

@@ -193,6 +193,30 @@
   animation: toolbar-flash-in 0.2s ease-out;
 }
 
+/* Indicateur d'octave courante (E.6.2) : testOctave partagé avec Designer.
+ * Fond "référence" bleuté pour octave 4 (A4 = 440 Hz), accent cyan sinon. */
+.toolbar-octave {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.72rem;
+  color: #1a1a2e;
+  background: #00d4ff;
+  border-radius: 4px;
+  padding: 3px 10px;
+  font-family: monospace;
+  font-weight: 500;
+  margin-right: 8px;
+}
+.toolbar-octave strong {
+  font-size: 0.85rem;
+  font-weight: 700;
+}
+.toolbar-octave.is-reference {
+  background: #243a4a;
+  color: #88c0e0;
+}
+
 /* Indicateur note ciblée (E.4) : touche clavier physique maintenue. */
 .toolbar-pressed-note {
   display: inline-flex;
