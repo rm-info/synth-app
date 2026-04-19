@@ -138,6 +138,7 @@ export function loadPersistedState() {
       spectrogramVisible:
         typeof parsed.spectrogramVisible === 'boolean' ? parsed.spectrogramVisible : true,
       activeTab: parsed.activeTab === 'composer' ? 'composer' : 'designer',
+      durationMode: parsed.durationMode === 'fraction' ? 'fraction' : 'solfège',
     }
   } catch {
     return null
@@ -179,6 +180,9 @@ export function buildInitialState() {
     currentPatchId: null,
     spectrogramVisible: persisted?.spectrogramVisible ?? true,
     defaultClipDuration: DEFAULT_CLIP_DURATION,
+    // Mode d'affichage des durées dans les boutons (E.6.1).
+    // 'solfège' : ♩ ♪ 𝅘𝅥𝅯 etc. / 'fraction' : 1/4 1/8 1/16 etc.
+    durationMode: persisted?.durationMode === 'fraction' ? 'fraction' : 'solfège',
     composerFlash: null,
 
     history: {
@@ -244,12 +248,12 @@ export function countFolderContents(folderId, folders, patches) {
 
 export function canSplitClip(clip, divisor) {
   const part = clip.duration / divisor
-  if (part < 0.25) return false
-  return Math.abs(Math.round(part / 0.25) * 0.25 - part) < 1e-9
+  if (part < 0.125) return false
+  return Math.abs(Math.round(part / 0.125) * 0.125 - part) < 1e-9
 }
 
 function snapBeat(v) {
-  return Math.round(v / 0.25) * 0.25
+  return Math.round(v / 0.125) * 0.125
 }
 
 function beatToMeasureBeat(absoluteBeat) {
@@ -1034,6 +1038,9 @@ export function reducer(state, action) {
     }
     case 'SET_DEFAULT_CLIP_DURATION': {
       return { ...state, defaultClipDuration: action.payload }
+    }
+    case 'SET_DURATION_MODE': {
+      return { ...state, durationMode: action.payload === 'fraction' ? 'fraction' : 'solfège' }
     }
     case 'SET_COMPOSER_FLASH': {
       return { ...state, composerFlash: action.payload }

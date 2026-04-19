@@ -1,15 +1,6 @@
 import BpmInput from './BpmInput'
+import DurationButtons from './DurationButtons'
 import './Toolbar.css'
-
-const DURATION_OPTIONS = [
-  { label: 'Ronde', value: 4 },
-  { label: 'Blanche', value: 2 },
-  { label: 'Noire pointée', value: 1.5 },
-  { label: 'Noire', value: 1 },
-  { label: 'Croche pointée', value: 0.75 },
-  { label: 'Croche', value: 0.5 },
-  { label: 'Double croche', value: 0.25 },
-]
 
 /**
  * Toolbar de l'onglet Composer.
@@ -42,6 +33,8 @@ function Toolbar({
   trackHeightMax,
   defaultClipDuration,
   onSetDefaultClipDuration,
+  durationMode,
+  onToggleDurationMode,
   currentTime,
   totalDurationSec,
   composerFlash,
@@ -78,18 +71,23 @@ function Toolbar({
       </div>
 
       <div className="toolbar-section">
-        <label className="duration-control" title="Durée des nouveaux clips déposés">
+        <span className="duration-control-label" title="Durée des nouveaux clips déposés. Raccourcis 1-7 bases, 8-0 coefs.">
           Durée
-          <select
-            value={defaultClipDuration}
-            onChange={(e) => onSetDefaultClipDuration(parseFloat(e.target.value))}
-            className="duration-select"
-          >
-            {DURATION_OPTIONS.map((o) => (
-              <option key={o.value} value={o.value}>{o.label}</option>
-            ))}
-          </select>
-        </label>
+        </span>
+        <DurationButtons
+          duration={defaultClipDuration}
+          mode={durationMode}
+          onChange={onSetDefaultClipDuration}
+        />
+        <button
+          type="button"
+          className="duration-mode-toggle"
+          onClick={onToggleDurationMode}
+          title={`Affichage : ${durationMode === 'solfège' ? 'solfège (♩)' : 'fraction (1/4)'}. Clic pour basculer.`}
+          aria-label="Basculer mode d'affichage durée"
+        >
+          {durationMode === 'solfège' ? '♩' : '1/4'}
+        </button>
       </div>
 
       <div className="toolbar-section zoom-h-section">

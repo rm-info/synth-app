@@ -1,0 +1,62 @@
+.duration-buttons {
+  display: inline-flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.duration-buttons-bases,
+.duration-buttons-coefs {
+  display: inline-flex;
+  gap: 2px;
+  background: #1a1a2e;
+  border: 1px solid #3a3a5a;
+  border-radius: 6px;
+  padding: 2px;
+}
+
+.dur-btn {
+  min-width: 28px;
+  height: 26px;
+  padding: 0 6px;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  background: #2a2a4a;
+  color: #c0c0e0;
+  font-family: monospace;
+  font-size: 0.78rem;
+  font-weight: 500;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.1s, border-color 0.1s, color 0.1s;
+}
+
+.dur-btn-base {
+  font-family: 'Bravura', 'Segoe UI Symbol', 'Apple Symbols', 'DejaVu Sans', monospace;
+  font-size: 0.95rem;
+  line-height: 1;
+}
+
+.dur-btn:hover:not(:disabled) {
+  background: #3a3a6a;
+  border-color: #00d4ff;
+  color: #00d4ff;
+}
+
+.dur-btn.is-active {
+  background: #00d4ff;
+  border-color: #00b8e6;
+  color: #1a1a2e;
+  font-weight: 600;
+}
+
+.dur-btn.is-active:hover:not(:disabled) {
+  background: #00b8e6;
+  color: #1a1a2e;
+}
+
+.dur-btn:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}

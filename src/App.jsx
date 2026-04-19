@@ -26,6 +26,10 @@ import {
 import { canMergeClips } from './lib/timelineLayout'
 import { KEY_CODE_TO_NOTE_INDEX } from './lib/keyboardMap'
 import { NOTE_NAMES as PRESSED_NOTE_NAMES } from './lib/clipNote'
+import {
+  DURATION_BASES, DURATION_COEFS,
+  deriveBaseAndCoef, effectiveDuration, isValidCoef,
+} from './lib/durations'
 import Toast from './components/Toast'
 import { usePlayback } from './hooks/usePlayback'
 import './App.css'
@@ -37,7 +41,7 @@ function App() {
   const {
     clips, patches, soundFolders, tracks, bpm, numMeasures,
     editor, activeTab, currentPatchId, zoomH, defaultClipDuration,
-    spectrogramVisible, selectedClipIds, composerFlash, lastAnchorClipId,
+    spectrogramVisible, durationMode, selectedClipIds, composerFlash, lastAnchorClipId,
     patchCounter, clipCounter, folderCounter, trackCounter,
     clipboard, measureClipboard, history, notification,
   } = state
@@ -222,7 +226,7 @@ function App() {
       const moves = selectedList.map((c) => {
         const newStart = (c.measure - 1) * BEATS_PER_MEASURE + c.beat + deltaReq
         const measure = Math.floor(newStart / BEATS_PER_MEASURE) + 1
-        const beat = Math.round((newStart - (measure - 1) * BEATS_PER_MEASURE) / 0.25) * 0.25
+        const beat = Math.round((newStart - (measure - 1) * BEATS_PER_MEASURE) / 0.125) * 0.125
         return { id: c.id, measure, beat }
       })
       dispatch({ type: 'MOVE_CLIPS', payload: moves })
@@ -357,7 +361,7 @@ function App() {
       if (!anchor) return // silent : pas d'ancre → rien à placer
 
       const endBeat = (anchor.measure - 1) * BEATS_PER_MEASURE + anchor.beat + anchor.duration
-      const snapped = Math.round(endBeat / 0.25) * 0.25
+      const snapped = Math.round(endBeat / 0.125) * 0.125
       const duration = defaultClipDuration
       const newEnd = snapped + duration
       const neededMeasures = Math.ceil(newEnd / BEATS_PER_MEASURE)
@@ -401,6 +405,61 @@ function App() {
     }
   }, [activeTab, clips, lastAnchorClipId, defaultClipDuration, numMeasures, editor.testOctave])
 
+  // Raccourcis 1-0 (Composer) pour piloter les boutons de durée.
+  //   1..7 → sélectionne la base correspondante (Carrée .. Triple croche).
+  //   8..0 → toggle les coefs (×1.25, Pointé, Double-pointé).
+  // Skip form fields et combos Ctrl/Cmd (Ctrl+9 = zoom navigateur).
+  useEffect(() => {
+    if (activeTab !== 'composer') return
+
+    const isFormField = (target) => {
+      const tag = target?.tagName
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return true
+      return !!target?.isContentEditable
+    }
+
+    const onKeyDown = (e) => {
+      if (isFormField(e.target)) return
+      if (e.ctrlKey || e.metaKey) return
+      if (e.repeat) return
+      if (e.code === 'Digit0') e.preventDefault()
+      // Bases 1..7 (event.code stable QWERTY/AZERTY)
+      const baseMatch = /^Digit([1-7])$/.exec(e.code)
+      if (baseMatch) {
+        const rank = parseInt(baseMatch[1], 10)
+        const b = DURATION_BASES.find((x) => x.rank === rank)
+        if (!b) return
+        e.preventDefault()
+        const { coef: curCoef } = deriveBaseAndCoef(defaultClipDuration)
+        const keep = curCoef != null && isValidCoef(b.value, curCoef) ? curCoef : null
+        dispatch({
+          type: 'SET_DEFAULT_CLIP_DURATION',
+          payload: effectiveDuration(b.value, keep),
+        })
+        return
+      }
+      // Coefs : 8 → ×1.25, 9 → Pointé, 0 → Double-pointé
+      const coefRankMap = { Digit8: 8, Digit9: 9, Digit0: 10 }
+      const coefRank = coefRankMap[e.code]
+      if (coefRank == null) return
+      const c = DURATION_COEFS.find((x) => x.rank === coefRank)
+      if (!c) return
+      e.preventDefault()
+      const { base: curBase, coef: curCoef } = deriveBaseAndCoef(defaultClipDuration)
+      const base = curBase ?? 1
+      if (curCoef === c.value) {
+        // Toggle off
+        dispatch({ type: 'SET_DEFAULT_CLIP_DURATION', payload: effectiveDuration(base, null) })
+        return
+      }
+      if (!isValidCoef(base, c.value)) return
+      dispatch({ type: 'SET_DEFAULT_CLIP_DURATION', payload: effectiveDuration(base, c.value) })
+    }
+
+    window.addEventListener('keydown', onKeyDown)
+    return () => window.removeEventListener('keydown', onKeyDown)
+  }, [activeTab, defaultClipDuration])
+
   // Persistance localStorage.
   useEffect(() => {
     try {
@@ -414,6 +473,7 @@ function App() {
           bpm,
           numMeasures,
           spectrogramVisible,
+          durationMode,
           activeTab,
           patchCounter,
           clipCounter,
@@ -426,7 +486,7 @@ function App() {
     }
   }, [
     patches, soundFolders, tracks, clips, bpm, numMeasures,
-    spectrogramVisible, activeTab, patchCounter, clipCounter, folderCounter, trackCounter,
+    spectrogramVisible, durationMode, activeTab, patchCounter, clipCounter, folderCounter, trackCounter,
   ])
 
   // Hydratation de l'éditeur quand currentPatchId change. Non-undoable.
@@ -480,6 +540,13 @@ function App() {
   const setDefaultClipDuration = useCallback((v) => {
     dispatch({ type: 'SET_DEFAULT_CLIP_DURATION', payload: v })
   }, [])
+
+  const toggleDurationMode = useCallback(() => {
+    dispatch({
+      type: 'SET_DURATION_MODE',
+      payload: durationMode === 'solfège' ? 'fraction' : 'solfège',
+    })
+  }, [durationMode])
 
   const setSpectrogramVisible = useCallback((v) => {
     dispatch({ type: 'SET_SPECTROGRAM_VISIBLE', payload: v })
@@ -654,7 +721,7 @@ function App() {
   const handlePaste = useCallback(
     (absoluteBeat, targetTrackId) => {
       if (!clipboard || clipboard.clips.length === 0) return
-      const snapped = Math.round(absoluteBeat / 0.25) * 0.25
+      const snapped = Math.round(absoluteBeat / 0.125) * 0.125
 
       const trackOrder = tracks.map(t => t.id)
       let trackDelta = 0
@@ -799,7 +866,7 @@ function App() {
     const deletedIds = []
     const truncated = []
     const splitParts = []
-    const snap = (v) => Math.round(v / 0.25) * 0.25
+    const snap = (v) => Math.round(v / 0.125) * 0.125
     const toMB = (abs) => {
       const m = Math.floor(abs / BEATS_PER_MEASURE) + 1
       return { measure: m, beat: snap(abs - (m - 1) * BEATS_PER_MEASURE) }
@@ -814,12 +881,12 @@ function App() {
         deletedIds.push(c.id)
       } else if (start < mStart && end <= mEnd) {
         const leftDur = snap(mStart - start)
-        if (leftDur >= 0.25) truncated.push({ id: c.id, newDuration: leftDur })
+        if (leftDur >= 0.125) truncated.push({ id: c.id, newDuration: leftDur })
         else deletedIds.push(c.id)
       } else if (start >= mStart && end > mEnd) {
         const rightDur = snap(end - mEnd)
         deletedIds.push(c.id)
-        if (rightDur >= 0.25) {
+        if (rightDur >= 0.125) {
           const newAbs = snap(mEnd - BEATS_PER_MEASURE)
           const mb = toMB(newAbs)
           splitParts.push(buildSplitPart(c, { originalId: c.id, ...mb, duration: rightDur }))
@@ -827,15 +894,15 @@ function App() {
       } else {
         const leftDur = snap(mStart - start)
         const rightDur = snap(end - mEnd)
-        if (leftDur >= 0.25) {
+        if (leftDur >= 0.125) {
           truncated.push({ id: c.id, newDuration: leftDur })
         } else {
           deletedIds.push(c.id)
         }
-        if (rightDur >= 0.25) {
+        if (rightDur >= 0.125) {
           const newAbs = snap(mStart)
           const mb = toMB(newAbs)
-          splitParts.push(buildSplitPart(c, { originalId: leftDur >= 0.25 ? null : c.id, ...mb, duration: rightDur }))
+          splitParts.push(buildSplitPart(c, { originalId: leftDur >= 0.125 ? null : c.id, ...mb, duration: rightDur }))
         }
       }
     }
@@ -865,13 +932,13 @@ function App() {
       const start = (c.measure - 1) * BEATS_PER_MEASURE + c.beat
       const end = start + c.duration
       if (start < beatPosition && end > beatPosition) {
-        const leftDur = Math.round((beatPosition - start) / 0.25) * 0.25
-        const rightDur = Math.round((end - beatPosition) / 0.25) * 0.25
+        const leftDur = Math.round((beatPosition - start) / 0.125) * 0.125
+        const rightDur = Math.round((end - beatPosition) / 0.125) * 0.125
         const shiftAmount = count * BEATS_PER_MEASURE
-        if (leftDur >= 0.25 && rightDur >= 0.25) {
-          const rightStart = Math.round((beatPosition + shiftAmount) / 0.25) * 0.25
+        if (leftDur >= 0.125 && rightDur >= 0.125) {
+          const rightStart = Math.round((beatPosition + shiftAmount) / 0.125) * 0.125
           const mR = Math.floor(rightStart / BEATS_PER_MEASURE) + 1
-          const bR = Math.round((rightStart - (mR - 1) * BEATS_PER_MEASURE) / 0.25) * 0.25
+          const bR = Math.round((rightStart - (mR - 1) * BEATS_PER_MEASURE) / 0.125) * 0.125
           splitParts.push(
             buildSplitPart(c, { originalId: c.id, measure: c.measure, beat: c.beat, duration: leftDur }),
             buildSplitPart(c, { originalId: c.id, measure: mR, beat: bR, duration: rightDur }),
@@ -889,7 +956,7 @@ function App() {
   const buildMeasureClipboardData = useCallback((measureNum) => {
     const mStart = (measureNum - 1) * BEATS_PER_MEASURE
     const mEnd = measureNum * BEATS_PER_MEASURE
-    const snap = (v) => Math.round(v / 0.25) * 0.25
+    const snap = (v) => Math.round(v / 0.125) * 0.125
     const templates = []
     for (const c of clips) {
       const start = (c.measure - 1) * BEATS_PER_MEASURE + c.beat
@@ -898,7 +965,7 @@ function App() {
       const clampedStart = Math.max(start, mStart)
       const clampedEnd = Math.min(end, mEnd)
       const dur = snap(clampedEnd - clampedStart)
-      if (dur < 0.25) continue
+      if (dur < 0.125) continue
       templates.push({
         patchId: c.patchId,
         trackId: c.trackId,
@@ -931,7 +998,7 @@ function App() {
     const deletedIds = []
     const truncated = []
     const splitParts = []
-    const snap = (v) => Math.round(v / 0.25) * 0.25
+    const snap = (v) => Math.round(v / 0.125) * 0.125
     const toMB = (abs) => {
       const m = Math.floor(abs / BEATS_PER_MEASURE) + 1
       return { measure: m, beat: snap(abs - (m - 1) * BEATS_PER_MEASURE) }
@@ -945,23 +1012,23 @@ function App() {
         deletedIds.push(c.id)
       } else if (start < mStart && end <= mEnd) {
         const leftDur = snap(mStart - start)
-        if (leftDur >= 0.25) truncated.push({ id: c.id, newDuration: leftDur })
+        if (leftDur >= 0.125) truncated.push({ id: c.id, newDuration: leftDur })
         else deletedIds.push(c.id)
       } else if (start >= mStart && end > mEnd) {
         const rightDur = snap(end - mEnd)
         deletedIds.push(c.id)
-        if (rightDur >= 0.25) {
+        if (rightDur >= 0.125) {
           const mb = toMB(snap(mEnd - BEATS_PER_MEASURE))
           splitParts.push(buildSplitPart(c, { originalId: c.id, ...mb, duration: rightDur }))
         }
       } else {
         const leftDur = snap(mStart - start)
         const rightDur = snap(end - mEnd)
-        if (leftDur >= 0.25) truncated.push({ id: c.id, newDuration: leftDur })
+        if (leftDur >= 0.125) truncated.push({ id: c.id, newDuration: leftDur })
         else deletedIds.push(c.id)
-        if (rightDur >= 0.25) {
+        if (rightDur >= 0.125) {
           const mb = toMB(snap(mStart))
-          splitParts.push(buildSplitPart(c, { originalId: leftDur >= 0.25 ? null : c.id, ...mb, duration: rightDur }))
+          splitParts.push(buildSplitPart(c, { originalId: leftDur >= 0.125 ? null : c.id, ...mb, duration: rightDur }))
         }
       }
     }
@@ -980,7 +1047,7 @@ function App() {
       : measureNum * BEATS_PER_MEASURE
 
     const splitParts = []
-    const snap = (v) => Math.round(v / 0.25) * 0.25
+    const snap = (v) => Math.round(v / 0.125) * 0.125
     for (const c of clips) {
       const start = (c.measure - 1) * BEATS_PER_MEASURE + c.beat
       const end = start + c.duration
@@ -988,7 +1055,7 @@ function App() {
         const leftDur = snap(beatPosition - start)
         const rightDur = snap(end - beatPosition)
         const shiftAmount = count * BEATS_PER_MEASURE
-        if (leftDur >= 0.25 && rightDur >= 0.25) {
+        if (leftDur >= 0.125 && rightDur >= 0.125) {
           const rightStart = snap(beatPosition + shiftAmount)
           const mR = Math.floor(rightStart / BEATS_PER_MEASURE) + 1
           const bR = snap(rightStart - (mR - 1) * BEATS_PER_MEASURE)
@@ -1245,6 +1312,8 @@ function App() {
                   trackHeightMax={MAX_TRACK_HEIGHT}
                   defaultClipDuration={defaultClipDuration}
                   onSetDefaultClipDuration={setDefaultClipDuration}
+                  durationMode={durationMode}
+                  onToggleDurationMode={toggleDurationMode}
                   currentTime={playback.currentTime}
                   totalDurationSec={totalDurationSec}
                   composerFlash={composerFlash}
@@ -1320,6 +1389,7 @@ function App() {
                   tracks={tracks}
                   patches={patches}
                   numMeasures={numMeasures}
+                  durationMode={durationMode}
                   onUpdateClip={handleUpdateClip}
                   onRemoveClip={handleRemoveClip}
                   onUpdateClipsPatch={handleUpdateClipsPatch}

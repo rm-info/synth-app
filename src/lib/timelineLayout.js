@@ -1,7 +1,10 @@
 import { BEATS_PER_MEASURE } from '../reducer'
 
-export const SNAP_RESOLUTION = 0.25 // 16ᵉ
-export const MIN_CLIP_DURATION = 0.25
+// Depuis E.6.1 : snap descend à la triple croche (1/32 = 0.125 beat).
+// Certains coefs (×1.25, ×1.5, ×1.75) sur certaines bases produisent
+// des durées qui ne sont multiples que de 0.125 et pas de 0.25.
+export const SNAP_RESOLUTION = 0.125
+export const MIN_CLIP_DURATION = 0.125
 
 function clipBeatOffset(clip) {
   return (clip.measure - 1) * BEATS_PER_MEASURE + clip.beat

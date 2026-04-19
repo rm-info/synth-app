@@ -6,31 +6,14 @@ import {
   MIN_CLIP_DURATION,
 } from '../lib/timelineLayout'
 import { formatClipNote } from '../lib/clipNote'
+import { durationName } from '../lib/durations'
 import { PianoKeyboard, OctaveSelector } from './PianoKeyboard'
 import FreqInput from './FreqInput'
+import DurationButtons from './DurationButtons'
 import './PropertiesPanel.css'
-
-const DURATION_OPTIONS = [
-  { label: 'Ronde', value: 4 },
-  { label: 'Blanche', value: 2 },
-  { label: 'Noire pointée', value: 1.5 },
-  { label: 'Noire', value: 1 },
-  { label: 'Croche pointée', value: 0.75 },
-  { label: 'Croche', value: 0.5 },
-  { label: 'Double croche', value: 0.25 },
-]
-
-const KNOWN_DURATIONS = new Set(DURATION_OPTIONS.map((o) => o.value))
 
 const FREE_FREQ_MIN = 16
 const FREE_FREQ_MAX = 32768
-
-function durationOptionsFor(value) {
-  if (KNOWN_DURATIONS.has(value)) return DURATION_OPTIONS
-  const r = Math.round(value * 100) / 100
-  const label = Number.isInteger(r) ? `${r} beats` : `${r} beats`
-  return [{ label, value }, ...DURATION_OPTIONS]
-}
 
 // Comparaison stricte de hauteur : même tuningSystem ET mêmes coordonnées.
 function sameClipPitch(a, b) {
@@ -52,6 +35,7 @@ function PropertiesPanel({
   patches,
   tracks,
   numMeasures,
+  durationMode,
   onUpdateClip,
   onRemoveClip,
   onUpdateClipsPatch,
@@ -100,6 +84,7 @@ function PropertiesPanel({
               patches={patches}
               tracks={tracks}
               numMeasures={numMeasures}
+              durationMode={durationMode}
               onUpdateClipsPatch={onUpdateClipsPatch}
               onUpdateClipsDuration={onUpdateClipsDuration}
               onUpdateClipsPitch={onUpdateClipsPitch}
@@ -116,6 +101,7 @@ function PropertiesPanel({
               clip={mono}
               patches={patches}
               tracks={tracks}
+              durationMode={durationMode}
               onUpdateClip={onUpdateClip}
               onUpdateClipsPitch={onUpdateClipsPitch}
               onRemoveClip={onRemoveClip}
@@ -178,7 +164,7 @@ function NoteEditor({ clipIds, tuningSystem, noteIndex, octave, frequency, onUpd
   )
 }
 
-function ClipEditor({ clip, patches, tracks, onUpdateClip, onUpdateClipsPitch, onRemoveClip, canSplit2, canSplit3, onSplitClips }) {
+function ClipEditor({ clip, patches, tracks, durationMode, onUpdateClip, onUpdateClipsPitch, onRemoveClip, canSplit2, canSplit3, onSplitClips }) {
   const currentPatch = patches.find((p) => p.id === clip.patchId)
   const clipTrack = tracks?.find(t => t.id === clip.trackId)
 
@@ -234,20 +220,14 @@ function ClipEditor({ clip, patches, tracks, onUpdateClip, onUpdateClipsPitch, o
         </div>
       )}
 
-      <label className="field">
-        <span className="field-label">Durée musicale</span>
-        <select
-          className="field-input"
-          value={clip.duration}
-          onChange={(e) => onUpdateClip(clip.id, { duration: parseFloat(e.target.value) })}
-        >
-          {durationOptionsFor(clip.duration).map((o) => (
-            <option key={o.value} value={o.value}>
-              {o.label}
-            </option>
-          ))}
-        </select>
-      </label>
+      <div className="field field-duration">
+        <span className="field-label">Durée ({durationName(clip.duration, durationMode)})</span>
+        <DurationButtons
+          duration={clip.duration}
+          mode={durationMode}
+          onChange={(d) => onUpdateClip(clip.id, { duration: d })}
+        />
+      </div>
 
       <div className="split-buttons">
         <button
@@ -287,6 +267,7 @@ function MultiClipEditor({
   patches,
   tracks,
   numMeasures,
+  durationMode,
   onUpdateClipsPatch,
   onUpdateClipsDuration,
   onUpdateClipsPitch,
@@ -390,22 +371,20 @@ function MultiClipEditor({
         )}
       </div>
 
-      <label className="field">
-        <span className="field-label">Durée musicale</span>
+      <div className="field field-duration">
+        <span className="field-label">
+          Durée{allSameDuration && ` (${durationName(firstDuration, durationMode)})`}
+        </span>
         {allSameDuration ? (
-          <select
-            className="field-input"
-            value={firstDuration}
-            onChange={(e) => handleChangeDuration(parseFloat(e.target.value))}
-          >
-            {durationOptionsFor(firstDuration).map((o) => (
-              <option key={o.value} value={o.value}>{o.label}</option>
-            ))}
-          </select>
+          <DurationButtons
+            duration={firstDuration}
+            mode={durationMode}
+            onChange={handleChangeDuration}
+          />
         ) : (
           <span className="field-readonly">Durées mixtes</span>
         )}
-      </label>
+      </div>
 
       <button
         type="button"
