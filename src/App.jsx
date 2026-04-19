@@ -121,6 +121,98 @@ function App() {
     return () => window.removeEventListener('keydown', handleKeyDown)
   }, [selectedClipIds])
 
+  // Flèches clavier : ajustement rapide note (↑↓) et position (←→).
+  // ↑↓ : ±1 demi-ton (passage d'octave auto), Shift = ±1 octave. Affecte
+  // uniquement les clips 12-TET de la sélection (les free sont ignorés).
+  // ←→ : ±0.25 beat, Shift = ±1 beat. Affecte tous les clips sélectionnés.
+  // Groupe bloqué si le clip le plus contraint ne peut pas bouger.
+  useEffect(() => {
+    const handler = (e) => {
+      const isArrow = e.key === 'ArrowUp' || e.key === 'ArrowDown'
+        || e.key === 'ArrowLeft' || e.key === 'ArrowRight'
+      if (!isArrow) return
+      if (activeTab !== 'composer') return
+      if (selectedClipIds.length === 0) return
+
+      const target = e.target
+      const tag = target?.tagName
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return
+      if (target?.isContentEditable) return
+
+      // Skip si un menu contextuel de la timeline est ouvert (évite que
+      // les flèches naviguent dans le menu pendant qu'on l'édite).
+      if (document.querySelector('.timeline-context-menu')) return
+
+      // Skip si un drag est en cours (curseur explicite posé par Timeline).
+      const bodyCursor = document.body.style.cursor
+      if (bodyCursor === 'grabbing' || bodyCursor === 'copy' || bodyCursor === 'ew-resize') return
+
+      const selectedList = clips.filter((c) => selectedClipIds.includes(c.id))
+      if (selectedList.length === 0) return
+
+      if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
+        // Pitch : ignore les clips free (mode libre s'édite via l'input Hz).
+        const twelveTet = selectedList.filter((c) => c.tuningSystem !== 'free')
+        if (twelveTet.length === 0) return
+
+        const direction = e.key === 'ArrowUp' ? 1 : -1
+        const deltaReq = direction * (e.shiftKey ? 12 : 1)
+
+        // Bornes intersectées : midi ∈ [12, 143] (C0..B10).
+        let minDelta = -Infinity
+        let maxDelta = Infinity
+        for (const c of twelveTet) {
+          const midi = (c.octave + 1) * 12 + c.noteIndex
+          minDelta = Math.max(minDelta, 12 - midi)
+          maxDelta = Math.min(maxDelta, 143 - midi)
+        }
+        if (deltaReq < minDelta || deltaReq > maxDelta) {
+          e.preventDefault()
+          return
+        }
+
+        e.preventDefault()
+        const updates = twelveTet.map((c) => {
+          const midi = (c.octave + 1) * 12 + c.noteIndex + deltaReq
+          return {
+            id: c.id,
+            noteIndex: ((midi % 12) + 12) % 12,
+            octave: Math.floor(midi / 12) - 1,
+          }
+        })
+        dispatch({ type: 'UPDATE_CLIPS_PITCH', payload: updates })
+        return
+      }
+
+      // Déplacement temporel : s'applique à tous (indépendant du tuningSystem).
+      const direction = e.key === 'ArrowRight' ? 1 : -1
+      const deltaReq = direction * (e.shiftKey ? 1 : 0.25)
+
+      let minDelta = -Infinity
+      let maxDelta = Infinity
+      for (const c of selectedList) {
+        const start = (c.measure - 1) * BEATS_PER_MEASURE + c.beat
+        minDelta = Math.max(minDelta, -start)
+        maxDelta = Math.min(maxDelta, totalBeats - start - c.duration)
+      }
+      if (deltaReq < minDelta || deltaReq > maxDelta) {
+        e.preventDefault()
+        return
+      }
+
+      e.preventDefault()
+      const moves = selectedList.map((c) => {
+        const newStart = (c.measure - 1) * BEATS_PER_MEASURE + c.beat + deltaReq
+        const measure = Math.floor(newStart / BEATS_PER_MEASURE) + 1
+        const beat = Math.round((newStart - (measure - 1) * BEATS_PER_MEASURE) / 0.25) * 0.25
+        return { id: c.id, measure, beat }
+      })
+      dispatch({ type: 'MOVE_CLIPS', payload: moves })
+    }
+    window.addEventListener('keydown', handler)
+    return () => window.removeEventListener('keydown', handler)
+  }, [activeTab, selectedClipIds, clips, totalBeats])
+
   // Persistance localStorage.
   useEffect(() => {
     try {
