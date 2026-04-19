@@ -945,6 +945,7 @@ function App() {
         ref={editorRef}
         editor={editor}
         editorActions={editorActions}
+        activeTab={activeTab}
         onSavePatch={handleSavePatch}
         onUpdatePatch={handleUpdatePatch}
         onRequestNew={handleRequestNew}

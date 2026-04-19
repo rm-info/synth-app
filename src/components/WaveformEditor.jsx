@@ -11,6 +11,32 @@ function noteToFrequency(noteIndex, octave) {
   return 440 * Math.pow(2, (midi - 69) / 12)
 }
 
+// Mapping event.code → noteIndex (12-TET, octave courante portée par
+// state.editor). Utilise `event.code` (position physique) et non `event.key`
+// (caractère produit) : même mapping sur QWERTY / AZERTY / etc.
+//
+// Rangée du milieu (blanches, façon clavier diatonique) :
+//   S  D  F  G  H  J  K
+//   C  D  E  F  G  A  B
+// Rangée du haut (noires) :
+//   E  R   ·  Y  U  I   ·
+//   C♯ D♯  ·  F♯ G♯ A♯  ·
+// (positions T et O sans correspondance — demi-tons E-F et B-C sans noire)
+const KEY_CODE_TO_NOTE_INDEX = {
+  KeyS: 0,  // C
+  KeyD: 2,  // D
+  KeyF: 4,  // E
+  KeyG: 5,  // F
+  KeyH: 7,  // G
+  KeyJ: 9,  // A
+  KeyK: 11, // B
+  KeyE: 1,  // C♯
+  KeyR: 3,  // D♯
+  KeyY: 6,  // F♯
+  KeyU: 8,  // G♯
+  KeyI: 10, // A♯
+}
+
 const FREQ_MIN = 16
 const FREQ_MAX = 32768
 const FREQ_MIN_LOG = Math.log(FREQ_MIN)
@@ -127,6 +153,7 @@ function patchToReference(patch) {
 function WaveformEditor({
   editor,
   editorActions,
+  activeTab,
   onSavePatch,
   onUpdatePatch,
   onRequestNew,
@@ -551,6 +578,62 @@ function WaveformEditor({
       stopAllInstrumentNotes()
     }
   }, [currentPatch])
+
+  // Pont stable entre les listeners clavier (attachés une seule fois par
+  // activeTab) et les fonctions instrument qui elles sont recréées à chaque
+  // render. Le ref lit les valeurs "fraîches" à la volée.
+  const instrumentBridgeRef = useRef(null)
+  instrumentBridgeRef.current = {
+    play: playInstrumentNote,
+    release: releaseInstrumentNote,
+    setTestNoteIndex: editorActions.setTestNoteIndex,
+  }
+
+  // Raccourcis QWERTY (event.code) pour jouer les notes au clavier physique.
+  // Actif uniquement quand l'onglet Designer est visible. Ignore event.repeat
+  // (sinon la note se relance en boucle tant que la touche est maintenue).
+  useEffect(() => {
+    if (activeTab !== 'designer') {
+      // En quittant le Designer, on coupe toute voix active pour éviter des
+      // notes fantômes qui continueraient pendant le Composer.
+      stopAllInstrumentNotes()
+      return
+    }
+
+    const isFormField = (target) => {
+      const tag = target?.tagName
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return true
+      return !!target?.isContentEditable
+    }
+
+    const onKeyDown = (e) => {
+      if (e.repeat) return
+      if (isFormField(e.target)) return
+      const idx = KEY_CODE_TO_NOTE_INDEX[e.code]
+      if (idx === undefined) return
+      e.preventDefault()
+      const bridge = instrumentBridgeRef.current
+      if (!bridge) return
+      bridge.setTestNoteIndex(idx)
+      bridge.play(idx)
+    }
+
+    const onKeyUp = (e) => {
+      if (isFormField(e.target)) return
+      const idx = KEY_CODE_TO_NOTE_INDEX[e.code]
+      if (idx === undefined) return
+      const bridge = instrumentBridgeRef.current
+      if (!bridge) return
+      bridge.release(idx)
+    }
+
+    window.addEventListener('keydown', onKeyDown)
+    window.addEventListener('keyup', onKeyUp)
+    return () => {
+      window.removeEventListener('keydown', onKeyDown)
+      window.removeEventListener('keyup', onKeyUp)
+    }
+  }, [activeTab])
 
   const clearCanvas = () => {
     editorActions.setPoints(blankPointsArray())
