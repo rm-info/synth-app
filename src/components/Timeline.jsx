@@ -6,6 +6,7 @@ import {
   MIN_CLIP_DURATION,
 } from '../lib/timelineLayout'
 import { BEATS_PER_MEASURE, TRACK_COLORS } from '../reducer'
+import { formatClipNote } from '../lib/clipNote'
 import './Timeline.css'
 
 const DRAG_THRESHOLD_PX = 5
@@ -1391,7 +1392,7 @@ function Timeline({
                       backgroundColor: patch.color + '33',
                       borderColor: patch.color,
                     }}
-                    title={`${patch.name} — mesure ${clip.measure}, beat ${clip.beat} — Clic droit pour retirer`}
+                    title={`${formatClipNote(clip)} — ${patch.name} — mesure ${clip.measure}, beat ${clip.beat} — Clic droit pour retirer`}
                     onMouseDown={(e) => {
                       if (e.button !== 0) return
                       // Ctrl/Cmd+mousedown démarre une session : devient
@@ -1412,7 +1413,10 @@ function Timeline({
                       onMouseDown={(e) => startInteraction(e, clip, 'resize-left', allLaidOut)}
                     />
                     <span className="placed-dot" style={{ backgroundColor: patch.color }} />
-                    <span className="placed-name">{patch.name}</span>
+                    <span className="placed-name">
+                      <span className="placed-note">{formatClipNote(clip)}</span>
+                      <span className="placed-patch-name"> · {patch.name}</span>
+                    </span>
                     <div
                       className="resize-handle resize-handle-right"
                       onMouseDown={(e) => startInteraction(e, clip, 'resize-right', allLaidOut)}
@@ -1456,7 +1460,10 @@ function Timeline({
                       }}
                     >
                       <span className="placed-dot" style={{ backgroundColor: patch.color }} />
-                      <span className="placed-name">{patch.name}</span>
+                      <span className="placed-name">
+                        <span className="placed-note">{formatClipNote(clip)}</span>
+                        <span className="placed-patch-name"> · {patch.name}</span>
+                      </span>
                     </div>
                   )
                 })}

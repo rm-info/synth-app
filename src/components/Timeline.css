@@ -490,8 +490,25 @@ html[style*="cursor"] * {
   min-width: 0;
 }
 
-/* Label adaptatif : masquer entièrement quand le clip est trop étroit */
-@container (max-width: 20px) {
+.placed-note {
+  font-weight: 600;
+}
+
+.placed-patch-name {
+  opacity: 0.7;
+  font-weight: 400;
+}
+
+/* Label adaptatif :
+ *   - clip large   ≥ 120px → note + " · Patch"
+ *   - clip moyen  30..119px → note seule
+ *   - clip étroit   < 30px  → rien (la couleur seule identifie le clip) */
+@container (max-width: 119px) {
+  .placed-patch-name {
+    display: none;
+  }
+}
+@container (max-width: 29px) {
   .placed-dot,
   .placed-name {
     display: none;
