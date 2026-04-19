@@ -2,8 +2,8 @@ import { useRef, useEffect, useCallback } from 'react'
 import { pointsToHarmonics } from '../audio'
 import './Spectrogram.css'
 
-const FREQ_MIN = 20
-const FREQ_MAX = 20000
+const FREQ_MIN = 16
+const FREQ_MAX = 32768
 const LOG_MIN = Math.log10(FREQ_MIN)
 const LOG_MAX = Math.log10(FREQ_MAX)
 

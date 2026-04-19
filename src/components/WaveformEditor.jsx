@@ -16,10 +16,11 @@ function noteToFrequency(noteIndex, octave) {
   return 440 * Math.pow(2, (midi - 69) / 12)
 }
 
-// Plage fréquence libre : 20 Hz → 20 kHz (bande audible). Slider linéaire
-// 0..1 mappé en log pour rendre les basses accessibles.
-const FREQ_MIN = 20
-const FREQ_MAX = 20000
+// Plage fréquence libre : 2^4 → 2^15 Hz (16 Hz → 32768 Hz). Couvre pile les
+// octaves 0 à 10 complètes en 12-TET (C0 ≈ 16.35 Hz, B10 ≈ 31609 Hz).
+// Slider linéaire 0..1 mappé en log pour rendre les basses accessibles.
+const FREQ_MIN = 16
+const FREQ_MAX = 32768
 const FREQ_MIN_LOG = Math.log(FREQ_MIN)
 const FREQ_MAX_LOG = Math.log(FREQ_MAX)
 
@@ -87,7 +88,7 @@ function generatePresetPoints(type) {
 function statesEqual(a, b) {
   if (!a || !b) return false
   if (a.amplitude !== b.amplitude) return false
-  if (a.freeMode !== b.freeMode) return false
+  if (a.tuningSystem !== b.tuningSystem) return false
   if (a.noteIndex !== b.noteIndex) return false
   if (a.octave !== b.octave) return false
   if (a.freeFrequency !== b.freeFrequency) return false
@@ -106,7 +107,7 @@ function statesEqual(a, b) {
 function snapshotEditor(editor) {
   return {
     points: Array.from(editor.points),
-    freeMode: editor.freeMode,
+    tuningSystem: editor.tuningSystem,
     noteIndex: editor.noteIndex,
     octave: editor.octave,
     freeFrequency: editor.freeFrequency,
@@ -120,12 +121,13 @@ function snapshotEditor(editor) {
 }
 
 function soundToReference(sound) {
+  const isFree = sound.tuningSystem === 'free'
   return {
     points: Array.from(sound.points),
-    freeMode: sound.mode === 'free',
+    tuningSystem: sound.tuningSystem ?? '12-TET',
     noteIndex: sound.noteIndex ?? 9,
     octave: sound.octave ?? 4,
-    freeFrequency: sound.mode === 'free' ? sound.frequency : 440,
+    freeFrequency: isFree ? sound.frequency : 440,
     amplitude: sound.amplitude,
     preset: sound.preset,
     attack: sound.attack,
@@ -184,7 +186,8 @@ function WaveformEditor({
   const sustain = draftAdsr?.sustain ?? editor.sustain
   const release = draftAdsr?.release ?? editor.release
 
-  const { freeMode, noteIndex, octave, preset: activePreset } = editor
+  const { tuningSystem, noteIndex, octave, preset: activePreset } = editor
+  const freeMode = tuningSystem === 'free'
 
   const frequency = freeMode ? freeFrequency : noteToFrequency(noteIndex, octave)
   const defaultName = freeMode ? nextSoundName : `${NOTE_NAMES[noteIndex]}${octave}`
@@ -224,7 +227,7 @@ function WaveformEditor({
   // Snapshot live pour le dirty check (mis à jour à chaque render).
   const stateSnapshotRef = useRef(null)
   stateSnapshotRef.current = {
-    points, freeMode, noteIndex, octave, freeFrequency,
+    points, tuningSystem, noteIndex, octave, freeFrequency,
     amplitude, preset: activePreset, attack, decay, sustain, release,
   }
 
@@ -497,7 +500,7 @@ function WaveformEditor({
 
   const buildPayload = (name) => ({
     name,
-    mode: freeMode ? 'free' : 'note',
+    tuningSystem,
     noteIndex: freeMode ? null : noteIndex,
     octave: freeMode ? null : octave,
     preset: activePreset,
@@ -520,7 +523,7 @@ function WaveformEditor({
     const isExplicitDuplicate = !!currentSound
     let proposedName
     if (isExplicitDuplicate) {
-      const base = currentSound.mode === 'note'
+      const base = currentSound.tuningSystem === '12-TET'
         ? currentSound.name
         : `Copie de ${currentSound.name}`
       proposedName = nextAvailableName(base, savedSounds ?? [])
@@ -838,37 +841,40 @@ function WaveformEditor({
 
       <div className="we-params-fields">
         <div className="control-group">
-          <div className="freq-header">
-            <div className="freq-label">
-              {freeMode ? 'Fréquence libre' : 'Note'}:{' '}
-              {freeMode ? (
-                <>
-                  <FreqInput
-                    value={freeFrequency}
-                    onChange={editorActions.setFrequency}
-                    min={FREQ_MIN}
-                    max={FREQ_MAX}
-                    className="freq-input"
-                  />
-                  <span className="freq-unit"> Hz</span>
-                </>
-              ) : (
-                <>
-                  <strong>{formatFreq(frequency)}</strong>
-                  <span className="note-display">
-                    {' '}— {NOTE_NAMES[noteIndex]}{octave}
-                  </span>
-                </>
-              )}
-            </div>
-            <button
-              type="button"
-              className="mode-toggle"
-              onClick={editorActions.toggleFreeMode}
-              title="Basculer entre note tempérée et fréquence libre"
-            >
-              {freeMode ? 'Mode note' : 'Mode libre'}
-            </button>
+          <label className="system-label" htmlFor="tuning-system">Système</label>
+          <select
+            id="tuning-system"
+            className="tuning-system-select"
+            value={tuningSystem}
+            onChange={(e) => editorActions.setTuningSystem(e.target.value)}
+          >
+            <option value="12-TET">12-TET (Tempérament égal occidental)</option>
+            <option value="free">Libre (Hz)</option>
+          </select>
+        </div>
+
+        <div className="control-group">
+          <div className="freq-label">
+            {freeMode ? 'Fréquence libre' : 'Note'}:{' '}
+            {freeMode ? (
+              <>
+                <FreqInput
+                  value={freeFrequency}
+                  onChange={editorActions.setFrequency}
+                  min={FREQ_MIN}
+                  max={FREQ_MAX}
+                  className="freq-input"
+                />
+                <span className="freq-unit"> Hz</span>
+              </>
+            ) : (
+              <>
+                <strong>{formatFreq(frequency)}</strong>
+                <span className="note-display">
+                  {' '}— {NOTE_NAMES[noteIndex]}{octave}
+                </span>
+              </>
+            )}
           </div>
 
           {freeMode ? (

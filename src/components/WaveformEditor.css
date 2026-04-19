@@ -267,21 +267,26 @@
   font-weight: 600;
 }
 
-.mode-toggle {
-  padding: 3px 10px;
-  border: 1px solid #4a4a6a;
-  border-radius: 12px;
-  background: #2a2a4a;
-  color: #c0c0d0;
-  font-size: 0.7rem;
-  cursor: pointer;
-  transition: background 0.15s, border-color 0.15s, color 0.15s;
+.system-label {
+  color: #a0a0c0;
+  font-size: 0.85rem;
 }
 
-.mode-toggle:hover {
-  background: #3a3a6a;
+.tuning-system-select {
+  padding: 5px 8px;
+  border: 1px solid #4a4a6a;
+  border-radius: 6px;
+  background: #1a1a2e;
+  color: #d0d0e0;
+  font-size: 0.8rem;
+  cursor: pointer;
+  font-family: inherit;
+  width: 100%;
+}
+
+.tuning-system-select:focus {
+  outline: none;
   border-color: #00d4ff;
-  color: #00d4ff;
 }
 
 .note-selectors {

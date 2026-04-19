@@ -1,7 +1,7 @@
 import { useRef, useState } from 'react'
 
-const DEFAULT_MIN = 20
-const DEFAULT_MAX = 20000
+const DEFAULT_MIN = 16
+const DEFAULT_MAX = 32768
 
 function clamp(v, min, max) {
   return Math.max(min, Math.min(max, v))

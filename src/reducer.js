@@ -24,13 +24,34 @@ export const TRACK_COLORS = [
 ]
 export const DEFAULT_EDITOR = {
   points: new Array(POINTS_RESOLUTION).fill(0),
-  freeMode: false,
+  tuningSystem: '12-TET', // '12-TET' | 'free'
   noteIndex: 9, // A
   octave: 4,
   freeFrequency: 440,
   amplitude: 1,
   preset: null,
   ...DEFAULT_ADSR,
+}
+
+// Bornes mode libre : 2^4 à 2^15 Hz (couvre les octaves 0 à 10 complètes
+// en 12-TET : C0 ≈ 16.35 Hz, B10 ≈ 31609 Hz).
+export const FREE_FREQ_MIN = 16
+export const FREE_FREQ_MAX = 32768
+
+export function noteToFrequency(noteIndex, octave) {
+  const midi = (octave + 1) * 12 + noteIndex
+  return 440 * Math.pow(2, (midi - 69) / 12)
+}
+
+// Inverse : trouve la note 12-TET la plus proche d'une fréquence donnée.
+// Clamp midi ∈ [12, 131] (C0..B10) pour rester dans les bornes de l'UI.
+export function frequencyToNearestNote(hz) {
+  const midi = Math.round(69 + 12 * Math.log2(hz / 440))
+  const clamped = Math.max(12, Math.min(131, midi))
+  return {
+    noteIndex: ((clamped % 12) + 12) % 12,
+    octave: Math.floor(clamped / 12) - 1,
+  }
 }
 
 export function makeDefaultTrack() {
@@ -48,10 +69,13 @@ export function makeDefaultTrack() {
 // === Migrations / normalisation localStorage ===
 
 function normalizeSound(s) {
-  const { duration: _legacyDuration, ...rest } = s
+  const { duration: _legacyDuration, mode: _legacyMode, ...rest } = s
   void _legacyDuration
+  const tuningSystem = s.tuningSystem
+    ?? (s.mode === 'free' ? 'free' : '12-TET')
   return {
     ...rest,
+    tuningSystem,
     folderId: s.folderId ?? null,
     attack: s.attack ?? DEFAULT_ADSR.attack,
     decay: s.decay ?? DEFAULT_ADSR.decay,
@@ -199,16 +223,17 @@ export function sameWaveform(existing, incoming) {
 }
 
 export function soundFromEditor(editor, baseName) {
+  const isFree = editor.tuningSystem === 'free'
   return {
     name: baseName,
-    mode: editor.freeMode ? 'free' : 'note',
-    noteIndex: editor.freeMode ? null : editor.noteIndex,
-    octave: editor.freeMode ? null : editor.octave,
+    tuningSystem: editor.tuningSystem,
+    noteIndex: isFree ? null : editor.noteIndex,
+    octave: isFree ? null : editor.octave,
     preset: editor.preset,
     points: Array.from(editor.points),
-    frequency: editor.freeMode
+    frequency: isFree
       ? editor.freeFrequency
-      : 440 * Math.pow(2, ((editor.octave + 1) * 12 + editor.noteIndex - 69) / 12),
+      : noteToFrequency(editor.noteIndex, editor.octave),
     amplitude: editor.amplitude,
     attack: editor.attack,
     decay: editor.decay,
@@ -743,10 +768,10 @@ export function reducer(state, action) {
     case 'SAVE_SOUND': {
       // payload: { soundData (sans id/color), allowDuplicate }
       const { soundData, allowDuplicate } = action.payload
-      if (!allowDuplicate && soundData.mode === 'note') {
+      if (!allowDuplicate && soundData.tuningSystem === '12-TET') {
         const dup = state.savedSounds.some(
           (s) =>
-            s.mode === 'note' &&
+            s.tuningSystem === '12-TET' &&
             s.noteIndex === soundData.noteIndex &&
             s.octave === soundData.octave &&
             sameWaveform(s, soundData),
@@ -768,7 +793,7 @@ export function reducer(state, action) {
             points: Array.from(soundData.points),
             frequency: soundData.frequency,
             amplitude: soundData.amplitude,
-            mode: soundData.mode,
+            tuningSystem: soundData.tuningSystem,
             noteIndex: soundData.noteIndex,
             octave: soundData.octave,
             preset: soundData.preset,
@@ -793,7 +818,7 @@ export function reducer(state, action) {
                 points: Array.from(soundData.points),
                 frequency: soundData.frequency,
                 amplitude: soundData.amplitude,
-                mode: soundData.mode,
+                tuningSystem: soundData.tuningSystem,
                 noteIndex: soundData.noteIndex,
                 octave: soundData.octave,
                 preset: soundData.preset,
@@ -888,8 +913,28 @@ export function reducer(state, action) {
     case 'SET_EDITOR_OCTAVE': {
       return { ...state, editor: { ...state.editor, octave: action.payload } }
     }
-    case 'TOGGLE_EDITOR_FREE_MODE': {
-      return { ...state, editor: { ...state.editor, freeMode: !state.editor.freeMode } }
+    case 'SET_EDITOR_TUNING_SYSTEM': {
+      const next = action.payload
+      if (state.editor.tuningSystem === next) return state
+      if (next === 'free') {
+        // 12-TET → Libre : on conserve la fréquence courante en la transférant
+        // dans freeFrequency (arrondie à 0.1 Hz pour cohérence avec l'input).
+        const curFreq = noteToFrequency(state.editor.noteIndex, state.editor.octave)
+        return {
+          ...state,
+          editor: {
+            ...state.editor,
+            tuningSystem: 'free',
+            freeFrequency: Math.round(curFreq * 10) / 10,
+          },
+        }
+      }
+      // Libre → 12-TET : snap à la note la plus proche.
+      const { noteIndex, octave } = frequencyToNearestNote(state.editor.freeFrequency)
+      return {
+        ...state,
+        editor: { ...state.editor, tuningSystem: '12-TET', noteIndex, octave },
+      }
     }
     case 'SET_EDITOR_FREQUENCY': {
       return { ...state, editor: { ...state.editor, freeFrequency: action.payload } }
@@ -920,14 +965,15 @@ export function reducer(state, action) {
           editor: { ...DEFAULT_EDITOR, points: [...DEFAULT_EDITOR.points] },
         }
       }
+      const isFree = sound.tuningSystem === 'free'
       return {
         ...state,
         editor: {
           points: Array.from(sound.points),
-          freeMode: sound.mode === 'free',
+          tuningSystem: sound.tuningSystem ?? '12-TET',
           noteIndex: sound.noteIndex ?? DEFAULT_EDITOR.noteIndex,
           octave: sound.octave ?? DEFAULT_EDITOR.octave,
-          freeFrequency: sound.mode === 'free' ? sound.frequency : DEFAULT_EDITOR.freeFrequency,
+          freeFrequency: isFree ? sound.frequency : DEFAULT_EDITOR.freeFrequency,
           amplitude: sound.amplitude,
           preset: sound.preset,
           attack: sound.attack,
@@ -991,7 +1037,7 @@ const DESIGNER_UNDOABLE = new Set([
   'CREATE_FOLDER', 'RENAME_FOLDER', 'DELETE_FOLDER',
   'MOVE_SOUND_TO_FOLDER', 'MOVE_FOLDER',
   'SET_EDITOR_POINTS', 'SET_EDITOR_NOTE', 'SET_EDITOR_OCTAVE',
-  'TOGGLE_EDITOR_FREE_MODE', 'SET_EDITOR_FREQUENCY', 'SET_EDITOR_AMPLITUDE',
+  'SET_EDITOR_TUNING_SYSTEM', 'SET_EDITOR_FREQUENCY', 'SET_EDITOR_AMPLITUDE',
   'SET_EDITOR_ADSR', 'APPLY_EDITOR_PRESET', 'RESET_EDITOR',
 ])
 

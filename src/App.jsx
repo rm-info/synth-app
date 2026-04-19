@@ -60,7 +60,7 @@ function App() {
     [currentSoundId, savedSounds],
   )
 
-  const editorFrequency = editor.freeMode
+  const editorFrequency = editor.tuningSystem === 'free'
     ? editor.freeFrequency
     : 440 * Math.pow(2, ((editor.octave + 1) * 12 + editor.noteIndex - 69) / 12)
 
@@ -230,10 +230,10 @@ function App() {
   const handleSaveSound = useCallback(
     (soundData, options = {}) => {
       // Détection de doublon faite avant dispatch pour pouvoir retourner le statut.
-      if (!options.allowDuplicate && soundData.mode === 'note') {
+      if (!options.allowDuplicate && soundData.tuningSystem === '12-TET') {
         const dup = savedSounds.some(
           (s) =>
-            s.mode === 'note' &&
+            s.tuningSystem === '12-TET' &&
             s.noteIndex === soundData.noteIndex &&
             s.octave === soundData.octave &&
             sameWaveform(s, soundData),
@@ -830,7 +830,7 @@ function App() {
     setPoints: (pts) => dispatch({ type: 'SET_EDITOR_POINTS', payload: pts }),
     setNoteIndex: (n) => dispatch({ type: 'SET_EDITOR_NOTE', payload: n }),
     setOctave: (o) => dispatch({ type: 'SET_EDITOR_OCTAVE', payload: o }),
-    toggleFreeMode: () => dispatch({ type: 'TOGGLE_EDITOR_FREE_MODE' }),
+    setTuningSystem: (ts) => dispatch({ type: 'SET_EDITOR_TUNING_SYSTEM', payload: ts }),
     setFrequency: (hz) => dispatch({ type: 'SET_EDITOR_FREQUENCY', payload: hz }),
     setAmplitude: (a) => dispatch({ type: 'SET_EDITOR_AMPLITUDE', payload: a }),
     setAdsr: (patch) => dispatch({ type: 'SET_EDITOR_ADSR', payload: patch }),
