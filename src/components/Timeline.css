@@ -169,6 +169,9 @@
   overflow: hidden;
   cursor: grab;
   position: relative;
+  /* E.6.3 : synchronisé avec .track-corridor pour que la colonne
+   * d'en-têtes suive l'extension/la rétraction des couloirs en douceur. */
+  transition: height 0.35s ease-out;
 }
 
 .track-header-row1 {
@@ -368,6 +371,10 @@ html[style*="cursor"] * {
   border-bottom: 1px solid #2a2a4a;
   border-left: 3px solid;
   box-sizing: border-box;
+  /* E.6.3 : quand une lane apparaît/disparaît (ajout/suppression d'un
+   * clip qui change la polyphonie visuelle), le changement est
+   * animé pour éviter le saut visuel brutal. */
+  transition: top 0.35s ease-out, height 0.35s ease-out;
 }
 
 .track-corridor-odd {
@@ -414,6 +421,15 @@ html[style*="cursor"] * {
 
   /* Container query : permet d'adapter le contenu selon la largeur du clip */
   container-type: inline-size;
+
+  /* E.6.3 : suivre l'animation du corridor (ajout/retrait de lane). Pas
+   * d'animation pendant un drag/resize pour ne pas lutter avec le geste. */
+  transition: top 0.35s ease-out;
+}
+.placed-sound.is-dragging,
+.placed-sound.is-resizing,
+.placed-sound.is-ghost {
+  transition: none;
 }
 
 .placed-sound.is-dragging {
