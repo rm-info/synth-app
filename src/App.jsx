@@ -1,4 +1,4 @@
-import { useReducer, useCallback, useRef, useEffect, useMemo } from 'react'
+import { useReducer, useCallback, useRef, useState, useEffect, useMemo } from 'react'
 import WaveformEditor from './components/WaveformEditor'
 import Timeline from './components/Timeline'
 import Tabs from './components/Tabs'
@@ -24,6 +24,8 @@ import {
   editorTestNoteFields,
 } from './reducer'
 import { canMergeClips } from './lib/timelineLayout'
+import { KEY_CODE_TO_NOTE_INDEX } from './lib/keyboardMap'
+import { NOTE_NAMES as PRESSED_NOTE_NAMES } from './lib/clipNote'
 import Toast from './components/Toast'
 import { usePlayback } from './hooks/usePlayback'
 import './App.css'
@@ -44,6 +46,12 @@ function App() {
 
   const timelineMouseRef = useRef(null)
 
+  // Raccourcis clavier E.4 (Composer) : note physique maintenue → override de
+  // la hauteur au drop d'un patch. State pour le feedback visuel, ref pour la
+  // lecture synchrone au drop (qui se passe hors rendu React).
+  const pressedNoteKeyRef = useRef(null)
+  const [pressedNoteKey, setPressedNoteKey] = useState(null)
+
   const trackHeight = tracks[0]?.height ?? 80
 
   const nextPatchName = `Patch ${patchCounter + 1}`
@@ -61,6 +69,12 @@ function App() {
   const editorFrequency = editor.testTuningSystem === 'free'
     ? editor.testFrequency
     : 440 * Math.pow(2, ((editor.testOctave + 1) * 12 + editor.testNoteIndex - 69) / 12)
+
+  // Label affiché dans la toolbar Composer quand une touche de note est
+  // maintenue (E.4.1). Utilise NOTE_NAMES avec ♯ Unicode.
+  const pressedNoteLabel = pressedNoteKey !== null
+    ? `${PRESSED_NOTE_NAMES[pressedNoteKey]}${editor.testOctave}`
+    : null
 
   // === Effets de bord ===
 
@@ -213,6 +227,118 @@ function App() {
     return () => window.removeEventListener('keydown', handler)
   }, [activeTab, selectedClipIds, clips, totalBeats])
 
+  // Shift/Ctrl "seuls" décalent `editor.testOctave`. Tap sur Shift sans autre
+  // touche → octave+1 ; tap sur Ctrl seul → octave-1. Toute autre touche OU
+  // un clic souris invalide le flag (les combos Shift+clic, Ctrl+C, etc. ne
+  // déclenchent rien). Actif en Designer ET en Composer (l'octave est
+  // partagée via state.editor.testOctave).
+  const shiftAloneRef = useRef(false)
+  const ctrlAloneRef = useRef(false)
+  const testOctaveRef = useRef(editor.testOctave)
+  useEffect(() => {
+    testOctaveRef.current = editor.testOctave
+  }, [editor.testOctave])
+
+  useEffect(() => {
+    const isFormField = (target) => {
+      const tag = target?.tagName
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return true
+      return !!target?.isContentEditable
+    }
+
+    const onKeyDown = (e) => {
+      if (isFormField(e.target)) return
+      if (e.key === 'Shift') {
+        if (!e.repeat) shiftAloneRef.current = true
+        return
+      }
+      if (e.key === 'Control') {
+        if (!e.repeat) ctrlAloneRef.current = true
+        return
+      }
+      // Toute autre touche invalide les flags "seul".
+      shiftAloneRef.current = false
+      ctrlAloneRef.current = false
+    }
+
+    const onKeyUp = (e) => {
+      if (isFormField(e.target)) return
+      if (e.key === 'Shift') {
+        if (shiftAloneRef.current) {
+          shiftAloneRef.current = false
+          const cur = testOctaveRef.current
+          if (cur < 10) dispatch({ type: 'SET_EDITOR_TEST_OCTAVE', payload: cur + 1 })
+        }
+        return
+      }
+      if (e.key === 'Control') {
+        if (ctrlAloneRef.current) {
+          ctrlAloneRef.current = false
+          const cur = testOctaveRef.current
+          if (cur > 0) dispatch({ type: 'SET_EDITOR_TEST_OCTAVE', payload: cur - 1 })
+        }
+      }
+    }
+
+    const onMouseDown = () => {
+      shiftAloneRef.current = false
+      ctrlAloneRef.current = false
+    }
+
+    window.addEventListener('keydown', onKeyDown)
+    window.addEventListener('keyup', onKeyUp)
+    window.addEventListener('mousedown', onMouseDown)
+    return () => {
+      window.removeEventListener('keydown', onKeyDown)
+      window.removeEventListener('keyup', onKeyUp)
+      window.removeEventListener('mousedown', onMouseDown)
+    }
+  }, [])
+
+  // Suivi de la touche de note maintenue dans le Composer (phase E.4.1) :
+  // pendant un drag depuis la banque, le drop lit ce ref pour remplacer la
+  // note par défaut par la note correspondant à la touche physique.
+  //
+  // Listener toujours monté mais gaté par activeTab côté keydown (on veut
+  // que keyup nettoie l'état même après un changement d'onglet imprévu).
+  useEffect(() => {
+    const isFormField = (target) => {
+      const tag = target?.tagName
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return true
+      return !!target?.isContentEditable
+    }
+
+    const onKeyDown = (e) => {
+      if (activeTab !== 'composer') return
+      if (isFormField(e.target)) return
+      if (e.ctrlKey || e.metaKey) return // ne pas capter les combos Ctrl/Cmd
+      if (e.repeat) return
+      const idx = KEY_CODE_TO_NOTE_INDEX[e.code]
+      if (idx === undefined) return
+      pressedNoteKeyRef.current = idx
+      setPressedNoteKey(idx)
+    }
+
+    const onKeyUp = (e) => {
+      // Pas de check activeTab : on veut que le keyup clean même si
+      // l'utilisateur a changé d'onglet entre-temps.
+      if (isFormField(e.target)) return
+      const idx = KEY_CODE_TO_NOTE_INDEX[e.code]
+      if (idx === undefined) return
+      if (pressedNoteKeyRef.current === idx) {
+        pressedNoteKeyRef.current = null
+        setPressedNoteKey(null)
+      }
+    }
+
+    window.addEventListener('keydown', onKeyDown)
+    window.addEventListener('keyup', onKeyUp)
+    return () => {
+      window.removeEventListener('keydown', onKeyDown)
+      window.removeEventListener('keyup', onKeyUp)
+    }
+  }, [activeTab])
+
   // Persistance localStorage.
   useEffect(() => {
     try {
@@ -314,11 +440,24 @@ function App() {
     dispatch({ type: 'UPDATE_PATCH', payload: { patchId, patchData } })
   }, [])
 
-  // Drop d'un patch sur la timeline. La hauteur est celle du clavier de test
-  // courant dans l'éditeur (règle par défaut E.1).
+  // Drop d'un patch sur la timeline. Priorité des hauteurs :
+  //   1. Touche de note physique maintenue (E.4.1) → 12-TET à cette note +
+  //      octave courante. La touche surpasse le système courant de l'éditeur
+  //      (explicite user intent).
+  //   2. Sinon, fallback sur la note du clavier de test de l'éditeur (E.1).
   const handleAddClip = useCallback(
     (patchId, measure, beat, duration, trackId = DEFAULT_TRACK_ID) => {
-      const note = editorTestNoteFields(editor)
+      let note
+      if (pressedNoteKeyRef.current !== null) {
+        note = {
+          tuningSystem: '12-TET',
+          noteIndex: pressedNoteKeyRef.current,
+          octave: editor.testOctave,
+          frequency: null,
+        }
+      } else {
+        note = editorTestNoteFields(editor)
+      }
       dispatch({
         type: 'ADD_CLIP',
         payload: { patchId, measure, beat, duration, trackId, ...note },
@@ -1043,6 +1182,7 @@ function App() {
                   currentTime={playback.currentTime}
                   totalDurationSec={totalDurationSec}
                   composerFlash={composerFlash}
+                  pressedNoteLabel={pressedNoteLabel}
                   canUndo={composerCanUndo}
                   canRedo={composerCanRedo}
                   onUndo={handleUndoComposer}

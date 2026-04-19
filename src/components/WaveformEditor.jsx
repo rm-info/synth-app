@@ -2,6 +2,7 @@ import { useRef, useState, useCallback, useEffect, useImperativeHandle } from 'r
 import { pointsToPeriodicWave } from '../audio'
 import FreqInput from './FreqInput'
 import { PianoKeyboard, OctaveSelector, NOTE_NAMES } from './PianoKeyboard'
+import { KEY_CODE_TO_NOTE_INDEX } from '../lib/keyboardMap'
 import './WaveformEditor.css'
 
 const POINTS_RESOLUTION = 600
@@ -11,31 +12,6 @@ function noteToFrequency(noteIndex, octave) {
   return 440 * Math.pow(2, (midi - 69) / 12)
 }
 
-// Mapping event.code → noteIndex (12-TET, octave courante portée par
-// state.editor). Utilise `event.code` (position physique) et non `event.key`
-// (caractère produit) : même mapping sur QWERTY / AZERTY / etc.
-//
-// Rangée du milieu (blanches, façon clavier diatonique) :
-//   S  D  F  G  H  J  K
-//   C  D  E  F  G  A  B
-// Rangée du haut (noires) :
-//   E  R   ·  Y  U  I   ·
-//   C♯ D♯  ·  F♯ G♯ A♯  ·
-// (positions T et O sans correspondance — demi-tons E-F et B-C sans noire)
-const KEY_CODE_TO_NOTE_INDEX = {
-  KeyS: 0,  // C
-  KeyD: 2,  // D
-  KeyF: 4,  // E
-  KeyG: 5,  // F
-  KeyH: 7,  // G
-  KeyJ: 9,  // A
-  KeyK: 11, // B
-  KeyE: 1,  // C♯
-  KeyR: 3,  // D♯
-  KeyY: 6,  // F♯
-  KeyU: 8,  // G♯
-  KeyI: 10, // A♯
-}
 
 const FREQ_MIN = 16
 const FREQ_MAX = 32768
@@ -533,23 +509,17 @@ function WaveformEditor({
     deactivateSustain,
   }
 
-  // Shift/Ctrl "seuls" décalent l'octave courante. Tap sur Shift sans autre
-  // touche → octave+1 ; tap sur Ctrl seul → octave-1. Dès qu'une autre touche
-  // ou un clic survient pendant la maintien, le flag est invalidé → les combos
-  // Shift+clic, Ctrl+C, etc. ne déclenchent rien.
-  const shiftAloneRef = useRef(false)
-  const ctrlAloneRef = useRef(false)
-
-  // Raccourcis QWERTY (event.code) pour jouer les notes au clavier physique.
-  // Actif uniquement quand l'onglet Designer est visible. Ignore event.repeat
-  // (sinon la note se relance en boucle tant que la touche est maintenue).
+  // Raccourcis QWERTY (event.code) pour jouer les notes au clavier physique
+  // dans le Designer. Actif uniquement quand l'onglet Designer est visible.
+  // Ignore event.repeat (sinon la note se relance en boucle).
+  //
+  // La gestion Shift/Ctrl pour décaler l'octave est désormais dans App.jsx —
+  // elle s'applique aussi au Composer (phase E.4.1).
   useEffect(() => {
     if (activeTab !== 'designer') {
       // En quittant le Designer, on coupe toute voix active pour éviter des
       // notes fantômes qui continueraient pendant le Composer.
       stopAllInstrumentNotes()
-      shiftAloneRef.current = false
-      ctrlAloneRef.current = false
       return
     }
 
@@ -562,21 +532,7 @@ function WaveformEditor({
     const onKeyDown = (e) => {
       if (isFormField(e.target)) return
 
-      if (e.key === 'Shift') {
-        if (!e.repeat) shiftAloneRef.current = true
-        return
-      }
-      if (e.key === 'Control') {
-        if (!e.repeat) ctrlAloneRef.current = true
-        return
-      }
-
-      // Toute autre touche invalide les flags "seul" — ce n'est pas un tap isolé.
-      shiftAloneRef.current = false
-      ctrlAloneRef.current = false
-
-      // Espace : pédale de sustain (maintenue). preventDefault pour éviter le
-      // scroll de page. event.repeat ignoré → un seul activate par maintien.
+      // Espace : pédale de sustain (maintenue). preventDefault → pas de scroll.
       if (e.code === 'Space') {
         e.preventDefault()
         if (!e.repeat) instrumentBridgeRef.current?.activateSustain()
@@ -596,27 +552,6 @@ function WaveformEditor({
     const onKeyUp = (e) => {
       if (isFormField(e.target)) return
 
-      if (e.key === 'Shift') {
-        if (shiftAloneRef.current) {
-          shiftAloneRef.current = false
-          const params = instrumentParamsRef.current
-          if (params.testOctave < 10) {
-            editorActions.setTestOctave(params.testOctave + 1)
-          }
-        }
-        return
-      }
-      if (e.key === 'Control') {
-        if (ctrlAloneRef.current) {
-          ctrlAloneRef.current = false
-          const params = instrumentParamsRef.current
-          if (params.testOctave > 0) {
-            editorActions.setTestOctave(params.testOctave - 1)
-          }
-        }
-        return
-      }
-
       if (e.code === 'Space') {
         e.preventDefault()
         instrumentBridgeRef.current?.deactivateSustain()
@@ -630,22 +565,13 @@ function WaveformEditor({
       bridge.release(idx)
     }
 
-    // Un clic souris pendant le maintien de Shift/Ctrl invalide le flag :
-    // empêche un Shift+clic de déclencher un changement d'octave au relâchement.
-    const onMouseDown = () => {
-      shiftAloneRef.current = false
-      ctrlAloneRef.current = false
-    }
-
     window.addEventListener('keydown', onKeyDown)
     window.addEventListener('keyup', onKeyUp)
-    window.addEventListener('mousedown', onMouseDown)
     return () => {
       window.removeEventListener('keydown', onKeyDown)
       window.removeEventListener('keyup', onKeyUp)
-      window.removeEventListener('mousedown', onMouseDown)
     }
-  }, [activeTab, editorActions])
+  }, [activeTab])
 
   const clearCanvas = () => {
     editorActions.setPoints(blankPointsArray())

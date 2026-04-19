@@ -45,6 +45,7 @@ function Toolbar({
   currentTime,
   totalDurationSec,
   composerFlash,
+  pressedNoteLabel,
   canUndo,
   canRedo,
   onUndo,
@@ -179,6 +180,11 @@ function Toolbar({
       </div>
 
       <div className="toolbar-section toolbar-spacer">
+        {pressedNoteLabel && (
+          <span className="toolbar-pressed-note" role="status" title="Note ciblée (touche maintenue)">
+            ♪ {pressedNoteLabel}
+          </span>
+        )}
         {composerFlash && (
           <span className="toolbar-flash" role="status">{composerFlash}</span>
         )}

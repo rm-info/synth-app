@@ -189,6 +189,22 @@
   border: 1px solid rgba(74, 222, 128, 0.3);
   animation: toolbar-flash-in 0.2s ease-out;
 }
+
+/* Indicateur note ciblée (E.4) : touche clavier physique maintenue. */
+.toolbar-pressed-note {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-family: monospace;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: #1a1a2e;
+  background: #ffc600;
+  padding: 3px 10px;
+  border-radius: 4px;
+  box-shadow: 0 0 8px rgba(255, 198, 0, 0.5);
+  margin-right: 8px;
+}
 @keyframes toolbar-flash-in {
   from { opacity: 0; transform: translateY(-2px); }
   to { opacity: 1; transform: translateY(0); }
