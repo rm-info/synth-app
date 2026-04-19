@@ -35,7 +35,11 @@ Shift octave, ←→ ±0.25 beat, Shift+←→ ±1 beat). Phase 3 (2026-04-19) :
 le Designer devient un instrument de test polyphonique — clic/mouseup
 sur le clavier, raccourcis QWERTY physique (SDFGHJK + ERYUI), Shift/Ctrl
 seul pour décaler l'octave, Espace = pédale de sustain. Les 3 anciens
-boutons Test impact/court/tenu sont retirés.
+boutons Test impact/court/tenu sont retirés. Phase 4 (2026-04-19) :
+dans le Composer, touche maintenue pendant un drag = drop à la note
+correspondante (au lieu de la note par défaut du Designer). Touche
+seule sans drag = placement contigu après le dernier clip touché
+(permet d'écrire une mélodie au clavier en quelques touches).
 
 ## Objectif
 
@@ -839,6 +843,29 @@ Phases listées ci-dessous dans l'ordre chronologique d'implémentation.
     playingMode, oscRef/gainRef, COURT_HOLD_SEC, useEffect live
     frequency/amplitude, CSS .test-btn-mode/.test-buttons). Le test
     d'un patch passe exclusivement par le clavier interactif.
+- ✅ **Phase 4** (2026-04-19) — Drop intelligent + placement contigu.
+  2 sous-commits :
+  - **4.1** `KEY_CODE_TO_NOTE_INDEX` déplacé dans
+    `src/lib/keyboardMap.js` partagé. App maintient `pressedNoteKeyRef`
+    (synchrone) + `pressedNoteKey` state. Listener Composer : keydown
+    enregistre la touche (skip sur Ctrl/Cmd combos + repeat), keyup
+    clear. `handleAddClip` priorise pressedNoteKey : si set, clip créé
+    en 12-TET à cette note + testOctave, sinon fallback
+    `editorTestNoteFields`. Badge ♪ XN orange dans la toolbar Composer
+    pendant qu'une touche est maintenue. Shift/Ctrl "seuls" déplacés
+    dans un useEffect dédié de App (actif les deux onglets, gère aussi
+    l'invalidation sur mousedown).
+  - **4.2** State `lastAnchorClipId` (non undoable, non persisté)
+    ajouté au reducer. Mis à jour par ADD_CLIP, DUPLICATE_CLIPS,
+    SPLIT_CLIPS, MERGE_CLIPS, PASTE_CLIPS, SELECT_CLIPS (dernier du
+    payload). Nettoyé à REMOVE_CLIP / DELETE_SELECTED_CLIPS /
+    CLEAR_TIMELINE si l'anchor disparaît. Le keyup Composer, si aucun
+    drag en cours (dragstart/dragend window listeners + body cursor
+    check), dispatch ADD_CLIP après l'anchor : même patch, même piste,
+    même durée par défaut, note = touche pressée, octave = testOctave.
+    ADD_CLIP accepte `extraMeasures` pour étendre automatiquement la
+    composition. `handleAddClip` consomme pressedNoteKey au drop pour
+    que le keyup suivant ne double pas le placement.
 
 ## Historique (chronologie inverse)
 
@@ -953,8 +980,11 @@ Phases listées ci-dessous dans l'ordre chronologique d'implémentation.
   physique (event.code), Shift/Ctrl seul pour décaler l'octave, pédale
   de sustain Espace. 5 sous-commits (3.1, 3.2, 3.3, 3.4, 3.5). Les 3
   boutons Test impact/court/tenu sont retirés.
-- ⏳ **Phase 4** — Drop intelligent : raccourcis clavier au drop,
-  placement contigu, override de note au drop.
+- ✅ **Phase 4** (2026-04-19) — Drop intelligent au Composer +
+  placement contigu au clavier. 2 sous-commits (4.1, 4.2).
+  Extraction de `KEY_CODE_TO_NOTE_INDEX` dans `src/lib/keyboardMap.js`
+  partagé entre les deux onglets. Shift/Ctrl seul pour décaler l'octave
+  est remonté dans App (actif les deux onglets).
 
 ### Backlog général (à caser quand pertinent)
 
