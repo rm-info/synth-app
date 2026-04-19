@@ -37,7 +37,7 @@ function App() {
   const {
     clips, patches, soundFolders, tracks, bpm, numMeasures,
     editor, activeTab, currentPatchId, zoomH, defaultClipDuration,
-    spectrogramVisible, selectedClipIds, composerFlash,
+    spectrogramVisible, selectedClipIds, composerFlash, lastAnchorClipId,
     patchCounter, clipCounter, folderCounter, trackCounter,
     clipboard, measureClipboard, history, notification,
   } = state
@@ -51,6 +51,10 @@ function App() {
   // lecture synchrone au drop (qui se passe hors rendu React).
   const pressedNoteKeyRef = useRef(null)
   const [pressedNoteKey, setPressedNoteKey] = useState(null)
+  // Vrai pendant qu'un drag HTML5 est en cours (drag depuis la banque vers
+  // la timeline). Permet au keyup d'ignorer le cas où l'utilisateur vient de
+  // drop une note sous touche maintenue — le drop est déjà passé.
+  const dragInProgressRef = useRef(false)
 
   const trackHeight = tracks[0]?.height ?? 80
 
@@ -295,9 +299,8 @@ function App() {
     }
   }, [])
 
-  // Suivi de la touche de note maintenue dans le Composer (phase E.4.1) :
-  // pendant un drag depuis la banque, le drop lit ce ref pour remplacer la
-  // note par défaut par la note correspondant à la touche physique.
+  // Suivi de la touche de note maintenue dans le Composer (phase E.4.1) +
+  // placement contigu au relâchement si aucun drag n'est en cours (E.4.2).
   //
   // Listener toujours monté mais gaté par activeTab côté keydown (on veut
   // que keyup nettoie l'état même après un changement d'onglet imprévu).
@@ -320,24 +323,71 @@ function App() {
     }
 
     const onKeyUp = (e) => {
-      // Pas de check activeTab : on veut que le keyup clean même si
-      // l'utilisateur a changé d'onglet entre-temps.
+      // Pas de check activeTab côté keyup : on veut que le clean s'applique
+      // même si l'utilisateur a changé d'onglet entre-temps.
       if (isFormField(e.target)) return
       const idx = KEY_CODE_TO_NOTE_INDEX[e.code]
       if (idx === undefined) return
-      if (pressedNoteKeyRef.current === idx) {
-        pressedNoteKeyRef.current = null
-        setPressedNoteKey(null)
-      }
+
+      const wasActive = pressedNoteKeyRef.current === idx
+      pressedNoteKeyRef.current = null
+      setPressedNoteKey(null)
+
+      if (!wasActive) return
+      if (activeTab !== 'composer') return
+      // Drag en cours (HTML5 drag depuis la banque, ou drag interne) → pas de
+      // placement contigu : la note a été consommée par le drop.
+      if (dragInProgressRef.current) return
+      const bodyCursor = document.body.style.cursor
+      if (bodyCursor === 'grabbing' || bodyCursor === 'copy' || bodyCursor === 'ew-resize') return
+      if (document.querySelector('.timeline-context-menu')) return
+
+      // Placement contigu : cherche l'anchor (dernier clip touché).
+      const anchor = lastAnchorClipId
+        ? clips.find((c) => c.id === lastAnchorClipId)
+        : null
+      if (!anchor) return // silent : pas d'ancre → rien à placer
+
+      const endBeat = (anchor.measure - 1) * BEATS_PER_MEASURE + anchor.beat + anchor.duration
+      const snapped = Math.round(endBeat / 0.25) * 0.25
+      const duration = defaultClipDuration
+      const newEnd = snapped + duration
+      const neededMeasures = Math.ceil(newEnd / BEATS_PER_MEASURE)
+      const extraMeasures = Math.max(0, neededMeasures - numMeasures)
+      const measure = Math.floor(snapped / BEATS_PER_MEASURE) + 1
+      const beat = snapped - (measure - 1) * BEATS_PER_MEASURE
+
+      dispatch({
+        type: 'ADD_CLIP',
+        payload: {
+          patchId: anchor.patchId,
+          trackId: anchor.trackId,
+          measure,
+          beat,
+          duration,
+          tuningSystem: '12-TET',
+          noteIndex: idx,
+          octave: editor.testOctave,
+          frequency: null,
+          extraMeasures,
+        },
+      })
     }
+
+    const onDragStart = () => { dragInProgressRef.current = true }
+    const onDragEnd = () => { dragInProgressRef.current = false }
 
     window.addEventListener('keydown', onKeyDown)
     window.addEventListener('keyup', onKeyUp)
+    window.addEventListener('dragstart', onDragStart)
+    window.addEventListener('dragend', onDragEnd)
     return () => {
       window.removeEventListener('keydown', onKeyDown)
       window.removeEventListener('keyup', onKeyUp)
+      window.removeEventListener('dragstart', onDragStart)
+      window.removeEventListener('dragend', onDragEnd)
     }
-  }, [activeTab])
+  }, [activeTab, clips, lastAnchorClipId, defaultClipDuration, numMeasures, editor.testOctave])
 
   // Persistance localStorage.
   useEffect(() => {
@@ -447,21 +497,25 @@ function App() {
   //   2. Sinon, fallback sur la note du clavier de test de l'éditeur (E.1).
   const handleAddClip = useCallback(
     (patchId, measure, beat, duration, trackId = DEFAULT_TRACK_ID) => {
-      let note
-      if (pressedNoteKeyRef.current !== null) {
-        note = {
-          tuningSystem: '12-TET',
-          noteIndex: pressedNoteKeyRef.current,
-          octave: editor.testOctave,
-          frequency: null,
-        }
-      } else {
-        note = editorTestNoteFields(editor)
-      }
+      const keyHeld = pressedNoteKeyRef.current !== null
+      const note = keyHeld
+        ? {
+            tuningSystem: '12-TET',
+            noteIndex: pressedNoteKeyRef.current,
+            octave: editor.testOctave,
+            frequency: null,
+          }
+        : editorTestNoteFields(editor)
       dispatch({
         type: 'ADD_CLIP',
         payload: { patchId, measure, beat, duration, trackId, ...note },
       })
+      // Une touche maintenue "consommée" par le drop : on vide le flag pour
+      // que le keyup suivant ne déclenche pas de placement contigu en plus.
+      if (keyHeld) {
+        pressedNoteKeyRef.current = null
+        setPressedNoteKey(null)
+      }
     },
     [editor],
   )

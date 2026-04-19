@@ -171,6 +171,11 @@ export function buildInitialState() {
     zoomH: DEFAULT_ZOOM_H,
     activeTab: persisted?.activeTab ?? 'designer',
     selectedClipIds: [],
+    // Anchor pour le placement contigu au clavier (E.4.2). Mis à jour à
+    // chaque action utilisateur qui touche un clip spécifique (création,
+    // sélection). Non undoable, non persisté. Peut pointer vers un clip
+    // supprimé — le caller vérifie l'existence avant de l'utiliser.
+    lastAnchorClipId: null,
     currentPatchId: null,
     spectrogramVisible: persisted?.spectrogramVisible ?? true,
     defaultClipDuration: DEFAULT_CLIP_DURATION,
@@ -273,16 +278,19 @@ export function reducer(state, action) {
       const {
         patchId, measure, beat, duration, trackId = DEFAULT_TRACK_ID,
         tuningSystem, noteIndex, octave, frequency,
+        extraMeasures = 0,
       } = action.payload
       const finalDuration = duration ?? state.defaultClipDuration
       const newCounter = state.clipCounter + 1
+      const newId = `clip-${newCounter}`
       return {
         ...state,
         clipCounter: newCounter,
+        numMeasures: state.numMeasures + extraMeasures,
         clips: [
           ...state.clips,
           {
-            id: `clip-${newCounter}`,
+            id: newId,
             trackId,
             patchId,
             measure,
@@ -294,6 +302,7 @@ export function reducer(state, action) {
             frequency: frequency ?? null,
           },
         ],
+        lastAnchorClipId: newId,
       }
     }
     case 'REMOVE_CLIP': {
@@ -302,6 +311,7 @@ export function reducer(state, action) {
         ...state,
         clips: state.clips.filter((c) => c.id !== clipId),
         selectedClipIds: state.selectedClipIds.filter((id) => id !== clipId),
+        lastAnchorClipId: state.lastAnchorClipId === clipId ? null : state.lastAnchorClipId,
       }
     }
     case 'UPDATE_CLIP': {
@@ -401,6 +411,7 @@ export function reducer(state, action) {
         clipCounter: base + datas.length,
         clips: [...state.clips, ...newClips],
         selectedClipIds: newClips.map((c) => c.id),
+        lastAnchorClipId: newClips[newClips.length - 1].id,
       }
     }
     case 'SPLIT_CLIPS': {
@@ -439,6 +450,9 @@ export function reducer(state, action) {
         clipCounter: counter,
         clips: [...state.clips.filter((c) => !splitIds.has(c.id)), ...newClips],
         selectedClipIds: newSelectedIds,
+        lastAnchorClipId: newClips.length > 0
+          ? newClips[newClips.length - 1].id
+          : state.lastAnchorClipId,
       }
     }
     case 'MERGE_CLIPS': {
@@ -472,6 +486,7 @@ export function reducer(state, action) {
           },
         ],
         selectedClipIds: [newId],
+        lastAnchorClipId: newId,
       }
     }
     case 'PASTE_CLIPS': {
@@ -499,6 +514,7 @@ export function reducer(state, action) {
         clips: [...state.clips, ...newClips],
         selectedClipIds: newClips.map((c) => c.id),
         numMeasures: state.numMeasures + extraMeasures,
+        lastAnchorClipId: newClips[newClips.length - 1].id,
       }
     }
     case 'DELETE_SELECTED_CLIPS': {
@@ -508,11 +524,12 @@ export function reducer(state, action) {
         ...state,
         clips: state.clips.filter((c) => !ids.has(c.id)),
         selectedClipIds: [],
+        lastAnchorClipId: ids.has(state.lastAnchorClipId) ? null : state.lastAnchorClipId,
       }
     }
     case 'CLEAR_TIMELINE': {
       if (state.clips.length === 0) return state
-      return { ...state, clips: [], selectedClipIds: [] }
+      return { ...state, clips: [], selectedClipIds: [], lastAnchorClipId: null }
     }
     case 'SET_BPM': {
       return { ...state, bpm: action.payload }
@@ -995,7 +1012,16 @@ export function reducer(state, action) {
       return { ...state, activeTab: action.payload }
     }
     case 'SELECT_CLIPS': {
-      return { ...state, selectedClipIds: action.payload }
+      // Mise à jour de l'anchor : si la sélection devient non-vide, prend le
+      // dernier id (= dernier clip cliqué/ajouté à la sélection). Si vide,
+      // on conserve l'anchor précédent (le placement contigu reste possible
+      // même après désélection).
+      const ids = action.payload
+      return {
+        ...state,
+        selectedClipIds: ids,
+        lastAnchorClipId: ids.length > 0 ? ids[ids.length - 1] : state.lastAnchorClipId,
+      }
     }
     case 'SET_CURRENT_PATCH_ID': {
       return { ...state, currentPatchId: action.payload }
