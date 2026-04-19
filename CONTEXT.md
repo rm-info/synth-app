@@ -985,6 +985,15 @@ Phases listées ci-dessous dans l'ordre chronologique d'implémentation.
   Extraction de `KEY_CODE_TO_NOTE_INDEX` dans `src/lib/keyboardMap.js`
   partagé entre les deux onglets. Shift/Ctrl seul pour décaler l'octave
   est remonté dans App (actif les deux onglets).
+- ✅ **Phase 5** (2026-04-19) — Fixes placement contigu. Commit unique.
+  (1) dragstart/dragend en phase capture (PatchBank stopPropagation
+  empêchait dragInProgressRef d'être set). (2) preventDefault sur
+  toutes les touches de note mappées dans le Composer (bloque F=Find
+  et autres raccourcis navigateur), sauf combos Ctrl/Cmd et form
+  fields. (3) Fallback anchor après UNDO/REDO_COMPOSER : si l'anchor
+  a disparu, on retombe sur le clip avec la fin la plus tardive sur
+  la même piste. (4) ADD_CLIP sélectionne le nouveau clip (drop OU
+  placement contigu) pour permettre flèches/Ctrl+C immédiats.
 
 ### Backlog général (à caser quand pertinent)
 
