@@ -314,10 +314,16 @@ function App() {
     const onKeyDown = (e) => {
       if (activeTab !== 'composer') return
       if (isFormField(e.target)) return
-      if (e.ctrlKey || e.metaKey) return // ne pas capter les combos Ctrl/Cmd
-      if (e.repeat) return
       const idx = KEY_CODE_TO_NOTE_INDEX[e.code]
       if (idx === undefined) return
+      // Combos Ctrl/Cmd (ex : Ctrl+D split, Ctrl+C copy) : on laisse passer
+      // aux autres handlers, pas de preventDefault.
+      if (e.ctrlKey || e.metaKey) return
+      // Touche de note pure → preventDefault pour bloquer les raccourcis
+      // navigateur (F = Find, etc.), même en drag et même si on n'enregistre
+      // finalement rien (repeat).
+      e.preventDefault()
+      if (e.repeat) return
       pressedNoteKeyRef.current = idx
       setPressedNoteKey(idx)
     }
@@ -330,13 +336,15 @@ function App() {
       if (idx === undefined) return
 
       const wasActive = pressedNoteKeyRef.current === idx
+      // Toujours nettoyer le ref (même pendant un drag), pour qu'un drop
+      // ultérieur n'utilise pas une touche déjà relâchée.
       pressedNoteKeyRef.current = null
       setPressedNoteKey(null)
 
       if (!wasActive) return
       if (activeTab !== 'composer') return
       // Drag en cours (HTML5 drag depuis la banque, ou drag interne) → pas de
-      // placement contigu : la note a été consommée par le drop.
+      // placement contigu. Le drop ultérieur a déjà eu sa chance.
       if (dragInProgressRef.current) return
       const bodyCursor = document.body.style.cursor
       if (bodyCursor === 'grabbing' || bodyCursor === 'copy' || bodyCursor === 'ew-resize') return
@@ -379,13 +387,17 @@ function App() {
 
     window.addEventListener('keydown', onKeyDown)
     window.addEventListener('keyup', onKeyUp)
-    window.addEventListener('dragstart', onDragStart)
-    window.addEventListener('dragend', onDragEnd)
+    // Capture phase pour dragstart/dragend : les handlers internes de
+    // PatchBank appellent stopPropagation(), ce qui empêcherait un listener
+    // bubble sur window d'être appelé. La phase capture fire AVANT le target,
+    // donc elle voit toujours l'événement.
+    window.addEventListener('dragstart', onDragStart, true)
+    window.addEventListener('dragend', onDragEnd, true)
     return () => {
       window.removeEventListener('keydown', onKeyDown)
       window.removeEventListener('keyup', onKeyUp)
-      window.removeEventListener('dragstart', onDragStart)
-      window.removeEventListener('dragend', onDragEnd)
+      window.removeEventListener('dragstart', onDragStart, true)
+      window.removeEventListener('dragend', onDragEnd, true)
     }
   }, [activeTab, clips, lastAnchorClipId, defaultClipDuration, numMeasures, editor.testOctave])
 

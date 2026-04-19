@@ -302,6 +302,9 @@ export function reducer(state, action) {
             frequency: frequency ?? null,
           },
         ],
+        // Sélection du nouveau clip : permet d'enchaîner les flèches, Ctrl+C,
+        // etc. sans clic intermédiaire (cohérence avec duplicate/paste).
+        selectedClipIds: [newId],
         lastAnchorClipId: newId,
       }
     }
@@ -1086,6 +1089,24 @@ function findOrphanReferences(restoredPatches, currentClips) {
 
 // Vérifie que les clips d'un snapshot Composer ne référencent pas des patches
 // absents du state Designer actuel.
+// Après un undo/redo Composer, si `lastAnchorClipId` pointe vers un clip
+// qui n'existe plus dans le snapshot restauré, on cherche un fallback :
+// le clip avec la fin la plus tardive sur la même piste que l'ancien
+// anchor. Permet à l'utilisateur de continuer le placement contigu au
+// clavier sans re-sélectionner manuellement.
+function resolveAnchorAfterRestore(prevAnchorClip, restoredClips) {
+  if (!prevAnchorClip) return null
+  const sameTrack = restoredClips.filter((c) => c.trackId === prevAnchorClip.trackId)
+  if (sameTrack.length === 0) return null
+  let best = sameTrack[0]
+  let bestEnd = (best.measure - 1) * BEATS_PER_MEASURE + best.beat + best.duration
+  for (const c of sameTrack) {
+    const end = (c.measure - 1) * BEATS_PER_MEASURE + c.beat + c.duration
+    if (end > bestEnd) { best = c; bestEnd = end }
+  }
+  return best.id
+}
+
 function checkClipReferences(composerSnapshot, currentPatches) {
   const currentIds = new Set(currentPatches.map((p) => p.id))
   const orphanClips = composerSnapshot.clips.filter(
@@ -1139,9 +1160,21 @@ export function withUndo(baseReducer) {
         }
       }
       const current = pickFields(state, COMPOSER_FIELDS)
+      // L'anchor peut pointer vers un clip qui vient de disparaître (ex :
+      // le clip créé par le placement contigu qu'on undo). On essaie de
+      // garder l'interaction fluide en retombant sur le clip le plus à
+      // droite de la même piste.
+      const prevAnchorClip = state.lastAnchorClipId
+        ? state.clips.find((c) => c.id === state.lastAnchorClipId)
+        : null
+      const anchorStillValid = previous.clips.some((c) => c.id === state.lastAnchorClipId)
+      const nextAnchor = anchorStillValid
+        ? state.lastAnchorClipId
+        : resolveAnchorAfterRestore(prevAnchorClip, previous.clips)
       return {
         ...state,
         ...previous,
+        lastAnchorClipId: nextAnchor,
         history: {
           ...state.history,
           composer: { past: past.slice(0, -1), future: [current, ...future] },
@@ -1161,9 +1194,17 @@ export function withUndo(baseReducer) {
         }
       }
       const current = pickFields(state, COMPOSER_FIELDS)
+      const prevAnchorClip = state.lastAnchorClipId
+        ? state.clips.find((c) => c.id === state.lastAnchorClipId)
+        : null
+      const anchorStillValid = next.clips.some((c) => c.id === state.lastAnchorClipId)
+      const nextAnchor = anchorStillValid
+        ? state.lastAnchorClipId
+        : resolveAnchorAfterRestore(prevAnchorClip, next.clips)
       return {
         ...state,
         ...next,
+        lastAnchorClipId: nextAnchor,
         history: {
           ...state.history,
           composer: { past: [...past, current], future: future.slice(1) },
