@@ -170,12 +170,27 @@ function WaveformEditor({
   const oscRef = useRef(null)
   const gainRef = useRef(null)
 
+  // Instrument (E.3) : une voix par note jouée, indexée par noteIndex pour que
+  // la même touche ne puisse pas déclencher deux voix simultanées. Le octave
+  // est mémorisé sur chaque voix pour que le release soit appliqué à la bonne
+  // fréquence même si l'octave courante a changé entre-temps.
+  const activeNotesMapRef = useRef(new Map()) // Map<idx, { osc, gain, octave }>
+  const [activeNoteIndices, setActiveNoteIndices] = useState(() => new Set())
+
   const [isDrawing, setIsDrawing] = useState(false)
   const [playingMode, setPlayingMode] = useState(null)
   const isPlaying = playingMode !== null
   const [draggingHandle, setDraggingHandle] = useState(null)
   const [saveMessage, setSaveMessage] = useState('')
   const saveMsgTimerRef = useRef(null)
+
+  // Refs miroir des valeurs courantes pour les handlers audio (évite les
+  // closures périmées dans les listeners window/clavier).
+  const instrumentParamsRef = useRef(null)
+  instrumentParamsRef.current = {
+    attack, decay, sustain, release, amplitude,
+    testOctave, testTuningSystem, testFrequency,
+  }
 
   const referenceRef = useRef(snapshotPatchFields(editor))
   const referencedPatchIdRef = useRef(null)
@@ -432,6 +447,80 @@ function WaveformEditor({
     startAudio(mode)
   }
 
+  // --- Instrument live (E.3) : play at mousedown, release at mouseup ---
+
+  const ensureAudioCtx = () => {
+    const ctx = audioCtxRef.current || new AudioContext()
+    audioCtxRef.current = ctx
+    if (ctx.state === 'suspended') ctx.resume()
+    return ctx
+  }
+
+  const playInstrumentNote = (idx) => {
+    if (activeNotesMapRef.current.has(idx)) return
+    const params = instrumentParamsRef.current
+    // Mode libre : on ne joue pas via le clavier (l'utilisateur teste via le
+    // slider Hz). Le clavier reste actif visuellement pour la cohérence.
+    if (params.testTuningSystem === 'free') return
+
+    const ctx = ensureAudioCtx()
+    const oct = params.testOctave
+    const osc = ctx.createOscillator()
+    const gain = ctx.createGain()
+    osc.setPeriodicWave(pointsToPeriodicWave(pointsRef.current, ctx))
+
+    const freq = noteToFrequency(idx, oct)
+    const now = ctx.currentTime
+    osc.frequency.setValueAtTime(freq, now)
+
+    const a = params.attack / 1000
+    const d = params.decay / 1000
+    const sustainLevel = params.sustain * params.amplitude
+
+    gain.gain.setValueAtTime(0, now)
+    gain.gain.linearRampToValueAtTime(params.amplitude, now + a)
+    gain.gain.linearRampToValueAtTime(sustainLevel, now + a + d)
+    // Sustain hold indéfini jusqu'au release.
+
+    osc.connect(gain)
+    gain.connect(ctx.destination)
+    osc.start(now)
+
+    activeNotesMapRef.current.set(idx, { osc, gain, octave: oct })
+    setActiveNoteIndices(new Set(activeNotesMapRef.current.keys()))
+  }
+
+  const releaseInstrumentNote = (idx) => {
+    const node = activeNotesMapRef.current.get(idx)
+    if (!node) return
+    const ctx = audioCtxRef.current
+    if (!ctx) return
+    const params = instrumentParamsRef.current
+    const now = ctx.currentTime
+    const r = params.release / 1000
+    node.gain.gain.cancelScheduledValues(now)
+    node.gain.gain.setValueAtTime(node.gain.gain.value, now)
+    node.gain.gain.linearRampToValueAtTime(0, now + r)
+    try { node.osc.stop(now + r) } catch { /* already stopped */ }
+    node.osc.onended = () => {
+      try { node.osc.disconnect() } catch { /* already */ }
+      try { node.gain.disconnect() } catch { /* already */ }
+    }
+    activeNotesMapRef.current.delete(idx)
+    setActiveNoteIndices(new Set(activeNotesMapRef.current.keys()))
+  }
+
+  // Stop toutes les voix (changement de patch, unmount, etc.) sans fade.
+  const stopAllInstrumentNotes = () => {
+    for (const node of activeNotesMapRef.current.values()) {
+      try { node.osc.stop() } catch { /* already stopped */ }
+      try { node.osc.disconnect() } catch { /* already */ }
+      try { node.gain.disconnect() } catch { /* already */ }
+    }
+    activeNotesMapRef.current.clear()
+    setActiveNoteIndices(new Set())
+  }
+
   useEffect(() => {
     if (oscRef.current && audioCtxRef.current) {
       oscRef.current.frequency.setValueAtTime(frequency, audioCtxRef.current.currentTime)
@@ -448,8 +537,20 @@ function WaveformEditor({
     return () => {
       if (oscRef.current) { oscRef.current.stop(); oscRef.current.disconnect() }
       if (gainRef.current) gainRef.current.disconnect()
+      stopAllInstrumentNotes()
     }
   }, [])
+
+  // Stoppe les voix actives quand on change de patch : la forme d'onde et
+  // l'ADSR changent, inutile de laisser des notes fantômes avec l'ancien son.
+  const currentPatchIdRef = useRef(currentPatch?.id ?? null)
+  useEffect(() => {
+    const newId = currentPatch?.id ?? null
+    if (newId !== currentPatchIdRef.current) {
+      currentPatchIdRef.current = newId
+      stopAllInstrumentNotes()
+    }
+  }, [currentPatch])
 
   const clearCanvas = () => {
     editorActions.setPoints(blankPointsArray())
@@ -830,7 +931,10 @@ function WaveformEditor({
             <>
               <PianoKeyboard
                 noteIndex={testNoteIndex}
+                activeNotes={activeNoteIndices}
                 onSelectNote={editorActions.setTestNoteIndex}
+                onKeyPress={playInstrumentNote}
+                onKeyRelease={releaseInstrumentNote}
               />
               <OctaveSelector
                 octave={testOctave}

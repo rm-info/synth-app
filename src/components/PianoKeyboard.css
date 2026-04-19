@@ -46,6 +46,15 @@
   color: #1a1a2e;
 }
 
+/* Touche en train de jouer (instrument mode) : surbrillance + léger shadow
+ * pour distinguer clairement de la simple sélection. */
+.piano-key-white.is-playing {
+  background: #ffe27a;
+  border-color: #ffc600;
+  color: #1a1a2e;
+  box-shadow: 0 0 10px rgba(255, 198, 0, 0.6);
+}
+
 .piano-key-white .piano-key-label {
   font-size: 0.7rem;
   font-family: monospace;
@@ -80,6 +89,12 @@
 .piano-key-black.is-active {
   background: #00d4ff;
   border-color: #00b8e6;
+}
+
+.piano-key-black.is-playing {
+  background: #ffc600;
+  border-color: #ffe27a;
+  box-shadow: 0 0 10px rgba(255, 198, 0, 0.6);
 }
 
 /* Variante compacte (Properties) : plus petit, pas de label, min-width réduit. */

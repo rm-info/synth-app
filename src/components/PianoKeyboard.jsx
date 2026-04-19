@@ -1,3 +1,4 @@
+import { useRef } from 'react'
 import { NOTE_NAMES } from '../lib/clipNote'
 import './PianoKeyboard.css'
 
@@ -19,39 +20,90 @@ const BLACK_KEYS = [
 const OCTAVES = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
 const REFERENCE_OCTAVE = 4
 
-// `compact` : variante plus petite (Properties). Pas de labels sur les touches.
-export function PianoKeyboard({ noteIndex, onSelectNote, compact = false }) {
+// Deux modes d'interaction :
+//
+//  1. **Sélection** (Properties) : onSelectNote(idx) — fired at mousedown, pas
+//     de release. Utilisé pour mettre à jour une valeur dans le state.
+//
+//  2. **Instrument** (Designer E.3) : onKeyPress(idx) + onKeyRelease(idx).
+//     onKeyPress est déclenché au mousedown, onKeyRelease sur le mouseup
+//     window-level (option B du brief : tenir la note tant que la souris
+//     n'est pas relâchée, même si elle quitte la touche).
+//
+// `activeNotes` (Set<number>) colore en permanence les touches dont la note
+// est actuellement jouée (sert au feedback visuel pendant un sustain).
+//
+// `compact` : variante plus petite pour Properties.
+export function PianoKeyboard({
+  noteIndex,
+  activeNotes,
+  onSelectNote,
+  onKeyPress,
+  onKeyRelease,
+  compact = false,
+}) {
+  // Notes déjà "pressées" côté souris dans cette instance de clavier — évite
+  // d'enregistrer deux listeners window pour le même mousedown répété.
+  const pressedRef = useRef(new Set())
+  const active = activeNotes ?? new Set()
+
+  const handleMouseDown = (idx) => (e) => {
+    if (e.button !== 0) return
+    e.preventDefault()
+    onSelectNote?.(idx)
+    onKeyPress?.(idx)
+    if (!onKeyRelease) return
+    if (pressedRef.current.has(idx)) return
+    pressedRef.current.add(idx)
+    const release = () => {
+      window.removeEventListener('mouseup', release)
+      pressedRef.current.delete(idx)
+      onKeyRelease(idx)
+    }
+    window.addEventListener('mouseup', release)
+  }
+
   const className = `piano-keyboard${compact ? ' piano-keyboard-compact' : ''}`
   return (
     <div className={className} role="group" aria-label="Clavier piano">
       <div className="piano-whites">
-        {WHITE_KEYS.map((idx) => (
-          <button
-            key={idx}
-            type="button"
-            className={`piano-key piano-key-white${noteIndex === idx ? ' is-active' : ''}`}
-            onClick={() => onSelectNote(idx)}
-            aria-label={NOTE_NAMES[idx]}
-            aria-pressed={noteIndex === idx}
-            title={compact ? NOTE_NAMES[idx] : undefined}
-          >
-            {!compact && <span className="piano-key-label">{NOTE_NAMES[idx]}</span>}
-          </button>
-        ))}
+        {WHITE_KEYS.map((idx) => {
+          const classes = ['piano-key', 'piano-key-white']
+          if (noteIndex === idx) classes.push('is-active')
+          if (active.has(idx)) classes.push('is-playing')
+          return (
+            <button
+              key={idx}
+              type="button"
+              className={classes.join(' ')}
+              onMouseDown={handleMouseDown(idx)}
+              aria-label={NOTE_NAMES[idx]}
+              aria-pressed={noteIndex === idx}
+              title={compact ? NOTE_NAMES[idx] : undefined}
+            >
+              {!compact && <span className="piano-key-label">{NOTE_NAMES[idx]}</span>}
+            </button>
+          )
+        })}
       </div>
       <div className="piano-blacks">
-        {BLACK_KEYS.map(({ note, afterWhite }) => (
-          <button
-            key={note}
-            type="button"
-            className={`piano-key piano-key-black${noteIndex === note ? ' is-active' : ''}`}
-            style={{ left: `${((afterWhite + 1) / WHITE_KEYS.length) * 100}%` }}
-            onClick={() => onSelectNote(note)}
-            title={NOTE_NAMES[note]}
-            aria-label={NOTE_NAMES[note]}
-            aria-pressed={noteIndex === note}
-          />
-        ))}
+        {BLACK_KEYS.map(({ note, afterWhite }) => {
+          const classes = ['piano-key', 'piano-key-black']
+          if (noteIndex === note) classes.push('is-active')
+          if (active.has(note)) classes.push('is-playing')
+          return (
+            <button
+              key={note}
+              type="button"
+              className={classes.join(' ')}
+              style={{ left: `${((afterWhite + 1) / WHITE_KEYS.length) * 100}%` }}
+              onMouseDown={handleMouseDown(note)}
+              title={NOTE_NAMES[note]}
+              aria-label={NOTE_NAMES[note]}
+              aria-pressed={noteIndex === note}
+            />
+          )
+        })}
       </div>
     </div>
   )
