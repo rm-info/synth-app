@@ -276,7 +276,10 @@ function WaveformEditor({
   const gainRef = useRef(null)
 
   const [isDrawing, setIsDrawing] = useState(false)
-  const [isPlaying, setIsPlaying] = useState(false)
+  // 'impact' | 'court' | 'tenu' | null. Remplace l'ancien booléen isPlaying
+  // pour distinguer les trois modes de test.
+  const [playingMode, setPlayingMode] = useState(null)
+  const isPlaying = playingMode !== null
   const [draggingHandle, setDraggingHandle] = useState(null)
   const [saveMessage, setSaveMessage] = useState('')
   const saveMsgTimerRef = useRef(null)
@@ -452,7 +455,6 @@ function WaveformEditor({
     setIsDrawing(false)
     lastPointRef.current = null
     commitDraftPoints()
-    updateOscillator()
   }
 
   const handleMouseLeave = () => {
@@ -460,23 +462,18 @@ function WaveformEditor({
       setIsDrawing(false)
       lastPointRef.current = null
       commitDraftPoints()
-      updateOscillator()
     }
   }
 
   // --- Audio (preview / Test) ---
-  const updateOscillator = useCallback(() => {
-    if (!oscRef.current || !audioCtxRef.current) return
-    const wave = pointsToPeriodicWave(pointsRef.current, audioCtxRef.current)
-    oscRef.current.setPeriodicWave(wave)
-  }, [])
+  // Durée du hold pour le mode "court" (tenu fixe après le decay, avant le release).
+  const COURT_HOLD_SEC = 1.0
 
-  const togglePlay = () => {
-    if (isPlaying) stopAudio()
-    else startAudio()
-  }
+  const startAudio = (mode) => {
+    // Garde-fou : ne pas démarrer un 2ᵉ test par-dessus un existant (les boutons
+    // sont déjà désactivés en UI, mais on reste robuste).
+    if (playingMode !== null) return
 
-  const startAudio = () => {
     const ctx = audioCtxRef.current || new AudioContext()
     audioCtxRef.current = ctx
     if (ctx.state === 'suspended') ctx.resume()
@@ -490,9 +487,30 @@ function WaveformEditor({
 
     const a = attack / 1000
     const d = decay / 1000
+    const r = release / 1000
+    const sustainLevel = sustain * amplitude
+
     gain.gain.setValueAtTime(0, now)
     gain.gain.linearRampToValueAtTime(amplitude, now + a)
-    gain.gain.linearRampToValueAtTime(sustain * amplitude, now + a + d)
+    gain.gain.linearRampToValueAtTime(sustainLevel, now + a + d)
+
+    // Pour impact et court, on programme aussi le release + stop. Tenu reste
+    // indéfini jusqu'à arrêt manuel.
+    if (mode === 'impact' || mode === 'court') {
+      const holdSec = mode === 'court' ? COURT_HOLD_SEC : 0
+      const releaseStart = now + a + d + holdSec
+      if (holdSec > 0) gain.gain.setValueAtTime(sustainLevel, releaseStart)
+      gain.gain.linearRampToValueAtTime(0, releaseStart + r)
+      osc.stop(releaseStart + r + 0.02)
+      osc.onended = () => {
+        try { osc.disconnect() } catch { /* already */ }
+        try { gain.disconnect() } catch { /* already */ }
+        // Retour à l'état repos (n'agit que si le mode actif est toujours celui-ci).
+        setPlayingMode((cur) => (cur === mode ? null : cur))
+        if (oscRef.current === osc) oscRef.current = null
+        if (gainRef.current === gain) gainRef.current = null
+      }
+    }
 
     osc.connect(gain)
     gain.connect(ctx.destination)
@@ -500,7 +518,7 @@ function WaveformEditor({
 
     oscRef.current = osc
     gainRef.current = gain
-    setIsPlaying(true)
+    setPlayingMode(mode)
   }
 
   const stopAudio = () => {
@@ -521,7 +539,16 @@ function WaveformEditor({
     }
     oscRef.current = null
     gainRef.current = null
-    setIsPlaying(false)
+    setPlayingMode(null)
+  }
+
+  const handleTestClick = (mode) => {
+    if (mode === 'tenu' && playingMode === 'tenu') {
+      stopAudio()
+      return
+    }
+    if (playingMode !== null) return
+    startAudio(mode)
   }
 
   useEffect(() => {
@@ -543,17 +570,9 @@ function WaveformEditor({
     }
   }, [])
 
-  useEffect(() => {
-    if (isPlaying && oscRef.current && audioCtxRef.current) {
-      const wave = pointsToPeriodicWave(points, audioCtxRef.current)
-      oscRef.current.setPeriodicWave(wave)
-    }
-  }, [points, isPlaying])
-
   // --- Presets / Clear ---
   const clearCanvas = () => {
     editorActions.setPoints(blankPointsArray())
-    if (isPlaying) updateOscillator()
   }
 
   const loadPreset = (type) => {
@@ -993,14 +1012,32 @@ function WaveformEditor({
       <div className="we-params-spacer" />
 
       <div className="control-buttons">
-        <button
-          type="button"
-          className={`test-btn ${isPlaying ? 'playing' : ''}`}
-          onClick={togglePlay}
-          title="Preview du son en cours d'édition"
-        >
-          {isPlaying ? 'Stop' : 'Test'}
-        </button>
+        <div className="test-buttons" role="group" aria-label="Tests de lecture">
+          <button
+            type="button"
+            className={`test-btn-mode${playingMode === 'impact' ? ' is-playing' : ''}`}
+            onClick={() => handleTestClick('impact')}
+            disabled={playingMode !== null && playingMode !== 'impact'}
+            title="Test impact — son bref avec release immédiat"
+            aria-label="Test impact"
+          >•</button>
+          <button
+            type="button"
+            className={`test-btn-mode${playingMode === 'court' ? ' is-playing' : ''}`}
+            onClick={() => handleTestClick('court')}
+            disabled={playingMode !== null && playingMode !== 'court'}
+            title="Test court — son tenu 1 seconde"
+            aria-label="Test court"
+          >━</button>
+          <button
+            type="button"
+            className={`test-btn-mode${playingMode === 'tenu' ? ' is-playing' : ''}`}
+            onClick={() => handleTestClick('tenu')}
+            disabled={playingMode === 'impact' || playingMode === 'court'}
+            title={playingMode === 'tenu' ? 'Arrêter' : 'Test tenu — son infini, clic pour arrêter'}
+            aria-label={playingMode === 'tenu' ? 'Arrêter le test tenu' : 'Test tenu'}
+          >{playingMode === 'tenu' ? '■' : '∞'}</button>
+        </div>
         <button type="button" className="new-btn" onClick={handleNew} title="Nouveau son (réinitialise l'éditeur)">
           Nouveau
         </button>
