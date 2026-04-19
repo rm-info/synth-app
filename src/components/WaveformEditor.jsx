@@ -494,14 +494,28 @@ function WaveformEditor({
     gain.gain.linearRampToValueAtTime(amplitude, now + a)
     gain.gain.linearRampToValueAtTime(sustainLevel, now + a + d)
 
-    // Pour impact et court, on programme aussi le release + stop. Tenu reste
-    // indéfini jusqu'à arrêt manuel.
+    // Pour impact et court, on programme aussi la rampe de release avant
+    // le start (automation sur un AudioParam, ne dépend pas de l'état
+    // démarré de l'osc).
+    let stopTime = null
     if (mode === 'impact' || mode === 'court') {
       const holdSec = mode === 'court' ? COURT_HOLD_SEC : 0
       const releaseStart = now + a + d + holdSec
       if (holdSec > 0) gain.gain.setValueAtTime(sustainLevel, releaseStart)
       gain.gain.linearRampToValueAtTime(0, releaseStart + r)
-      osc.stop(releaseStart + r + 0.02)
+      stopTime = releaseStart + r + 0.02
+    }
+
+    osc.connect(gain)
+    gain.connect(ctx.destination)
+    osc.start()
+
+    // IMPORTANT : osc.stop() doit impérativement être appelé APRÈS osc.start().
+    // Per W3C Web Audio spec, stop() avant start() jette InvalidStateError,
+    // ce qui interromprait la suite de l'initialisation (silence sur
+    // impact/court).
+    if (stopTime !== null) {
+      osc.stop(stopTime)
       osc.onended = () => {
         try { osc.disconnect() } catch { /* already */ }
         try { gain.disconnect() } catch { /* already */ }
@@ -511,10 +525,6 @@ function WaveformEditor({
         if (gainRef.current === gain) gainRef.current = null
       }
     }
-
-    osc.connect(gain)
-    gain.connect(ctx.destination)
-    osc.start()
 
     oscRef.current = osc
     gainRef.current = gain
