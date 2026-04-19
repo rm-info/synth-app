@@ -994,6 +994,21 @@ Phases listées ci-dessous dans l'ordre chronologique d'implémentation.
   a disparu, on retombe sur le clip avec la fin la plus tardive sur
   la même piste. (4) ADD_CLIP sélectionne le nouveau clip (drop OU
   placement contigu) pour permettre flèches/Ctrl+C immédiats.
+- ✅ **Phase 6** (2026-04-20) — UX enrichie. 3 sous-commits :
+  - **6.1** Durées en boutons toggle (7 bases + 3 coefs mutuellement
+    exclusifs) remplaçant les dropdowns du toolbar et du panneau
+    Properties. Snap 0.25 → 0.125 (triple croche). Module partagé
+    `src/lib/durations.js` (catalogue, validité coef). Composant
+    `DurationButtons`. Mode d'affichage solfège/fraction toggleable
+    (state `durationMode` persisté). Raccourcis 1-7 (bases) et 8-0
+    (coefs) actifs en Composer.
+  - **6.2** Indicateur "Octave : N" dans la toolbar Composer,
+    synchronisé avec `state.editor.testOctave` (partagé avec
+    Designer). Fond "référence" bleuté quand octave 4.
+  - **6.3** Transition CSS 0.35s ease-out sur `.track-corridor`
+    (top + height) et `.track-header` (height) : ajout/retrait
+    d'une lane s'anime au lieu de sauter. `.placed-sound` suit via
+    transition sur `top` (désactivée pendant drag/resize/ghost).
 
 ### Backlog général (à caser quand pertinent)
 
