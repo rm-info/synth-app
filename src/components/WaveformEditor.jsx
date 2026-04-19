@@ -194,8 +194,6 @@ function WaveformEditor({
   const adsrCanvasRef = useRef(null)
   const adsrContainerRef = useRef(null)
   const audioCtxRef = useRef(null)
-  const oscRef = useRef(null)
-  const gainRef = useRef(null)
 
   // Instrument (E.3) : une voix par note jouée, indexée par noteIndex. Un
   // second appui sur la même touche (retrigger) coupe la voix existante
@@ -212,8 +210,6 @@ function WaveformEditor({
   const [sustainActive, setSustainActive] = useState(false)
 
   const [isDrawing, setIsDrawing] = useState(false)
-  const [playingMode, setPlayingMode] = useState(null)
-  const isPlaying = playingMode !== null
   const [draggingHandle, setDraggingHandle] = useState(null)
   const [saveMessage, setSaveMessage] = useState('')
   const saveMsgTimerRef = useRef(null)
@@ -397,90 +393,6 @@ function WaveformEditor({
     }
   }
 
-  const COURT_HOLD_SEC = 1.0
-
-  const startAudio = (mode) => {
-    if (playingMode !== null) return
-
-    const ctx = audioCtxRef.current || new AudioContext()
-    audioCtxRef.current = ctx
-    if (ctx.state === 'suspended') ctx.resume()
-
-    const osc = ctx.createOscillator()
-    const gain = ctx.createGain()
-    const wave = pointsToPeriodicWave(pointsRef.current, ctx)
-    osc.setPeriodicWave(wave)
-    const now = ctx.currentTime
-    osc.frequency.setValueAtTime(frequency, now)
-
-    const a = attack / 1000
-    const d = decay / 1000
-    const r = release / 1000
-    const sustainLevel = sustain * amplitude
-
-    gain.gain.setValueAtTime(0, now)
-    gain.gain.linearRampToValueAtTime(amplitude, now + a)
-    gain.gain.linearRampToValueAtTime(sustainLevel, now + a + d)
-
-    let stopTime = null
-    if (mode === 'impact' || mode === 'court') {
-      const holdSec = mode === 'court' ? COURT_HOLD_SEC : 0
-      const releaseStart = now + a + d + holdSec
-      if (holdSec > 0) gain.gain.setValueAtTime(sustainLevel, releaseStart)
-      gain.gain.linearRampToValueAtTime(0, releaseStart + r)
-      stopTime = releaseStart + r + 0.02
-    }
-
-    osc.connect(gain)
-    gain.connect(ctx.destination)
-    osc.start()
-
-    if (stopTime !== null) {
-      osc.stop(stopTime)
-      osc.onended = () => {
-        try { osc.disconnect() } catch { /* already */ }
-        try { gain.disconnect() } catch { /* already */ }
-        setPlayingMode((cur) => (cur === mode ? null : cur))
-        if (oscRef.current === osc) oscRef.current = null
-        if (gainRef.current === gain) gainRef.current = null
-      }
-    }
-
-    oscRef.current = osc
-    gainRef.current = gain
-    setPlayingMode(mode)
-  }
-
-  const stopAudio = () => {
-    const ctx = audioCtxRef.current
-    const osc = oscRef.current
-    const gain = gainRef.current
-    if (osc && gain && ctx) {
-      const now = ctx.currentTime
-      const r = release / 1000
-      gain.gain.cancelScheduledValues(now)
-      gain.gain.setValueAtTime(gain.gain.value, now)
-      gain.gain.linearRampToValueAtTime(0, now + r)
-      osc.stop(now + r)
-      osc.onended = () => {
-        try { osc.disconnect() } catch { /* already */ }
-        try { gain.disconnect() } catch { /* already */ }
-      }
-    }
-    oscRef.current = null
-    gainRef.current = null
-    setPlayingMode(null)
-  }
-
-  const handleTestClick = (mode) => {
-    if (mode === 'tenu' && playingMode === 'tenu') {
-      stopAudio()
-      return
-    }
-    if (playingMode !== null) return
-    startAudio(mode)
-  }
-
   // --- Instrument live (E.3) : play at mousedown, release at mouseup ---
 
   const ensureAudioCtx = () => {
@@ -593,21 +505,7 @@ function WaveformEditor({
   }
 
   useEffect(() => {
-    if (oscRef.current && audioCtxRef.current) {
-      oscRef.current.frequency.setValueAtTime(frequency, audioCtxRef.current.currentTime)
-    }
-  }, [frequency])
-
-  useEffect(() => {
-    if (gainRef.current && audioCtxRef.current) {
-      gainRef.current.gain.setValueAtTime(amplitude, audioCtxRef.current.currentTime)
-    }
-  }, [amplitude])
-
-  useEffect(() => {
     return () => {
-      if (oscRef.current) { oscRef.current.stop(); oscRef.current.disconnect() }
-      if (gainRef.current) gainRef.current.disconnect()
       stopAllInstrumentNotes()
     }
   }, [])
@@ -817,7 +715,7 @@ function WaveformEditor({
       const ok = window.confirm('Modifications non sauvegardées, continuer ?')
       if (!ok) return
     }
-    if (isPlaying) stopAudio()
+    stopAllInstrumentNotes()
     onRequestNew?.()
   }
 
@@ -1171,32 +1069,6 @@ function WaveformEditor({
       <div className="we-params-spacer" />
 
       <div className="control-buttons">
-        <div className="test-buttons" role="group" aria-label="Tests de lecture">
-          <button
-            type="button"
-            className={`test-btn-mode${playingMode === 'impact' ? ' is-playing' : ''}`}
-            onClick={() => handleTestClick('impact')}
-            disabled={playingMode !== null && playingMode !== 'impact'}
-            title="Test impact — son bref avec release immédiat"
-            aria-label="Test impact"
-          >•</button>
-          <button
-            type="button"
-            className={`test-btn-mode${playingMode === 'court' ? ' is-playing' : ''}`}
-            onClick={() => handleTestClick('court')}
-            disabled={playingMode !== null && playingMode !== 'court'}
-            title="Test court — son tenu 1 seconde"
-            aria-label="Test court"
-          >━</button>
-          <button
-            type="button"
-            className={`test-btn-mode${playingMode === 'tenu' ? ' is-playing' : ''}`}
-            onClick={() => handleTestClick('tenu')}
-            disabled={playingMode === 'impact' || playingMode === 'court'}
-            title={playingMode === 'tenu' ? 'Arrêter' : 'Test tenu — son infini, clic pour arrêter'}
-            aria-label={playingMode === 'tenu' ? 'Arrêter le test tenu' : 'Test tenu'}
-          >{playingMode === 'tenu' ? '■' : '∞'}</button>
-        </div>
         <button type="button" className="new-btn" onClick={handleNew} title="Nouveau patch (réinitialise l'éditeur)">
           Nouveau
         </button>
