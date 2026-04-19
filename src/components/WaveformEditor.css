@@ -281,6 +281,21 @@
   border-color: #00d4ff;
 }
 
+/* Badge affiché quand la pédale de sustain (Espace) est active. */
+.sustain-badge {
+  display: inline-block;
+  margin-left: 10px;
+  padding: 1px 8px;
+  border-radius: 3px;
+  background: #ffc600;
+  color: #1a1a2e;
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  vertical-align: 1px;
+  box-shadow: 0 0 8px rgba(255, 198, 0, 0.5);
+}
+
 .control-buttons {
   display: flex;
   gap: 8px;

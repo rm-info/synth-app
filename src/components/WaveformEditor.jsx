@@ -197,12 +197,19 @@ function WaveformEditor({
   const oscRef = useRef(null)
   const gainRef = useRef(null)
 
-  // Instrument (E.3) : une voix par note jouée, indexée par noteIndex pour que
-  // la même touche ne puisse pas déclencher deux voix simultanées. Le octave
-  // est mémorisé sur chaque voix pour que le release soit appliqué à la bonne
-  // fréquence même si l'octave courante a changé entre-temps.
+  // Instrument (E.3) : une voix par note jouée, indexée par noteIndex. Un
+  // second appui sur la même touche (retrigger) coupe la voix existante
+  // avant d'en démarrer une nouvelle. Le octave est mémorisé sur chaque voix
+  // pour que le release utilise la bonne fréquence si testOctave a bougé.
   const activeNotesMapRef = useRef(new Map()) // Map<idx, { osc, gain, octave }>
   const [activeNoteIndices, setActiveNoteIndices] = useState(() => new Set())
+
+  // Pédale de sustain (Espace) : pendant qu'elle est active, les releases
+  // sont différés dans `sustainedNotesRef`. Au relâchement de la pédale,
+  // toutes ces notes entrent en release simultanément.
+  const sustainActiveRef = useRef(false)
+  const sustainedNotesRef = useRef(new Set())
+  const [sustainActive, setSustainActive] = useState(false)
 
   const [isDrawing, setIsDrawing] = useState(false)
   const [playingMode, setPlayingMode] = useState(null)
@@ -484,11 +491,20 @@ function WaveformEditor({
   }
 
   const playInstrumentNote = (idx) => {
-    if (activeNotesMapRef.current.has(idx)) return
     const params = instrumentParamsRef.current
-    // Mode libre : on ne joue pas via le clavier (l'utilisateur teste via le
-    // slider Hz). Le clavier reste actif visuellement pour la cohérence.
+    // Mode libre : on ne joue pas via le clavier (édition via slider Hz).
     if (params.testTuningSystem === 'free') return
+
+    // Retrigger : si une voix existe déjà pour cette idx (sustainée ou non),
+    // on la coupe net avant de démarrer la nouvelle.
+    if (activeNotesMapRef.current.has(idx)) {
+      const existing = activeNotesMapRef.current.get(idx)
+      try { existing.osc.stop() } catch { /* already */ }
+      try { existing.osc.disconnect() } catch { /* already */ }
+      try { existing.gain.disconnect() } catch { /* already */ }
+      activeNotesMapRef.current.delete(idx)
+      sustainedNotesRef.current.delete(idx)
+    }
 
     const ctx = ensureAudioCtx()
     const oct = params.testOctave
@@ -517,7 +533,8 @@ function WaveformEditor({
     setActiveNoteIndices(new Set(activeNotesMapRef.current.keys()))
   }
 
-  const releaseInstrumentNote = (idx) => {
+  // Exécute le release réel (rampe ADSR) — contournable par le sustain.
+  const performRelease = (idx) => {
     const node = activeNotesMapRef.current.get(idx)
     if (!node) return
     const ctx = audioCtxRef.current
@@ -537,6 +554,30 @@ function WaveformEditor({
     setActiveNoteIndices(new Set(activeNotesMapRef.current.keys()))
   }
 
+  const releaseInstrumentNote = (idx) => {
+    // Sustain actif : on diffère le release, la voix continue de sonner.
+    if (sustainActiveRef.current) {
+      sustainedNotesRef.current.add(idx)
+      return
+    }
+    performRelease(idx)
+  }
+
+  // Sustain sur/off. Au off, les notes différées entrent en release ensemble.
+  const activateSustain = () => {
+    if (sustainActiveRef.current) return
+    sustainActiveRef.current = true
+    setSustainActive(true)
+  }
+  const deactivateSustain = () => {
+    if (!sustainActiveRef.current) return
+    sustainActiveRef.current = false
+    setSustainActive(false)
+    const toRelease = Array.from(sustainedNotesRef.current)
+    sustainedNotesRef.current.clear()
+    for (const idx of toRelease) performRelease(idx)
+  }
+
   // Stop toutes les voix (changement de patch, unmount, etc.) sans fade.
   const stopAllInstrumentNotes = () => {
     for (const node of activeNotesMapRef.current.values()) {
@@ -545,7 +586,10 @@ function WaveformEditor({
       try { node.gain.disconnect() } catch { /* already */ }
     }
     activeNotesMapRef.current.clear()
+    sustainedNotesRef.current.clear()
+    sustainActiveRef.current = false
     setActiveNoteIndices(new Set())
+    setSustainActive(false)
   }
 
   useEffect(() => {
@@ -587,6 +631,8 @@ function WaveformEditor({
     play: playInstrumentNote,
     release: releaseInstrumentNote,
     setTestNoteIndex: editorActions.setTestNoteIndex,
+    activateSustain,
+    deactivateSustain,
   }
 
   // Shift/Ctrl "seuls" décalent l'octave courante. Tap sur Shift sans autre
@@ -631,6 +677,14 @@ function WaveformEditor({
       shiftAloneRef.current = false
       ctrlAloneRef.current = false
 
+      // Espace : pédale de sustain (maintenue). preventDefault pour éviter le
+      // scroll de page. event.repeat ignoré → un seul activate par maintien.
+      if (e.code === 'Space') {
+        e.preventDefault()
+        if (!e.repeat) instrumentBridgeRef.current?.activateSustain()
+        return
+      }
+
       if (e.repeat) return
       const idx = KEY_CODE_TO_NOTE_INDEX[e.code]
       if (idx === undefined) return
@@ -662,6 +716,12 @@ function WaveformEditor({
             editorActions.setTestOctave(params.testOctave - 1)
           }
         }
+        return
+      }
+
+      if (e.code === 'Space') {
+        e.preventDefault()
+        instrumentBridgeRef.current?.deactivateSustain()
         return
       }
 
@@ -1082,6 +1142,11 @@ function WaveformEditor({
                 <span className="note-display">
                   {' '}— {NOTE_NAMES[testNoteIndex]}{testOctave}
                 </span>
+                {sustainActive && (
+                  <span className="sustain-badge" title="Sustain actif (Espace)">
+                    SUSTAIN
+                  </span>
+                )}
               </div>
             </>
           )}
