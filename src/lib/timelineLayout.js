@@ -10,16 +10,16 @@ function clipBeatOffset(clip) {
 /**
  * Lane assignment greedy pour la polyphonie visuelle. Les clips sont triés
  * par position puis placés dans la première lane qui se libère. Retourne les
- * items enrichis avec { clip, sound, start, end, lane }.
+ * items enrichis avec { clip, patch, start, end, lane }.
  */
-export function layoutClips(clips, savedSounds) {
+export function layoutClips(clips, patches) {
   const enriched = clips
     .map((clip) => {
-      const sound = savedSounds.find((s) => s.id === clip.soundId)
-      if (!sound) return null
+      const patch = patches.find((p) => p.id === clip.patchId)
+      if (!patch) return null
       const start = clipBeatOffset(clip)
       const end = start + clip.duration
-      return { clip, sound, start, end }
+      return { clip, patch, start, end }
     })
     .filter(Boolean)
     .sort((a, b) => a.start - b.start)
@@ -39,7 +39,8 @@ export function layoutClips(clips, savedSounds) {
 /**
  * Vérifie si les clips sélectionnés peuvent être fusionnés :
  * - >= 2 clips sélectionnés
- * - Même soundId
+ * - Même patchId
+ * - Même hauteur (tuningSystem + note/octave ou frequency)
  * - Exactement adjacents (fin de l'un = début du suivant, triés par position)
  */
 export function canMergeClips(clips, selectedIds) {
@@ -57,9 +58,20 @@ export function canMergeClips(clips, selectedIds) {
     return { canMerge: false, reason: 'Pistes différentes' }
   }
 
-  const firstSoundId = selected[0].soundId
-  if (!selected.every((c) => c.soundId === firstSoundId)) {
-    return { canMerge: false, reason: 'Sons différents' }
+  const firstPatchId = selected[0].patchId
+  if (!selected.every((c) => c.patchId === firstPatchId)) {
+    return { canMerge: false, reason: 'Patches différents' }
+  }
+
+  const first = selected[0]
+  const sameNote = selected.every((c) =>
+    c.tuningSystem === first.tuningSystem &&
+    c.noteIndex === first.noteIndex &&
+    c.octave === first.octave &&
+    c.frequency === first.frequency,
+  )
+  if (!sameNote) {
+    return { canMerge: false, reason: 'Hauteurs différentes' }
   }
 
   const sorted = selected

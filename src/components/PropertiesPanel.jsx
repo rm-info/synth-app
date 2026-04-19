@@ -30,18 +30,18 @@ function durationOptionsFor(value) {
  * Panneau Properties (Composer). Trois modes :
  *  - vide : placeholder
  *  - mono (1 clip) : édition complète
- *  - multi (>1 clips, phase 2.5) : son (si homogène), durée (si homogène),
+ *  - multi (>1 clips) : patch (si homogène), durée (si homogène),
  *    bouton supprimer la sélection.
  */
 function PropertiesPanel({
   selectedClipIds,
   clips,
-  savedSounds,
+  patches,
   tracks,
   numMeasures,
   onUpdateClip,
   onRemoveClip,
-  onUpdateClipsSound,
+  onUpdateClipsPatch,
   onUpdateClipsDuration,
   onDeleteSelected,
   mergeStatus,
@@ -83,10 +83,10 @@ function PropertiesPanel({
             <MultiClipEditor
               selectedClips={selectedClips}
               clips={clips}
-              savedSounds={savedSounds}
+              patches={patches}
               tracks={tracks}
               numMeasures={numMeasures}
-              onUpdateClipsSound={onUpdateClipsSound}
+              onUpdateClipsPatch={onUpdateClipsPatch}
               onUpdateClipsDuration={onUpdateClipsDuration}
               onDeleteSelected={onDeleteSelected}
               mergeStatus={mergeStatus}
@@ -99,7 +99,7 @@ function PropertiesPanel({
           {count === 1 && mono && (
             <ClipEditor
               clip={mono}
-              savedSounds={savedSounds}
+              patches={patches}
               tracks={tracks}
               onUpdateClip={onUpdateClip}
               onRemoveClip={onRemoveClip}
@@ -114,30 +114,30 @@ function PropertiesPanel({
   )
 }
 
-function ClipEditor({ clip, savedSounds, tracks, onUpdateClip, onRemoveClip, canSplit2, canSplit3, onSplitClips }) {
-  const currentSound = savedSounds.find((s) => s.id === clip.soundId)
+function ClipEditor({ clip, patches, tracks, onUpdateClip, onRemoveClip, canSplit2, canSplit3, onSplitClips }) {
+  const currentPatch = patches.find((p) => p.id === clip.patchId)
   const clipTrack = tracks?.find(t => t.id === clip.trackId)
 
   return (
     <div className="clip-editor">
       <label className="field">
-        <span className="field-label">Son</span>
+        <span className="field-label">Patch</span>
         <div className="sound-select-wrapper">
-          {currentSound && (
+          {currentPatch && (
             <span
               className="sound-dot"
-              style={{ backgroundColor: currentSound.color }}
+              style={{ backgroundColor: currentPatch.color }}
               aria-hidden="true"
             />
           )}
           <select
             className="field-input"
-            value={clip.soundId}
-            onChange={(e) => onUpdateClip(clip.id, { soundId: e.target.value })}
+            value={clip.patchId}
+            onChange={(e) => onUpdateClip(clip.id, { patchId: e.target.value })}
           >
-            {savedSounds.map((s) => (
-              <option key={s.id} value={s.id}>
-                {s.name}
+            {patches.map((p) => (
+              <option key={p.id} value={p.id}>
+                {p.name}
               </option>
             ))}
           </select>
@@ -208,10 +208,10 @@ function ClipEditor({ clip, savedSounds, tracks, onUpdateClip, onRemoveClip, can
 function MultiClipEditor({
   selectedClips,
   clips,
-  savedSounds,
+  patches,
   tracks,
   numMeasures,
-  onUpdateClipsSound,
+  onUpdateClipsPatch,
   onUpdateClipsDuration,
   onDeleteSelected,
   mergeStatus,
@@ -220,23 +220,23 @@ function MultiClipEditor({
   canSplit3,
   onSplitClips,
 }) {
-  const firstSoundId = selectedClips[0].soundId
-  const allSameSound = selectedClips.every((c) => c.soundId === firstSoundId)
+  const firstPatchId = selectedClips[0].patchId
+  const allSamePatch = selectedClips.every((c) => c.patchId === firstPatchId)
   const firstDuration = selectedClips[0].duration
   const allSameDuration = selectedClips.every((c) => c.duration === firstDuration)
-  const commonSound = allSameSound ? savedSounds.find((s) => s.id === firstSoundId) : null
+  const commonPatch = allSamePatch ? patches.find((p) => p.id === firstPatchId) : null
 
-  const handleChangeSound = (newSoundId) => {
-    if (!allSameSound) return
-    if (newSoundId === firstSoundId) return
-    onUpdateClipsSound?.(selectedClips.map((c) => c.id), newSoundId)
+  const handleChangePatch = (newPatchId) => {
+    if (!allSamePatch) return
+    if (newPatchId === firstPatchId) return
+    onUpdateClipsPatch?.(selectedClips.map((c) => c.id), newPatchId)
   }
 
   const handleChangeDuration = (newDuration) => {
     if (!allSameDuration) return
     if (newDuration === firstDuration) return
     const totalBeats = numMeasures * BEATS_PER_MEASURE
-    const { items } = layoutClips(clips, savedSounds)
+    const { items } = layoutClips(clips, patches)
     const excludeIds = new Set(selectedClips.map((c) => c.id))
     const updates = selectedClips.map((clip) => {
       const b = computeBounds(clip.id, items, totalBeats, excludeIds)
@@ -270,28 +270,28 @@ function MultiClipEditor({
       })()}
 
       <label className="field">
-        <span className="field-label">Son</span>
-        {allSameSound ? (
+        <span className="field-label">Patch</span>
+        {allSamePatch ? (
           <div className="sound-select-wrapper">
-            {commonSound && (
+            {commonPatch && (
               <span
                 className="sound-dot"
-                style={{ backgroundColor: commonSound.color }}
+                style={{ backgroundColor: commonPatch.color }}
                 aria-hidden="true"
               />
             )}
             <select
               className="field-input"
-              value={firstSoundId}
-              onChange={(e) => handleChangeSound(e.target.value)}
+              value={firstPatchId}
+              onChange={(e) => handleChangePatch(e.target.value)}
             >
-              {savedSounds.map((s) => (
-                <option key={s.id} value={s.id}>{s.name}</option>
+              {patches.map((p) => (
+                <option key={p.id} value={p.id}>{p.name}</option>
               ))}
             </select>
           </div>
         ) : (
-          <span className="field-readonly">Sons mixtes</span>
+          <span className="field-readonly">Patches mixtes</span>
         )}
       </label>
 
@@ -354,7 +354,6 @@ function MultiClipEditor({
 }
 
 function formatBeat(beat) {
-  // Conserve jusqu'à 2 décimales (snap 16ᵉ = 0.25), sans zéros parasites.
   const rounded = Math.round(beat * 100) / 100
   return Number.isInteger(rounded) ? String(rounded) : String(rounded)
 }

@@ -2,7 +2,6 @@ import { SOUND_COLORS } from './audio'
 
 // === Constantes partagées ===
 export const STORAGE_KEY = 'synth-app-state'
-export const POINTS_SIMILARITY_THRESHOLD = 0.01
 export const DEFAULT_BPM = 120
 export const DEFAULT_NUM_MEASURES = 16
 export const DEFAULT_TRACK_ID = 'track-default'
@@ -22,12 +21,16 @@ export const TRACK_COLORS = [
   '#5a8a7a', '#7a6a9a', '#9a8a5a', '#5a7a9a',
   '#9a5a7a', '#6a9a5a', '#5a6a9a', '#9a7a5a',
 ]
+
+// Éditeur : les champs `test*` ne servent qu'à piloter la preview dans
+// Designer. Ils ne sont PAS copiés dans le patch sauvegardé. C'est le clip
+// qui portera la hauteur lors du placement sur la timeline.
 export const DEFAULT_EDITOR = {
   points: new Array(POINTS_RESOLUTION).fill(0),
-  tuningSystem: '12-TET', // '12-TET' | 'free'
-  noteIndex: 9, // A
-  octave: 4,
-  freeFrequency: 440,
+  testTuningSystem: '12-TET', // '12-TET' | 'free'
+  testNoteIndex: 9, // A
+  testOctave: 4,
+  testFrequency: 440,
   amplitude: 1,
   preset: null,
   ...DEFAULT_ADSR,
@@ -54,6 +57,14 @@ export function frequencyToNearestNote(hz) {
   }
 }
 
+// Fréquence effective d'un clip. En E.1, deux systèmes : 12-TET (noteIndex +
+// octave) et Libre (frequency explicite). Point d'extension unique pour les
+// futurs systèmes (24-TET, Pythagorean, etc.).
+export function clipFrequency(clip) {
+  if (clip.tuningSystem === 'free') return clip.frequency ?? 440
+  return noteToFrequency(clip.noteIndex ?? 9, clip.octave ?? 4)
+}
+
 export function makeDefaultTrack() {
   return {
     id: DEFAULT_TRACK_ID,
@@ -66,53 +77,20 @@ export function makeDefaultTrack() {
   }
 }
 
-// === Migrations / normalisation localStorage ===
+// === Chargement / reset du state ===
 
-function normalizeSound(s) {
-  const { duration: _legacyDuration, mode: _legacyMode, ...rest } = s
-  void _legacyDuration
-  const tuningSystem = s.tuningSystem
-    ?? (s.mode === 'free' ? 'free' : '12-TET')
-  return {
-    ...rest,
-    tuningSystem,
-    folderId: s.folderId ?? null,
-    attack: s.attack ?? DEFAULT_ADSR.attack,
-    decay: s.decay ?? DEFAULT_ADSR.decay,
-    sustain: s.sustain ?? DEFAULT_ADSR.sustain,
-    release: s.release ?? DEFAULT_ADSR.release,
-  }
-}
-
-function migrateClipId(id) {
-  if (typeof id !== 'string') return id
-  if (id.startsWith('clip-')) return id
-  if (id.startsWith('note-')) return `clip-${id.slice(5)}`
-  if (id.startsWith('placement-')) return `clip-${id.slice(10)}`
-  return id
-}
-
-function normalizeClip(raw) {
-  const isLegacy = raw.beat === undefined && raw.duration === undefined
-  const id = migrateClipId(raw.id)
-  if (isLegacy) {
-    return {
-      id,
-      trackId: raw.trackId ?? DEFAULT_TRACK_ID,
-      soundId: raw.soundId,
-      measure: (raw.measure ?? 0) + 1,
-      beat: 0,
-      duration: 1,
-    }
-  }
-  return {
-    id,
-    trackId: raw.trackId ?? DEFAULT_TRACK_ID,
-    soundId: raw.soundId,
-    measure: raw.measure,
-    beat: raw.beat ?? 0,
-    duration: raw.duration ?? 1,
-  }
+// Itération E : nouveau modèle (patches sans fréquence, clips porteurs de
+// la note). Si on détecte un ancien format au chargement, on ignore
+// complètement le state stocké et on repart d'un état initial vide. Pas de
+// migration — l'utilisateur a accepté ce reset.
+function isLegacyFormat(parsed) {
+  if (!parsed || typeof parsed !== 'object') return false
+  return (
+    'savedSounds' in parsed ||
+    'soundCounter' in parsed ||
+    'noteCounter' in parsed ||
+    'placementCounter' in parsed
+  )
 }
 
 export function loadPersistedState() {
@@ -120,10 +98,13 @@ export function loadPersistedState() {
     const raw = localStorage.getItem(STORAGE_KEY)
     if (!raw) return null
     const parsed = JSON.parse(raw)
+    if (isLegacyFormat(parsed)) {
+      console.warn('synth-app: ancien format localStorage détecté, reset du state')
+      return null
+    }
 
-    const savedSounds = (parsed.savedSounds ?? []).map(normalizeSound)
-    const rawClips = parsed.clips ?? parsed.notes ?? parsed.placements ?? []
-    const clips = rawClips.map(normalizeClip)
+    const patches = Array.isArray(parsed.patches) ? parsed.patches : []
+    const clips = Array.isArray(parsed.clips) ? parsed.clips : []
     const tracks = (Array.isArray(parsed.tracks) && parsed.tracks.length > 0
       ? parsed.tracks
       : [makeDefaultTrack()]
@@ -141,15 +122,14 @@ export function loadPersistedState() {
     )
 
     return {
-      savedSounds,
+      patches,
       soundFolders,
       tracks,
       clips,
       numMeasures,
       bpm: parsed.bpm ?? DEFAULT_BPM,
-      soundCounter: parsed.soundCounter ?? 0,
-      clipCounter:
-        parsed.clipCounter ?? parsed.noteCounter ?? parsed.placementCounter ?? 0,
+      patchCounter: parsed.patchCounter ?? 0,
+      clipCounter: parsed.clipCounter ?? 0,
       folderCounter: parsed.folderCounter ?? 0,
       trackCounter: parsed.trackCounter ?? Math.max(0, ...tracks.map(t => {
         const m = t.id.match(/^track-(\d+)$/)
@@ -174,31 +154,28 @@ export function buildInitialState() {
     tracks: persisted?.tracks ?? [makeDefaultTrack()],
 
     // Designer (champ undoable)
-    savedSounds: persisted?.savedSounds ?? [],
+    patches: persisted?.patches ?? [],
     soundFolders: persisted?.soundFolders ?? [],
     editor: { ...DEFAULT_EDITOR, points: [...DEFAULT_EDITOR.points] },
 
     // Compteurs (state mais hors historique : on ne fait pas reculer un compteur
     // sur undo, sinon on risque de réutiliser un id supprimé puis recréé)
-    soundCounter: persisted?.soundCounter ?? 0,
+    patchCounter: persisted?.patchCounter ?? 0,
     clipCounter: persisted?.clipCounter ?? 0,
     folderCounter: persisted?.folderCounter ?? 0,
     trackCounter: persisted?.trackCounter ?? 0,
 
-    // Clipboard (RAM uniquement, non persisté, non undoable)
-    clipboard: null, // { clips: [{ soundId, trackId, beatOffset, duration }] }
-    measureClipboard: null, // { measures, clips: [{ soundId, trackId, beatOffset, duration }] }
+    clipboard: null,
+    measureClipboard: null,
 
-    // UI (jamais undoable)
     zoomH: DEFAULT_ZOOM_H,
     activeTab: persisted?.activeTab ?? 'designer',
     selectedClipIds: [],
-    currentSoundId: null,
+    currentPatchId: null,
     spectrogramVisible: persisted?.spectrogramVisible ?? true,
     defaultClipDuration: DEFAULT_CLIP_DURATION,
     composerFlash: null,
 
-    // Historique undo/redo (RAM uniquement, jamais persisté)
     history: {
       designer: { past: [], future: [] },
       composer: { past: [], future: [] },
@@ -209,36 +186,32 @@ export function buildInitialState() {
 
 // === Helpers ===
 
-function pointsSimilar(a, b) {
-  if (!a || !b || a.length !== b.length) return false
-  let sum = 0
-  for (let i = 0; i < a.length; i++) sum += Math.abs(a[i] - b[i])
-  return sum / a.length < POINTS_SIMILARITY_THRESHOLD
-}
-
-export function sameWaveform(existing, incoming) {
-  if (existing.preset && incoming.preset) return existing.preset === incoming.preset
-  if (!existing.preset && !incoming.preset) return pointsSimilar(existing.points, incoming.points)
-  return false
-}
-
-export function soundFromEditor(editor, baseName) {
-  const isFree = editor.tuningSystem === 'free'
+// Construit les champs de note à injecter dans un nouveau clip à partir de
+// l'état courant de l'éditeur (source de vérité en E.1 pour le drop par
+// défaut). 12-TET → noteIndex/octave explicites, Libre → frequency explicite.
+export function editorTestNoteFields(editor) {
+  const tuningSystem = editor.testTuningSystem
+  if (tuningSystem === 'free') {
+    return { tuningSystem, noteIndex: null, octave: null, frequency: editor.testFrequency }
+  }
   return {
-    name: baseName,
-    tuningSystem: editor.tuningSystem,
-    noteIndex: isFree ? null : editor.noteIndex,
-    octave: isFree ? null : editor.octave,
-    preset: editor.preset,
-    points: Array.from(editor.points),
-    frequency: isFree
-      ? editor.freeFrequency
-      : noteToFrequency(editor.noteIndex, editor.octave),
-    amplitude: editor.amplitude,
-    attack: editor.attack,
-    decay: editor.decay,
-    sustain: editor.sustain,
-    release: editor.release,
+    tuningSystem,
+    noteIndex: editor.testNoteIndex,
+    octave: editor.testOctave,
+    frequency: null,
+  }
+}
+
+// Copie les champs de note d'un clip source vers un clip cible (helpers pour
+// les opérations qui recréent des clips : split, merge, paste, insert/delete
+// measure, cut measure, etc.). Le modèle exige que tous les clips portent
+// tuningSystem + noteIndex/octave OU tuningSystem + frequency.
+export function cloneClipNote(src) {
+  return {
+    tuningSystem: src.tuningSystem,
+    noteIndex: src.noteIndex ?? null,
+    octave: src.octave ?? null,
+    frequency: src.frequency ?? null,
   }
 }
 
@@ -257,11 +230,11 @@ export function getDescendantFolderIds(folderId, folders) {
   return result
 }
 
-export function countFolderContents(folderId, folders, sounds) {
+export function countFolderContents(folderId, folders, patches) {
   const descendantIds = getDescendantFolderIds(folderId, folders)
   const allFolderIds = new Set([folderId, ...descendantIds])
-  const containedSounds = sounds.filter((s) => allFolderIds.has(s.folderId))
-  return { soundCount: containedSounds.length, folderCount: descendantIds.length, soundIds: containedSounds.map((s) => s.id) }
+  const containedPatches = patches.filter((p) => allFolderIds.has(p.folderId))
+  return { patchCount: containedPatches.length, folderCount: descendantIds.length, patchIds: containedPatches.map((p) => p.id) }
 }
 
 export function canSplitClip(clip, divisor) {
@@ -297,7 +270,10 @@ export function reducer(state, action) {
   switch (action.type) {
     // ----- Composer (undoable) -----
     case 'ADD_CLIP': {
-      const { soundId, measure, beat, duration, trackId = DEFAULT_TRACK_ID } = action.payload
+      const {
+        patchId, measure, beat, duration, trackId = DEFAULT_TRACK_ID,
+        tuningSystem, noteIndex, octave, frequency,
+      } = action.payload
       const finalDuration = duration ?? state.defaultClipDuration
       const newCounter = state.clipCounter + 1
       return {
@@ -305,7 +281,18 @@ export function reducer(state, action) {
         clipCounter: newCounter,
         clips: [
           ...state.clips,
-          { id: `clip-${newCounter}`, trackId, soundId, measure, beat, duration: finalDuration },
+          {
+            id: `clip-${newCounter}`,
+            trackId,
+            patchId,
+            measure,
+            beat,
+            duration: finalDuration,
+            tuningSystem,
+            noteIndex: noteIndex ?? null,
+            octave: octave ?? null,
+            frequency: frequency ?? null,
+          },
         ],
       }
     }
@@ -325,7 +312,6 @@ export function reducer(state, action) {
       }
     }
     case 'MOVE_CLIPS': {
-      // payload: [{ id, measure, beat }] — déplacement groupé, un snapshot unique.
       const moves = new Map(action.payload.map((m) => [m.id, m]))
       if (moves.size === 0) return state
       return {
@@ -333,14 +319,13 @@ export function reducer(state, action) {
         clips: state.clips.map((c) => {
           const m = moves.get(c.id)
           if (!m) return c
-      const updated = { ...c, measure: m.measure, beat: m.beat }
-      if (m.trackId) updated.trackId = m.trackId
-      return updated
+          const updated = { ...c, measure: m.measure, beat: m.beat }
+          if (m.trackId) updated.trackId = m.trackId
+          return updated
         }),
       }
     }
     case 'RESIZE_CLIPS': {
-      // payload: [{ id, measure, beat, duration }] — resize groupé.
       const updates = new Map(action.payload.map((m) => [m.id, m]))
       if (updates.size === 0) return state
       return {
@@ -353,19 +338,17 @@ export function reducer(state, action) {
         }),
       }
     }
-    case 'UPDATE_CLIPS_SOUND': {
-      // payload: { clipIds, soundId } — uniformise soundId pour plusieurs clips.
-      const { clipIds, soundId } = action.payload
+    case 'UPDATE_CLIPS_PATCH': {
+      // payload: { clipIds, patchId } — uniformise patchId pour plusieurs clips.
+      const { clipIds, patchId } = action.payload
       const ids = new Set(clipIds)
       if (ids.size === 0) return state
       return {
         ...state,
-        clips: state.clips.map((c) => (ids.has(c.id) ? { ...c, soundId } : c)),
+        clips: state.clips.map((c) => (ids.has(c.id) ? { ...c, patchId } : c)),
       }
     }
     case 'UPDATE_CLIPS_DURATION': {
-      // payload: [{ id, duration }] — durées éventuellement distinctes après
-      // clamping par bornes individuelles (calculé côté App/Panel).
       const updates = new Map(action.payload.map((u) => [u.id, u.duration]))
       if (updates.size === 0) return state
       return {
@@ -376,19 +359,22 @@ export function reducer(state, action) {
       }
     }
     case 'DUPLICATE_CLIPS': {
-      // payload: [{ trackId, soundId, measure, beat, duration }] — sans id.
-      // Le reducer attribue les ids à partir de clipCounter+1 et sélectionne
-      // les copies (les originaux sont désélectionnés).
+      // payload: [{ trackId, patchId, measure, beat, duration,
+      //             tuningSystem, noteIndex, octave, frequency }]
       const datas = action.payload
       if (!datas || datas.length === 0) return state
       const base = state.clipCounter
       const newClips = datas.map((d, i) => ({
         id: `clip-${base + i + 1}`,
         trackId: d.trackId,
-        soundId: d.soundId,
+        patchId: d.patchId,
         measure: d.measure,
         beat: d.beat,
         duration: d.duration,
+        tuningSystem: d.tuningSystem,
+        noteIndex: d.noteIndex ?? null,
+        octave: d.octave ?? null,
+        frequency: d.frequency ?? null,
       }))
       return {
         ...state,
@@ -398,9 +384,6 @@ export function reducer(state, action) {
       }
     }
     case 'SPLIT_CLIPS': {
-      // payload: { clipIds: string[], divisor: 2 | 3 }
-      // Seuls les clips satisfaisant canSplitClip sont divisés ; les autres
-      // restent intacts et sont conservés dans la sélection.
       const { clipIds, divisor } = action.payload
       const idSet = new Set(clipIds)
       const toSplit = state.clips.filter((c) => idSet.has(c.id) && canSplitClip(c, divisor))
@@ -421,11 +404,12 @@ export function reducer(state, action) {
           const beat = beatPos - (measure - 1) * BEATS_PER_MEASURE
           newClips.push({
             id: `clip-${counter}`,
-            soundId: clip.soundId,
+            patchId: clip.patchId,
             trackId: clip.trackId,
             measure,
             beat,
             duration: partDuration,
+            ...cloneClipNote(clip),
           })
           newSelectedIds.push(`clip-${counter}`)
         }
@@ -438,8 +422,6 @@ export function reducer(state, action) {
       }
     }
     case 'MERGE_CLIPS': {
-      // payload: { selectedIds: string[] }
-      // Pré-condition : canMergeClips a déjà été vérifié par le caller.
       const { selectedIds } = action.payload
       if (!selectedIds || selectedIds.length < 2) return state
       const idSet = new Set(selectedIds)
@@ -461,30 +443,35 @@ export function reducer(state, action) {
           ...state.clips.filter((c) => !idSet.has(c.id)),
           {
             id: newId,
-            soundId: first.soundId,
+            patchId: first.patchId,
             trackId: first.trackId,
             measure: first.measure,
             beat: first.beat,
             duration: totalDuration,
+            ...cloneClipNote(first),
           },
         ],
         selectedClipIds: [newId],
       }
     }
     case 'PASTE_CLIPS': {
-      // payload: { clipDatas: [{ trackId, soundId, measure, beat, duration }],
+      // payload: { clipDatas: [{ trackId, patchId, measure, beat, duration,
+      //            tuningSystem, noteIndex, octave, frequency }],
       //            extraMeasures: number }
-      // Atomique : crée les clips + étend numMeasures si nécessaire.
       const { clipDatas, extraMeasures = 0 } = action.payload
       if (!clipDatas || clipDatas.length === 0) return state
       const base = state.clipCounter
       const newClips = clipDatas.map((d, i) => ({
         id: `clip-${base + i + 1}`,
         trackId: d.trackId,
-        soundId: d.soundId,
+        patchId: d.patchId,
         measure: d.measure,
         beat: d.beat,
         duration: d.duration,
+        tuningSystem: d.tuningSystem,
+        noteIndex: d.noteIndex ?? null,
+        octave: d.octave ?? null,
+        frequency: d.frequency ?? null,
       }))
       return {
         ...state,
@@ -516,7 +503,6 @@ export function reducer(state, action) {
       return { ...state, numMeasures: state.numMeasures + count }
     }
     case 'REMOVE_LAST_MEASURE': {
-      // payload: { toDeleteIds: string[], toTruncate: [{id, newDuration}] }
       const { toDeleteIds = [], toTruncate = [] } = action.payload ?? {}
       const deleteSet = new Set(toDeleteIds)
       const truncateMap = new Map(toTruncate.map((t) => [t.id, t.newDuration]))
@@ -530,7 +516,6 @@ export function reducer(state, action) {
       }
     }
     case 'DELETE_MEASURE': {
-      // payload pre-computed by App handler
       const { measure, deletedIds, truncated, splitParts } = action.payload
       const mEnd = measure * BEATS_PER_MEASURE
       const shift = -BEATS_PER_MEASURE
@@ -543,11 +528,15 @@ export function reducer(state, action) {
         counter++
         newClips.push({
           id: `clip-${counter}`,
-          soundId: part.soundId,
+          patchId: part.patchId,
           trackId: part.trackId,
           measure: part.measure,
           beat: part.beat,
           duration: part.duration,
+          tuningSystem: part.tuningSystem,
+          noteIndex: part.noteIndex ?? null,
+          octave: part.octave ?? null,
+          frequency: part.frequency ?? null,
         })
       }
       const kept = state.clips
@@ -571,7 +560,6 @@ export function reducer(state, action) {
       }
     }
     case 'INSERT_MEASURES_AT': {
-      // payload: { beatPosition, count, splitParts }
       const { beatPosition, count, splitParts } = action.payload
       const shiftAmount = count * BEATS_PER_MEASURE
       let counter = state.clipCounter
@@ -581,11 +569,15 @@ export function reducer(state, action) {
         counter++
         newClips.push({
           id: `clip-${counter}`,
-          soundId: part.soundId,
+          patchId: part.patchId,
           trackId: part.trackId,
           measure: part.measure,
           beat: part.beat,
           duration: part.duration,
+          tuningSystem: part.tuningSystem,
+          noteIndex: part.noteIndex ?? null,
+          octave: part.octave ?? null,
+          frequency: part.frequency ?? null,
         })
       }
       const shifted = state.clips
@@ -623,11 +615,15 @@ export function reducer(state, action) {
         counter++
         newClips.push({
           id: `clip-${counter}`,
-          soundId: part.soundId,
+          patchId: part.patchId,
           trackId: part.trackId,
           measure: part.measure,
           beat: part.beat,
           duration: part.duration,
+          tuningSystem: part.tuningSystem,
+          noteIndex: part.noteIndex ?? null,
+          octave: part.octave ?? null,
+          frequency: part.frequency ?? null,
         })
       }
       const kept = state.clips
@@ -661,22 +657,30 @@ export function reducer(state, action) {
         counter++
         newClips.push({
           id: `clip-${counter}`,
-          soundId: part.soundId,
+          patchId: part.patchId,
           trackId: part.trackId,
           measure: part.measure,
           beat: part.beat,
           duration: part.duration,
+          tuningSystem: part.tuningSystem,
+          noteIndex: part.noteIndex ?? null,
+          octave: part.octave ?? null,
+          frequency: part.frequency ?? null,
         })
       }
       for (const pc of pastedClips) {
         counter++
         newClips.push({
           id: `clip-${counter}`,
-          soundId: pc.soundId,
+          patchId: pc.patchId,
           trackId: pc.trackId,
           measure: pc.measure,
           beat: pc.beat,
           duration: pc.duration,
+          tuningSystem: pc.tuningSystem,
+          noteIndex: pc.noteIndex ?? null,
+          octave: pc.octave ?? null,
+          frequency: pc.frequency ?? null,
         })
       }
       const shifted = state.clips
@@ -734,7 +738,6 @@ export function reducer(state, action) {
       }
     }
     case 'REORDER_TRACKS': {
-      // payload: [trackId1, trackId2, ...] — nouvel ordre complet
       const newOrder = action.payload
       if (!Array.isArray(newOrder) || newOrder.length !== state.tracks.length) return state
       const trackMap = new Map(state.tracks.map(t => [t.id, t]))
@@ -765,85 +768,67 @@ export function reducer(state, action) {
     }
 
     // ----- Designer (undoable) -----
-    case 'SAVE_SOUND': {
-      // payload: { soundData (sans id/color), allowDuplicate }
-      const { soundData, allowDuplicate } = action.payload
-      if (!allowDuplicate && soundData.tuningSystem === '12-TET') {
-        const dup = state.savedSounds.some(
-          (s) =>
-            s.tuningSystem === '12-TET' &&
-            s.noteIndex === soundData.noteIndex &&
-            s.octave === soundData.octave &&
-            sameWaveform(s, soundData),
-        )
-        if (dup) return state // pas de modif, le caller gère le flash via la fonction wrapper
-      }
-      const newCounter = state.soundCounter + 1
-      const id = `sound-${newCounter}`
+    case 'SAVE_PATCH': {
+      // payload: { patchData (sans id/color) }
+      const { patchData } = action.payload
+      const newCounter = state.patchCounter + 1
+      const id = `patch-${newCounter}`
       const colorIndex = (newCounter - 1) % SOUND_COLORS.length
       return {
         ...state,
-        soundCounter: newCounter,
-        savedSounds: [
-          ...state.savedSounds,
+        patchCounter: newCounter,
+        patches: [
+          ...state.patches,
           {
             id,
-            name: soundData.name,
+            name: patchData.name,
             color: SOUND_COLORS[colorIndex],
-            points: Array.from(soundData.points),
-            frequency: soundData.frequency,
-            amplitude: soundData.amplitude,
-            tuningSystem: soundData.tuningSystem,
-            noteIndex: soundData.noteIndex,
-            octave: soundData.octave,
-            preset: soundData.preset,
-            attack: soundData.attack ?? DEFAULT_ADSR.attack,
-            decay: soundData.decay ?? DEFAULT_ADSR.decay,
-            sustain: soundData.sustain ?? DEFAULT_ADSR.sustain,
-            release: soundData.release ?? DEFAULT_ADSR.release,
+            points: Array.from(patchData.points),
+            amplitude: patchData.amplitude,
+            preset: patchData.preset,
+            attack: patchData.attack ?? DEFAULT_ADSR.attack,
+            decay: patchData.decay ?? DEFAULT_ADSR.decay,
+            sustain: patchData.sustain ?? DEFAULT_ADSR.sustain,
+            release: patchData.release ?? DEFAULT_ADSR.release,
             folderId: null,
           },
         ],
-        currentSoundId: id,
+        currentPatchId: id,
       }
     }
-    case 'UPDATE_SOUND': {
-      const { soundId, soundData } = action.payload
+    case 'UPDATE_PATCH': {
+      const { patchId, patchData } = action.payload
       return {
         ...state,
-        savedSounds: state.savedSounds.map((s) =>
-          s.id === soundId
+        patches: state.patches.map((p) =>
+          p.id === patchId
             ? {
-                ...s,
-                points: Array.from(soundData.points),
-                frequency: soundData.frequency,
-                amplitude: soundData.amplitude,
-                tuningSystem: soundData.tuningSystem,
-                noteIndex: soundData.noteIndex,
-                octave: soundData.octave,
-                preset: soundData.preset,
-                attack: soundData.attack,
-                decay: soundData.decay,
-                sustain: soundData.sustain,
-                release: soundData.release,
+                ...p,
+                points: Array.from(patchData.points),
+                amplitude: patchData.amplitude,
+                preset: patchData.preset,
+                attack: patchData.attack,
+                decay: patchData.decay,
+                sustain: patchData.sustain,
+                release: patchData.release,
               }
-            : s,
+            : p,
         ),
       }
     }
-    case 'DELETE_SOUND': {
-      const { soundId } = action.payload
+    case 'DELETE_PATCH': {
+      const { patchId } = action.payload
       return {
         ...state,
-        savedSounds: state.savedSounds.filter((s) => s.id !== soundId),
-        currentSoundId: state.currentSoundId === soundId ? null : state.currentSoundId,
+        patches: state.patches.filter((p) => p.id !== patchId),
+        currentPatchId: state.currentPatchId === patchId ? null : state.currentPatchId,
       }
     }
-    case 'RENAME_SOUND': {
-      const { soundId, name } = action.payload
+    case 'RENAME_PATCH': {
+      const { patchId, name } = action.payload
       return {
         ...state,
-        savedSounds: state.savedSounds.map((s) => (s.id === soundId ? { ...s, name } : s)),
+        patches: state.patches.map((p) => (p.id === patchId ? { ...p, name } : p)),
       }
     }
     case 'CREATE_FOLDER': {
@@ -871,22 +856,22 @@ export function reducer(state, action) {
       const { folderId } = action.payload
       const descendantIds = getDescendantFolderIds(folderId, state.soundFolders)
       const allFolderIds = new Set([folderId, ...descendantIds])
-      const deletedSoundIds = new Set(
-        state.savedSounds.filter((s) => allFolderIds.has(s.folderId)).map((s) => s.id),
+      const deletedPatchIds = new Set(
+        state.patches.filter((p) => allFolderIds.has(p.folderId)).map((p) => p.id),
       )
       return {
         ...state,
         soundFolders: state.soundFolders.filter((f) => !allFolderIds.has(f.id)),
-        savedSounds: state.savedSounds.filter((s) => !deletedSoundIds.has(s.id)),
-        currentSoundId: deletedSoundIds.has(state.currentSoundId) ? null : state.currentSoundId,
+        patches: state.patches.filter((p) => !deletedPatchIds.has(p.id)),
+        currentPatchId: deletedPatchIds.has(state.currentPatchId) ? null : state.currentPatchId,
       }
     }
-    case 'MOVE_SOUND_TO_FOLDER': {
-      const { soundId, folderId } = action.payload
+    case 'MOVE_PATCH_TO_FOLDER': {
+      const { patchId, folderId } = action.payload
       return {
         ...state,
-        savedSounds: state.savedSounds.map((s) =>
-          s.id === soundId ? { ...s, folderId } : s,
+        patches: state.patches.map((p) =>
+          p.id === patchId ? { ...p, folderId } : p,
         ),
       }
     }
@@ -904,40 +889,37 @@ export function reducer(state, action) {
       }
     }
     case 'SET_EDITOR_POINTS': {
-      // Le dessin/clear casse le mapping vers un preset.
       return { ...state, editor: { ...state.editor, points: action.payload, preset: null } }
     }
-    case 'SET_EDITOR_NOTE': {
-      return { ...state, editor: { ...state.editor, noteIndex: action.payload } }
+    case 'SET_EDITOR_TEST_NOTE': {
+      return { ...state, editor: { ...state.editor, testNoteIndex: action.payload } }
     }
-    case 'SET_EDITOR_OCTAVE': {
-      return { ...state, editor: { ...state.editor, octave: action.payload } }
+    case 'SET_EDITOR_TEST_OCTAVE': {
+      return { ...state, editor: { ...state.editor, testOctave: action.payload } }
     }
-    case 'SET_EDITOR_TUNING_SYSTEM': {
+    case 'SET_EDITOR_TEST_TUNING_SYSTEM': {
       const next = action.payload
-      if (state.editor.tuningSystem === next) return state
+      if (state.editor.testTuningSystem === next) return state
       if (next === 'free') {
-        // 12-TET → Libre : on conserve la fréquence courante en la transférant
-        // dans freeFrequency (arrondie à 0.1 Hz pour cohérence avec l'input).
-        const curFreq = noteToFrequency(state.editor.noteIndex, state.editor.octave)
+        // 12-TET → Libre : on conserve la fréquence courante.
+        const curFreq = noteToFrequency(state.editor.testNoteIndex, state.editor.testOctave)
         return {
           ...state,
           editor: {
             ...state.editor,
-            tuningSystem: 'free',
-            freeFrequency: Math.round(curFreq * 10) / 10,
+            testTuningSystem: 'free',
+            testFrequency: Math.round(curFreq * 10) / 10,
           },
         }
       }
-      // Libre → 12-TET : snap à la note la plus proche.
-      const { noteIndex, octave } = frequencyToNearestNote(state.editor.freeFrequency)
+      const { noteIndex, octave } = frequencyToNearestNote(state.editor.testFrequency)
       return {
         ...state,
-        editor: { ...state.editor, tuningSystem: '12-TET', noteIndex, octave },
+        editor: { ...state.editor, testTuningSystem: '12-TET', testNoteIndex: noteIndex, testOctave: octave },
       }
     }
-    case 'SET_EDITOR_FREQUENCY': {
-      return { ...state, editor: { ...state.editor, freeFrequency: action.payload } }
+    case 'SET_EDITOR_TEST_FREQUENCY': {
+      return { ...state, editor: { ...state.editor, testFrequency: action.payload } }
     }
     case 'SET_EDITOR_AMPLITUDE': {
       return { ...state, editor: { ...state.editor, amplitude: action.payload } }
@@ -953,33 +935,30 @@ export function reducer(state, action) {
       return {
         ...state,
         editor: { ...DEFAULT_EDITOR, points: [...DEFAULT_EDITOR.points] },
-        currentSoundId: null,
+        currentPatchId: null,
       }
     }
-    case 'HYDRATE_EDITOR_FROM_SOUND': {
-      // Non-undoable : utilisé quand on charge un son dans l'éditeur.
-      const sound = action.payload
-      if (!sound) {
+    case 'HYDRATE_EDITOR_FROM_PATCH': {
+      // Non-undoable : utilisé quand on charge un patch dans l'éditeur. Ne
+      // touche PAS aux champs test* (contexte de test de l'utilisateur).
+      const patch = action.payload
+      if (!patch) {
         return {
           ...state,
           editor: { ...DEFAULT_EDITOR, points: [...DEFAULT_EDITOR.points] },
         }
       }
-      const isFree = sound.tuningSystem === 'free'
       return {
         ...state,
         editor: {
-          points: Array.from(sound.points),
-          tuningSystem: sound.tuningSystem ?? '12-TET',
-          noteIndex: sound.noteIndex ?? DEFAULT_EDITOR.noteIndex,
-          octave: sound.octave ?? DEFAULT_EDITOR.octave,
-          freeFrequency: isFree ? sound.frequency : DEFAULT_EDITOR.freeFrequency,
-          amplitude: sound.amplitude,
-          preset: sound.preset,
-          attack: sound.attack,
-          decay: sound.decay,
-          sustain: sound.sustain,
-          release: sound.release,
+          ...state.editor,
+          points: Array.from(patch.points),
+          amplitude: patch.amplitude,
+          preset: patch.preset,
+          attack: patch.attack,
+          decay: patch.decay,
+          sustain: patch.sustain,
+          release: patch.release,
         },
       }
     }
@@ -998,8 +977,8 @@ export function reducer(state, action) {
     case 'SELECT_CLIPS': {
       return { ...state, selectedClipIds: action.payload }
     }
-    case 'SET_CURRENT_SOUND_ID': {
-      return { ...state, currentSoundId: action.payload }
+    case 'SET_CURRENT_PATCH_ID': {
+      return { ...state, currentPatchId: action.payload }
     }
     case 'SET_SPECTROGRAM_VISIBLE': {
       return { ...state, spectrogramVisible: !!action.payload }
@@ -1026,28 +1005,23 @@ const HISTORY_DEPTH = 50
 const COMPOSER_UNDOABLE = new Set([
   'ADD_CLIP', 'REMOVE_CLIP', 'UPDATE_CLIP', 'MOVE_CLIPS', 'RESIZE_CLIPS',
   'DUPLICATE_CLIPS', 'PASTE_CLIPS', 'SPLIT_CLIPS', 'MERGE_CLIPS', 'DELETE_SELECTED_CLIPS',
-  'UPDATE_CLIPS_SOUND', 'UPDATE_CLIPS_DURATION',
+  'UPDATE_CLIPS_PATCH', 'UPDATE_CLIPS_DURATION',
   'CLEAR_TIMELINE', 'SET_BPM', 'ADD_MEASURES', 'REMOVE_LAST_MEASURE',
   'DELETE_MEASURE', 'INSERT_MEASURES_AT', 'CUT_MEASURE', 'PASTE_MEASURES',
   'CREATE_TRACK', 'RENAME_TRACK', 'DELETE_TRACK', 'REORDER_TRACKS', 'UPDATE_TRACK',
 ])
 
 const DESIGNER_UNDOABLE = new Set([
-  'SAVE_SOUND', 'UPDATE_SOUND', 'DELETE_SOUND', 'RENAME_SOUND',
+  'SAVE_PATCH', 'UPDATE_PATCH', 'DELETE_PATCH', 'RENAME_PATCH',
   'CREATE_FOLDER', 'RENAME_FOLDER', 'DELETE_FOLDER',
-  'MOVE_SOUND_TO_FOLDER', 'MOVE_FOLDER',
-  'SET_EDITOR_POINTS', 'SET_EDITOR_NOTE', 'SET_EDITOR_OCTAVE',
-  'SET_EDITOR_TUNING_SYSTEM', 'SET_EDITOR_FREQUENCY', 'SET_EDITOR_AMPLITUDE',
+  'MOVE_PATCH_TO_FOLDER', 'MOVE_FOLDER',
+  'SET_EDITOR_POINTS', 'SET_EDITOR_TEST_NOTE', 'SET_EDITOR_TEST_OCTAVE',
+  'SET_EDITOR_TEST_TUNING_SYSTEM', 'SET_EDITOR_TEST_FREQUENCY', 'SET_EDITOR_AMPLITUDE',
   'SET_EDITOR_ADSR', 'APPLY_EDITOR_PRESET', 'RESET_EDITOR',
 ])
 
-// Champs snapshot par pile. `tracks` inclus pour les opérations de piste
-// (CREATE/DELETE/RENAME_TRACK). Conséquence : un undo peut aussi revert
-// la hauteur de piste (SET_TRACK_HEIGHT), mais c'est un compromis acceptable.
-// selectedClipIds inclus pour que undo/redo restaure la sélection pré-action
-// (ex : après undo de DUPLICATE_CLIPS, les originaux redeviennent sélectionnés).
 const COMPOSER_FIELDS = ['clips', 'numMeasures', 'bpm', 'selectedClipIds', 'tracks']
-const DESIGNER_FIELDS = ['savedSounds', 'soundFolders', 'editor']
+const DESIGNER_FIELDS = ['patches', 'soundFolders', 'editor']
 
 function pickFields(state, fields) {
   const out = {}
@@ -1055,52 +1029,50 @@ function pickFields(state, fields) {
   return out
 }
 
-// Vérifie qu'aucun clip ne référencerait un son disparu après restauration.
-// Retourne null si OK, ou { clipCount, soundIds } si conflit.
-function findOrphanReferences(restoredSavedSounds, currentClips) {
-  const ids = new Set(restoredSavedSounds.map((s) => s.id))
-  const orphans = currentClips.filter((c) => !ids.has(c.soundId))
+// Vérifie qu'aucun clip ne référencerait un patch disparu après restauration.
+function findOrphanReferences(restoredPatches, currentClips) {
+  const ids = new Set(restoredPatches.map((p) => p.id))
+  const orphans = currentClips.filter((c) => !ids.has(c.patchId))
   if (orphans.length === 0) return null
-  const orphanSoundIds = [...new Set(orphans.map((c) => c.soundId))]
-  return { clipCount: orphans.length, soundIds: orphanSoundIds }
+  const orphanPatchIds = [...new Set(orphans.map((c) => c.patchId))]
+  return { clipCount: orphans.length, patchIds: orphanPatchIds }
 }
 
-// Vérifie que les clips d'un snapshot Composer ne référencent pas des sons
-// absents du state Designer actuel. Retourne null si OK, ou
-// { type: 'missing-sounds', soundIds, clipCount } si conflit.
-function checkClipReferences(composerSnapshot, currentSavedSounds) {
-  const currentSoundIds = new Set(currentSavedSounds.map((s) => s.id))
+// Vérifie que les clips d'un snapshot Composer ne référencent pas des patches
+// absents du state Designer actuel.
+function checkClipReferences(composerSnapshot, currentPatches) {
+  const currentIds = new Set(currentPatches.map((p) => p.id))
   const orphanClips = composerSnapshot.clips.filter(
-    (c) => !currentSoundIds.has(c.soundId),
+    (c) => !currentIds.has(c.patchId),
   )
   if (orphanClips.length === 0) return null
-  const missingSoundIds = [...new Set(orphanClips.map((c) => c.soundId))]
-  return { type: 'missing-sounds', soundIds: missingSoundIds, clipCount: orphanClips.length }
+  const missingPatchIds = [...new Set(orphanClips.map((c) => c.patchId))]
+  return { type: 'missing-patches', patchIds: missingPatchIds, clipCount: orphanClips.length }
 }
 
 function makeOrphanNotification(orphans) {
   const n = orphans.clipCount
   const plural = n > 1 ? 's' : ''
   return {
-    message: `Action impossible : ce son est utilisé par ${n} clip${plural}. Supprimez-${n > 1 ? 'les' : 'le'} d'abord depuis l'onglet Composition.`,
+    message: `Action impossible : ce patch est utilisé par ${n} clip${plural}. Supprimez-${n > 1 ? 'les' : 'le'} d'abord depuis l'onglet Composition.`,
     type: 'error',
     timestamp: Date.now(),
   }
 }
 
-function makeMissingSoundNotification(conflict, savedSounds) {
-  const count = conflict.soundIds.length
+function makeMissingPatchNotification(conflict, patches) {
+  const count = conflict.patchIds.length
   if (count === 1) {
-    const sound = savedSounds.find((s) => s.id === conflict.soundIds[0])
-    const name = sound ? sound.name : conflict.soundIds[0]
+    const patch = patches.find((p) => p.id === conflict.patchIds[0])
+    const name = patch ? patch.name : conflict.patchIds[0]
     return {
-      message: `Impossible : le son "${name}" a été supprimé. Restaurez-le d'abord depuis l'onglet Designer.`,
+      message: `Impossible : le patch "${name}" a été supprimé. Restaurez-le d'abord depuis l'onglet Designer.`,
       type: 'error',
       timestamp: Date.now(),
     }
   }
   return {
-    message: `Impossible : ${count} son(s) ont été supprimés. Restaurez-les d'abord depuis l'onglet Designer.`,
+    message: `Impossible : ${count} patch(es) ont été supprimés. Restaurez-les d'abord depuis l'onglet Designer.`,
     type: 'error',
     timestamp: Date.now(),
   }
@@ -1108,17 +1080,16 @@ function makeMissingSoundNotification(conflict, savedSounds) {
 
 export function withUndo(baseReducer) {
   return function wrapped(state, action) {
-    // --- Méta ----
     if (action.type === 'UNDO_COMPOSER') {
       const { past, future } = state.history.composer
       if (past.length === 0) return state
       const previous = past[past.length - 1]
-      const conflict = checkClipReferences(previous, state.savedSounds)
+      const conflict = checkClipReferences(previous, state.patches)
       if (conflict) {
         return {
           ...state,
           activeTab: 'designer',
-          notification: makeMissingSoundNotification(conflict, state.savedSounds),
+          notification: makeMissingPatchNotification(conflict, state.patches),
         }
       }
       const current = pickFields(state, COMPOSER_FIELDS)
@@ -1135,12 +1106,12 @@ export function withUndo(baseReducer) {
       const { past, future } = state.history.composer
       if (future.length === 0) return state
       const next = future[0]
-      const conflict = checkClipReferences(next, state.savedSounds)
+      const conflict = checkClipReferences(next, state.patches)
       if (conflict) {
         return {
           ...state,
           activeTab: 'designer',
-          notification: makeMissingSoundNotification(conflict, state.savedSounds),
+          notification: makeMissingPatchNotification(conflict, state.patches),
         }
       }
       const current = pickFields(state, COMPOSER_FIELDS)
@@ -1157,10 +1128,10 @@ export function withUndo(baseReducer) {
       const { past, future } = state.history.designer
       if (past.length === 0) return state
       const previous = past[past.length - 1]
-      const conflict = findOrphanReferences(previous.savedSounds, state.clips)
+      const conflict = findOrphanReferences(previous.patches, state.clips)
       if (conflict) {
         const orphanClipIds = state.clips
-          .filter((c) => conflict.soundIds.includes(c.soundId))
+          .filter((c) => conflict.patchIds.includes(c.patchId))
           .map((c) => c.id)
         return {
           ...state,
@@ -1183,10 +1154,10 @@ export function withUndo(baseReducer) {
       const { past, future } = state.history.designer
       if (future.length === 0) return state
       const next = future[0]
-      const conflict = findOrphanReferences(next.savedSounds, state.clips)
+      const conflict = findOrphanReferences(next.patches, state.clips)
       if (conflict) {
         const orphanClipIds = state.clips
-          .filter((c) => conflict.soundIds.includes(c.soundId))
+          .filter((c) => conflict.patchIds.includes(c.patchId))
           .map((c) => c.id)
         return {
           ...state,
@@ -1206,9 +1177,8 @@ export function withUndo(baseReducer) {
       }
     }
 
-    // --- Action normale : on délègue, puis on snapshote si undoable ---
     const newState = baseReducer(state, action)
-    if (newState === state) return newState // pas de changement → pas de snapshot
+    if (newState === state) return newState
 
     const isComposer = COMPOSER_UNDOABLE.has(action.type)
     const isDesigner = DESIGNER_UNDOABLE.has(action.type)

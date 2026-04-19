@@ -1,6 +1,6 @@
 import { useState, useCallback, useRef } from 'react'
 import { getDescendantFolderIds } from '../reducer'
-import './SoundBank.css'
+import './PatchBank.css'
 
 function nextAvailableFolderName(base, existingFolders) {
   const taken = new Set(existingFolders.map((f) => f.name))
@@ -10,28 +10,26 @@ function nextAvailableFolderName(base, existingFolders) {
   return `${base} (${i})`
 }
 
-function SoundBank({
-  savedSounds,
+function PatchBank({
+  patches,
   soundFolders,
-  currentSoundId,
+  currentPatchId,
   activeTab,
-  onLoadSound,
-  onRenameSound,
-  onDeleteSound,
+  onLoadPatch,
+  onRenamePatch,
+  onDeletePatch,
   onCreateFolder,
   onRenameFolder,
   onDeleteFolder,
-  onMoveSoundToFolder,
+  onMovePatchToFolder,
   onMoveFolder,
 }) {
   const loadOnSingleClick = activeTab === 'designer'
   const [editingId, setEditingId] = useState(null)
   const [editingValue, setEditingValue] = useState('')
-  // All folders expanded by default; track which are collapsed
   const [collapsedFolders, setCollapsedFolders] = useState(new Set())
 
-  // Drag state
-  const [dragItem, setDragItem] = useState(null) // { type: 'sound'|'folder', id }
+  const [dragItem, setDragItem] = useState(null) // { type: 'patch'|'folder', id }
   const [dragOverTarget, setDragOverTarget] = useState(null) // folderId or 'root'
   const dragRef = useRef(null)
 
@@ -53,7 +51,7 @@ function SoundBank({
     const trimmed = editingValue.trim()
     if (trimmed) {
       if (isFolder) onRenameFolder(editingId, trimmed)
-      else onRenameSound(editingId, trimmed)
+      else onRenamePatch(editingId, trimmed)
     }
     setEditingId(null)
     setEditingValue('')
@@ -78,9 +76,9 @@ function SoundBank({
     e.stopPropagation()
     setDragItem({ type, id })
     dragRef.current = { type, id }
-    e.dataTransfer.effectAllowed = type === 'sound' ? 'copyMove' : 'move'
-    e.dataTransfer.setData('application/x-soundbank-drag', JSON.stringify({ type, id }))
-    if (type === 'sound') {
+    e.dataTransfer.effectAllowed = type === 'patch' ? 'copyMove' : 'move'
+    e.dataTransfer.setData('application/x-patchbank-drag', JSON.stringify({ type, id }))
+    if (type === 'patch') {
       e.dataTransfer.setData('text/plain', id)
     }
   }, [])
@@ -116,30 +114,30 @@ function SoundBank({
     e.stopPropagation()
     const data = dragRef.current
     if (!data) return
-    if (data.type === 'sound') {
-      onMoveSoundToFolder(data.id, folderId)
+    if (data.type === 'patch') {
+      onMovePatchToFolder(data.id, folderId)
     } else if (data.type === 'folder') {
       onMoveFolder(data.id, folderId)
     }
     setDragItem(null)
     setDragOverTarget(null)
     dragRef.current = null
-  }, [onMoveSoundToFolder, onMoveFolder])
+  }, [onMovePatchToFolder, onMoveFolder])
 
   const handleDropOnRoot = useCallback((e) => {
     e.preventDefault()
     e.stopPropagation()
     const data = dragRef.current
     if (!data) return
-    if (data.type === 'sound') {
-      onMoveSoundToFolder(data.id, null)
+    if (data.type === 'patch') {
+      onMovePatchToFolder(data.id, null)
     } else if (data.type === 'folder') {
       onMoveFolder(data.id, null)
     }
     setDragItem(null)
     setDragOverTarget(null)
     dragRef.current = null
-  }, [onMoveSoundToFolder, onMoveFolder])
+  }, [onMovePatchToFolder, onMoveFolder])
 
   const handleDragEnd = useCallback(() => {
     setDragItem(null)
@@ -152,32 +150,32 @@ function SoundBank({
   const rootFolders = soundFolders
     .filter((f) => f.parentId === null)
     .sort((a, b) => a.name.localeCompare(b.name))
-  const rootSounds = savedSounds
-    .filter((s) => !s.folderId)
+  const rootPatches = patches
+    .filter((p) => !p.folderId)
     .sort((a, b) => a.name.localeCompare(b.name))
 
   const getFolderChildren = (parentId) => {
     const folders = soundFolders
       .filter((f) => f.parentId === parentId)
       .sort((a, b) => a.name.localeCompare(b.name))
-    const sounds = savedSounds
-      .filter((s) => s.folderId === parentId)
+    const childPatches = patches
+      .filter((p) => p.folderId === parentId)
       .sort((a, b) => a.name.localeCompare(b.name))
-    return { folders, sounds }
+    return { folders, patches: childPatches }
   }
 
-  const renderSoundChip = (sound, depth) => {
-    const isEditing = editingId === sound.id
-    const isCurrent = loadOnSingleClick && currentSoundId === sound.id
-    const isDragging = dragItem?.type === 'sound' && dragItem?.id === sound.id
+  const renderPatchChip = (patch, depth) => {
+    const isEditing = editingId === patch.id
+    const isCurrent = loadOnSingleClick && currentPatchId === patch.id
+    const isDragging = dragItem?.type === 'patch' && dragItem?.id === patch.id
 
     const handleDelete = (e) => {
       e.stopPropagation()
-      onDeleteSound(sound.id)
+      onDeletePatch(patch.id)
     }
     const handleLoad = () => {
       if (isEditing) return
-      onLoadSound?.(sound.id)
+      onLoadPatch?.(patch.id)
     }
     const handleSingleClick = () => {
       if (isEditing) return
@@ -185,7 +183,7 @@ function SoundBank({
     }
     const handleDoubleClick = () => {
       if (isEditing) return
-      startEdit(sound.id, sound.name)
+      startEdit(patch.id, patch.name)
     }
     const titleText = loadOnSingleClick
       ? 'Clic pour éditer, double-clic pour renommer'
@@ -197,11 +195,11 @@ function SoundBank({
 
     return (
       <li
-        key={sound.id}
+        key={patch.id}
         className={`sound-chip ${isCurrent ? 'is-current' : ''} ${isDragging ? 'is-dragging' : ''}`}
-        style={{ '--chip-color': sound.color, marginLeft: `${depth * 16}px` }}
+        style={{ '--chip-color': patch.color, marginLeft: `${depth * 16}px` }}
         draggable={!isEditing}
-        onDragStart={(e) => handleDragStartInternal(e, 'sound', sound.id)}
+        onDragStart={(e) => handleDragStartInternal(e, 'patch', patch.id)}
         onDragEnd={handleDragEnd}
         onDragOver={handleChipDragOver}
         onClick={handleSingleClick}
@@ -226,8 +224,7 @@ function SoundBank({
           />
         ) : (
           <>
-            <span className="chip-name">{sound.name}</span>
-            <span className="chip-info">{sound.frequency.toFixed(0)} Hz</span>
+            <span className="chip-name">{patch.name}</span>
             {!loadOnSingleClick && (
               <button
                 type="button"
@@ -235,8 +232,8 @@ function SoundBank({
                 onClick={(e) => { e.stopPropagation(); handleLoad() }}
                 onMouseDown={(e) => e.stopPropagation()}
                 draggable={false}
-                title="Éditer le son"
-                aria-label={`Éditer ${sound.name}`}
+                title="Éditer le patch"
+                aria-label={`Éditer ${patch.name}`}
               >
                 ✎
               </button>
@@ -247,8 +244,8 @@ function SoundBank({
               onClick={handleDelete}
               onMouseDown={(e) => e.stopPropagation()}
               draggable={false}
-              title={`Supprimer ${sound.name}`}
-              aria-label={`Supprimer ${sound.name}`}
+              title={`Supprimer ${patch.name}`}
+              aria-label={`Supprimer ${patch.name}`}
             >
               ×
             </button>
@@ -261,7 +258,7 @@ function SoundBank({
   const renderFolder = (folder, depth) => {
     const isExpanded = !collapsedFolders.has(folder.id)
     const isEditing = editingId === folder.id
-    const { folders: childFolders, sounds: childSounds } = getFolderChildren(folder.id)
+    const { folders: childFolders, patches: childPatches } = getFolderChildren(folder.id)
     const isDropTarget = dragOverTarget === folder.id
     const isDragging = dragItem?.type === 'folder' && dragItem?.id === folder.id
 
@@ -299,7 +296,7 @@ function SoundBank({
           ) : (
             <>
               <span className="folder-name">{folder.name}</span>
-              <span className="folder-badge">{childSounds.length + childFolders.length}</span>
+              <span className="folder-badge">{childPatches.length + childFolders.length}</span>
               <button
                 type="button"
                 className="chip-delete"
@@ -314,17 +311,17 @@ function SoundBank({
             </>
           )}
         </div>
-        {isExpanded && (childFolders.length > 0 || childSounds.length > 0) && (
+        {isExpanded && (childFolders.length > 0 || childPatches.length > 0) && (
           <ul className="folder-children" onDragOver={(e) => e.stopPropagation()}>
             {childFolders.map((f) => renderFolder(f, depth + 1))}
-            {childSounds.map((s) => renderSoundChip(s, depth + 1))}
+            {childPatches.map((p) => renderPatchChip(p, depth + 1))}
           </ul>
         )}
       </li>
     )
   }
 
-  const totalCount = savedSounds.length
+  const totalCount = patches.length
 
   if (totalCount === 0 && soundFolders.length === 0) {
     return (
@@ -336,7 +333,7 @@ function SoundBank({
           </button>
         </header>
         <p className="sound-bank-empty">
-          Aucun son. Dessinez-en un dans l'onglet Designer.
+          Aucun patch. Dessinez-en un dans l'onglet Designer.
         </p>
       </aside>
     )
@@ -360,7 +357,7 @@ function SoundBank({
         onDrop={handleDropOnRoot}
       >
         {rootFolders.map((f) => renderFolder(f, 0))}
-        {rootSounds.map((s) => renderSoundChip(s, 0))}
+        {rootPatches.map((p) => renderPatchChip(p, 0))}
       </ul>
       {dragItem && (
         <div
@@ -375,4 +372,4 @@ function SoundBank({
   )
 }
 
-export default SoundBank
+export default PatchBank

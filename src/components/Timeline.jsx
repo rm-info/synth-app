@@ -123,7 +123,7 @@ function MeasureContextMenu({ measure, canDelete, hasMeasureClipboard, onDelete,
  * pxPerBeat / pxPerMeasure et rend la grille en lignes absolument positionnées.
  */
 function Timeline({
-  savedSounds,
+  patches,
   clips,
   tracks,
   maxTracks,
@@ -304,8 +304,8 @@ function Timeline({
   const handleDrop = (e) => {
     e.preventDefault()
     setDragOverTrackId(null)
-    const soundId = e.dataTransfer.getData('text/plain')
-    if (!soundId) return
+    const patchId = e.dataTransfer.getData('text/plain')
+    if (!patchId) return
     const zone = dropZoneRef.current
     if (!zone) return
     const rect = zone.getBoundingClientRect()
@@ -317,7 +317,7 @@ function Timeline({
     const measure = Math.floor(clamped / BEATS_PER_MEASURE) + 1
     const beat = clamped - (measure - 1) * BEATS_PER_MEASURE
     const trackId = findTrackAtY(yInCells)
-    onAddClip(soundId, measure, beat, undefined, trackId)
+    onAddClip(patchId, measure, beat, undefined, trackId)
   }
 
   // --- Ctrl+molette : zoom centré sur la position de la souris ---
@@ -511,10 +511,14 @@ function Timeline({
                 const b = newStart - (m - 1) * BEATS_PER_MEASURE
                 return {
                   trackId: getNewTrackId(cm.id),
-                  soundId: src.soundId,
+                  patchId: src.patchId,
                   measure: m,
                   beat: b,
                   duration: cm.originalDuration,
+                  tuningSystem: src.tuningSystem,
+                  noteIndex: src.noteIndex ?? null,
+                  octave: src.octave ?? null,
+                  frequency: src.frequency ?? null,
                 }
               })
               .filter(Boolean)
@@ -828,7 +832,7 @@ function Timeline({
     const pxPerBeatLocal = pxPerBeat
     const trackHeightLocal = trackHeight
     const clipsSnap = clips
-    const soundsSnap = savedSounds
+    const patchesSnap = patches
     const tracksSnap = tracks
     const curSelected = selectedClipIds ?? []
 
@@ -908,7 +912,7 @@ function Timeline({
       let yOff = 0
       for (const t of tracksSnap) {
         const tc = clipsSnap.filter(c => c.trackId === t.id)
-        const { items, laneCount } = layoutClips(tc, soundsSnap)
+        const { items, laneCount } = layoutClips(tc, patchesSnap)
         for (const item of items) allItems.push({ ...item, trackYOffset: yOff })
         yOff += Math.max(1, laneCount) * trackHeightLocal
       }
@@ -1015,7 +1019,7 @@ function Timeline({
   let totalClipAreaHeight = 0
   for (const track of tracks) {
     const trackClips = clips.filter(c => c.trackId === track.id)
-    const { items, laneCount } = layoutClips(trackClips, savedSounds)
+    const { items, laneCount } = layoutClips(trackClips, patches)
     const corridorHeight = Math.max(1, laneCount) * trackHeight
     trackLayoutData.push({ trackId: track.id, items, laneCount, yOffset: totalClipAreaHeight, corridorHeight })
     totalClipAreaHeight += corridorHeight
@@ -1308,7 +1312,7 @@ function Timeline({
             <div className="grid-lines-layer">{gridLines}</div>
 
             <div className="placed-sounds-layer">
-              {allLaidOut.map(({ clip, sound, lane, trackYOffset }) => {
+              {allLaidOut.map(({ clip, patch, lane, trackYOffset }) => {
                 const isLeader = interactionVisual?.clipId === clip.id
                 const isDuplicating = interactionVisual?.isDuplicating
                 // Membre non-leader d'un multi-drag/resize : suit l'offset du leader.
@@ -1384,10 +1388,10 @@ function Timeline({
                       width: `${width}%`,
                       top: `${top}px`,
                       height: `${height}px`,
-                      backgroundColor: sound.color + '33',
-                      borderColor: sound.color,
+                      backgroundColor: patch.color + '33',
+                      borderColor: patch.color,
                     }}
-                    title={`${sound.name} — mesure ${clip.measure}, beat ${clip.beat} — Clic droit pour retirer`}
+                    title={`${patch.name} — mesure ${clip.measure}, beat ${clip.beat} — Clic droit pour retirer`}
                     onMouseDown={(e) => {
                       if (e.button !== 0) return
                       // Ctrl/Cmd+mousedown démarre une session : devient
@@ -1407,8 +1411,8 @@ function Timeline({
                       className="resize-handle resize-handle-left"
                       onMouseDown={(e) => startInteraction(e, clip, 'resize-left', allLaidOut)}
                     />
-                    <span className="placed-dot" style={{ backgroundColor: sound.color }} />
-                    <span className="placed-name">{sound.name}</span>
+                    <span className="placed-dot" style={{ backgroundColor: patch.color }} />
+                    <span className="placed-name">{patch.name}</span>
                     <div
                       className="resize-handle resize-handle-right"
                       onMouseDown={(e) => startInteraction(e, clip, 'resize-right', allLaidOut)}
@@ -1423,7 +1427,7 @@ function Timeline({
               typeof interactionVisual.delta === 'number' &&
               allLaidOut
                 .filter((it) => interactionVisual.clipIds?.includes(it.clip.id))
-                .map(({ clip, sound, lane, trackYOffset }) => {
+                .map(({ clip, patch, lane, trackYOffset }) => {
                   const origStart = (clip.measure - 1) * BEATS_PER_MEASURE + clip.beat
                   const newStart = origStart + interactionVisual.delta
                   const left = (newStart / totalBeats) * 100
@@ -1447,12 +1451,12 @@ function Timeline({
                         width: `${width}%`,
                         top: `${top}px`,
                         height: `${height}px`,
-                        backgroundColor: sound.color + '33',
-                        borderColor: sound.color,
+                        backgroundColor: patch.color + '33',
+                        borderColor: patch.color,
                       }}
                     >
-                      <span className="placed-dot" style={{ backgroundColor: sound.color }} />
-                      <span className="placed-name">{sound.name}</span>
+                      <span className="placed-dot" style={{ backgroundColor: patch.color }} />
+                      <span className="placed-name">{patch.name}</span>
                     </div>
                   )
                 })}
@@ -1521,14 +1525,14 @@ function Timeline({
         />
       </div>
 
-      {savedSounds.length === 0 && (
+      {patches.length === 0 && (
         <p className="timeline-hint">
-          Allez dans Designer pour dessiner votre premier son.
+          Allez dans Designer pour dessiner votre premier patch.
         </p>
       )}
-      {savedSounds.length > 0 && hasNoClips && (
+      {patches.length > 0 && hasNoClips && (
         <p className="timeline-hint">
-          Glissez-déposez un son depuis la banque pour placer un clip. Clic droit pour retirer.
+          Glissez-déposez un patch depuis la banque pour placer un clip. Clic droit pour retirer.
           Ctrl + molette pour zoomer.
         </p>
       )}

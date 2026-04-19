@@ -2,7 +2,7 @@ import { useReducer, useCallback, useRef, useEffect, useMemo } from 'react'
 import WaveformEditor from './components/WaveformEditor'
 import Timeline from './components/Timeline'
 import Tabs from './components/Tabs'
-import SoundBank from './components/SoundBank'
+import PatchBank from './components/PatchBank'
 import MiniPlayer from './components/MiniPlayer'
 import Toolbar from './components/Toolbar'
 import PropertiesPanel from './components/PropertiesPanel'
@@ -19,9 +19,9 @@ import {
   MAX_TRACK_HEIGHT,
   MAX_TRACKS,
   DEFAULT_TRACK_ID,
-  sameWaveform,
   canSplitClip,
   getDescendantFolderIds,
+  editorTestNoteFields,
 } from './reducer'
 import { canMergeClips } from './lib/timelineLayout'
 import Toast from './components/Toast'
@@ -33,63 +33,54 @@ const wrappedReducer = withUndo(reducer)
 function App() {
   const [state, dispatch] = useReducer(wrappedReducer, undefined, buildInitialState)
   const {
-    clips, savedSounds, soundFolders, tracks, bpm, numMeasures,
-    editor, activeTab, currentSoundId, zoomH, defaultClipDuration,
+    clips, patches, soundFolders, tracks, bpm, numMeasures,
+    editor, activeTab, currentPatchId, zoomH, defaultClipDuration,
     spectrogramVisible, selectedClipIds, composerFlash,
-    soundCounter, clipCounter, folderCounter, trackCounter, clipboard, measureClipboard, history, notification,
+    patchCounter, clipCounter, folderCounter, trackCounter,
+    clipboard, measureClipboard, history, notification,
   } = state
 
   const editorRef = useRef(null)
 
-  // Position courante de la souris dans la timeline (espace scrollable en
-  // beats). Mis à jour en continu par Timeline via onMouseMove. Null si la
-  // souris est hors de la zone timeline. Utilisé pour le collage au clavier.
   const timelineMouseRef = useRef(null)
 
   const trackHeight = tracks[0]?.height ?? 80
 
-  const nextSoundName = `Son ${soundCounter + 1}`
+  const nextPatchName = `Patch ${patchCounter + 1}`
 
   const totalBeats = numMeasures * BEATS_PER_MEASURE
   const totalDurationSec = (totalBeats * 60) / bpm
 
-  const playback = usePlayback({ clips, savedSounds, tracks, bpm, totalDurationSec })
+  const playback = usePlayback({ clips, patches, tracks, bpm, totalDurationSec })
 
-  const currentSound = useMemo(
-    () => (currentSoundId ? savedSounds.find((s) => s.id === currentSoundId) ?? null : null),
-    [currentSoundId, savedSounds],
+  const currentPatch = useMemo(
+    () => (currentPatchId ? patches.find((p) => p.id === currentPatchId) ?? null : null),
+    [currentPatchId, patches],
   )
 
-  const editorFrequency = editor.tuningSystem === 'free'
-    ? editor.freeFrequency
-    : 440 * Math.pow(2, ((editor.octave + 1) * 12 + editor.noteIndex - 69) / 12)
+  const editorFrequency = editor.testTuningSystem === 'free'
+    ? editor.testFrequency
+    : 440 * Math.pow(2, ((editor.testOctave + 1) * 12 + editor.testNoteIndex - 69) / 12)
 
   // === Effets de bord ===
 
-  // Sync track gains en temps réel pendant la lecture (mute/solo/volume)
   const { isPlaying: pbIsPlaying, updateTrackGains } = playback
   useEffect(() => {
     if (pbIsPlaying) updateTrackGains(tracks)
   }, [tracks, pbIsPlaying, updateTrackGains])
 
-  // Auto-clear du flash composer après 3s
   useEffect(() => {
     if (!composerFlash) return
     const t = setTimeout(() => dispatch({ type: 'SET_COMPOSER_FLASH', payload: null }), 3000)
     return () => clearTimeout(t)
   }, [composerFlash])
 
-  // Auto-clear du toast notification après 4.5s. Le timestamp force le reset
-  // du timer si une nouvelle notification arrive (même message).
   useEffect(() => {
     if (!notification) return
     const t = setTimeout(() => dispatch({ type: 'SET_NOTIFICATION', payload: null }), 4500)
     return () => clearTimeout(t)
   }, [notification])
 
-  // Raccourcis globaux Ctrl/Cmd+Z (undo) et Ctrl/Cmd+Shift+Z / Ctrl+Y (redo).
-  // Ne se déclenchent pas si focus dans un input/textarea/select/contenteditable
-  // (préserve l'undo natif des champs de saisie).
   useEffect(() => {
     const handler = (e) => {
       const ctrl = e.ctrlKey || e.metaKey
@@ -109,8 +100,6 @@ function App() {
     return () => window.removeEventListener('keydown', handler)
   }, [activeTab])
 
-  // Global Delete/Backspace/Escape (les raccourcis Ctrl+C/X/V sont
-  // dans un effet séparé plus bas, après la déclaration des handlers).
   useEffect(() => {
     const handleKeyDown = (e) => {
       const isDelete = e.key === 'Delete' || e.key === 'Backspace'
@@ -132,15 +121,13 @@ function App() {
     return () => window.removeEventListener('keydown', handleKeyDown)
   }, [selectedClipIds])
 
-  // Persistance localStorage : ne PAS persister UI (selectedClipIds,
-  // currentSoundId, zoomH, defaultClipDuration, composerFlash, editor).
-  // L'éditeur est volatil ; au reload on retombe sur l'éditeur vide.
+  // Persistance localStorage.
   useEffect(() => {
     try {
       localStorage.setItem(
         STORAGE_KEY,
         JSON.stringify({
-          savedSounds,
+          patches,
           soundFolders,
           tracks,
           clips,
@@ -148,7 +135,7 @@ function App() {
           numMeasures,
           spectrogramVisible,
           activeTab,
-          soundCounter,
+          patchCounter,
           clipCounter,
           folderCounter,
           trackCounter,
@@ -158,24 +145,19 @@ function App() {
       // storage unavailable
     }
   }, [
-    savedSounds, soundFolders, tracks, clips, bpm, numMeasures,
-    spectrogramVisible, activeTab, soundCounter, clipCounter, folderCounter, trackCounter,
+    patches, soundFolders, tracks, clips, bpm, numMeasures,
+    spectrogramVisible, activeTab, patchCounter, clipCounter, folderCounter, trackCounter,
   ])
 
-  // Hydratation de l'éditeur quand currentSoundId change. Non-undoable.
-  // On charge le son associé dans l'éditeur ; si null, on reset.
-  // L'effet se déclenche aussi si le savedSound modifié (update inline) change
-  // d'identité ; on synchronise alors les paramètres édités sur la nouvelle
-  // version sauvée. Pour éviter d'écraser un travail en cours sur le son
-  // chargé, on ne re-hydrate que si l'identité change vraiment (ref).
+  // Hydratation de l'éditeur quand currentPatchId change. Non-undoable.
   const hydratedFromIdRef = useRef(null)
   useEffect(() => {
-    if (hydratedFromIdRef.current === currentSoundId) return
-    hydratedFromIdRef.current = currentSoundId
-    dispatch({ type: 'HYDRATE_EDITOR_FROM_SOUND', payload: currentSound })
-  }, [currentSoundId, currentSound])
+    if (hydratedFromIdRef.current === currentPatchId) return
+    hydratedFromIdRef.current = currentPatchId
+    dispatch({ type: 'HYDRATE_EDITOR_FROM_PATCH', payload: currentPatch })
+  }, [currentPatchId, currentPatch])
 
-  // === Handlers — wrappers thin autour de dispatch (préservent l'API enfant) ===
+  // === Handlers ===
 
   const setBpm = useCallback((v) => dispatch({ type: 'SET_BPM', payload: v }), [])
 
@@ -227,47 +209,36 @@ function App() {
     dispatch({ type: 'SET_ACTIVE_TAB', payload: tab })
   }, [])
 
-  const handleSaveSound = useCallback(
-    (soundData, options = {}) => {
-      // Détection de doublon faite avant dispatch pour pouvoir retourner le statut.
-      if (!options.allowDuplicate && soundData.tuningSystem === '12-TET') {
-        const dup = savedSounds.some(
-          (s) =>
-            s.tuningSystem === '12-TET' &&
-            s.noteIndex === soundData.noteIndex &&
-            s.octave === soundData.octave &&
-            sameWaveform(s, soundData),
-        )
-        if (dup) return { duplicate: true }
-      }
-      // Le reducer attribue le nouvel id à partir de soundCounter+1.
-      const newId = `sound-${soundCounter + 1}`
-      dispatch({
-        type: 'SAVE_SOUND',
-        payload: { soundData, allowDuplicate: !!options.allowDuplicate },
-      })
-      return { duplicate: false, id: newId }
+  const handleSavePatch = useCallback(
+    (patchData) => {
+      const newId = `patch-${patchCounter + 1}`
+      dispatch({ type: 'SAVE_PATCH', payload: { patchData } })
+      return { id: newId }
     },
-    [savedSounds, soundCounter],
+    [patchCounter],
   )
 
-  const handleUpdateSound = useCallback((soundId, soundData) => {
-    dispatch({ type: 'UPDATE_SOUND', payload: { soundId, soundData } })
+  const handleUpdatePatch = useCallback((patchId, patchData) => {
+    dispatch({ type: 'UPDATE_PATCH', payload: { patchId, patchData } })
   }, [])
 
+  // Drop d'un patch sur la timeline. La hauteur est celle du clavier de test
+  // courant dans l'éditeur (règle par défaut E.1).
   const handleAddClip = useCallback(
-    (soundId, measure, beat, duration, trackId = DEFAULT_TRACK_ID) => {
-      dispatch({ type: 'ADD_CLIP', payload: { soundId, measure, beat, duration, trackId } })
+    (patchId, measure, beat, duration, trackId = DEFAULT_TRACK_ID) => {
+      const note = editorTestNoteFields(editor)
+      dispatch({
+        type: 'ADD_CLIP',
+        payload: { patchId, measure, beat, duration, trackId, ...note },
+      })
     },
-    [],
+    [editor],
   )
 
   const handleRemoveClip = useCallback((clipId) => {
     dispatch({ type: 'REMOVE_CLIP', payload: { clipId } })
   }, [])
 
-  // Unique point d'entrée pour mettre à jour la sélection : le caller
-  // (Timeline) calcule la nouvelle liste finale (toggle, additif, etc.).
   const handleSetSelection = useCallback((ids) => {
     dispatch({ type: 'SELECT_CLIPS', payload: ids })
   }, [])
@@ -288,8 +259,8 @@ function App() {
     dispatch({ type: 'DUPLICATE_CLIPS', payload: datas })
   }, [])
 
-  const handleUpdateClipsSound = useCallback((clipIds, soundId) => {
-    dispatch({ type: 'UPDATE_CLIPS_SOUND', payload: { clipIds, soundId } })
+  const handleUpdateClipsPatch = useCallback((clipIds, patchId) => {
+    dispatch({ type: 'UPDATE_CLIPS_PATCH', payload: { clipIds, patchId } })
   }, [])
 
   const handleUpdateClipsDuration = useCallback((updates) => {
@@ -337,10 +308,14 @@ function App() {
       ...selected.map((c) => (c.measure - 1) * BEATS_PER_MEASURE + c.beat),
     )
     const templates = selected.map((c) => ({
-      soundId: c.soundId,
+      patchId: c.patchId,
       trackId: c.trackId,
       beatOffset: (c.measure - 1) * BEATS_PER_MEASURE + c.beat - minBeat,
       duration: c.duration,
+      tuningSystem: c.tuningSystem,
+      noteIndex: c.noteIndex ?? null,
+      octave: c.octave ?? null,
+      frequency: c.frequency ?? null,
     }))
     dispatch({ type: 'SET_CLIPBOARD', payload: { clips: templates } })
     const n = templates.length
@@ -357,10 +332,14 @@ function App() {
       ...selected.map((c) => (c.measure - 1) * BEATS_PER_MEASURE + c.beat),
     )
     const templates = selected.map((c) => ({
-      soundId: c.soundId,
+      patchId: c.patchId,
       trackId: c.trackId,
       beatOffset: (c.measure - 1) * BEATS_PER_MEASURE + c.beat - minBeat,
       duration: c.duration,
+      tuningSystem: c.tuningSystem,
+      noteIndex: c.noteIndex ?? null,
+      octave: c.octave ?? null,
+      frequency: c.frequency ?? null,
     }))
     dispatch({ type: 'SET_CLIPBOARD', payload: { clips: templates } })
     dispatch({ type: 'DELETE_SELECTED_CLIPS' })
@@ -376,11 +355,9 @@ function App() {
       if (!clipboard || clipboard.clips.length === 0) return
       const snapped = Math.round(absoluteBeat / 0.25) * 0.25
 
-      // Compute track delta if pasting onto a specific track (right-click)
       const trackOrder = tracks.map(t => t.id)
       let trackDelta = 0
       if (targetTrackId) {
-        // Reference track = track of the first clip template (beatOffset=0)
         const refTrackId = clipboard.clips[0]?.trackId || DEFAULT_TRACK_ID
         const refIdx = trackOrder.indexOf(refTrackId)
         const targetIdx = trackOrder.indexOf(targetTrackId)
@@ -391,14 +368,19 @@ function App() {
         const beatPos = snapped + t.beatOffset
         const measure = Math.floor(beatPos / BEATS_PER_MEASURE) + 1
         const beat = beatPos - (measure - 1) * BEATS_PER_MEASURE
-        // Apply track delta, clamp to valid range
         let trackId = t.trackId || DEFAULT_TRACK_ID
         if (trackDelta !== 0) {
           const origIdx = trackOrder.indexOf(trackId)
           const newIdx = Math.max(0, Math.min(trackOrder.length - 1, origIdx + trackDelta))
           trackId = trackOrder[newIdx]
         }
-        return { trackId, soundId: t.soundId, measure, beat, duration: t.duration }
+        return {
+          trackId, patchId: t.patchId, measure, beat, duration: t.duration,
+          tuningSystem: t.tuningSystem,
+          noteIndex: t.noteIndex,
+          octave: t.octave,
+          frequency: t.frequency,
+        }
       })
       const maxEnd = Math.max(
         ...clipDatas.map((d) => (d.measure - 1) * BEATS_PER_MEASURE + d.beat + d.duration),
@@ -410,7 +392,6 @@ function App() {
     [clipboard, numMeasures, tracks],
   )
 
-  // Raccourcis Ctrl+C/X/V — après la déclaration des handlers clipboard.
   useEffect(() => {
     const handler = (e) => {
       const ctrl = e.ctrlKey || e.metaKey
@@ -453,7 +434,6 @@ function App() {
     dispatch({ type: 'ADD_MEASURES', payload: count })
   }, [])
 
-  // Compute affected clips + confirm + dispatch atomique
   const handleRemoveLastMeasure = useCallback(() => {
     if (numMeasures <= 1) return
     const lastMeasureStart = (numMeasures - 1) * BEATS_PER_MEASURE
@@ -495,6 +475,21 @@ function App() {
     }
   }, [numMeasures, clips])
 
+  // Helper : construit un splitPart en récupérant les champs de note depuis
+  // le clip source (le clip qu'on split conserve sa hauteur).
+  const buildSplitPart = (clip, extra) => ({
+    originalId: extra.originalId ?? clip.id,
+    patchId: clip.patchId,
+    trackId: clip.trackId,
+    tuningSystem: clip.tuningSystem,
+    noteIndex: clip.noteIndex ?? null,
+    octave: clip.octave ?? null,
+    frequency: clip.frequency ?? null,
+    measure: extra.measure,
+    beat: extra.beat,
+    duration: extra.duration,
+  })
+
   const handleDeleteMeasure = useCallback((measureNum) => {
     if (numMeasures <= 1) return
     const mStart = (measureNum - 1) * BEATS_PER_MEASURE
@@ -526,7 +521,7 @@ function App() {
         if (rightDur >= 0.25) {
           const newAbs = snap(mEnd - BEATS_PER_MEASURE)
           const mb = toMB(newAbs)
-          splitParts.push({ originalId: c.id, soundId: c.soundId, trackId: c.trackId, ...mb, duration: rightDur })
+          splitParts.push(buildSplitPart(c, { originalId: c.id, ...mb, duration: rightDur }))
         }
       } else {
         const leftDur = snap(mStart - start)
@@ -539,7 +534,7 @@ function App() {
         if (rightDur >= 0.25) {
           const newAbs = snap(mStart)
           const mb = toMB(newAbs)
-          splitParts.push({ originalId: leftDur >= 0.25 ? null : c.id, soundId: c.soundId, trackId: c.trackId, ...mb, duration: rightDur })
+          splitParts.push(buildSplitPart(c, { originalId: leftDur >= 0.25 ? null : c.id, ...mb, duration: rightDur }))
         }
       }
     }
@@ -577,8 +572,8 @@ function App() {
           const mR = Math.floor(rightStart / BEATS_PER_MEASURE) + 1
           const bR = Math.round((rightStart - (mR - 1) * BEATS_PER_MEASURE) / 0.25) * 0.25
           splitParts.push(
-            { originalId: c.id, soundId: c.soundId, trackId: c.trackId, measure: c.measure, beat: c.beat, duration: leftDur },
-            { originalId: c.id, soundId: c.soundId, trackId: c.trackId, measure: mR, beat: bR, duration: rightDur },
+            buildSplitPart(c, { originalId: c.id, measure: c.measure, beat: c.beat, duration: leftDur }),
+            buildSplitPart(c, { originalId: c.id, measure: mR, beat: bR, duration: rightDur }),
           )
         }
       }
@@ -604,10 +599,14 @@ function App() {
       const dur = snap(clampedEnd - clampedStart)
       if (dur < 0.25) continue
       templates.push({
-        soundId: c.soundId,
+        patchId: c.patchId,
         trackId: c.trackId,
         beatOffset: snap(clampedStart - mStart),
         duration: dur,
+        tuningSystem: c.tuningSystem,
+        noteIndex: c.noteIndex ?? null,
+        octave: c.octave ?? null,
+        frequency: c.frequency ?? null,
       })
     }
     return { measures: 1, clips: templates }
@@ -652,7 +651,7 @@ function App() {
         deletedIds.push(c.id)
         if (rightDur >= 0.25) {
           const mb = toMB(snap(mEnd - BEATS_PER_MEASURE))
-          splitParts.push({ originalId: c.id, soundId: c.soundId, trackId: c.trackId, ...mb, duration: rightDur })
+          splitParts.push(buildSplitPart(c, { originalId: c.id, ...mb, duration: rightDur }))
         }
       } else {
         const leftDur = snap(mStart - start)
@@ -661,7 +660,7 @@ function App() {
         else deletedIds.push(c.id)
         if (rightDur >= 0.25) {
           const mb = toMB(snap(mStart))
-          splitParts.push({ originalId: leftDur >= 0.25 ? null : c.id, soundId: c.soundId, trackId: c.trackId, ...mb, duration: rightDur })
+          splitParts.push(buildSplitPart(c, { originalId: leftDur >= 0.25 ? null : c.id, ...mb, duration: rightDur }))
         }
       }
     }
@@ -693,8 +692,8 @@ function App() {
           const mR = Math.floor(rightStart / BEATS_PER_MEASURE) + 1
           const bR = snap(rightStart - (mR - 1) * BEATS_PER_MEASURE)
           splitParts.push(
-            { originalId: c.id, soundId: c.soundId, trackId: c.trackId, measure: c.measure, beat: c.beat, duration: leftDur },
-            { originalId: c.id, soundId: c.soundId, trackId: c.trackId, measure: mR, beat: bR, duration: rightDur },
+            buildSplitPart(c, { originalId: c.id, measure: c.measure, beat: c.beat, duration: leftDur }),
+            buildSplitPart(c, { originalId: c.id, measure: mR, beat: bR, duration: rightDur }),
           )
         }
       }
@@ -704,7 +703,13 @@ function App() {
       const absStart = snap(beatPosition + t.beatOffset)
       const m = Math.floor(absStart / BEATS_PER_MEASURE) + 1
       const b = snap(absStart - (m - 1) * BEATS_PER_MEASURE)
-      return { soundId: t.soundId, trackId: t.trackId, measure: m, beat: b, duration: t.duration }
+      return {
+        patchId: t.patchId, trackId: t.trackId, measure: m, beat: b, duration: t.duration,
+        tuningSystem: t.tuningSystem,
+        noteIndex: t.noteIndex,
+        octave: t.octave,
+        frequency: t.frequency,
+      }
     })
 
     dispatch({
@@ -713,14 +718,14 @@ function App() {
     })
   }, [clips, measureClipboard])
 
-  const handleDeleteSound = useCallback((soundId) => {
-    const referencingClips = clips.filter((c) => c.soundId === soundId)
+  const handleDeletePatch = useCallback((patchId) => {
+    const referencingClips = clips.filter((c) => c.patchId === patchId)
     if (referencingClips.length > 0) {
       const n = referencingClips.length
       dispatch({
         type: 'SET_NOTIFICATION',
         payload: {
-          message: `Ce son est utilisé par ${n} clip(s). Supprimez-les d'abord.`,
+          message: `Ce patch est utilisé par ${n} clip(s). Supprimez-les d'abord.`,
           type: 'error',
           timestamp: Date.now(),
         },
@@ -731,11 +736,11 @@ function App() {
       }
       return
     }
-    dispatch({ type: 'DELETE_SOUND', payload: { soundId } })
+    dispatch({ type: 'DELETE_PATCH', payload: { patchId } })
   }, [clips, activeTab])
 
-  const handleRenameSound = useCallback((soundId, newName) => {
-    dispatch({ type: 'RENAME_SOUND', payload: { soundId, name: newName } })
+  const handleRenamePatch = useCallback((patchId, newName) => {
+    dispatch({ type: 'RENAME_PATCH', payload: { patchId, name: newName } })
   }, [])
 
   const handleCreateFolder = useCallback((name) => {
@@ -749,17 +754,17 @@ function App() {
   const handleDeleteFolder = useCallback((folderId) => {
     const descendantIds = getDescendantFolderIds(folderId, soundFolders)
     const allFolderIds = new Set([folderId, ...descendantIds])
-    const folderSoundIds = new Set(
-      savedSounds.filter((s) => allFolderIds.has(s.folderId)).map((s) => s.id),
+    const folderPatchIds = new Set(
+      patches.filter((p) => allFolderIds.has(p.folderId)).map((p) => p.id),
     )
-    const referencingClips = clips.filter((c) => folderSoundIds.has(c.soundId))
+    const referencingClips = clips.filter((c) => folderPatchIds.has(c.patchId))
     if (referencingClips.length > 0) {
-      const usedSoundCount = new Set(referencingClips.map((c) => c.soundId)).size
+      const usedPatchCount = new Set(referencingClips.map((c) => c.patchId)).size
       const n = referencingClips.length
       dispatch({
         type: 'SET_NOTIFICATION',
         payload: {
-          message: `${usedSoundCount} son(s) de ce dossier sont utilisés par ${n} clip(s). Supprimez les clips d'abord.`,
+          message: `${usedPatchCount} patch(es) de ce dossier sont utilisés par ${n} clip(s). Supprimez les clips d'abord.`,
           type: 'error',
           timestamp: Date.now(),
         },
@@ -770,41 +775,40 @@ function App() {
       }
       return
     }
-    if (folderSoundIds.size > 0) {
+    if (folderPatchIds.size > 0) {
       const folder = soundFolders.find((f) => f.id === folderId)
       const name = folder ? folder.name : folderId
-      if (!window.confirm(`Supprimer le dossier "${name}" et ses ${folderSoundIds.size} son(s) ?`)) return
+      if (!window.confirm(`Supprimer le dossier "${name}" et ses ${folderPatchIds.size} patch(es) ?`)) return
     }
     dispatch({ type: 'DELETE_FOLDER', payload: { folderId } })
-  }, [clips, savedSounds, soundFolders, activeTab])
+  }, [clips, patches, soundFolders, activeTab])
 
-  const handleMoveSoundToFolder = useCallback((soundId, folderId) => {
-    dispatch({ type: 'MOVE_SOUND_TO_FOLDER', payload: { soundId, folderId } })
+  const handleMovePatchToFolder = useCallback((patchId, folderId) => {
+    dispatch({ type: 'MOVE_PATCH_TO_FOLDER', payload: { patchId, folderId } })
   }, [])
 
   const handleMoveFolder = useCallback((folderId, parentId) => {
     dispatch({ type: 'MOVE_FOLDER', payload: { folderId, parentId } })
   }, [])
 
-  const handleLoadSound = useCallback(
-    (soundId) => {
-      // Idempotent if déjà chargé sur Designer
-      if (currentSoundId === soundId && activeTab === 'designer') return
+  const handleLoadPatch = useCallback(
+    (patchId) => {
+      if (currentPatchId === patchId && activeTab === 'designer') return
       const dirty = editorRef.current?.isDirty?.() ?? false
-      if (dirty && currentSoundId !== soundId) {
+      if (dirty && currentPatchId !== patchId) {
         const ok = window.confirm(
-          "Modifications non sauvegardées dans l'éditeur. Charger ce son et perdre vos modifs ?",
+          "Modifications non sauvegardées dans l'éditeur. Charger ce patch et perdre vos modifs ?",
         )
         if (!ok) return
       }
-      dispatch({ type: 'SET_CURRENT_SOUND_ID', payload: soundId })
+      dispatch({ type: 'SET_CURRENT_PATCH_ID', payload: patchId })
       dispatch({ type: 'SET_ACTIVE_TAB', payload: 'designer' })
     },
-    [currentSoundId, activeTab],
+    [currentPatchId, activeTab],
   )
 
-  const handleSoundCreated = useCallback((newSoundId) => {
-    dispatch({ type: 'SET_CURRENT_SOUND_ID', payload: newSoundId })
+  const handlePatchCreated = useCallback((newPatchId) => {
+    dispatch({ type: 'SET_CURRENT_PATCH_ID', payload: newPatchId })
   }, [])
 
   const handleRequestNew = useCallback(() => {
@@ -825,13 +829,12 @@ function App() {
   const designerCanUndo = history.designer.past.length > 0
   const designerCanRedo = history.designer.future.length > 0
 
-  // === Editor actions (passées à WaveformEditor) ===
   const editorActions = useMemo(() => ({
     setPoints: (pts) => dispatch({ type: 'SET_EDITOR_POINTS', payload: pts }),
-    setNoteIndex: (n) => dispatch({ type: 'SET_EDITOR_NOTE', payload: n }),
-    setOctave: (o) => dispatch({ type: 'SET_EDITOR_OCTAVE', payload: o }),
-    setTuningSystem: (ts) => dispatch({ type: 'SET_EDITOR_TUNING_SYSTEM', payload: ts }),
-    setFrequency: (hz) => dispatch({ type: 'SET_EDITOR_FREQUENCY', payload: hz }),
+    setTestNoteIndex: (n) => dispatch({ type: 'SET_EDITOR_TEST_NOTE', payload: n }),
+    setTestOctave: (o) => dispatch({ type: 'SET_EDITOR_TEST_OCTAVE', payload: o }),
+    setTestTuningSystem: (ts) => dispatch({ type: 'SET_EDITOR_TEST_TUNING_SYSTEM', payload: ts }),
+    setTestFrequency: (hz) => dispatch({ type: 'SET_EDITOR_TEST_FREQUENCY', payload: hz }),
     setAmplitude: (a) => dispatch({ type: 'SET_EDITOR_AMPLITUDE', payload: a }),
     setAdsr: (patch) => dispatch({ type: 'SET_EDITOR_ADSR', payload: patch }),
     applyPreset: (preset, points) =>
@@ -846,13 +849,13 @@ function App() {
         ref={editorRef}
         editor={editor}
         editorActions={editorActions}
-        onSaveSound={handleSaveSound}
-        onUpdateSound={handleUpdateSound}
+        onSavePatch={handleSavePatch}
+        onUpdatePatch={handleUpdatePatch}
         onRequestNew={handleRequestNew}
-        nextSoundName={nextSoundName}
-        currentSound={currentSound}
-        savedSounds={savedSounds}
-        onSoundCreated={handleSoundCreated}
+        nextPatchName={nextPatchName}
+        currentPatch={currentPatch}
+        patches={patches}
+        onPatchCreated={handlePatchCreated}
         spectrogramVisible={spectrogramVisible}
         onToggleSpectrogram={setSpectrogramVisible}
         canUndo={designerCanUndo}
@@ -868,18 +871,18 @@ function App() {
               aria-hidden={activeTab !== 'designer'}
             >
               <aside className="designer-sidebar">
-                <SoundBank
-                  savedSounds={savedSounds}
+                <PatchBank
+                  patches={patches}
                   soundFolders={soundFolders}
-                  currentSoundId={currentSoundId}
+                  currentPatchId={currentPatchId}
                   activeTab="designer"
-                  onLoadSound={handleLoadSound}
-                  onRenameSound={handleRenameSound}
-                  onDeleteSound={handleDeleteSound}
+                  onLoadPatch={handleLoadPatch}
+                  onRenamePatch={handleRenamePatch}
+                  onDeletePatch={handleDeletePatch}
                   onCreateFolder={handleCreateFolder}
                   onRenameFolder={handleRenameFolder}
                   onDeleteFolder={handleDeleteFolder}
-                  onMoveSoundToFolder={handleMoveSoundToFolder}
+                  onMovePatchToFolder={handleMovePatchToFolder}
                   onMoveFolder={handleMoveFolder}
                 />
                 <MiniPlayer
@@ -950,24 +953,24 @@ function App() {
                 />
               </div>
               <div className="composer-sidebar">
-                <SoundBank
-                  savedSounds={savedSounds}
+                <PatchBank
+                  patches={patches}
                   soundFolders={soundFolders}
-                  currentSoundId={currentSoundId}
+                  currentPatchId={currentPatchId}
                   activeTab="composer"
-                  onLoadSound={handleLoadSound}
-                  onRenameSound={handleRenameSound}
-                  onDeleteSound={handleDeleteSound}
+                  onLoadPatch={handleLoadPatch}
+                  onRenamePatch={handleRenamePatch}
+                  onDeletePatch={handleDeletePatch}
                   onCreateFolder={handleCreateFolder}
                   onRenameFolder={handleRenameFolder}
                   onDeleteFolder={handleDeleteFolder}
-                  onMoveSoundToFolder={handleMoveSoundToFolder}
+                  onMovePatchToFolder={handleMovePatchToFolder}
                   onMoveFolder={handleMoveFolder}
                 />
               </div>
               <div className="composer-main">
                 <Timeline
-                  savedSounds={savedSounds}
+                  patches={patches}
                   clips={clips}
                   tracks={tracks}
                   maxTracks={MAX_TRACKS}
@@ -1012,11 +1015,11 @@ function App() {
                   selectedClipIds={selectedClipIds}
                   clips={clips}
                   tracks={tracks}
-                  savedSounds={savedSounds}
+                  patches={patches}
                   numMeasures={numMeasures}
                   onUpdateClip={handleUpdateClip}
                   onRemoveClip={handleRemoveClip}
-                  onUpdateClipsSound={handleUpdateClipsSound}
+                  onUpdateClipsPatch={handleUpdateClipsPatch}
                   onUpdateClipsDuration={handleUpdateClipsDuration}
                   onDeleteSelected={handleDeleteSelected}
                   mergeStatus={mergeStatus}

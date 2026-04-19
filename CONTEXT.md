@@ -18,10 +18,16 @@ répertoires de sons arborescents avec drag interne ; menu contextuel
 mesures avec supprimer/insérer/couper/copier/coller).
 Itération C **clôturée le 2026-04-18** (multipiste : UI multi-tracks,
 mute/solo/volume, moteur audio look-ahead, adaptation features A/B).
-Itération D (Designer UX) **en cours** : Phase 1 (2026-04-19) — sélecteur
+Itération D (Designer UX) **clôturée le 2026-04-19** : Phase 1 — sélecteur
 de système `tuningSystem` (12-TET + Libre), mode libre étendu à 2^4-2^15
 Hz (16-32768), clavier piano 12 notes + sélecteur d'octave 0-10, trois
 boutons Test (impact/court/tenu).
+Itération E (Patches vs Notes) **en cours** : Phase 1 (2026-04-19) —
+refonte conceptuelle majeure. Les **sons** deviennent des **patches**
+sans fréquence ni note ; la hauteur est portée par chaque **clip**
+(tuningSystem + noteIndex/octave en 12-TET, ou frequency en Libre).
+Un patch peut être joué à n'importe quelle hauteur sans duplication.
+Pas de migration : ancien localStorage détecté → reset propre.
 
 ## Objectif
 
@@ -59,8 +65,8 @@ synth-app/
     │   └── timelineLayout.js # layoutClips + computeBounds (partagés Timeline/Properties)
     └── components/
         ├── Tabs.jsx + .css                    # bascule Designer / Composer
-        ├── SoundBank.jsx + .css               # banque de sons partagée
-        ├── WaveformEditor.jsx + .css          # éditeur ondes (Designer)
+        ├── PatchBank.jsx + .css               # banque de patches partagée
+        ├── WaveformEditor.jsx + .css          # éditeur ondes / patch (Designer)
         ├── Spectrogram.jsx + .css             # spectrogramme statique (Designer)
         ├── MiniPlayer.jsx + .css              # transport simplifié (Designer)
         ├── BpmInput.jsx                       # input BPM validation différée
@@ -86,16 +92,15 @@ type SoundFolder = {              // racine virtuelle si parentId === null
   parentId: string | null
 }
 
-type SavedSound = {
-  id: string                      // "sound-N"
-  name: string                    // "A4", "C#3", ou "Son N" en mode libre
+// Depuis itération E : un patch ne porte PLUS ni fréquence ni note —
+// c'est le clip qui porte la hauteur. Un même patch peut être joué à
+// n'importe quelle hauteur sans duplication.
+type Patch = {
+  id: string                      // "patch-N"
+  name: string                    // "Patch N" par défaut
   color: string                   // hex, palette SOUND_COLORS (12 couleurs)
-  points: number[]                // 600 échantillons [-1, 1] — résolution canvas
-  frequency: number               // Hz
+  points: number[]                // 600 échantillons [-1, 1]
   amplitude: number               // 0..1
-  tuningSystem: '12-TET' | 'free' // système d'accordage (détecte les doublons)
-  noteIndex: number | null        // 0-11 (C..B), null en Libre
-  octave: number | null           // 0-10 en 12-TET, null en Libre
   preset: 'sine'|'square'|'sawtooth'|'triangle'|null  // null = dessin custom
   attack: number                  // ms, 0-500
   decay: number                   // ms, 0-500
@@ -114,25 +119,36 @@ type Track = {
   height: number                  // px
 }
 
-type Clip = {                     // ex-Note (placement timeline)
+type Clip = {                     // placement timeline + hauteur
   id: string                      // "clip-N"
   trackId: string
-  soundId: string
+  patchId: string                 // ex-soundId, référence un Patch
   measure: number                 // 1-indexée, 1..numMeasures
   beat: number                    // en noires dans la mesure, 0..3.75 (snap 0.25 = 16ᵉ)
   duration: number                // en noires : 4=ronde, 2=blanche, 1.5=noire pointée,
                                   // 1=noire, 0.75=croche pointée, 0.5=croche, 0.25=double
+  // Hauteur sonore (itération E) :
+  tuningSystem: '12-TET' | 'free'
+  noteIndex: number | null        // 0-11 en 12-TET, null en Libre
+  octave: number | null           // 0-10 en 12-TET, null en Libre
+  frequency: number | null        // null en 12-TET (calculée), explicite en Libre
 }
 
+// Fréquence effective d'un clip → `clipFrequency(clip)` (reducer.js) :
+//   - 'free'   → clip.frequency
+//   - '12-TET' → 440 * 2^((midi - 69) / 12) avec midi = (octave+1)*12 + noteIndex
+// Utilisé par usePlayback (live + export WAV). Point d'extension pour futurs
+// systèmes d'accordage (24-TET, Pythagorean, etc.).
+
 // Persistance (localStorage, clé "synth-app-state") :
-// { savedSounds, soundFolders, tracks, clips, bpm, numMeasures,
-//   spectrogramVisible, activeTab, soundCounter, clipCounter,
+// { patches, soundFolders, tracks, clips, bpm, numMeasures,
+//   spectrogramVisible, activeTab, patchCounter, clipCounter,
 //   folderCounter, trackCounter }
-// NON persisté (volatile) : selectedClipIds, currentSoundId, zoomH,
+// NON persisté (volatile) : selectedClipIds, currentPatchId, zoomH,
 // defaultClipDuration, composerFlash, editor (éditeur vide au reload),
 // piles undo/redo.
-// Migration auto des formats legacy au chargement (notes→clips, IDs note-N→clip-N,
-// trackId par défaut "track-default", folderId null par défaut, numMeasures inféré).
+// Détection d'ancien format (savedSounds/soundCounter/noteCounter/
+// placementCounter) → reset complet, pas de migration (deal assumé E.1).
 ```
 
 ⚠️ Vocabulaire : les **notes musicales** (C, D, E…) restent appelées "notes".
@@ -149,51 +165,53 @@ Seuls les **placements timeline** s'appellent "clips".
 ## Composants
 
 ### `App.jsx` — racine
-- Un seul `useReducer(withUndo(reducer))` détient tout l'état : `savedSounds`,
+- Un seul `useReducer(withUndo(reducer))` détient tout l'état : `patches`,
   `soundFolders`, `tracks`, `clips`, `bpm`, `numMeasures`, `editor`,
-  compteurs (`soundCounter`, `clipCounter`, `folderCounter`, `trackCounter`),
+  compteurs (`patchCounter`, `clipCounter`, `folderCounter`, `trackCounter`),
   `selectedClipIds`, `zoomH`, `clipboard`, `measureClipboard`, etc.
 - `editorRef` (imperative handle) pour le dirty check de `WaveformEditor`.
 - Persistance auto via `useEffect` (données métier uniquement, pas l'UI state).
-- Appelle `usePlayback({ clips, savedSounds, tracks, bpm, totalDurationSec })` ;
+- Appelle `usePlayback({ clips, patches, tracks, bpm, totalDurationSec })` ;
   useEffect synchro `updateTrackGains(tracks)` quand mute/solo/volume changent
   pendant la lecture.
 - Handlers CRUD pistes : `handleCreateTrack`, `handleRenameTrack`,
   `handleDeleteTrack` (confirm si clips), `handleUpdateTrack`, `handleReorderTracks`.
 - Handlers clipboard cross-piste : `handlePaste(absoluteBeat, targetTrackId)` calcule
   un delta de piste si targetTrackId fourni (clic droit ou Ctrl+V).
+- `handleAddClip(patchId, measure, beat, duration, trackId)` : la hauteur du
+  nouveau clip est lue depuis l'éditeur (`editorTestNoteFields(editor)`) —
+  règle par défaut E.1, remplacée par les raccourcis clavier en E.4.
 
 ### `WaveformEditor.jsx`
 - Canvas 600×300 dessinable à la souris (interpolation linéaire)
 - Presets Sine / Square / Sawtooth / Triangle / Clear (tracking `activePreset`)
-- Dropdown "Système" (12-TET / Libre) qui bascule entre deux UIs :
-  - 12-TET : clavier piano 12 notes (7 blanches + 5 noires) + rangée 11 boutons
-    d'octave (0-10). Octave 4 en fond "référence" permanent, sélection en accent
-    cyan. Affichage "Note : 440.0 Hz — A4" en dessous. Bascule 12-TET → Libre
-    conserve la fréquence (freeFrequency = freq calculée). Libre → 12-TET snap à
-    la note la plus proche via `frequencyToNearestNote` (midi clampé [12,143]).
-  - Libre : slider fréquence log 2^4-2^15 Hz (16-32768) + input FreqInput
-    éditable au clavier.
+- Depuis itération E : le clavier, l'octave et le slider fréquence pilotent
+  **uniquement la preview** (champs `testTuningSystem`, `testNoteIndex`,
+  `testOctave`, `testFrequency` de `state.editor`). Ils ne sont pas copiés
+  dans le patch sauvegardé — c'est le clip qui portera la hauteur au drop.
+  Dropdown "Système de test" (12-TET / Libre) bascule entre les deux UIs :
+  - 12-TET : clavier piano 12 notes + 11 boutons d'octave, affichage
+    "Note : X Hz — A4".
+  - Libre : slider log 2^4-2^15 Hz + FreqInput éditable.
 - Éditeur ADSR **visuel** 400×120 : 4 poignées draggables (P1 attack, P2 decay+sustain,
   P3 fin sustain non-draggable, P4 release), courbe cyan + remplissage, sliders read-only
   en dessous
 - **Trois boutons Test** (impact •, court ━, tenu ∞) : impact joue A→D→R,
   court ajoute un hold 1s entre decay et release, tenu joue indéfiniment
   jusqu'à clic Stop (■). Auto-fin pour impact/court via `osc.onended`.
-  Pendant une lecture, les deux autres boutons sont désactivés (évite le
-  chevauchement). Pas de hot-swap waveform/ADSR pendant un test en cours ;
-  seules amplitude et fréquence gardent un effet live (exception spec).
-- Hydratation auto depuis `currentSound` (prop) via `useEffect` qui compare l'id
-  contre `hydratedFromIdRef`. Pas de re-hydrate si même id.
-- **Dirty check** exposé via `useImperativeHandle` (`isDirty()`). Compare l'état local
-  vs `referenceRef` (snapshot mis à jour à chaque hydrate / save).
+- Hydratation auto depuis `currentPatch` (prop) via `useEffect` qui compare l'id
+  contre `hydratedFromIdRef`. Hydrate uniquement les champs du patch (points,
+  ADSR, amplitude, preset) ; les champs `test*` (contexte de test de
+  l'utilisateur) ne sont PAS écrasés.
+- **Dirty check** exposé via `useImperativeHandle` (`isDirty()`). Compare
+  uniquement les champs du patch (pas les `test*`) vs `referenceRef`.
 - Deux boutons sauvegarder :
-  - "Mettre à jour" (visible si `currentSound`) : appelle `onUpdateSound(id, payload)`,
-    referenceRef est synchronisée, flash "Son mis à jour".
-  - "Enregistrer comme nouveau" (toujours visible) : appelle `onSaveSound(payload)`,
+  - "Mettre à jour" (visible si `currentPatch`) : `onUpdatePatch(id, payload)`,
+    flash "Patch mis à jour".
+  - "Enregistrer comme nouveau" / "Sauvegarder le patch" : `onSavePatch(payload)`,
     bascule la référence et le `hydratedFromIdRef` vers le nouvel id, déclenche
-    `onSoundCreated(id)` pour que App set `currentSoundId`. Flash "Nouveau son enregistré".
-- Header affiche soit le nom prochain (création) soit "Édition : NOM" (chargé).
+    `onPatchCreated(id)` pour que App set `currentPatchId`.
+- Header affiche soit "Patch N" (création) soit "Édition : NOM" (chargé).
 
 ### `Timeline.jsx` (Composer)
 - Layout multipiste : colonne d'en-têtes de piste (sticky left, 120px) +
@@ -203,7 +221,7 @@ Seuls les **placements timeline** s'appellent "clips".
   Ghost flottant + indicateur d'insertion pendant le drag.
 - Couloirs de piste : fond alternant, bordure gauche colorée, lane assignment
   greedy par piste, surbrillance au survol pendant drop/paste.
-- Drop de sons : `findTrackAtY` identifie la piste cible depuis la coordonnée Y.
+- Drop de patches : `findTrackAtY` identifie la piste cible depuis la coordonnée Y.
 - Drag de clips cross-piste : `trackDelta` via `mouseStartTrackIndex`,
   `effectiveLane = 0` pendant le preview, commit `trackId` au drop.
 - Clips : position absolue, snap 16ᵉ, drag/resize/duplication, multi-sélection
@@ -214,17 +232,16 @@ Seuls les **placements timeline** s'appellent "clips".
   pistes cibles), clic droit mesure = CRUD mesure. Échap ferme le menu.
 - Curseur de lecture + visualiseur oscilloscope persistant.
 
-### `SoundBank.jsx` (partagé Designer & Composer)
+### `PatchBank.jsx` (partagé Designer & Composer)
 - Liste verticale de chips (responsive : bandeau horizontal en <900px).
-- Drag → payload `text/plain` = soundId (drop sur Timeline).
-- **Designer** : clic charge le son dans l'éditeur ; double-clic = renommer
-  inline ; pas de bouton ✎ (le clic suffit). × supprime.
+- Drag → payload `text/plain` = patchId (drop sur Timeline).
+- **Designer** : clic charge le patch dans l'éditeur ; double-clic = renommer
+  inline ; pas de bouton ✎. × supprime.
 - **Composer** : clic = no-op ; double-clic = renommer inline ; ✎ = éditer
   dans Designer (dirty check + bascule onglet) ; × supprime.
 - **Dossiers** : clic = toggle ; double-clic = renommer inline ; × supprime.
-  Pas de bouton ✎.
-- Chip avec `currentSoundId` reçoit la classe `is-current` (highlight bordure,
-  Designer only).
+- Chip avec `currentPatchId` reçoit la classe `is-current` (highlight bordure,
+  Designer only). Plus d'affichage de fréquence : un patch n'a plus de hauteur.
 
 ### `usePlayback` (hook, `src/hooks/usePlayback.js`)
 - Une instance dans App. Singleton de fait pour le moteur audio timeline.
@@ -233,10 +250,13 @@ Seuls les **placements timeline** s'appellent "clips".
 - AudioContext créé paresseusement. Cleanup à l'unmount d'App.
 - **Scheduler look-ahead** : `setInterval` 25ms programme les clips dans
   une fenêtre de 100ms d'avance. Refs (`clipsRef`, `tracksRef`,
-  `savedSoundsRef`, `bpmRef`) pour lire le state frais à chaque tick.
-  Détection de changements par signatures ; clips modifiés/supprimés
-  invalidés et reprogrammés. `scheduledClipIds` (Set) évite le
-  double-scheduling. `activeNodesRef` stocke les oscillators actifs.
+  `patchesRef`, `bpmRef`) pour lire le state frais à chaque tick.
+  La fréquence effective est calculée par `clipFrequency(clip)` (pas lue
+  sur le patch). Signature de changement inclut tuningSystem/note/octave/
+  frequency → un clip dont la hauteur change pendant la lecture est
+  invalidé et reprogrammé comme les autres modifications.
+  `scheduledClipIds` (Set) évite le double-scheduling. `activeNodesRef`
+  stocke les oscillators actifs.
 - **GainNode par piste** (`trackGainNodesRef`) : chaque piste a son propre
   gain, tous convergent vers `analyserGain` → `AnalyserNode` + `destination`.
 - `updateTrackGains(tracks)` : met à jour les gains en temps réel pendant
@@ -269,13 +289,25 @@ Seuls les **placements timeline** s'appellent "clips".
 Choix non évidents pris pour de bonnes raisons. À ne pas remettre en question
 à la légère — relire ici avant de refactorer.
 
-- **L'éditeur de son n'est plus détaché** : son state (points, ADSR,
-  fréquence, preset, etc.) vit dans `state.editor` du reducer global,
-  pas en local dans `WaveformEditor`. Raison : l'undo/redo doit couvrir
-  l'éditeur. Conséquence : les gestes continus (dessin canvas, drag
-  poignées ADSR, sliders) **doivent** utiliser un draft local et ne
-  dispatcher qu'au mouseup/touchend/blur, sinon chaque pixel pollue
-  la pile d'historique.
+- **L'éditeur de patch n'est plus détaché** : son state (points, ADSR,
+  preset, etc.) vit dans `state.editor` du reducer global, pas en local
+  dans `WaveformEditor`. Raison : l'undo/redo doit couvrir l'éditeur.
+  Conséquence : les gestes continus (dessin canvas, drag poignées ADSR,
+  sliders) **doivent** utiliser un draft local et ne dispatcher qu'au
+  mouseup/touchend/blur, sinon chaque pixel pollue la pile d'historique.
+- **Patches vs clips (itération E)** : un Patch ne porte que la forme
+  (points + ADSR + amplitude + preset). La hauteur (tuningSystem +
+  noteIndex/octave ou frequency) est portée par le Clip. Raison : on
+  veut pouvoir jouer le même timbre à différentes hauteurs sans
+  dupliquer le patch. Le calcul de la fréquence effective passe par
+  `clipFrequency(clip)` (reducer.js) ; point d'extension unique pour
+  les futurs systèmes d'accordage.
+- **Éditeur = champs `test*` pour la preview** : le clavier piano /
+  octave / slider fréquence du Designer pilotent uniquement la preview
+  audio. Au drop d'un patch sur la timeline, `handleAddClip` lit
+  `editorTestNoteFields(editor)` pour fixer la hauteur du nouveau clip
+  (règle par défaut E.1). Les raccourcis clavier pour override au drop
+  viendront en E.4.
 - **Piles undo/redo en RAM pure** : pas de persistance localStorage.
   Motifs : taille (snapshots complets × 50 × 2 onglets), complexité
   (migration de format à chaque évolution du reducer), coût faible
@@ -307,18 +339,18 @@ Choix non évidents pris pour de bonnes raisons. À ne pas remettre en question
   est bloqué avec un Toast explicite, et symétriquement un undo
   Composer qui restaurerait des clips dont le son a été supprimé est
   aussi bloqué. Pas d'états incohérents possibles.
-- **Suppression sons/dossiers : blocage avec assistance, pas de
-  cascade**. Si des clips référencent le son, on bloque la suppression,
+- **Suppression patches/dossiers : blocage avec assistance, pas de
+  cascade**. Si des clips référencent le patch, on bloque la suppression,
   on affiche un toast, on auto-sélectionne les clips concernés et on
-  bascule vers Composer. Raison : la cascade (supprimer sons + clips
+  bascule vers Composer. Raison : la cascade (supprimer patches + clips
   en une seule action) nécessitait un dual-stack undo complexe avec des
   edge cases insolubles (actions intercalées entre les deux piles). Le
   blocage est simple, robuste, et l'utilisateur garde le contrôle total.
 - **Check undo symétrique bidirectionnel** : UNDO_DESIGNER vérifie que
-  les clips actuels ne deviennent pas orphelins ; UNDO_COMPOSER vérifie
-  que les sons référencés existent. Dans les deux cas : blocage + toast
-  + auto-sélection des éléments concernés + bascule vers l'onglet
-  approprié.
+  les clips actuels ne deviennent pas orphelins (via `patchId`) ;
+  UNDO_COMPOSER vérifie que les patches référencés existent. Dans les
+  deux cas : blocage + toast + auto-sélection des éléments concernés
+  + bascule vers l'onglet approprié.
 - **Deux clipboards séparés** : un pour les clips (Ctrl+C/X/V,
   positionné à la souris) et un pour les mesures (menu contextuel
   en-tête de mesure). Les deux sont volatils (RAM, non persistés).
@@ -328,7 +360,8 @@ Choix non évidents pris pour de bonnes raisons. À ne pas remettre en question
 - **Lanes = mécanisme d'affichage** : le lane assignment est greedy,
   recalculé à chaque rendu, jamais stocké dans le clip. Conséquence :
   la fusion (Ctrl+M) ignore les lanes et ne considère que l'adjacence
-  temporelle, le soundId et le trackId (même piste obligatoire).
+  temporelle, le patchId, la hauteur (tuningSystem/note/octave/frequency)
+  et le trackId (même piste obligatoire).
 - **Lane assignment par piste** : depuis C.1, le layout greedy est
   calculé indépendamment pour chaque piste (clips filtrés par trackId).
   Chaque piste a son propre `laneCount` et sa propre hauteur de
@@ -623,7 +656,7 @@ Phases listées ci-dessous dans l'ordre chronologique d'implémentation.
     clips du clipboard. Actions `CUT_MEASURE`, `PASTE_MEASURES`,
     `SET_MEASURE_CLIPBOARD`. Boutons activés dans le menu contextuel.
 
-## Itération en cours : C — Multipiste
+## Itération terminée : C — Multipiste
 
 - ✅ **Phase 1** (2026-04-17) — UI Multi-tracks (5 sous-commits, voir Roadmap)
 - ✅ **Phase 2** (2026-04-17) — Mute/Solo/Volume par piste (voir Roadmap)
@@ -631,31 +664,31 @@ Phases listées ci-dessous dans l'ordre chronologique d'implémentation.
 - ✅ **Phase 4** (2026-04-17) — Adaptation features A/B au multipiste (voir Roadmap)
 
 **Décisions UX clés (à mémoire pour Iter A)**
-- Sauvegarde dans l'éditeur quand `currentSoundId` est non-null : 2 boutons distincts
+- Sauvegarde dans l'éditeur quand `currentPatchId` est non-null : 2 boutons distincts
   ("Mettre à jour" + "Enregistrer comme nouveau"). Action "Mettre à jour" undoable.
-- Banque de sons : sidebar gauche (les 2 onglets, composant partagé).
+- Banque de patches : sidebar gauche (les 2 onglets, composant partagé).
 - Properties panel : sidebar droite sur grand écran, bottom-sheet collapsible <1100px.
-- Éditeur waveform reste détaché : modifs locales n'affectent rien tant qu'on n'a
-  pas cliqué Sauvegarder/MAJ. `useEffect` hydrate l'état local quand `currentSoundId` change.
+- Éditeur waveform : son state vit dans `state.editor` du reducer (undo couvre
+  l'éditeur). `useEffect` hydrate l'éditeur quand `currentPatchId` change.
   Confirm si modifs non sauvegardées au moment du switch.
 
 ## État actuel
 
 ✅ **Terminé**
 - Dessin waveform + presets
-- Mode note tempérée + mode fréquence libre
 - Éditeur ADSR visuel draggable
-- Preview Play/Stop avec enveloppe
-- Détection doublons + messages flash
-- Banque de sons : drag, rename, delete
-- Drop timeline avec snap 16ᵉ, polyphonie multi-lanes
-- Sélecteur durée musicale par note (7 options)
+- Preview Play/Stop avec enveloppe (trois modes : impact/court/tenu)
+- Banque de patches : drag, rename, delete, dossiers arborescents
+- Drop timeline avec snap 16ᵉ, polyphonie multi-lanes, multi-pistes
+- Hauteur par clip (12-TET ou Libre) via `clipFrequency(clip)` (itération E.1)
+- Sélecteur durée musicale par clip (7 options)
 - BPM ajustable + recalcul durée totale
 - Curseur animé + affichage temps
-- Zoom horizontal
+- Zoom horizontal + vertical
 - Visualiseur oscilloscope temps réel
 - Export WAV PCM 16-bit stéréo
-- Persistance localStorage + migration
+- Persistance localStorage (pas de migration vers nouveau format en E.1 :
+  reset si ancien format détecté)
 
 ✅ **Itération A terminée**.
 
@@ -683,12 +716,58 @@ Phases listées ci-dessous dans l'ordre chronologique d'implémentation.
 - Adaptation multipiste : fusion check trackId, coller cross-piste (clic droit
   + Ctrl+V), PropertiesPanel affiche piste, Échap ferme menu contextuel (phase 4)
 
-🚧 **Itération D en cours** — Refonte Designer
-- ✅ **Phase 1** (2026-04-19) — Refonte sélecteur de notes + boutons Test :
-  dropdown "Système" (12-TET / Libre), clavier piano 12 notes, sélecteur
-  d'octave 0-10, extension mode libre 2^4-2^15 Hz, trois boutons Test
-  (impact/court/tenu). Modèle : `mode: 'note' | 'free'` → `tuningSystem:
-  '12-TET' | 'free'` (migration transparente via `normalizeSound`).
+✅ **Itération D terminée** (2026-04-19) — Refonte Designer
+- Phase 1 — Refonte sélecteur de notes + boutons Test : dropdown "Système"
+  (12-TET / Libre), clavier piano 12 notes, sélecteur d'octave 0-10,
+  extension mode libre 2^4-2^15 Hz, trois boutons Test (impact/court/tenu).
+  Modèle : `mode: 'note' | 'free'` → `tuningSystem: '12-TET' | 'free'`
+  (migration transparente via `normalizeSound`).
+
+🚧 **Itération E en cours** — Patches vs Notes (refonte conceptuelle majeure)
+- ✅ **Phase 1** (2026-04-19) — Patches remplacent Sounds, notes portées par
+  les clips. Commit unique.
+  - Modèle : `SavedSound` → `Patch` (id `patch-N`) sans fréquence ni note ;
+    champs supprimés : `frequency`, `mode`, `tuningSystem`, `noteIndex`,
+    `octave`.
+  - `Clip` enrichi : `soundId` → `patchId`, + `tuningSystem`, `noteIndex`,
+    `octave`, `frequency` (null côté non applicable). Helper partagé
+    `clipFrequency(clip)` dans reducer.js.
+  - Éditeur : nouveaux champs `testTuningSystem`, `testNoteIndex`,
+    `testOctave`, `testFrequency` — uniquement pour piloter la preview,
+    pas copiés dans le patch sauvegardé. Hydratation d'un patch préserve
+    ces champs (contexte de test utilisateur).
+  - Drop de patch sur timeline : la hauteur du nouveau clip est celle du
+    clavier de test courant (règle par défaut, raccourcis clavier prévus
+    en E.4). `handleAddClip` utilise `editorTestNoteFields(editor)`.
+  - Actions reducer renommées : `SAVE_SOUND` → `SAVE_PATCH`,
+    `UPDATE_SOUND` → `UPDATE_PATCH`, `DELETE_SOUND` → `DELETE_PATCH`,
+    `RENAME_SOUND` → `RENAME_PATCH`, `MOVE_SOUND_TO_FOLDER` →
+    `MOVE_PATCH_TO_FOLDER`, `UPDATE_CLIPS_SOUND` → `UPDATE_CLIPS_PATCH`,
+    `SET_CURRENT_SOUND_ID` → `SET_CURRENT_PATCH_ID`,
+    `HYDRATE_EDITOR_FROM_SOUND` → `HYDRATE_EDITOR_FROM_PATCH`,
+    `SET_EDITOR_NOTE/OCTAVE/TUNING_SYSTEM/FREQUENCY` →
+    `SET_EDITOR_TEST_NOTE/OCTAVE/TUNING_SYSTEM/FREQUENCY`.
+  - State renommé : `savedSounds` → `patches`, `soundCounter` →
+    `patchCounter`, `currentSoundId` → `currentPatchId`.
+  - Split/merge/paste/cut/insert/delete measure propagent désormais les
+    champs de hauteur du clip source vers les nouveaux clips créés
+    (helper `buildSplitPart` dans App, `cloneClipNote` dans reducer).
+  - `canMergeClips` ajoute la vérification que tous les clips aient la
+    même hauteur (en plus du même `patchId` et `trackId`).
+  - Plus de détection de doublons au save : un patch est toujours créé
+    avec un id unique (un même timbre peut exister plusieurs fois sous
+    des noms différents, c'est permis).
+  - **Pas de migration** : si `loadPersistedState` détecte un ancien format
+    (clés `savedSounds`, `soundCounter`, `noteCounter`, `placementCounter`),
+    on log un warning et on repart d'un état initial vide. Deal assumé.
+  - Renommage fichier : `SoundBank.jsx/.css` → `PatchBank.jsx/.css` ;
+    props renommées (`savedSounds` → `patches`, `onLoadSound` →
+    `onLoadPatch`, etc.). Affichage de la fréquence retiré des chips
+    (un patch n'en a plus).
+  - `usePlayback` : signature `{ clips, patches, tracks, bpm, ... }`,
+    résolution fréquence via `clipFrequency(clip)` à l'attaque de
+    chaque clip (live + export WAV). Signature de changement inclut
+    les champs de hauteur pour invalider les clips reprogrammés.
 
 ## Historique (chronologie inverse)
 
@@ -783,33 +862,30 @@ Phases listées ci-dessous dans l'ordre chronologique d'implémentation.
     Audit : clipboard, measure clipboard, split, delete/insert mesure,
     export WAV, multi-sélection cross-piste — tous déjà corrects.
 
-### Itération D (Designer UX) — en cours
+### Itération D (Designer UX) — clôturée 2026-04-19
 
 - ✅ **Phase 1** (2026-04-19) — Refonte sélecteur de notes + boutons Test :
   - **1.1** Sélecteur de système : dropdown "Système" (12-TET, Libre)
-    remplace le toggle "Mode libre". Champ `tuningSystem` sur SavedSound
-    (migration `mode` legacy transparente). Mode libre étendu à 2^4-2^15
-    Hz (16-32768) ; slider, FreqInput et Spectrogram alignés. Bascule
-    12-TET ↔ Libre préserve l'intention (conversion réciproque via
-    `frequencyToNearestNote` côté reducer).
-  - **1.2** Clavier piano 12 notes : 7 touches blanches (C D E F G A B)
-    + 5 noires (C# D# F# G# A#) en absolu, labels discrets, responsive
-    min-width 210px. Rangée 11 boutons d'octave 0-10 ; octave 4 en fond
-    "référence" bleuté permanent, sélection en accent cyan. Dropdowns
-    Note/Octave retirés. Affichage "Note : 440.0 Hz — A4" sous le clavier.
-    `frequencyToNearestNote` clampe désormais à midi 143 (B10).
-  - **1.3** Trois boutons Test : impact (•, A+D+R), court (━, A+D+1s+R),
-    tenu (∞, indéfini jusqu'à Stop ■). Pendant une lecture, les deux
-    autres boutons sont désactivés. Auto-fin pour impact/court via
-    `osc.onended`. Plus de hot-swap waveform pendant un test en cours.
+    remplace le toggle "Mode libre". Mode libre étendu à 2^4-2^15 Hz.
+  - **1.2** Clavier piano 12 notes + rangée 11 boutons d'octave 0-10.
+  - **1.3** Trois boutons Test : impact (•), court (━), tenu (∞).
+
+### Itération E (Patches vs Notes) — en cours
+
+- ✅ **Phase 1** (2026-04-19) — Refonte modèle : patches remplacent sounds,
+  notes portées par les clips. Commit unique. Voir section État actuel.
+- ⏳ **Phase 2** — Affichage note dans les clips, mini-clavier dans
+  Properties, flèches pour ajuster.
+- ⏳ **Phase 3** — Designer comme instrument de test : clavier QWERTY,
+  Espace sustain, mousedown/mouseup comme piano.
+- ⏳ **Phase 4** — Drop intelligent : raccourcis clavier au drop,
+  placement contigu, override de note au drop.
 
 ### Backlog général (à caser quand pertinent)
 
 - Spectrogramme avancé : toggle dB / linéaire, zoom, FFT temps réel
   pendant la lecture, affichage post-ADSR
 - Bouton "Vider la banque" (avec undo)
-- Concept "patch/instrument" : son sans fréquence, hauteur appliquée
-  par le clip (refonte conceptuelle majeure, à rediscuter)
 - Toggle thème clair/sombre
 - Améliorations contrastes (passe 2)
 - Section stats (nb mesures, nb clips, durée totale)

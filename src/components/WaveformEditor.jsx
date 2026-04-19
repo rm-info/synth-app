@@ -3,28 +3,21 @@ import { pointsToPeriodicWave } from '../audio'
 import FreqInput from './FreqInput'
 import './WaveformEditor.css'
 
-// Résolution logique du tableau de points (indépendante de la taille pixel
-// du canvas). Le canvas peut avoir n'importe quelle taille, on échantillonne
-// pts à ptIdx = floor((x/W) * POINTS_RESOLUTION) pour chaque colonne.
 const POINTS_RESOLUTION = 600
 
 const NOTE_NAMES = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B']
 
-// Clavier piano : 7 touches blanches (diatoniques), 5 touches noires (altérées).
-// Les touches noires se placent entre deux blanches ; rien entre E-F et B-C
-// (demi-tons diatoniques). `afterWhite` = index (0-based) de la blanche qui
-// précède la noire dans le rang des 7 blanches.
 const WHITE_KEYS = [0, 2, 4, 5, 7, 9, 11] // C D E F G A B
 const BLACK_KEYS = [
-  { note: 1,  afterWhite: 0 }, // C# entre C et D
-  { note: 3,  afterWhite: 1 }, // D# entre D et E
-  { note: 6,  afterWhite: 3 }, // F# entre F et G
-  { note: 8,  afterWhite: 4 }, // G# entre G et A
-  { note: 10, afterWhite: 5 }, // A# entre A et B
+  { note: 1,  afterWhite: 0 },
+  { note: 3,  afterWhite: 1 },
+  { note: 6,  afterWhite: 3 },
+  { note: 8,  afterWhite: 4 },
+  { note: 10, afterWhite: 5 },
 ]
 
 const OCTAVES = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
-const REFERENCE_OCTAVE = 4 // Octave "référence commune" (A4 = 440 Hz)
+const REFERENCE_OCTAVE = 4
 
 function noteToFrequency(noteIndex, octave) {
   const midi = (octave + 1) * 12 + noteIndex
@@ -90,9 +83,6 @@ function OctaveSelector({ octave, onSelectOctave }) {
   )
 }
 
-// Plage fréquence libre : 2^4 → 2^15 Hz (16 Hz → 32768 Hz). Couvre pile les
-// octaves 0 à 10 complètes en 12-TET (C0 ≈ 16.35 Hz, B10 ≈ 31609 Hz).
-// Slider linéaire 0..1 mappé en log pour rendre les basses accessibles.
 const FREQ_MIN = 16
 const FREQ_MAX = 32768
 const FREQ_MIN_LOG = Math.log(FREQ_MIN)
@@ -111,9 +101,6 @@ function formatFreq(hz) {
   return `${r.toFixed(1)} Hz`
 }
 
-// ADSR : coordonnées VIRTUELLES (le canvas peut avoir n'importe quelle taille,
-// on applique setTransform(W/ADSR_W, H/ADSR_H) avant de dessiner, et toute la
-// logique de positions/interactions reste en 400×120).
 const ADSR_W = 400
 const ADSR_H = 120
 const ADSR_MAX_MS = 500
@@ -132,9 +119,9 @@ function stripSuffix(name) {
   }
 }
 
-function nextAvailableName(rawBase, existingSounds) {
+function nextAvailableName(rawBase, existingPatches) {
   const base = stripSuffix(rawBase)
-  const taken = new Set(existingSounds.map((s) => s.name))
+  const taken = new Set(existingPatches.map((p) => p.name))
   if (!taken.has(base)) return base
   let i = 2
   while (taken.has(`${base} (${i})`)) i++
@@ -159,13 +146,12 @@ function generatePresetPoints(type) {
   return pts
 }
 
-function statesEqual(a, b) {
+// Dirty check : on compare uniquement les champs stockés sur le Patch
+// (points + ADSR + amplitude + preset). Les champs test* sont volatils et
+// ne participent pas au dirty (ils n'affectent pas le patch sauvegardé).
+function patchFieldsEqual(a, b) {
   if (!a || !b) return false
   if (a.amplitude !== b.amplitude) return false
-  if (a.tuningSystem !== b.tuningSystem) return false
-  if (a.noteIndex !== b.noteIndex) return false
-  if (a.octave !== b.octave) return false
-  if (a.freeFrequency !== b.freeFrequency) return false
   if (a.preset !== b.preset) return false
   if (a.attack !== b.attack) return false
   if (a.decay !== b.decay) return false
@@ -178,13 +164,9 @@ function statesEqual(a, b) {
   return true
 }
 
-function snapshotEditor(editor) {
+function snapshotPatchFields(editor) {
   return {
     points: Array.from(editor.points),
-    tuningSystem: editor.tuningSystem,
-    noteIndex: editor.noteIndex,
-    octave: editor.octave,
-    freeFrequency: editor.freeFrequency,
     amplitude: editor.amplitude,
     preset: editor.preset,
     attack: editor.attack,
@@ -194,48 +176,36 @@ function snapshotEditor(editor) {
   }
 }
 
-function soundToReference(sound) {
-  const isFree = sound.tuningSystem === 'free'
+function patchToReference(patch) {
   return {
-    points: Array.from(sound.points),
-    tuningSystem: sound.tuningSystem ?? '12-TET',
-    noteIndex: sound.noteIndex ?? 9,
-    octave: sound.octave ?? 4,
-    freeFrequency: isFree ? sound.frequency : 440,
-    amplitude: sound.amplitude,
-    preset: sound.preset,
-    attack: sound.attack,
-    decay: sound.decay,
-    sustain: sound.sustain,
-    release: sound.release,
+    points: Array.from(patch.points),
+    amplitude: patch.amplitude,
+    preset: patch.preset,
+    attack: patch.attack,
+    decay: patch.decay,
+    sustain: patch.sustain,
+    release: patch.release,
   }
 }
 
 /**
- * WaveformEditor — vue de l'éditeur de son.
+ * WaveformEditor — éditeur de patch.
  *
- * Phase 6.1 : state remonté dans App via reducer. Les valeurs courantes
- * arrivent en prop `editor` ; les mutations passent par `editorActions`
- * (qui dispatchent dans le reducer). Pendant un geste continu (drag du
- * canvas, drag de poignées ADSR, slide d'un range), on garde un draft
- * local pour préserver la fluidité ; le dispatch n'a lieu qu'au mouseup
- * (un seul snapshot dans l'historique).
- *
- * Le composant garde aussi en local : refs audio (oscillateur, gain,
- * AudioContext), refs des canvases, état de lecture (preview), message
- * flash de save, et la « référence de dirty check » (snapshot du state
- * au moment du dernier save / hydrate).
+ * Depuis itération E : un patch ne porte plus de fréquence ni de note. Le
+ * clavier + sélecteur d'octave + slider fréquence ne pilotent que la preview
+ * (test* fields du state editor). Au drop d'un patch sur la timeline, la
+ * note courante du clavier devient celle du clip créé.
  */
 function WaveformEditor({
   editor,
   editorActions,
-  onSaveSound,
-  onUpdateSound,
+  onSavePatch,
+  onUpdatePatch,
   onRequestNew,
-  nextSoundName,
-  currentSound,
-  savedSounds,
-  onSoundCreated,
+  nextPatchName,
+  currentPatch,
+  patches,
+  onPatchCreated,
   spectrogramVisible,
   onToggleSpectrogram,
   canUndo,
@@ -245,28 +215,25 @@ function WaveformEditor({
   ref,
   children,
 }) {
-  // --- Drafts pour les gestes continus ---
   const [draftPoints, setDraftPoints] = useState(null)
-  const [draftAdsr, setDraftAdsr] = useState(null) // { attack?, decay?, sustain?, release? }
+  const [draftAdsr, setDraftAdsr] = useState(null)
   const [draftAmp, setDraftAmp] = useState(null)
   const [draftFreq, setDraftFreq] = useState(null)
 
-  // --- Valeurs effectives (props écrasées par draft si actif) ---
   const points = draftPoints ?? editor.points
   const amplitude = draftAmp ?? editor.amplitude
-  const freeFrequency = draftFreq ?? editor.freeFrequency
+  const testFrequency = draftFreq ?? editor.testFrequency
   const attack = draftAdsr?.attack ?? editor.attack
   const decay = draftAdsr?.decay ?? editor.decay
   const sustain = draftAdsr?.sustain ?? editor.sustain
   const release = draftAdsr?.release ?? editor.release
 
-  const { tuningSystem, noteIndex, octave, preset: activePreset } = editor
-  const freeMode = tuningSystem === 'free'
+  const { testTuningSystem, testNoteIndex, testOctave, preset: activePreset } = editor
+  const freeMode = testTuningSystem === 'free'
 
-  const frequency = freeMode ? freeFrequency : noteToFrequency(noteIndex, octave)
-  const defaultName = freeMode ? nextSoundName : `${NOTE_NAMES[noteIndex]}${octave}`
+  const frequency = freeMode ? testFrequency : noteToFrequency(testNoteIndex, testOctave)
+  const defaultName = nextPatchName
 
-  // --- Refs locales (audio + canvas + dirty) ---
   const canvasRef = useRef(null)
   const canvasContainerRef = useRef(null)
   const adsrCanvasRef = useRef(null)
@@ -276,50 +243,40 @@ function WaveformEditor({
   const gainRef = useRef(null)
 
   const [isDrawing, setIsDrawing] = useState(false)
-  // 'impact' | 'court' | 'tenu' | null. Remplace l'ancien booléen isPlaying
-  // pour distinguer les trois modes de test.
   const [playingMode, setPlayingMode] = useState(null)
   const isPlaying = playingMode !== null
   const [draggingHandle, setDraggingHandle] = useState(null)
   const [saveMessage, setSaveMessage] = useState('')
   const saveMsgTimerRef = useRef(null)
 
-  const referenceRef = useRef(snapshotEditor(editor))
-  const referencedSoundIdRef = useRef(null)
+  const referenceRef = useRef(snapshotPatchFields(editor))
+  const referencedPatchIdRef = useRef(null)
 
-  // Sync de la référence (dirty check) sur changement de currentSound : on
-  // capture l'état attendu pour comparer ensuite l'éditeur en cours.
   useEffect(() => {
-    const incomingId = currentSound?.id ?? null
-    if (incomingId === referencedSoundIdRef.current) return
-    referencedSoundIdRef.current = incomingId
-    referenceRef.current = currentSound
-      ? soundToReference(currentSound)
-      : { ...snapshotEditor(editor), points: Array.from(blankPointsArray()) }
-    // Note: on ne s'inscrit PAS sur editor dans les deps, sinon on resyncrhoniserait
-    // la référence à chaque modif (et le dirty check ne dirait jamais "dirty").
+    const incomingId = currentPatch?.id ?? null
+    if (incomingId === referencedPatchIdRef.current) return
+    referencedPatchIdRef.current = incomingId
+    referenceRef.current = currentPatch
+      ? patchToReference(currentPatch)
+      : { ...snapshotPatchFields(editor), points: Array.from(blankPointsArray()) }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentSound])
+  }, [currentPatch])
 
-  // Snapshot live pour le dirty check (mis à jour à chaque render).
   const stateSnapshotRef = useRef(null)
   stateSnapshotRef.current = {
-    points, tuningSystem, noteIndex, octave, freeFrequency,
-    amplitude, preset: activePreset, attack, decay, sustain, release,
+    points, amplitude, preset: activePreset, attack, decay, sustain, release,
   }
 
   useImperativeHandle(ref, () => ({
     isDirty: () => {
       if (!stateSnapshotRef.current) return false
-      return !statesEqual(stateSnapshotRef.current, referenceRef.current)
+      return !patchFieldsEqual(stateSnapshotRef.current, referenceRef.current)
     },
   }), [])
 
-  // --- Refs miroirs des valeurs courantes pour le moteur audio ---
   const pointsRef = useRef(points)
   useEffect(() => { pointsRef.current = points }, [points])
 
-  // --- Canvas waveform ---
   const drawCanvas = useCallback((pts) => {
     const canvas = canvasRef.current
     if (!canvas) return
@@ -397,7 +354,6 @@ function WaveformEditor({
     return () => ro.disconnect()
   }, [drawCanvas])
 
-  // --- Drawing (canvas) ---
   const getCanvasPoint = (e) => {
     const canvas = canvasRef.current
     const rect = canvas.getBoundingClientRect()
@@ -443,7 +399,6 @@ function WaveformEditor({
 
   const commitDraftPoints = () => {
     if (draftPoints) {
-      // Skip si rien n'a réellement bougé (drag sans modification = clic statique)
       const same = draftPoints.length === editor.points.length &&
         draftPoints.every((v, i) => v === editor.points[i])
       if (!same) editorActions.setPoints(draftPoints)
@@ -465,13 +420,9 @@ function WaveformEditor({
     }
   }
 
-  // --- Audio (preview / Test) ---
-  // Durée du hold pour le mode "court" (tenu fixe après le decay, avant le release).
   const COURT_HOLD_SEC = 1.0
 
   const startAudio = (mode) => {
-    // Garde-fou : ne pas démarrer un 2ᵉ test par-dessus un existant (les boutons
-    // sont déjà désactivés en UI, mais on reste robuste).
     if (playingMode !== null) return
 
     const ctx = audioCtxRef.current || new AudioContext()
@@ -494,9 +445,6 @@ function WaveformEditor({
     gain.gain.linearRampToValueAtTime(amplitude, now + a)
     gain.gain.linearRampToValueAtTime(sustainLevel, now + a + d)
 
-    // Pour impact et court, on programme aussi la rampe de release avant
-    // le start (automation sur un AudioParam, ne dépend pas de l'état
-    // démarré de l'osc).
     let stopTime = null
     if (mode === 'impact' || mode === 'court') {
       const holdSec = mode === 'court' ? COURT_HOLD_SEC : 0
@@ -510,16 +458,11 @@ function WaveformEditor({
     gain.connect(ctx.destination)
     osc.start()
 
-    // IMPORTANT : osc.stop() doit impérativement être appelé APRÈS osc.start().
-    // Per W3C Web Audio spec, stop() avant start() jette InvalidStateError,
-    // ce qui interromprait la suite de l'initialisation (silence sur
-    // impact/court).
     if (stopTime !== null) {
       osc.stop(stopTime)
       osc.onended = () => {
         try { osc.disconnect() } catch { /* already */ }
         try { gain.disconnect() } catch { /* already */ }
-        // Retour à l'état repos (n'agit que si le mode actif est toujours celui-ci).
         setPlayingMode((cur) => (cur === mode ? null : cur))
         if (oscRef.current === osc) oscRef.current = null
         if (gainRef.current === gain) gainRef.current = null
@@ -580,7 +523,6 @@ function WaveformEditor({
     }
   }, [])
 
-  // --- Presets / Clear ---
   const clearCanvas = () => {
     editorActions.setPoints(blankPointsArray())
   }
@@ -590,7 +532,6 @@ function WaveformEditor({
     editorActions.applyPreset(type, pts)
   }
 
-  // --- Save / Update / New ---
   const flashMessage = (msg) => {
     setSaveMessage(msg)
     if (saveMsgTimerRef.current) clearTimeout(saveMsgTimerRef.current)
@@ -603,12 +544,8 @@ function WaveformEditor({
 
   const buildPayload = (name) => ({
     name,
-    tuningSystem,
-    noteIndex: freeMode ? null : noteIndex,
-    octave: freeMode ? null : octave,
     preset: activePreset,
     points: Array.from(points),
-    frequency,
     amplitude,
     attack,
     decay,
@@ -623,57 +560,41 @@ function WaveformEditor({
       return
     }
 
-    const isExplicitDuplicate = !!currentSound
-    let proposedName
-    if (isExplicitDuplicate) {
-      const base = currentSound.tuningSystem === '12-TET'
-        ? currentSound.name
-        : `Copie de ${currentSound.name}`
-      proposedName = nextAvailableName(base, savedSounds ?? [])
-    } else {
-      proposedName = defaultName
-    }
+    const proposedName = currentPatch
+      ? nextAvailableName(`Copie de ${currentPatch.name}`, patches ?? [])
+      : defaultName
 
-    const result = onSaveSound(
-      buildPayload(proposedName),
-      { allowDuplicate: isExplicitDuplicate },
-    )
-    if (result?.duplicate) {
-      flashMessage('Ce son existe déjà')
-      return
-    }
+    const result = onSavePatch(buildPayload(proposedName))
     referenceRef.current = stateSnapshotRef.current
     if (result?.id) {
-      referencedSoundIdRef.current = result.id
-      onSoundCreated?.(result.id)
+      referencedPatchIdRef.current = result.id
+      onPatchCreated?.(result.id)
     }
-    flashMessage('Nouveau son enregistré')
+    flashMessage(currentPatch ? 'Nouveau patch enregistré' : 'Patch enregistré')
   }
 
   const handleUpdate = () => {
-    if (!currentSound) return
+    if (!currentPatch) return
     const hasSignal = points.some((v) => v !== 0)
     if (!hasSignal) {
       flashMessage('Canvas vide')
       return
     }
-    onUpdateSound(currentSound.id, buildPayload(currentSound.name))
+    onUpdatePatch(currentPatch.id, buildPayload(currentPatch.name))
     referenceRef.current = stateSnapshotRef.current
-    flashMessage('Son mis à jour')
+    flashMessage('Patch mis à jour')
   }
 
   const handleNew = () => {
-    const dirty = !statesEqual(stateSnapshotRef.current, referenceRef.current)
+    const dirty = !patchFieldsEqual(stateSnapshotRef.current, referenceRef.current)
     if (dirty) {
       const ok = window.confirm('Modifications non sauvegardées, continuer ?')
       if (!ok) return
     }
     if (isPlaying) stopAudio()
     onRequestNew?.()
-    // La référence sera resync via l'effet sur currentSound (qui passe à null).
   }
 
-  // --- ADSR canvas ---
   const attackPx = (attack / ADSR_MAX_MS) * ADSR_SEGMENT_PX
   const decayPx = (decay / ADSR_MAX_MS) * ADSR_SEGMENT_PX
   const releasePx = (release / ADSR_MAX_MS) * ADSR_SEGMENT_PX
@@ -826,7 +747,6 @@ function WaveformEditor({
 
   const commitDraftAdsr = () => {
     if (draftAdsr && Object.keys(draftAdsr).length > 0) {
-      // Garder uniquement les clés qui diffèrent du state courant
       const patch = {}
       for (const k of Object.keys(draftAdsr)) {
         if (draftAdsr[k] !== editor[k]) patch[k] = draftAdsr[k]
@@ -843,9 +763,6 @@ function WaveformEditor({
     }
   }
 
-  // --- Helpers de slider draftés ---
-  // Pattern : pendant le drag (mouse down) on met à jour un draft local pour
-  // garder le rendu fluide ; au mouseup/touchend/keyup le draft est commité.
   const sliderCommitter = (commit) => ({
     onPointerUp: commit,
     onMouseUp: commit,
@@ -862,7 +779,7 @@ function WaveformEditor({
   }
   const commitDraftFreq = () => {
     if (draftFreq != null) {
-      if (draftFreq !== editor.freeFrequency) editorActions.setFrequency(draftFreq)
+      if (draftFreq !== editor.testFrequency) editorActions.setTestFrequency(draftFreq)
       setDraftFreq(null)
     }
   }
@@ -870,15 +787,13 @@ function WaveformEditor({
     commitDraftAdsr()
   }
 
-  // --- Render areas (render-prop) ---
-
   const renderCanvasArea = () => (
     <div className="we-canvas-area">
       <header className="we-area-header">
         <div className="we-header-left">
           <h3 className="we-area-title">Waveform</h3>
           <span className="we-sound-tag">
-            {currentSound ? `Édition : ${currentSound.name}` : defaultName}
+            {currentPatch ? `Édition : ${currentPatch.name}` : defaultName}
           </span>
         </div>
         <div className="we-header-right">
@@ -944,12 +859,12 @@ function WaveformEditor({
 
       <div className="we-params-fields">
         <div className="control-group">
-          <label className="system-label" htmlFor="tuning-system">Système</label>
+          <label className="system-label" htmlFor="tuning-system">Système de test</label>
           <select
             id="tuning-system"
             className="tuning-system-select"
-            value={tuningSystem}
-            onChange={(e) => editorActions.setTuningSystem(e.target.value)}
+            value={testTuningSystem}
+            onChange={(e) => editorActions.setTestTuningSystem(e.target.value)}
           >
             <option value="12-TET">12-TET (Tempérament égal occidental)</option>
             <option value="free">Libre (Hz)</option>
@@ -962,8 +877,8 @@ function WaveformEditor({
               <div className="freq-label">
                 Fréquence libre :{' '}
                 <FreqInput
-                  value={freeFrequency}
-                  onChange={editorActions.setFrequency}
+                  value={testFrequency}
+                  onChange={editorActions.setTestFrequency}
                   min={FREQ_MIN}
                   max={FREQ_MAX}
                   className="freq-input"
@@ -975,7 +890,7 @@ function WaveformEditor({
                 min="0"
                 max="1"
                 step="0.001"
-                value={freqToSlider(freeFrequency)}
+                value={freqToSlider(testFrequency)}
                 onChange={(e) => {
                   const hz = sliderToFreq(Number(e.target.value))
                   setDraftFreq(Math.round(hz * 10) / 10)
@@ -986,17 +901,17 @@ function WaveformEditor({
           ) : (
             <>
               <PianoKeyboard
-                noteIndex={noteIndex}
-                onSelectNote={editorActions.setNoteIndex}
+                noteIndex={testNoteIndex}
+                onSelectNote={editorActions.setTestNoteIndex}
               />
               <OctaveSelector
-                octave={octave}
-                onSelectOctave={editorActions.setOctave}
+                octave={testOctave}
+                onSelectOctave={editorActions.setTestOctave}
               />
               <div className="freq-label">
                 Note : <strong>{formatFreq(frequency)}</strong>
                 <span className="note-display">
-                  {' '}— {NOTE_NAMES[noteIndex]}{octave}
+                  {' '}— {NOTE_NAMES[testNoteIndex]}{testOctave}
                 </span>
               </div>
             </>
@@ -1048,16 +963,16 @@ function WaveformEditor({
             aria-label={playingMode === 'tenu' ? 'Arrêter le test tenu' : 'Test tenu'}
           >{playingMode === 'tenu' ? '■' : '∞'}</button>
         </div>
-        <button type="button" className="new-btn" onClick={handleNew} title="Nouveau son (réinitialise l'éditeur)">
+        <button type="button" className="new-btn" onClick={handleNew} title="Nouveau patch (réinitialise l'éditeur)">
           Nouveau
         </button>
-        {currentSound && (
+        {currentPatch && (
           <button className="update-btn" onClick={handleUpdate}>
             Mettre à jour
           </button>
         )}
         <button className="save-btn" onClick={handleSaveAsNew}>
-          {currentSound ? 'Enregistrer comme nouveau' : 'Sauvegarder le son'}
+          {currentPatch ? 'Enregistrer comme nouveau' : 'Sauvegarder le patch'}
         </button>
       </div>
 
