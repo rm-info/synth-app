@@ -7,6 +7,7 @@ import MiniPlayer from './components/MiniPlayer'
 import Toolbar from './components/Toolbar'
 import PropertiesPanel from './components/PropertiesPanel'
 import Spectrogram from './components/Spectrogram'
+import SidebarResizer from './components/SidebarResizer'
 import {
   reducer,
   withUndo,
@@ -19,6 +20,10 @@ import {
   MAX_TRACK_HEIGHT,
   MAX_TRACKS,
   DEFAULT_TRACK_ID,
+  COMPOSER_SIDEBAR_MIN_WIDTH,
+  COMPOSER_LAYOUT_CHROME,
+  COMPOSER_MAIN_MIN_WIDTH,
+  COMPOSER_SIDEBAR_COLLAPSED_WIDTH,
   canSplitClip,
   getDescendantFolderIds,
   editorTestNoteFields,
@@ -42,6 +47,7 @@ function App() {
     clips, patches, soundFolders, tracks, bpm, numMeasures,
     editor, activeTab, currentPatchId, zoomH, defaultClipDuration,
     spectrogramVisible, durationMode, selectedClipIds, composerFlash, lastAnchorClipId,
+    composerBankWidth, composerAsideWidth, composerBankCollapsed, composerAsideCollapsed,
     patchCounter, clipCounter, folderCounter, trackCounter,
     clipboard, measureClipboard, history, notification,
   } = state
@@ -146,7 +152,8 @@ function App() {
   // Flèches clavier : ajustement rapide note (↑↓) et position (←→).
   // ↑↓ : ±1 demi-ton (passage d'octave auto), Shift = ±1 octave. Affecte
   // uniquement les clips 12-TET de la sélection (les free sont ignorés).
-  // ←→ : ±0.25 beat, Shift = ±1 beat. Affecte tous les clips sélectionnés.
+  // ←→ : ±0.125 beat (triple croche, aligné sur le snap), Shift = ±1 beat.
+  // Affecte tous les clips sélectionnés.
   // Groupe bloqué si le clip le plus contraint ne peut pas bouger.
   useEffect(() => {
     const handler = (e) => {
@@ -208,7 +215,7 @@ function App() {
 
       // Déplacement temporel : s'applique à tous (indépendant du tuningSystem).
       const direction = e.key === 'ArrowRight' ? 1 : -1
-      const deltaReq = direction * (e.shiftKey ? 1 : 0.25)
+      const deltaReq = direction * (e.shiftKey ? 1 : 0.125)
 
       let minDelta = -Infinity
       let maxDelta = Infinity
@@ -479,6 +486,10 @@ function App() {
           clipCounter,
           folderCounter,
           trackCounter,
+          composerBankWidth,
+          composerAsideWidth,
+          composerBankCollapsed,
+          composerAsideCollapsed,
         }),
       )
     } catch {
@@ -487,6 +498,7 @@ function App() {
   }, [
     patches, soundFolders, tracks, clips, bpm, numMeasures,
     spectrogramVisible, durationMode, activeTab, patchCounter, clipCounter, folderCounter, trackCounter,
+    composerBankWidth, composerAsideWidth, composerBankCollapsed, composerAsideCollapsed,
   ])
 
   // Hydratation de l'éditeur quand currentPatchId change. Non-undoable.
@@ -551,6 +563,55 @@ function App() {
   const setSpectrogramVisible = useCallback((v) => {
     dispatch({ type: 'SET_SPECTROGRAM_VISIBLE', payload: v })
   }, [])
+
+  // Max dynamique : chaque sidebar ne doit pas rogner la zone centrale en
+  // dessous de COMPOSER_MAIN_MIN_WIDTH. Si la fenêtre est si petite que le max
+  // serait en dessous du min, on garde le min (le layout débordera visuellement
+  // mais on respecte la contrainte "pas plus étroit que le défaut").
+  const handleResizeBank = useCallback((width) => {
+    const maxBank = window.innerWidth - composerAsideWidth - COMPOSER_LAYOUT_CHROME - COMPOSER_MAIN_MIN_WIDTH
+    const clamped = Math.min(width, Math.max(COMPOSER_SIDEBAR_MIN_WIDTH, maxBank))
+    dispatch({ type: 'SET_COMPOSER_SIDEBAR_WIDTH', payload: { side: 'bank', width: clamped } })
+  }, [composerAsideWidth])
+
+  const handleResizeAside = useCallback((width) => {
+    const maxAside = window.innerWidth - composerBankWidth - COMPOSER_LAYOUT_CHROME - COMPOSER_MAIN_MIN_WIDTH
+    const clamped = Math.min(width, Math.max(COMPOSER_SIDEBAR_MIN_WIDTH, maxAside))
+    dispatch({ type: 'SET_COMPOSER_SIDEBAR_WIDTH', payload: { side: 'aside', width: clamped } })
+  }, [composerBankWidth])
+
+  const handleToggleBankCollapsed = useCallback(() => {
+    dispatch({
+      type: 'SET_COMPOSER_SIDEBAR_COLLAPSED',
+      payload: { side: 'bank', collapsed: !composerBankCollapsed },
+    })
+  }, [composerBankCollapsed])
+
+  const handleToggleAsideCollapsed = useCallback(() => {
+    dispatch({
+      type: 'SET_COMPOSER_SIDEBAR_COLLAPSED',
+      payload: { side: 'aside', collapsed: !composerAsideCollapsed },
+    })
+  }, [composerAsideCollapsed])
+
+  // Reclampe les largeurs quand la fenêtre rétrécit : on préserve l'invariant
+  // "main ≥ COMPOSER_MAIN_MIN_WIDTH" sans perdre les préférences de l'utilisateur
+  // dans le cas inverse (élargissement).
+  useEffect(() => {
+    const onResize = () => {
+      const w = window.innerWidth
+      const maxBank = w - composerAsideWidth - COMPOSER_LAYOUT_CHROME - COMPOSER_MAIN_MIN_WIDTH
+      const maxAside = w - composerBankWidth - COMPOSER_LAYOUT_CHROME - COMPOSER_MAIN_MIN_WIDTH
+      if (composerBankWidth > maxBank && maxBank > COMPOSER_SIDEBAR_MIN_WIDTH) {
+        dispatch({ type: 'SET_COMPOSER_SIDEBAR_WIDTH', payload: { side: 'bank', width: maxBank } })
+      }
+      if (composerAsideWidth > maxAside && maxAside > COMPOSER_SIDEBAR_MIN_WIDTH) {
+        dispatch({ type: 'SET_COMPOSER_SIDEBAR_WIDTH', payload: { side: 'aside', width: maxAside } })
+      }
+    }
+    window.addEventListener('resize', onResize)
+    return () => window.removeEventListener('resize', onResize)
+  }, [composerBankWidth, composerAsideWidth])
 
   const setActiveTab = useCallback((tab) => {
     dispatch({ type: 'SET_ACTIVE_TAB', payload: tab })
@@ -1284,6 +1345,14 @@ function App() {
               className="composer-layout"
               hidden={activeTab !== 'composer'}
               aria-hidden={activeTab !== 'composer'}
+              style={{
+                '--composer-bank-width': composerBankCollapsed
+                  ? `${COMPOSER_SIDEBAR_COLLAPSED_WIDTH}px`
+                  : `${composerBankWidth}px`,
+                '--composer-aside-width': composerAsideCollapsed
+                  ? `${COMPOSER_SIDEBAR_COLLAPSED_WIDTH}px`
+                  : `${composerAsideWidth}px`,
+              }}
             >
               <div className="composer-toolbar">
                 <Toolbar
@@ -1325,21 +1394,58 @@ function App() {
                   onRedo={handleRedoComposer}
                 />
               </div>
-              <div className="composer-sidebar">
-                <PatchBank
-                  patches={patches}
-                  soundFolders={soundFolders}
-                  currentPatchId={currentPatchId}
-                  activeTab="composer"
-                  onLoadPatch={handleLoadPatch}
-                  onRenamePatch={handleRenamePatch}
-                  onDeletePatch={handleDeletePatch}
-                  onCreateFolder={handleCreateFolder}
-                  onRenameFolder={handleRenameFolder}
-                  onDeleteFolder={handleDeleteFolder}
-                  onMovePatchToFolder={handleMovePatchToFolder}
-                  onMoveFolder={handleMoveFolder}
-                />
+              <div className={`composer-sidebar${composerBankCollapsed ? ' is-collapsed' : ''}`}>
+                {composerBankCollapsed ? (
+                  <>
+                    <button
+                      type="button"
+                      className="sidebar-toggle sidebar-toggle-standalone"
+                      onClick={handleToggleBankCollapsed}
+                      title="Ouvrir la banque"
+                      aria-label="Ouvrir la banque"
+                      aria-expanded={false}
+                    >
+                      <span className="sidebar-toggle-icon">▶</span>
+                    </button>
+                    <span className="sidebar-collapsed-label">Banque</span>
+                  </>
+                ) : (
+                  <>
+                    <PatchBank
+                      patches={patches}
+                      soundFolders={soundFolders}
+                      currentPatchId={currentPatchId}
+                      activeTab="composer"
+                      onLoadPatch={handleLoadPatch}
+                      onRenamePatch={handleRenamePatch}
+                      onDeletePatch={handleDeletePatch}
+                      onCreateFolder={handleCreateFolder}
+                      onRenameFolder={handleRenameFolder}
+                      onDeleteFolder={handleDeleteFolder}
+                      onMovePatchToFolder={handleMovePatchToFolder}
+                      onMoveFolder={handleMoveFolder}
+                      headerExtra={
+                        <button
+                          type="button"
+                          className="sidebar-toggle sidebar-toggle-inline"
+                          onClick={handleToggleBankCollapsed}
+                          title="Réduire la banque"
+                          aria-label="Réduire la banque"
+                          aria-expanded={true}
+                        >
+                          <span className="sidebar-toggle-icon">◀</span>
+                        </button>
+                      }
+                    />
+                    <SidebarResizer
+                      side="right"
+                      width={composerBankWidth}
+                      minWidth={COMPOSER_SIDEBAR_MIN_WIDTH}
+                      onChange={handleResizeBank}
+                      ariaLabel="Redimensionner la banque"
+                    />
+                  </>
+                )}
               </div>
               <div className="composer-main">
                 <Timeline
@@ -1383,26 +1489,63 @@ function App() {
                   hasMeasureClipboard={!!measureClipboard}
                 />
               </div>
-              <div className="composer-aside">
-                <PropertiesPanel
-                  selectedClipIds={selectedClipIds}
-                  clips={clips}
-                  tracks={tracks}
-                  patches={patches}
-                  numMeasures={numMeasures}
-                  durationMode={durationMode}
-                  onUpdateClip={handleUpdateClip}
-                  onRemoveClip={handleRemoveClip}
-                  onUpdateClipsPatch={handleUpdateClipsPatch}
-                  onUpdateClipsDuration={handleUpdateClipsDuration}
-                  onUpdateClipsPitch={handleUpdateClipsPitch}
-                  onDeleteSelected={handleDeleteSelected}
-                  mergeStatus={mergeStatus}
-                  onMergeClips={handleMergeClips}
-                  canSplit2={canSplit2}
-                  canSplit3={canSplit3}
-                  onSplitClips={handleSplitClips}
-                />
+              <div className={`composer-aside${composerAsideCollapsed ? ' is-collapsed' : ''}`}>
+                {composerAsideCollapsed ? (
+                  <>
+                    <button
+                      type="button"
+                      className="sidebar-toggle sidebar-toggle-standalone"
+                      onClick={handleToggleAsideCollapsed}
+                      title="Ouvrir les propriétés"
+                      aria-label="Ouvrir les propriétés"
+                      aria-expanded={false}
+                    >
+                      <span className="sidebar-toggle-icon">◀</span>
+                    </button>
+                    <span className="sidebar-collapsed-label">Propriétés</span>
+                  </>
+                ) : (
+                  <>
+                    <SidebarResizer
+                      side="left"
+                      width={composerAsideWidth}
+                      minWidth={COMPOSER_SIDEBAR_MIN_WIDTH}
+                      onChange={handleResizeAside}
+                      ariaLabel="Redimensionner le panneau Propriétés"
+                    />
+                    <PropertiesPanel
+                      selectedClipIds={selectedClipIds}
+                      clips={clips}
+                      tracks={tracks}
+                      patches={patches}
+                      numMeasures={numMeasures}
+                      durationMode={durationMode}
+                      onUpdateClip={handleUpdateClip}
+                      onRemoveClip={handleRemoveClip}
+                      onUpdateClipsPatch={handleUpdateClipsPatch}
+                      onUpdateClipsDuration={handleUpdateClipsDuration}
+                      onUpdateClipsPitch={handleUpdateClipsPitch}
+                      onDeleteSelected={handleDeleteSelected}
+                      mergeStatus={mergeStatus}
+                      onMergeClips={handleMergeClips}
+                      canSplit2={canSplit2}
+                      canSplit3={canSplit3}
+                      onSplitClips={handleSplitClips}
+                      headerExtra={
+                        <button
+                          type="button"
+                          className="sidebar-toggle sidebar-toggle-inline"
+                          onClick={handleToggleAsideCollapsed}
+                          title="Réduire les propriétés"
+                          aria-label="Réduire les propriétés"
+                          aria-expanded={true}
+                        >
+                          <span className="sidebar-toggle-icon">▶</span>
+                        </button>
+                      }
+                    />
+                  </>
+                )}
               </div>
             </main>
           </>

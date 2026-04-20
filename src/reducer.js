@@ -7,13 +7,24 @@ export const DEFAULT_NUM_MEASURES = 16
 export const DEFAULT_TRACK_ID = 'track-default'
 export const BEATS_PER_MEASURE = 4
 export const MIN_ZOOM_H = 2
-export const MAX_ZOOM_H = 1000
+export const MAX_ZOOM_H = 300
 export const DEFAULT_ZOOM_H = 5
-export const MIN_TRACK_HEIGHT = 30
+export const MIN_TRACK_HEIGHT = 50
 export const MAX_TRACK_HEIGHT = 200
 export const DEFAULT_CLIP_DURATION = 1
 export const MAX_TRACKS = 16
 export const POINTS_RESOLUTION = 600
+// Largeur minimale (= par défaut) des sidebars du Composer en px. Utilisée
+// aussi comme taille initiale : l'utilisateur peut seulement élargir.
+export const COMPOSER_SIDEBAR_MIN_WIDTH = 300
+// Espace horizontal réservé au layout Composer hors colonnes (2×padding + 2×gap
+// de .composer-layout). Utilisé pour calculer le max dynamique des sidebars.
+export const COMPOSER_LAYOUT_CHROME = 48
+// Largeur minimale laissée à la zone centrale quand on élargit une sidebar.
+export const COMPOSER_MAIN_MIN_WIDTH = 200
+// Largeur d'une sidebar en mode collapsed : juste assez pour le bouton
+// de restauration. Utilisée comme override de la CSS var depuis App.
+export const COMPOSER_SIDEBAR_COLLAPSED_WIDTH = 32
 
 export const DEFAULT_ADSR = { attack: 10, decay: 100, sustain: 0.7, release: 200 }
 
@@ -139,6 +150,10 @@ export function loadPersistedState() {
         typeof parsed.spectrogramVisible === 'boolean' ? parsed.spectrogramVisible : true,
       activeTab: parsed.activeTab === 'composer' ? 'composer' : 'designer',
       durationMode: parsed.durationMode === 'fraction' ? 'fraction' : 'solfège',
+      composerBankWidth: typeof parsed.composerBankWidth === 'number' ? parsed.composerBankWidth : null,
+      composerAsideWidth: typeof parsed.composerAsideWidth === 'number' ? parsed.composerAsideWidth : null,
+      composerBankCollapsed: typeof parsed.composerBankCollapsed === 'boolean' ? parsed.composerBankCollapsed : null,
+      composerAsideCollapsed: typeof parsed.composerAsideCollapsed === 'boolean' ? parsed.composerAsideCollapsed : null,
     }
   } catch {
     return null
@@ -181,8 +196,14 @@ export function buildInitialState() {
     spectrogramVisible: persisted?.spectrogramVisible ?? true,
     defaultClipDuration: DEFAULT_CLIP_DURATION,
     // Mode d'affichage des durées dans les boutons (E.6.1).
-    // 'solfège' : ♩ ♪ 𝅘𝅥𝅯 etc. / 'fraction' : 1/4 1/8 1/16 etc.
+    // 'solfège' : ♩ ♪ 𝅘𝅥𝅯 etc. / 'fraction' : 1 1/2 1/4 etc. (réf. = noire).
     durationMode: persisted?.durationMode === 'fraction' ? 'fraction' : 'solfège',
+    // Largeurs des sidebars du Composer (px). Minimum = COMPOSER_SIDEBAR_MIN_WIDTH,
+    // pas de maximum imposé. Clampées à chaque assignation.
+    composerBankWidth: Math.max(COMPOSER_SIDEBAR_MIN_WIDTH, persisted?.composerBankWidth ?? COMPOSER_SIDEBAR_MIN_WIDTH),
+    composerAsideWidth: Math.max(COMPOSER_SIDEBAR_MIN_WIDTH, persisted?.composerAsideWidth ?? COMPOSER_SIDEBAR_MIN_WIDTH),
+    composerBankCollapsed: persisted?.composerBankCollapsed ?? false,
+    composerAsideCollapsed: persisted?.composerAsideCollapsed ?? false,
     composerFlash: null,
 
     history: {
@@ -1042,6 +1063,32 @@ export function reducer(state, action) {
     case 'SET_DURATION_MODE': {
       return { ...state, durationMode: action.payload === 'fraction' ? 'fraction' : 'solfège' }
     }
+    case 'SET_COMPOSER_SIDEBAR_WIDTH': {
+      const { side, width } = action.payload
+      const clamped = Math.max(COMPOSER_SIDEBAR_MIN_WIDTH, Math.round(width))
+      if (side === 'bank') {
+        if (state.composerBankWidth === clamped) return state
+        return { ...state, composerBankWidth: clamped }
+      }
+      if (side === 'aside') {
+        if (state.composerAsideWidth === clamped) return state
+        return { ...state, composerAsideWidth: clamped }
+      }
+      return state
+    }
+    case 'SET_COMPOSER_SIDEBAR_COLLAPSED': {
+      const { side, collapsed } = action.payload
+      const value = !!collapsed
+      if (side === 'bank') {
+        if (state.composerBankCollapsed === value) return state
+        return { ...state, composerBankCollapsed: value }
+      }
+      if (side === 'aside') {
+        if (state.composerAsideCollapsed === value) return state
+        return { ...state, composerAsideCollapsed: value }
+      }
+      return state
+    }
     case 'SET_COMPOSER_FLASH': {
       return { ...state, composerFlash: action.payload }
     }
@@ -1094,13 +1141,11 @@ function findOrphanReferences(restoredPatches, currentClips) {
   return { clipCount: orphans.length, patchIds: orphanPatchIds }
 }
 
-// Vérifie que les clips d'un snapshot Composer ne référencent pas des patches
-// absents du state Designer actuel.
 // Après un undo/redo Composer, si `lastAnchorClipId` pointe vers un clip
-// qui n'existe plus dans le snapshot restauré, on cherche un fallback :
-// le clip avec la fin la plus tardive sur la même piste que l'ancien
-// anchor. Permet à l'utilisateur de continuer le placement contigu au
-// clavier sans re-sélectionner manuellement.
+// qui n'existe plus dans le snapshot restauré ET que la sélection restaurée
+// est vide, on cherche un fallback : le clip avec la fin la plus tardive
+// sur la même piste que l'ancien anchor. Quand la sélection est non vide,
+// `syncAnchorWithSelection` prend le dessus (voir plus bas).
 function resolveAnchorAfterRestore(prevAnchorClip, restoredClips) {
   if (!prevAnchorClip) return null
   const sameTrack = restoredClips.filter((c) => c.trackId === prevAnchorClip.trackId)
@@ -1112,6 +1157,20 @@ function resolveAnchorAfterRestore(prevAnchorClip, restoredClips) {
     if (end > bestEnd) { best = c; bestEnd = end }
   }
   return best.id
+}
+
+// Invariant : quand `selectedClipIds` est non vide, `lastAnchorClipId` doit
+// pointer vers le dernier clip sélectionné. Toutes les actions métier
+// respectent déjà cette règle ; la sync ici rattrape les cas où elle peut
+// être brisée (typiquement après un UNDO/REDO qui restaure une sélection
+// distincte de l'anchor volatile). Appliquée en sortie de `withUndo` sur
+// chaque action : idempotente (renvoie state tel quel si déjà aligné).
+function syncAnchorWithSelection(state) {
+  const sel = state.selectedClipIds
+  if (!sel || sel.length === 0) return state
+  const last = sel[sel.length - 1]
+  if (state.lastAnchorClipId === last) return state
+  return { ...state, lastAnchorClipId: last }
 }
 
 function checkClipReferences(composerSnapshot, currentPatches) {
@@ -1154,6 +1213,11 @@ function makeMissingPatchNotification(conflict, patches) {
 
 export function withUndo(baseReducer) {
   return function wrapped(state, action) {
+    return syncAnchorWithSelection(applyUndoAware(baseReducer, state, action))
+  }
+}
+
+function applyUndoAware(baseReducer, state, action) {
     if (action.type === 'UNDO_COMPOSER') {
       const { past, future } = state.history.composer
       if (past.length === 0) return state
@@ -1302,5 +1366,4 @@ export function withUndo(baseReducer) {
     }
 
     return newState
-  }
 }

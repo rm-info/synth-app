@@ -5,14 +5,15 @@
 const SNAP = 0.125
 
 export const DURATION_BASES = [
-  // Ordre du bouton 1 au bouton 7.
-  { rank: 1, value: 8,     name: 'Carrée',        solfège: '𝅜',   fraction: '2/1' },
-  { rank: 2, value: 4,     name: 'Ronde',         solfège: '𝅝',   fraction: '1/1' },
-  { rank: 3, value: 2,     name: 'Blanche',       solfège: '𝅗𝅥',   fraction: '1/2' },
-  { rank: 4, value: 1,     name: 'Noire',         solfège: '♩',   fraction: '1/4' },
-  { rank: 5, value: 0.5,   name: 'Croche',        solfège: '♪',   fraction: '1/8' },
-  { rank: 6, value: 0.25,  name: 'Double croche', solfège: '𝅘𝅥𝅯',  fraction: '1/16' },
-  { rank: 7, value: 0.125, name: 'Triple croche', solfège: '𝅘𝅥𝅰',  fraction: '1/32' },
+  // Ordre du bouton 1 au bouton 7. `fraction` prend la noire comme référence
+  // (= 1 beat), cohérent avec la formule `seconds = beats * 60 / bpm` du moteur.
+  { rank: 1, value: 8,     name: 'Carrée',        solfège: '𝅜',   fraction: '8'   },
+  { rank: 2, value: 4,     name: 'Ronde',         solfège: '𝅝',   fraction: '4'   },
+  { rank: 3, value: 2,     name: 'Blanche',       solfège: '𝅗𝅥',   fraction: '2'   },
+  { rank: 4, value: 1,     name: 'Noire',         solfège: '♩',   fraction: '1'   },
+  { rank: 5, value: 0.5,   name: 'Croche',        solfège: '♪',   fraction: '1/2' },
+  { rank: 6, value: 0.25,  name: 'Double croche', solfège: '𝅘𝅥𝅯',  fraction: '1/4' },
+  { rank: 7, value: 0.125, name: 'Triple croche', solfège: '𝅘𝅥𝅰',  fraction: '1/8' },
 ]
 
 export const DURATION_COEFS = [
@@ -51,7 +52,8 @@ export function deriveBaseAndCoef(duration) {
 }
 
 // Nom humain lisible d'une durée (utilisé dans les tooltips, les flashes).
-// Mode "solfège" : "Noire", "Noire pointée". Mode "fraction" : "1/4", "1/4 ×1.5".
+// Mode "solfège" : "Noire", "Noire pointée". Mode "fraction" : "1", "1 ×1.5"
+// (référence = noire = 1 beat).
 export function durationName(duration, mode = 'solfège') {
   const { base, coef } = deriveBaseAndCoef(duration)
   if (base == null) return `${duration} beats`

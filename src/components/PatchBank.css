@@ -6,7 +6,9 @@
   border-radius: 8px;
   padding: 12px;
   min-width: 200px;
-  max-width: 280px;
+  /* Plus de max-width : la sidebar Composer est resizable (E.7) ; en Designer
+     le parent impose déjà une largeur via grid-template-columns. */
+  width: 100%;
   height: 100%;
   box-sizing: border-box;
   overflow: hidden;

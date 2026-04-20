@@ -84,10 +84,10 @@ function Toolbar({
           type="button"
           className="duration-mode-toggle"
           onClick={onToggleDurationMode}
-          title={`Affichage : ${durationMode === 'solfège' ? 'solfège (♩)' : 'fraction (1/4)'}. Clic pour basculer.`}
+          title={`Affichage : ${durationMode === 'solfège' ? 'solfège (♩)' : 'fraction (½)'}. Clic pour basculer.`}
           aria-label="Basculer mode d'affichage durée"
         >
-          {durationMode === 'solfège' ? '♩' : '1/4'}
+          {durationMode === 'solfège' ? '♩' : '½'}
         </button>
       </div>
 

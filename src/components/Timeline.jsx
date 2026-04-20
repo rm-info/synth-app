@@ -197,6 +197,17 @@ function Timeline({
   const interactionRef = useRef(null)
   const [interactionVisual, setInteractionVisual] = useState(null)
 
+  // "Settling frame" : au drop d'un drag, on capture la position visuelle
+  // actuelle de chaque clip concerné et on la force dans le style inline pour
+  // UN frame post-commit. Au rAF suivant, on libère — le top "naturel"
+  // (calculé par trackLayoutData à partir du nouveau state) prend sa place et
+  // la transition CSS `top 0.35s` anime correctement de la position capturée
+  // vers la position finale. Sans ce mécanisme, le changement simultané de
+  // `transition-property` (none → top) et de valeur dans le même frame ne
+  // déclenche pas d'animation (spec CSS Transitions : l'état "source" est la
+  // valeur actuelle *après* activation de la transition).
+  const [settlingTops, setSettlingTops] = useState(null)
+
   // --- Rectangle de sélection (phase 2.1) ---
   // Session indépendante du clip drag : démarrée sur mousedown dans une zone
   // vide, pilotée par des listeners window attachés dynamiquement par
@@ -570,6 +581,28 @@ function Timeline({
           }
           if ((s.trackDelta || 0) !== 0) updates.trackId = getNewTrackId(s.clipId)
           onUpdateClip(s.clipId, updates)
+        }
+      }
+      // Settling frame : si on a effectué un drag ou resize sur des clips
+      // existants (pas une duplication Ctrl+drag qui crée de nouveaux clips),
+      // on capture leur position visuelle actuelle. Elle sera utilisée par le
+      // render post-commit pour que la transition CSS `top 0.35s` anime
+      // proprement vers la position finale.
+      if (s.isActive && s.visual) {
+        const isCtrlDup = s.mode === 'drag' && s.ctrlAtStart
+        if (!isCtrlDup) {
+          const movedIds = s.isMulti
+            ? (s.mode === 'drag' ? s.clipsBeingMoved : s.clipsBeingResized).map(c => c.id)
+            : [s.clipId]
+          const tops = new Map()
+          for (const id of movedIds) {
+            const el = document.querySelector(`[data-clip-id="${id}"]`)
+            if (el) tops.set(id, el.style.top)
+          }
+          if (tops.size > 0) {
+            setSettlingTops(tops)
+            requestAnimationFrame(() => setSettlingTops(null))
+          }
         }
       }
       interactionRef.current = null
@@ -1380,14 +1413,16 @@ function Timeline({
                   (mode === 'resize-left' || mode === 'resize-right') && 'is-resizing',
                   mutedTrackIds.has(clip.trackId) && 'is-track-muted',
                 ].filter(Boolean).join(' ')
+                const settlingTop = settlingTops?.get(clip.id)
                 return (
                   <div
                     key={clip.id}
+                    data-clip-id={clip.id}
                     className={classNames}
                     style={{
                       left: `${left}%`,
                       width: `${width}%`,
-                      top: `${top}px`,
+                      top: settlingTop ?? `${top}px`,
                       height: `${height}px`,
                       backgroundColor: patch.color + '33',
                       borderColor: patch.color,

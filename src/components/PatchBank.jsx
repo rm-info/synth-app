@@ -23,6 +23,7 @@ function PatchBank({
   onDeleteFolder,
   onMovePatchToFolder,
   onMoveFolder,
+  headerExtra,
 }) {
   const loadOnSingleClick = activeTab === 'designer'
   const [editingId, setEditingId] = useState(null)
@@ -328,9 +329,12 @@ function PatchBank({
       <aside className="sound-bank-panel">
         <header className="sound-bank-header">
           <h3>Banque</h3>
-          <button type="button" className="folder-add-btn" onClick={handleCreateFolder} title="Nouveau dossier">
-            + Dossier
-          </button>
+          <div className="sound-bank-header-right">
+            <button type="button" className="folder-add-btn" onClick={handleCreateFolder} title="Nouveau dossier">
+              + Dossier
+            </button>
+            {headerExtra}
+          </div>
         </header>
         <p className="sound-bank-empty">
           Aucun patch. Dessinez-en un dans l'onglet Designer.
@@ -348,6 +352,7 @@ function PatchBank({
           <button type="button" className="folder-add-btn" onClick={handleCreateFolder} title="Nouveau dossier">
             + Dossier
           </button>
+          {headerExtra}
         </div>
       </header>
       <ul

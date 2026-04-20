@@ -31,7 +31,7 @@ Pas de migration : ancien localStorage détecté → reset propre.
 Phase 2 (2026-04-19) : la note s'affiche dans chaque clip (label
 adaptatif selon largeur), s'édite dans Properties via un mini-clavier
 (ou un FreqInput en mode libre), et s'ajuste au clavier (↑↓ demi-ton,
-Shift octave, ←→ ±0.25 beat, Shift+←→ ±1 beat). Phase 3 (2026-04-19) :
+Shift octave, ←→ ±0.125 beat, Shift+←→ ±1 beat). Phase 3 (2026-04-19) :
 le Designer devient un instrument de test polyphonique — clic/mouseup
 sur le clavier, raccourcis QWERTY physique (SDFGHJK + ERYUI), Shift/Ctrl
 seul pour décaler l'octave, Espace = pédale de sustain. Les 3 anciens
@@ -40,6 +40,13 @@ dans le Composer, touche maintenue pendant un drag = drop à la note
 correspondante (au lieu de la note par défaut du Designer). Touche
 seule sans drag = placement contigu après le dernier clip touché
 (permet d'écrire une mélodie au clavier en quelques touches).
+Phase 6 (2026-04-20) : durées en boutons toggle (7 bases + 3 coefs),
+snap triple croche (0.125), indicateur d'octave dans la toolbar,
+animation des corridors 0.35s. Phase 7 (2026-04-20) : ajustements UI
+— sync invariant `lastAnchorClipId ↔ selectedClipIds`, fraction
+réf noire (1=noire, 1/2=croche), sidebars Composer resizables et
+collapsibles (persist localStorage, label vertical en mode fermé),
+settling frame pour animation drag cross-piste.
 
 ## Objectif
 
@@ -74,13 +81,19 @@ synth-app/
     ├── hooks/
     │   └── usePlayback.js    # moteur de lecture timeline (partagé Designer/Composer)
     ├── lib/
-    │   └── timelineLayout.js # layoutClips + computeBounds (partagés Timeline/Properties)
+    │   ├── timelineLayout.js # layoutClips + computeBounds (partagés Timeline/Properties)
+    │   ├── durations.js      # catalogue durées (bases + coefs, phase 6.1)
+    │   ├── clipNote.js       # formatClipNote + NOTE_NAMES Unicode
+    │   └── keyboardMap.js    # KEY_CODE_TO_NOTE_INDEX (event.code → note)
     └── components/
         ├── Tabs.jsx + .css                    # bascule Designer / Composer
         ├── PatchBank.jsx + .css               # banque de patches partagée
         ├── WaveformEditor.jsx + .css          # éditeur ondes / patch (Designer)
         ├── Spectrogram.jsx + .css             # spectrogramme statique (Designer)
         ├── MiniPlayer.jsx + .css              # transport simplifié (Designer)
+        ├── PianoKeyboard.jsx + .css           # clavier 12 notes + octaves (partagé Designer/Properties)
+        ├── DurationButtons.jsx + .css         # boutons durée 7 bases + 3 coefs (phase 6.1)
+        ├── SidebarResizer.jsx + .css          # poignée drag bordure sidebar (phase 7.4)
         ├── BpmInput.jsx                       # input BPM validation différée
         ├── FreqInput.jsx                      # input fréquence libre (phase 3.7)
         ├── Toast.jsx + .css                   # toast d'erreur (undo cross-onglet)
@@ -154,11 +167,14 @@ type Clip = {                     // placement timeline + hauteur
 
 // Persistance (localStorage, clé "synth-app-state") :
 // { patches, soundFolders, tracks, clips, bpm, numMeasures,
-//   spectrogramVisible, activeTab, patchCounter, clipCounter,
-//   folderCounter, trackCounter }
+//   spectrogramVisible, durationMode, activeTab,
+//   patchCounter, clipCounter, folderCounter, trackCounter,
+//   composerBankWidth, composerAsideWidth,
+//   composerBankCollapsed, composerAsideCollapsed }
 // NON persisté (volatile) : selectedClipIds, currentPatchId, zoomH,
-// defaultClipDuration, composerFlash, editor (éditeur vide au reload),
-// piles undo/redo.
+// defaultClipDuration, lastAnchorClipId, composerFlash,
+// editor (éditeur vide au reload), clipboard, measureClipboard,
+// piles undo/redo, settlingTops (Timeline local).
 // Détection d'ancien format (savedSounds/soundCounter/noteCounter/
 // placementCounter) → reset complet, pas de migration (deal assumé E.1).
 ```
@@ -384,6 +400,25 @@ Choix non évidents pris pour de bonnes raisons. À ne pas remettre en question
   Composer peut aussi revert un changement de hauteur de piste
   (SET_TRACK_HEIGHT). Compromis accepté — la hauteur est un détail
   d'UI, pas une donnée métier.
+- **Invariant `lastAnchorClipId ↔ selectedClipIds`** (E.7.1) : quand
+  la sélection est non vide, l'anchor doit être égal au dernier clip
+  sélectionné. Toutes les actions métier respectent déjà cette règle ;
+  le helper `syncAnchorWithSelection(state)`, appliqué en sortie de
+  `withUndo` sur chaque action (idempotent : retour direct si déjà
+  aligné), garantit l'invariant dans les chemins UNDO/REDO qui ne
+  mettent pas l'anchor à jour (anchor est non undoable). Corrige la
+  classe de bugs où la sélection restaurée par un undo divergeait
+  de l'anchor.
+- **Settling frame pour animation drop drag** (E.7.6) : le retrait
+  de la classe `is-dragging` (et donc le passage de `transition: none`
+  à `transition: top 0.35s`) conjugué au changement de `top` dans
+  le même frame ne déclenche pas la transition (race condition CSS
+  Transitions). Solution : état local `settlingTops` dans Timeline
+  qui capture `el.style.top` au mouseup, l'impose comme override
+  inline pour le frame post-commit, et le libère via
+  `requestAnimationFrame` au frame suivant. Permet à la transition
+  de s'appliquer sur un changement de top détecté après activation
+  de la transition-property.
 
 ## Contraintes implicites
 
@@ -689,15 +724,19 @@ Phases listées ci-dessous dans l'ordre chronologique d'implémentation.
 ✅ **Terminé**
 - Dessin waveform + presets
 - Éditeur ADSR visuel draggable
-- Preview Play/Stop avec enveloppe (trois modes : impact/court/tenu)
+- Preview polyphonique via clavier piano interactif + raccourcis QWERTY
+  (event.code) + Espace = sustain (E.3)
 - Banque de patches : drag, rename, delete, dossiers arborescents
-- Drop timeline avec snap 16ᵉ, polyphonie multi-lanes, multi-pistes
-- Hauteur par clip (12-TET ou Libre) via `clipFrequency(clip)` (itération E.1)
-- Sélecteur durée musicale par clip (7 options)
+- Drop timeline avec snap triple croche (0.125 beat), polyphonie
+  multi-lanes, multi-pistes
+- Hauteur par clip (12-TET ou Libre) via `clipFrequency(clip)` (E.1)
+- Durée par clip : 7 bases (carrée à triple croche) × 4 coefs (pur,
+  ×1.25, pointé, double-pointé) via `DurationButtons` (E.6.1)
 - BPM ajustable + recalcul durée totale
 - Curseur animé + affichage temps
-- Zoom horizontal + vertical
+- Zoom horizontal + vertical (hauteur de piste modifiable)
 - Visualiseur oscilloscope temps réel
+- Sidebars Composer resizables et collapsibles (E.7.4-7.5)
 - Export WAV PCM 16-bit stéréo
 - Persistance localStorage (pas de migration vers nouveau format en E.1 :
   reset si ancien format détecté)
@@ -866,6 +905,15 @@ Phases listées ci-dessous dans l'ordre chronologique d'implémentation.
     ADD_CLIP accepte `extraMeasures` pour étendre automatiquement la
     composition. `handleAddClip` consomme pressedNoteKey au drop pour
     que le keyup suivant ne double pas le placement.
+- ✅ **Phase 5** (2026-04-19) — Fixes placement contigu (voir Roadmap).
+- ✅ **Phase 6** (2026-04-20) — UX enrichie : durées en boutons toggle
+  (7 bases + 3 coefs, snap 0.125), indicateur octave dans la toolbar,
+  animation CSS des corridors (voir Roadmap).
+- ✅ **Phase 7** (2026-04-20) — Ajustements UI : invariant
+  `lastAnchorClipId ↔ selectedClipIds`, fractions réf noire
+  (1=noire, 1/2=croche), pas flèche Composer 0.125, sidebars
+  resizables + collapsibles, settling frame drag cross-piste
+  (voir Roadmap).
 
 ## Historique (chronologie inverse)
 
@@ -1009,6 +1057,60 @@ Phases listées ci-dessous dans l'ordre chronologique d'implémentation.
     (top + height) et `.track-header` (height) : ajout/retrait
     d'une lane s'anime au lieu de sauter. `.placed-sound` suit via
     transition sur `top` (désactivée pendant drag/resize/ghost).
+- ✅ **Phase 7** (2026-04-20) — Ajustements UI et cohérence. 6 sous-commits :
+  - **7.1** Invariant `lastAnchorClipId === selectedClipIds.at(-1)` quand
+    la sélection est non vide. Helper `syncAnchorWithSelection(state)`
+    appliqué en sortie de `withUndo` sur chaque action (idempotent).
+    Corrige le bug où une cascade d'undo Composer pouvait laisser
+    l'anchor sur une piste vidée pendant que la sélection restaurée
+    pointait ailleurs → le placement contigu au clavier (touches note
+    mappées) agissait sur la mauvaise piste.
+  - **7.2** Mode fraction des durées réaligné sur la noire (= 1 beat,
+    cohérent avec `seconds = beats * 60 / bpm`). Noire = "1", blanche
+    = "2", ronde = "4", carrée = "8", croche = "1/2", double croche =
+    "1/4", triple croche = "1/8". Icône du toggle solfège/fraction
+    passée de `1/4` à `½` (plus de collision avec la double croche).
+  - **7.3** Pas de déplacement clavier ←→ passé de 0.25 à **0.125** beat
+    (aligné sur le snap triple croche depuis E.6.1). Shift+←→ reste à
+    ±1 beat.
+  - **7.4** Redimensionnement manuel des sidebars Composer. Nouveau
+    composant `SidebarResizer` (poignée sur la bordure externe). State
+    persisté `composerBankWidth` / `composerAsideWidth` (min/défaut
+    `COMPOSER_SIDEBAR_MIN_WIDTH = 300`). Max dynamique : la zone
+    centrale doit rester ≥ `COMPOSER_MAIN_MIN_WIDTH = 200` px
+    (constantes dans `reducer.js`, clamp côté handler dans App).
+    useEffect resize de la fenêtre reclampe si la fenêtre rétrécit.
+    Largeurs appliquées via CSS variables `--composer-bank-width` /
+    `--composer-aside-width` sur `.composer-layout` ; responsive
+    (<1100px) ignore ces variables via media query existante.
+    `PatchBank.css` et `PropertiesPanel.css` : `max-width: 280px`
+    retiré (contraignait l'élargissement). `DurationButtons.css` :
+    `flex-wrap: wrap` ajouté sur le conteneur et les sous-groupes
+    bases/coefs pour que les boutons passent sur plusieurs lignes si
+    la sidebar Properties est étroite.
+  - **7.5** Toggle collapse/expand des sidebars. State persisté
+    `composerBankCollapsed` / `composerAsideCollapsed` (défaut false).
+    Action `SET_COMPOSER_SIDEBAR_COLLAPSED`. En mode fermé, la sidebar
+    prend une largeur fixe `COMPOSER_SIDEBAR_COLLAPSED_WIDTH = 32px`
+    via override de la CSS variable ; le panneau est démonté (state
+    local volatile perdu — dossiers ouverts de la banque) et remplacé
+    par le bouton `▶`/`◀` en haut + un label vertical "BANQUE" /
+    "PROPRIÉTÉS" (`writing-mode: vertical-rl`). En mode ouvert, le
+    bouton est injecté dans le header du panneau via nouvelle prop
+    `headerExtra` (PatchBank + PropertiesPanel) — placement naturel
+    dans le flex, pas de chevauchement avec le titre.
+  - **7.6** Animation cohérente du drag cross-piste ("settling frame").
+    Race condition CSS Transitions corrigée : le changement simultané
+    de `transition-property` (none → top 0.35s, via retrait de la
+    classe `is-dragging`) et de la valeur de `top` dans le même frame
+    ne déclenche pas la transition. Fix : au mouseup, capture du `top`
+    visuel de chaque clip déplacé/resizé via `el.style.top` (attribut
+    `data-clip-id` ajouté), stockage dans le state local `settlingTops`
+    appliqué au render suivant comme override inline, puis
+    `requestAnimationFrame(() => setSettlingTops(null))` libère la
+    valeur. Résultat : le clip glisse en 0.35s synchrone avec les
+    corridors qui s'étirent/rétractent. Pendant le drag, la transition
+    reste désactivée (réactivité instantanée préservée).
 
 ### Backlog général (à caser quand pertinent)
 

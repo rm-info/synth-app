@@ -85,9 +85,9 @@
   flex: 1;
   min-height: 0;
   display: grid;
-  /* Colonnes symétriques bank/aside pour que la toolbar (qui span les 3
-     colonnes) s'aligne pixel-perfect avec le bord droit du panneau Properties. */
-  grid-template-columns: minmax(220px, 280px) 1fr minmax(220px, 280px);
+  /* Largeurs pilotées par les variables (override via style inline depuis App).
+     Défaut 280px = valeur historique, aussi largeur minimale imposée côté JS. */
+  grid-template-columns: var(--composer-bank-width, 280px) 1fr var(--composer-aside-width, 280px);
   grid-template-rows: auto 1fr;
   grid-template-areas:
     "toolbar toolbar toolbar"
@@ -98,7 +98,11 @@
 }
 
 .composer-toolbar { grid-area: toolbar; }
-.composer-sidebar { grid-area: bank; min-height: 0; }
+.composer-sidebar {
+  grid-area: bank;
+  min-height: 0;
+  position: relative; /* pour la SidebarResizer enfant */
+}
 .composer-main {
   grid-area: main;
   display: flex;
@@ -106,7 +110,74 @@
   min-height: 0;
   min-width: 0;
 }
-.composer-aside { grid-area: aside; min-height: 0; }
+.composer-aside {
+  grid-area: aside;
+  min-height: 0;
+  position: relative; /* pour la SidebarResizer enfant */
+}
+
+/* ============ Toggle collapse/expand sidebars ============ */
+/* Shape commune aux deux variantes (inline-in-header et standalone). */
+.sidebar-toggle {
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: 1px solid #3a3a5a;
+  border-radius: 4px;
+  background: #1a1a2e;
+  color: #a0a0c0;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+  flex-shrink: 0;
+}
+.sidebar-toggle:hover {
+  background: #2a2a4a;
+  color: #00d4ff;
+  border-color: #00d4ff;
+}
+/* Icone : centrage typographique propre (les chevrons ◀ ▶ ont des métriques
+   asymétriques, un <span> dédié permet un micro-ajustement). */
+.sidebar-toggle-icon {
+  font-size: 0.7rem;
+  line-height: 1;
+  display: block;
+}
+
+/* Mode ouvert : bouton rendu dans le header via `headerExtra`. La classe
+   `sidebar-toggle-inline` n'ajoute rien — le flex du header le positionne. */
+
+/* Mode fermé : bouton standalone, seul enfant de la sidebar. La sidebar
+   a le look d'un panneau réduit. Bouton collé en haut. */
+.composer-sidebar.is-collapsed,
+.composer-aside.is-collapsed {
+  background: #1a1a2e;
+  border: 1px solid #2a2a4a;
+  border-radius: 8px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding-top: 10px;
+  gap: 10px;
+}
+
+/* Titre vertical sous le bouton quand la sidebar est fermée. `writing-mode:
+   vertical-rl` empile les caractères latins en tournant la baseline de 90°
+   CW (lecture naturelle tête penchée à droite). */
+.sidebar-collapsed-label {
+  writing-mode: vertical-rl;
+  text-orientation: mixed;
+  font-size: 0.8rem;
+  color: #a0a0c0;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  user-select: none;
+  font-weight: 600;
+  white-space: nowrap;
+}
 
 /* ============== Responsive : <1100px ============== */
 @media (max-width: 1100px) {

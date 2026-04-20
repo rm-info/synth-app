@@ -422,8 +422,11 @@ html[style*="cursor"] * {
   /* Container query : permet d'adapter le contenu selon la largeur du clip */
   container-type: inline-size;
 
-  /* E.6.3 : suivre l'animation du corridor (ajout/retrait de lane). Pas
-   * d'animation pendant un drag/resize pour ne pas lutter avec le geste. */
+  /* E.6.3 : suivre l'animation du corridor (ajout/retrait de lane).
+   * Désactivée pendant drag/resize/ghost (réactivité immédiate). Au drop,
+   * un mécanisme "settling frame" dans Timeline.jsx garantit que la
+   * transition s'applique correctement malgré le changement simultané
+   * de `transition-property` (none → top 0.35s). */
   transition: top 0.35s ease-out;
 }
 .placed-sound.is-dragging,

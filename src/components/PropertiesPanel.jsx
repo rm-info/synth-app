@@ -47,6 +47,7 @@ function PropertiesPanel({
   canSplit2,
   canSplit3,
   onSplitClips,
+  headerExtra,
 }) {
   const [collapsed, setCollapsed] = useState(false)
   const count = selectedClipIds.length
@@ -60,15 +61,18 @@ function PropertiesPanel({
           Propriétés
           {count > 1 && <span className="properties-badge">{count}</span>}
         </h3>
-        <button
-          type="button"
-          className="properties-toggle"
-          onClick={() => setCollapsed((v) => !v)}
-          aria-label={collapsed ? 'Déployer' : 'Réduire'}
-          title={collapsed ? 'Déployer' : 'Réduire'}
-        >
-          {collapsed ? '▴' : '▾'}
-        </button>
+        <div className="properties-header-right">
+          {headerExtra}
+          <button
+            type="button"
+            className="properties-toggle"
+            onClick={() => setCollapsed((v) => !v)}
+            aria-label={collapsed ? 'Déployer' : 'Réduire'}
+            title={collapsed ? 'Déployer' : 'Réduire'}
+          >
+            {collapsed ? '▴' : '▾'}
+          </button>
+        </div>
       </header>
       {!collapsed && (
         <div className="properties-body">

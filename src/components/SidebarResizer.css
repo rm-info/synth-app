@@ -1,0 +1,28 @@
+.sidebar-resizer {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 10px;
+  cursor: ew-resize;
+  z-index: 5;
+  background: transparent;
+  transition: background 0.15s;
+}
+
+.sidebar-resizer-right { right: -5px; }
+.sidebar-resizer-left  { left: -5px;  }
+
+.sidebar-resizer:hover {
+  background: rgba(0, 212, 255, 0.25);
+}
+
+.sidebar-resizer:active {
+  background: rgba(0, 212, 255, 0.5);
+}
+
+/* En mode responsive, le layout grid est piloté par media queries (App.css) :
+   les variables --composer-*-width ne sont plus utilisées, donc la poignée
+   n'aurait aucun effet visuel — autant la masquer. */
+@media (max-width: 1100px) {
+  .sidebar-resizer { display: none; }
+}
