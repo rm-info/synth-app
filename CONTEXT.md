@@ -914,6 +914,9 @@ Phases listées ci-dessous dans l'ordre chronologique d'implémentation.
   (1=noire, 1/2=croche), pas flèche Composer 0.125, sidebars
   resizables + collapsibles, settling frame drag cross-piste
   (voir Roadmap).
+- ✅ **Phase 8** (2026-04-22) — Fix release ADSR Designer sur appui
+  bref : `gain.value` lu avant `cancelScheduledValues` + marge 20ms
+  sur `osc.stop()` (voir Roadmap).
 
 ## Historique (chronologie inverse)
 
@@ -1111,6 +1114,21 @@ Phases listées ci-dessous dans l'ordre chronologique d'implémentation.
     valeur. Résultat : le clip glisse en 0.35s synchrone avec les
     corridors qui s'étirent/rétractent. Pendant le drag, la transition
     reste désactivée (réactivité instantanée préservée).
+- ✅ **Phase 8** (2026-04-22) — Fix release ADSR Designer sur appui
+  bref. Symptôme : appui court sur une touche (souris ou QWERTY) →
+  clic sec au lieu d'attack+release. Cause réelle : dans
+  `performRelease`, la lecture de `node.gain.gain.value` se faisait
+  APRÈS `cancelScheduledValues(now)`. Or ce dernier annule la
+  `linearRampToValueAtTime` d'attack encore en cours et fait retomber
+  le param sur le dernier `setValueAtTime` antérieur à `now` — c'est-à-
+  dire 0 (posé au start de la note). Donc `gain.value` lu juste après
+  valait 0, et la rampe de release programmée allait de 0 à 0 : silence
+  instantané perçu comme un clic. Fix minimal : capturer `currentGain
+  = node.gain.gain.value` AVANT `cancelScheduledValues`, et réinjecter
+  cette valeur via `setValueAtTime(currentGain, now)` avant la rampe
+  vers 0. Complément : `osc.stop(now + r + 0.02)` au lieu de
+  `osc.stop(now + r)` pour garantir une marge de 20ms évitant la coupe
+  prématurée. Branches sustain (E.3.4) et retrigger (E.3.4) intactes.
 
 ### Backlog général (à caser quand pertinent)
 
