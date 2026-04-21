@@ -27,7 +27,7 @@ function trackPlays(track, anySolo) {
  * La hauteur est portée par le clip (clipFrequency) — le patch ne définit
  * que la forme (points + ADSR + amplitude + preset).
  */
-function scheduleOneClip(ctx, clip, patch, startTime, trackGainNodes, defaultDest, bpm, tracks) {
+function scheduleOneClip(ctx, clip, patch, startTime, trackGainNodes, defaultDest, bpm, tracks, a4Ref) {
   const track = tracks.find(t => t.id === clip.trackId)
   const anySolo = tracks.some(t => t.solo)
   if (track && !trackPlays(track, anySolo)) return null
@@ -52,7 +52,7 @@ function scheduleOneClip(ctx, clip, patch, startTime, trackGainNodes, defaultDes
   const totalDuration = Math.max(placedDuration, minDuration)
   const releaseStart = clipStart + totalDuration - r
 
-  osc.frequency.setValueAtTime(clipFrequency(clip), clipStart)
+  osc.frequency.setValueAtTime(clipFrequency(clip, a4Ref), clipStart)
   gain.gain.setValueAtTime(0, clipStart)
   gain.gain.linearRampToValueAtTime(amp, clipStart + a)
   gain.gain.linearRampToValueAtTime(sustainLevel, clipStart + a + d)
@@ -70,7 +70,7 @@ function scheduleOneClip(ctx, clip, patch, startTime, trackGainNodes, defaultDes
 /**
  * One-shot schedule all clips (used for WAV export only).
  */
-function scheduleAllClips(ctx, clips, patches, startTime, trackGainNodes, defaultDest, bpm, tracks) {
+function scheduleAllClips(ctx, clips, patches, startTime, trackGainNodes, defaultDest, bpm, tracks, a4Ref) {
   const nodes = []
   const anySolo = tracks.some(t => t.solo)
   for (const clip of clips) {
@@ -98,7 +98,7 @@ function scheduleAllClips(ctx, clips, patches, startTime, trackGainNodes, defaul
     const totalDuration = Math.max(placedDuration, minDuration)
     const releaseStart = clipStart + totalDuration - r
 
-    osc.frequency.setValueAtTime(clipFrequency(clip), clipStart)
+    osc.frequency.setValueAtTime(clipFrequency(clip, a4Ref), clipStart)
     gain.gain.setValueAtTime(0, clipStart)
     gain.gain.linearRampToValueAtTime(amp, clipStart + a)
     gain.gain.linearRampToValueAtTime(sustainLevel, clipStart + a + d)
@@ -123,7 +123,7 @@ function scheduleAllClips(ctx, clips, patches, startTime, trackGainNodes, defaul
  * fenêtre d'avance de 100ms. Cela permet de réagir aux modifications
  * du state (clips, tracks, patches) en temps réel pendant la lecture.
  */
-export function usePlayback({ clips, patches, tracks, bpm, totalDurationSec }) {
+export function usePlayback({ clips, patches, tracks, bpm, a4Ref, totalDurationSec }) {
   const audioCtxRef = useRef(null)
   const animFrameRef = useRef(null)
   const analyserRef = useRef(null)
@@ -146,6 +146,12 @@ export function usePlayback({ clips, patches, tracks, bpm, totalDurationSec }) {
   useEffect(() => { patchesRef.current = patches }, [patches])
   const bpmRef = useRef(bpm)
   useEffect(() => { bpmRef.current = bpm }, [bpm])
+  // a4Ref lu au tick du scheduler. Un changement d'A4 pendant la lecture
+  // prendra effet sur les clips schedulés après le changement (lag maxi =
+  // fenêtre de look-ahead, 100ms). Les oscillators déjà démarrés gardent leur
+  // fréquence initiale.
+  const a4RefRef = useRef(a4Ref)
+  useEffect(() => { a4RefRef.current = a4Ref }, [a4Ref])
   const totalDurationRef = useRef(totalDurationSec)
   useEffect(() => { totalDurationRef.current = totalDurationSec }, [totalDurationSec])
 
@@ -294,7 +300,7 @@ export function usePlayback({ clips, patches, tracks, bpm, totalDurationSec }) {
           const patch = currentPatches.find(p => p.id === clip.patchId)
           if (!patch) continue
           const result = scheduleOneClip(
-            ctx, clip, patch, startTime, tgNodes, analyserGain, currentBpm, currentTracks,
+            ctx, clip, patch, startTime, tgNodes, analyserGain, currentBpm, currentTracks, a4RefRef.current,
           )
           if (result) {
             activeNodesRef.current.push(result)
@@ -352,14 +358,14 @@ export function usePlayback({ clips, patches, tracks, bpm, totalDurationSec }) {
         tgNodes[track.id] = gn
       }
 
-      scheduleAllClips(offlineCtx, clips, patches, 0, tgNodes, offlineCtx.destination, bpm, tracks)
+      scheduleAllClips(offlineCtx, clips, patches, 0, tgNodes, offlineCtx.destination, bpm, tracks, a4Ref)
       const renderedBuffer = await offlineCtx.startRendering()
       const wav = audioBufferToWav(renderedBuffer)
       downloadWav(wav, 'composition.wav')
     } finally {
       setIsExporting(false)
     }
-  }, [clips, patches, tracks, bpm, totalDurationSec, isExporting])
+  }, [clips, patches, tracks, bpm, a4Ref, totalDurationSec, isExporting])
 
   useEffect(() => {
     return () => {

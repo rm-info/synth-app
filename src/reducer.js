@@ -124,6 +124,11 @@ export function loadPersistedState() {
       1,
     )
 
+    const a4RefRaw = parsed.a4Ref
+    const a4Ref = typeof a4RefRaw === 'number' && Number.isFinite(a4RefRaw) && a4RefRaw > 0
+      ? a4RefRaw
+      : DEFAULT_A4
+
     return {
       patches,
       soundFolders,
@@ -131,6 +136,7 @@ export function loadPersistedState() {
       clips,
       numMeasures,
       bpm: parsed.bpm ?? DEFAULT_BPM,
+      a4Ref,
       patchCounter: parsed.patchCounter ?? 0,
       clipCounter: parsed.clipCounter ?? 0,
       folderCounter: parsed.folderCounter ?? 0,
@@ -160,6 +166,9 @@ export function buildInitialState() {
     numMeasures: persisted?.numMeasures ?? DEFAULT_NUM_MEASURES,
     bpm: persisted?.bpm ?? DEFAULT_BPM,
     tracks: persisted?.tracks ?? [makeDefaultTrack()],
+    // Hauteur de référence pour tous les systèmes-based (iter F). Configurable
+    // mais sans UI exposée en F.1 — défaut 440 Hz = comportement pré-F.1.
+    a4Ref: persisted?.a4Ref ?? DEFAULT_A4,
 
     // Designer (champ undoable)
     patches: persisted?.patches ?? [],

@@ -3,7 +3,7 @@ import { pointsToPeriodicWave, MIN_ATTACK } from '../audio'
 import FreqInput from './FreqInput'
 import { PianoKeyboard, OctaveSelector, NOTE_NAMES } from './PianoKeyboard'
 import { KEY_CODE_TO_NOTE_INDEX } from '../lib/keyboardMap'
-import { DEFAULT_A4, getTuningSystem } from '../lib/tuningSystems'
+import { getTuningSystem } from '../lib/tuningSystems'
 import './WaveformEditor.css'
 
 const POINTS_RESOLUTION = 600
@@ -141,6 +141,7 @@ function patchToReference(patch) {
 function WaveformEditor({
   editor,
   editorActions,
+  a4Ref,
   activeTab,
   onSavePatch,
   onUpdatePatch,
@@ -176,7 +177,7 @@ function WaveformEditor({
 
   const frequency = freeMode
     ? testFrequency
-    : previewNoteFrequency(testTuningSystem, testNoteIndex, testOctave, DEFAULT_A4)
+    : previewNoteFrequency(testTuningSystem, testNoteIndex, testOctave, a4Ref)
   const defaultName = nextPatchName
 
   const canvasRef = useRef(null)
@@ -209,7 +210,7 @@ function WaveformEditor({
   const instrumentParamsRef = useRef(null)
   instrumentParamsRef.current = {
     attack, decay, sustain, release, amplitude,
-    testOctave, testTuningSystem, testFrequency,
+    testOctave, testTuningSystem, testFrequency, a4Ref,
   }
 
   const referenceRef = useRef(snapshotPatchFields(editor))
@@ -424,7 +425,7 @@ function WaveformEditor({
     const gain = ctx.createGain()
     osc.setPeriodicWave(pointsToPeriodicWave(pointsRef.current, ctx))
 
-    const freq = previewNoteFrequency(params.testTuningSystem, idx, oct, DEFAULT_A4)
+    const freq = previewNoteFrequency(params.testTuningSystem, idx, oct, params.a4Ref)
     const now = ctx.currentTime
     osc.frequency.setValueAtTime(freq, now)
 

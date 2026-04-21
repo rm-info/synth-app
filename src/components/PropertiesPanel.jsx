@@ -6,7 +6,7 @@ import {
   MIN_CLIP_DURATION,
 } from '../lib/timelineLayout'
 import { formatClipNote } from '../lib/clipNote'
-import { DEFAULT_A4, getTuningSystem } from '../lib/tuningSystems'
+import { getTuningSystem } from '../lib/tuningSystems'
 import { durationName } from '../lib/durations'
 import { PianoKeyboard, OctaveSelector } from './PianoKeyboard'
 import FreqInput from './FreqInput'
@@ -37,6 +37,7 @@ function PropertiesPanel({
   tracks,
   numMeasures,
   durationMode,
+  a4Ref,
   onUpdateClip,
   onRemoveClip,
   onUpdateClipsPatch,
@@ -90,6 +91,7 @@ function PropertiesPanel({
               tracks={tracks}
               numMeasures={numMeasures}
               durationMode={durationMode}
+              a4Ref={a4Ref}
               onUpdateClipsPatch={onUpdateClipsPatch}
               onUpdateClipsDuration={onUpdateClipsDuration}
               onUpdateClipsPitch={onUpdateClipsPitch}
@@ -107,6 +109,7 @@ function PropertiesPanel({
               patches={patches}
               tracks={tracks}
               durationMode={durationMode}
+              a4Ref={a4Ref}
               onUpdateClip={onUpdateClip}
               onUpdateClipsPitch={onUpdateClipsPitch}
               onRemoveClip={onRemoveClip}
@@ -124,7 +127,7 @@ function PropertiesPanel({
 // Éditeur de hauteur : mini-clavier + octave en 12-TET, FreqInput en Libre.
 // `clipIds` est un tableau — utilisé aussi bien pour mono (1 élément) que
 // pour multi homogène (N éléments) afin que l'action propage à tous les clips.
-function NoteEditor({ clipIds, tuningSystem, noteIndex, octave, frequency, onUpdateClipsPitch }) {
+function NoteEditor({ clipIds, tuningSystem, noteIndex, octave, frequency, a4Ref, onUpdateClipsPitch }) {
   const isFree = tuningSystem === 'free'
 
   const applyNote = (newNoteIndex) => {
@@ -155,7 +158,7 @@ function NoteEditor({ clipIds, tuningSystem, noteIndex, octave, frequency, onUpd
   }
 
   const sys = getTuningSystem(tuningSystem)
-  const displayFreq = sys.freq ? sys.freq(noteIndex, octave, DEFAULT_A4) : 0
+  const displayFreq = sys.freq ? sys.freq(noteIndex, octave, a4Ref) : 0
 
   return (
     <div className="note-editor">
@@ -169,7 +172,7 @@ function NoteEditor({ clipIds, tuningSystem, noteIndex, octave, frequency, onUpd
   )
 }
 
-function ClipEditor({ clip, patches, tracks, durationMode, onUpdateClip, onUpdateClipsPitch, onRemoveClip, canSplit2, canSplit3, onSplitClips }) {
+function ClipEditor({ clip, patches, tracks, durationMode, a4Ref, onUpdateClip, onUpdateClipsPitch, onRemoveClip, canSplit2, canSplit3, onSplitClips }) {
   const currentPatch = patches.find((p) => p.id === clip.patchId)
   const clipTrack = tracks?.find(t => t.id === clip.trackId)
 
@@ -207,6 +210,7 @@ function ClipEditor({ clip, patches, tracks, durationMode, onUpdateClip, onUpdat
           noteIndex={clip.noteIndex}
           octave={clip.octave}
           frequency={clip.frequency}
+          a4Ref={a4Ref}
           onUpdateClipsPitch={onUpdateClipsPitch}
         />
       </div>
@@ -273,6 +277,7 @@ function MultiClipEditor({
   tracks,
   numMeasures,
   durationMode,
+  a4Ref,
   onUpdateClipsPatch,
   onUpdateClipsDuration,
   onUpdateClipsPitch,
@@ -369,6 +374,7 @@ function MultiClipEditor({
             noteIndex={first.noteIndex}
             octave={first.octave}
             frequency={first.frequency}
+            a4Ref={a4Ref}
             onUpdateClipsPitch={onUpdateClipsPitch}
           />
         ) : (

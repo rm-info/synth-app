@@ -31,7 +31,7 @@ import {
 import { canMergeClips } from './lib/timelineLayout'
 import { KEY_CODE_TO_NOTE_INDEX } from './lib/keyboardMap'
 import { NOTE_NAMES as PRESSED_NOTE_NAMES } from './lib/clipNote'
-import { DEFAULT_A4, getTuningSystem } from './lib/tuningSystems'
+import { getTuningSystem } from './lib/tuningSystems'
 import {
   DURATION_BASES, DURATION_COEFS,
   deriveBaseAndCoef, effectiveDuration, isValidCoef,
@@ -45,7 +45,7 @@ const wrappedReducer = withUndo(reducer)
 function App() {
   const [state, dispatch] = useReducer(wrappedReducer, undefined, buildInitialState)
   const {
-    clips, patches, soundFolders, tracks, bpm, numMeasures,
+    clips, patches, soundFolders, tracks, bpm, numMeasures, a4Ref,
     editor, activeTab, currentPatchId, zoomH, defaultClipDuration,
     spectrogramVisible, durationMode, selectedClipIds, composerFlash, lastAnchorClipId,
     composerBankWidth, composerAsideWidth, composerBankCollapsed, composerAsideCollapsed,
@@ -74,7 +74,7 @@ function App() {
   const totalBeats = numMeasures * BEATS_PER_MEASURE
   const totalDurationSec = (totalBeats * 60) / bpm
 
-  const playback = usePlayback({ clips, patches, tracks, bpm, totalDurationSec })
+  const playback = usePlayback({ clips, patches, tracks, bpm, a4Ref, totalDurationSec })
 
   const currentPatch = useMemo(
     () => (currentPatchId ? patches.find((p) => p.id === currentPatchId) ?? null : null),
@@ -84,7 +84,7 @@ function App() {
   const editorFrequency = (() => {
     if (editor.testTuningSystem === 'free') return editor.testFrequency
     const sys = getTuningSystem(editor.testTuningSystem)
-    return sys.freq ? sys.freq(editor.testNoteIndex, editor.testOctave, DEFAULT_A4) : editor.testFrequency
+    return sys.freq ? sys.freq(editor.testNoteIndex, editor.testOctave, a4Ref) : editor.testFrequency
   })()
 
   // Label affiché dans la toolbar Composer quand une touche de note est
@@ -482,6 +482,7 @@ function App() {
           clips,
           bpm,
           numMeasures,
+          a4Ref,
           spectrogramVisible,
           durationMode,
           activeTab,
@@ -499,7 +500,7 @@ function App() {
       // storage unavailable
     }
   }, [
-    patches, soundFolders, tracks, clips, bpm, numMeasures,
+    patches, soundFolders, tracks, clips, bpm, numMeasures, a4Ref,
     spectrogramVisible, durationMode, activeTab, patchCounter, clipCounter, folderCounter, trackCounter,
     composerBankWidth, composerAsideWidth, composerBankCollapsed, composerAsideCollapsed,
   ])
@@ -1281,6 +1282,7 @@ function App() {
         ref={editorRef}
         editor={editor}
         editorActions={editorActions}
+        a4Ref={a4Ref}
         activeTab={activeTab}
         onSavePatch={handleSavePatch}
         onUpdatePatch={handleUpdatePatch}
@@ -1523,6 +1525,7 @@ function App() {
                       patches={patches}
                       numMeasures={numMeasures}
                       durationMode={durationMode}
+                      a4Ref={a4Ref}
                       onUpdateClip={handleUpdateClip}
                       onRemoveClip={handleRemoveClip}
                       onUpdateClipsPatch={handleUpdateClipsPatch}
