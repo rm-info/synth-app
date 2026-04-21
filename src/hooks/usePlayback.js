@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { pointsToPeriodicWave, audioBufferToWav, downloadWav } from '../audio'
+import { pointsToPeriodicWave, audioBufferToWav, downloadWav, MIN_ATTACK } from '../audio'
 import { clipFrequency } from '../reducer'
 
 const BEATS_PER_MEASURE = 4
@@ -41,7 +41,7 @@ function scheduleOneClip(ctx, clip, patch, startTime, trackGainNodes, defaultDes
 
   const beatOffset = clipBeatOffset(clip)
   const clipStart = startTime + beatToSeconds(beatOffset, bpm)
-  const a = (patch.attack ?? 10) / 1000
+  const a = Math.max((patch.attack ?? 10) / 1000, MIN_ATTACK)
   const d = (patch.decay ?? 100) / 1000
   const r = (patch.release ?? 100) / 1000
   const sus = patch.sustain ?? 0.7
@@ -87,7 +87,7 @@ function scheduleAllClips(ctx, clips, patches, startTime, trackGainNodes, defaul
 
     const beatOffset = clipBeatOffset(clip)
     const clipStart = startTime + beatToSeconds(beatOffset, bpm)
-    const a = (patch.attack ?? 10) / 1000
+    const a = Math.max((patch.attack ?? 10) / 1000, MIN_ATTACK)
     const d = (patch.decay ?? 100) / 1000
     const r = (patch.release ?? 100) / 1000
     const sus = patch.sustain ?? 0.7

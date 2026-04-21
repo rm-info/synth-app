@@ -1,5 +1,5 @@
 import { useRef, useState, useCallback, useEffect, useImperativeHandle } from 'react'
-import { pointsToPeriodicWave } from '../audio'
+import { pointsToPeriodicWave, MIN_ATTACK } from '../audio'
 import FreqInput from './FreqInput'
 import { PianoKeyboard, OctaveSelector, NOTE_NAMES } from './PianoKeyboard'
 import { KEY_CODE_TO_NOTE_INDEX } from '../lib/keyboardMap'
@@ -404,7 +404,7 @@ function WaveformEditor({
     const now = ctx.currentTime
     osc.frequency.setValueAtTime(freq, now)
 
-    const a = params.attack / 1000
+    const a = Math.max(params.attack / 1000, MIN_ATTACK)
     const d = params.decay / 1000
     const sustainLevel = params.sustain * params.amplitude
 

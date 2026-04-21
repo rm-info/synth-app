@@ -3,6 +3,13 @@ const CANVAS_WIDTH = 600
 
 export const HARMONIC_COUNT = NUM_SAMPLES
 
+// Durée minimale (secondes) de la rampe d'attack appliquée au démarrage
+// d'une voix. Sans ça, un attack utilisateur de 0 (ou sub-ms) fait sauter
+// le gain de 0 à amplitude en un sample-block → discontinuité, clic audible.
+// 3 ms est sous le seuil de perception d'attaque (~10 ms) donc inaudible
+// comme délai, mais suffit à supprimer le tick.
+export const MIN_ATTACK = 0.003
+
 // Décomposition DFT d'une période de l'onde échantillonnée sur `points`
 // (longueur CANVAS_WIDTH). Retourne les coefficients `real`/`imag` attendus
 // par `createPeriodicWave`, ainsi que les magnitudes `sqrt(real²+imag²)` —
