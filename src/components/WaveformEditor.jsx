@@ -430,10 +430,15 @@ function WaveformEditor({
     const params = instrumentParamsRef.current
     const now = ctx.currentTime
     const r = params.release / 1000
+    // Capture la valeur courante AVANT cancelScheduledValues : l'annulation
+    // fait retomber le param sur le dernier setValueAtTime antérieur à now
+    // (ici 0, posé au start), donc lire .value après le cancel renverrait 0.
+    const currentGain = node.gain.gain.value
     node.gain.gain.cancelScheduledValues(now)
-    node.gain.gain.setValueAtTime(node.gain.gain.value, now)
+    node.gain.gain.setValueAtTime(currentGain, now)
     node.gain.gain.linearRampToValueAtTime(0, now + r)
-    try { node.osc.stop(now + r) } catch { /* already stopped */ }
+    // Marge pour garantir que l'osc ne soit pas coupé avant la fin de la rampe.
+    try { node.osc.stop(now + r + 0.02) } catch { /* already stopped */ }
     node.osc.onended = () => {
       try { node.osc.disconnect() } catch { /* already */ }
       try { node.gain.disconnect() } catch { /* already */ }
