@@ -22,8 +22,8 @@ Itération D (Designer UX) **clôturée le 2026-04-19** : Phase 1 — sélecteur
 de système `tuningSystem` (12-TET + Libre), mode libre étendu à 2^4-2^15
 Hz (16-32768), clavier piano 12 notes + sélecteur d'octave 0-10, trois
 boutons Test (impact/court/tenu).
-Itération E (Patches vs Notes) **en cours** — refonte conceptuelle
-majeure. Phase 1 (2026-04-19) : les **sons** deviennent des **patches**
+Itération E (Patches vs Notes) **clôturée le 2026-04-22** — refonte
+conceptuelle majeure. Phase 1 (2026-04-19) : les **sons** deviennent des **patches**
 sans fréquence ni note ; la hauteur est portée par chaque **clip**
 (tuningSystem + noteIndex/octave en 12-TET, ou frequency en Libre).
 Un patch peut être joué à n'importe quelle hauteur sans duplication.
@@ -47,6 +47,15 @@ animation des corridors 0.35s. Phase 7 (2026-04-20) : ajustements UI
 réf noire (1=noire, 1/2=croche), sidebars Composer resizables et
 collapsibles (persist localStorage, label vertical en mode fermé),
 settling frame pour animation drag cross-piste.
+Phases 8-9 (2026-04-22) : fixes audio — release ADSR sur appui bref
+(capture `gain.value` avant `cancelScheduledValues`), micro-fades
+anti-clic démarrage (`MIN_ATTACK = 3ms`) et retrigger
+(`RETRIGGER_FADE = 8ms`).
+Itération F (multi-tempérament) **ouverte le 2026-04-22**. Phase 1 :
+infrastructure posée — registre des systèmes de tempérament
+(`src/lib/tuningSystems.js`) comme point d'extension unique, A4 de
+référence configurable dans le modèle (champ `a4Ref`, défaut 440 Hz,
+persisté, sans UI encore exposée).
 
 ## Objectif
 
@@ -153,20 +162,27 @@ type Clip = {                     // placement timeline + hauteur
   duration: number                // en noires : 4=ronde, 2=blanche, 1.5=noire pointée,
                                   // 1=noire, 0.75=croche pointée, 0.5=croche, 0.25=double
   // Hauteur sonore (itération E) :
-  tuningSystem: '12-TET' | 'free'
-  noteIndex: number | null        // 0-11 en 12-TET, null en Libre
+  tuningSystem: string            // clé du registre `TUNING_SYSTEMS` : '12-TET', 'free'
+                                  // (en F.1) — extensible en F.2+.
+  noteIndex: number | null        // 0..(notesPerOctave-1) du système courant,
+                                  // null en Libre. 0..11 pour 12-TET aujourd'hui.
   octave: number | null           // 0-10 en 12-TET, null en Libre
-  frequency: number | null        // null en 12-TET (calculée), explicite en Libre
+  frequency: number | null        // null en systèmes-based (calculée), explicite en Libre
 }
 
-// Fréquence effective d'un clip → `clipFrequency(clip)` (reducer.js) :
-//   - 'free'   → clip.frequency
-//   - '12-TET' → 440 * 2^((midi - 69) / 12) avec midi = (octave+1)*12 + noteIndex
-// Utilisé par usePlayback (live + export WAV). Point d'extension pour futurs
-// systèmes d'accordage (24-TET, Pythagorean, etc.).
+// State global (itération F) : champ `a4Ref` (Hz, défaut 440) — hauteur de
+// référence utilisée par tous les systèmes-based pour calculer leurs
+// fréquences. Persisté. Pas d'UI d'édition en F.1 (reportée en F.2 avec le
+// premier tempérament non 12-TET).
+
+// Fréquence effective d'un clip → `clipFrequency(clip, a4Ref)` (reducer.js) :
+// délègue au registre `src/lib/tuningSystems.js`. Chaque entrée définit une
+// fonction `freq(noteIndex, octave, a4Ref) → Hz` (ou null pour 'free' qui lit
+// `clip.frequency`). Point d'extension unique : ajouter une entrée suffit,
+// aucun autre code n'a besoin d'en savoir plus.
 
 // Persistance (localStorage, clé "synth-app-state") :
-// { patches, soundFolders, tracks, clips, bpm, numMeasures,
+// { patches, soundFolders, tracks, clips, bpm, numMeasures, a4Ref,
 //   spectrogramVisible, durationMode, activeTab,
 //   patchCounter, clipCounter, folderCounter, trackCounter,
 //   composerBankWidth, composerAsideWidth,
@@ -328,8 +344,30 @@ Choix non évidents pris pour de bonnes raisons. À ne pas remettre en question
   noteIndex/octave ou frequency) est portée par le Clip. Raison : on
   veut pouvoir jouer le même timbre à différentes hauteurs sans
   dupliquer le patch. Le calcul de la fréquence effective passe par
-  `clipFrequency(clip)` (reducer.js) ; point d'extension unique pour
-  les futurs systèmes d'accordage.
+  `clipFrequency(clip, a4Ref)` qui délègue au registre des tempéraments
+  (voir entrée suivante).
+- **Registre des tempéraments (itération F.1)** : `src/lib/tuningSystems.js`
+  est le **point d'extension unique** pour les systèmes d'accordage.
+  Chaque entrée expose `{ id, label, notesPerOctave, noteNames, freq }`
+  où `freq(noteIndex, octave, a4Ref)` donne la fréquence (ou `null` pour
+  un système "libre" qui lit `clip.frequency` directement). Règle :
+  tout calcul de fréquence depuis une note doit passer par le registre
+  (moteur de lecture, preview Designer, affichage Properties,
+  spectrogramme). Raison : en E.1 la formule 12-TET était dupliquée
+  dans plusieurs fichiers, source de divergence potentielle. En F,
+  ajouter 24-TET ou Pythagoricien = ajouter une entrée au registre,
+  zéro `if/else` à modifier ailleurs. `formatClipNote` et `NOTE_NAMES`
+  dérivent aussi du registre (pas de copie locale).
+- **A4 de référence configurable (itération F.1)** : champ d'état
+  `a4Ref` (Hz, défaut 440), persisté, global — pas un champ d'éditeur.
+  Passé explicitement à `clipFrequency` et aux fonctions `freq` du
+  registre (paramètre, pas import global → testable et découplé).
+  Dans `usePlayback`, propagé via `a4RefRef` (comme `bpmRef`) lu au
+  tick du scheduler : un changement pendant la lecture prend effet
+  pour les clips schedulés après le changement (lag ≤ look-ahead =
+  100 ms). Raison : un éventuel "A=432 Hz" est un réglage global,
+  pas par-clip ; passer en argument le rend testable unitairement
+  sans stub de state.
 - **Éditeur = champs `test*` pour la preview** : le clavier piano /
   octave / slider fréquence du Designer pilotent uniquement la preview
   audio. Au drop d'un patch sur la timeline, `handleAddClip` lit
@@ -793,7 +831,7 @@ Phases listées ci-dessous dans l'ordre chronologique d'implémentation.
   Modèle : `mode: 'note' | 'free'` → `tuningSystem: '12-TET' | 'free'`
   (migration transparente via `normalizeSound`).
 
-🚧 **Itération E en cours** — Patches vs Notes (refonte conceptuelle majeure)
+✅ **Itération E terminée** (2026-04-22) — Patches vs Notes (refonte conceptuelle majeure)
 - ✅ **Phase 1** (2026-04-19) — Patches remplacent Sounds, notes portées par
   les clips. Commit unique.
   - Modèle : `SavedSound` → `Patch` (id `patch-N`) sans fréquence ni note ;
@@ -942,8 +980,32 @@ Phases listées ci-dessous dans l'ordre chronologique d'implémentation.
   précédente lors d'un retrigger (clic de voice-stealing sur note
   déjà active ou sustainée) (voir Roadmap).
 
+🚧 **Itération F en cours** — Multi-tempérament
+- ✅ **Phase 1** (2026-04-22) — Infrastructure multi-tempérament.
+  Création de `src/lib/tuningSystems.js` : registre `TUNING_SYSTEMS`
+  (clé = id de système) avec `{ id, label, notesPerOctave, noteNames,
+  freq }`. `clipFrequency(clip, a4Ref)` délègue au registre —
+  `sys.freq(noteIndex, octave, a4Ref)` pour les systèmes note/octave,
+  `clip.frequency` pour `free`. `frequencyToNearestNote` et les noms
+  de notes 12-TET migrés dans le registre. `formatClipNote` lit
+  `noteNames` depuis le registre (plus de copie locale).
+  `WaveformEditor` (preview polyphonique) passe par le même registre
+  que `usePlayback` — plus de copie locale de `noteToFrequency`.
+  `PropertiesPanel` et `App.jsx` (spectrogramme) routent leurs
+  calculs MIDI via le registre. Nouveau champ d'état `a4Ref` (défaut
+  440 Hz, persisté, propagé via ref dans le scheduler live, via prop
+  directe pour l'export WAV). Aucune UI d'édition exposée — A4 reste
+  à 440 Hz pour l'utilisateur final. Comportement strictement
+  identique à E.9.
+
 ## Historique (chronologie inverse)
 
+000. **Iter F — Phase 1** (2026-04-22) : infrastructure multi-tempérament.
+   Registre `src/lib/tuningSystems.js` comme point d'extension unique pour
+   les systèmes d'accordage ; `clipFrequency(clip, a4Ref)` délégué au
+   registre ; champ d'état `a4Ref` (défaut 440 Hz, persisté) propagé à
+   `usePlayback`, `WaveformEditor`, `PropertiesPanel`. Aucune UI nouvelle,
+   comportement strictement identique à E.9.
 00. **Iter A — Phase 2** : split onglets Designer/Composer + responsive (grid),
     SoundBank partagée extraite, MiniPlayer/Toolbar séparés, `usePlayback` hook
     partagé, hydratation de l'éditeur depuis `currentSoundId`, dual save
@@ -1043,7 +1105,7 @@ Phases listées ci-dessous dans l'ordre chronologique d'implémentation.
   - **1.2** Clavier piano 12 notes + rangée 11 boutons d'octave 0-10.
   - **1.3** Trois boutons Test : impact (•), court (━), tenu (∞).
 
-### Itération E (Patches vs Notes) — en cours
+### Itération E (Patches vs Notes) — clôturée 2026-04-22
 
 - ✅ **Phase 1** (2026-04-19) — Refonte modèle : patches remplacent sounds,
   notes portées par les clips. Commit unique. Voir section État actuel.
@@ -1179,6 +1241,34 @@ Phases listées ci-dessous dans l'ordre chronologique d'implémentation.
     `sustainedNotesRef.delete(idx)` préservé : la voix retriggée
     ne réapparaît pas au relâchement de Espace. Invariant
     retrigger "perçu net" (E.3.4) respecté.
+
+### Itération F (multi-tempérament) — en cours
+
+- ✅ **Phase 1** (2026-04-22) — Infrastructure multi-tempérament.
+  Deux sous-commits :
+  - **1.1** Registre des systèmes de tempérament. Création de
+    `src/lib/tuningSystems.js` exposant `TUNING_SYSTEMS` (entrées
+    '12-TET' et 'free' pour l'instant), `getTuningSystem(id)`,
+    `DEFAULT_A4 = 440`, et `frequencyToNearestNote(hz, a4Ref)`.
+    `clipFrequency(clip, a4Ref)` (reducer.js) délègue à `sys.freq(...)` ;
+    les cas "free" sont détectés par `sys.freq === null`. Les copies
+    locales de `noteToFrequency` (reducer.js et WaveformEditor.jsx)
+    et les formules MIDI inline (App.jsx pour le spectrogramme,
+    PropertiesPanel.jsx pour l'affichage Hz) sont toutes remplacées
+    par des appels au registre. `formatClipNote` et `NOTE_NAMES`
+    (clipNote.js) lisent les noms de notes depuis l'entrée '12-TET'
+    du registre.
+  - **1.2** A4 de référence dans le modèle. Nouveau champ d'état
+    `a4Ref` (Hz, défaut 440), persisté dans localStorage avec les
+    autres champs métier, validé au chargement (fallback 440 si
+    absent/invalide). Propagé : App → `usePlayback` (miroir
+    `a4RefRef` comme `bpmRef`, lu au tick du scheduler → lag ≤ 100ms
+    pour un changement mid-playback ; `exportWav` lit depuis les
+    props directement, OfflineAudioContext one-shot), App →
+    `WaveformEditor` (preview polyphonique + spectrogramme), App →
+    `PropertiesPanel` (affichage Hz dans NoteEditor). Aucune UI
+    d'édition exposée — A4 reste à 440 Hz pour l'utilisateur final.
+    Comportement strictement identique à E.9.
 
 ### Backlog général (à caser quand pertinent)
 
