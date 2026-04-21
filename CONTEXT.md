@@ -419,6 +419,25 @@ Choix non évidents pris pour de bonnes raisons. À ne pas remettre en question
   `requestAnimationFrame` au frame suivant. Permet à la transition
   de s'appliquer sur un changement de top détecté après activation
   de la transition-property.
+- **Jamais de discontinuité dans le signal audio** (E.9) : un
+  changement brutal de gain (saut 0→amp) ou une coupure d'oscillator
+  en pleine phase (osc.stop() sans rampe) produit un clic audible.
+  Règle : toute transition d'amplitude passe par une rampe ≥ quelques
+  ms. Matérialisée par deux constantes :
+    - `MIN_ATTACK = 0.003` (`audio.js`) : plancher appliqué via
+      `Math.max(user_attack, MIN_ATTACK)` au démarrage de chaque
+      voix. Concerne `WaveformEditor.playInstrumentNote` et les
+      `scheduleXxxClip` de `usePlayback`. Sous le seuil perceptif
+      d'attaque (~10 ms) → l'utilisateur ne "ressent" pas la
+      contrainte.
+    - `RETRIGGER_FADE = 0.008` (`WaveformEditor.jsx`) : durée du
+      micro-fade-out appliqué à la voix précédente quand une note
+      est retriggerée. La nouvelle voix démarre immédiatement, les
+      deux se superposent 8 ms — imperceptible mais pas de clic.
+  Pattern récurrent pour tout fade programmatique : capture
+  `gain.value` AVANT `cancelScheduledValues`, sinon l'annulation
+  fait retomber le param sur le dernier `setValueAtTime` antérieur
+  et la valeur lue est fausse (voir aussi E.8 pour le release ADSR).
 
 ## Contraintes implicites
 
@@ -917,6 +936,11 @@ Phases listées ci-dessous dans l'ordre chronologique d'implémentation.
 - ✅ **Phase 8** (2026-04-22) — Fix release ADSR Designer sur appui
   bref : `gain.value` lu avant `cancelScheduledValues` + marge 20ms
   sur `osc.stop()` (voir Roadmap).
+- ✅ **Phase 9** (2026-04-22) — Micro-fades anti-clic. `MIN_ATTACK`
+  (3 ms) en plancher d'attack côté Designer + Composer (clic au
+  démarrage), `RETRIGGER_FADE` (8 ms) en fade-out de la voix
+  précédente lors d'un retrigger (clic de voice-stealing sur note
+  déjà active ou sustainée) (voir Roadmap).
 
 ## Historique (chronologie inverse)
 
@@ -1129,6 +1153,32 @@ Phases listées ci-dessous dans l'ordre chronologique d'implémentation.
   vers 0. Complément : `osc.stop(now + r + 0.02)` au lieu de
   `osc.stop(now + r)` pour garantir une marge de 20ms évitant la coupe
   prématurée. Branches sustain (E.3.4) et retrigger (E.3.4) intactes.
+- ✅ **Phase 9** (2026-04-22) — Micro-fades anti-clic. Deux clics
+  résiduels post-E.8, causes distinctes, fix indépendants :
+  - **9.1** Clic au démarrage d'une voix (Designer + Composer).
+    Cause : `OscillatorNode` démarre à une phase arbitraire, et
+    avec `attack = 0` le gain passe de 0 à amplitude en un
+    sample-block → discontinuité. Fix : `MIN_ATTACK = 0.003s`
+    exportée depuis `audio.js`, appliquée via
+    `Math.max(user_attack, MIN_ATTACK)` dans
+    `WaveformEditor.playInstrumentNote` et dans les deux
+    `scheduleXxxClip` de `usePlayback` (temps réel + export WAV).
+    Plancher de 3 ms sous le seuil perceptif (~10 ms) → l'attack
+    utilisateur ≥ 3 ms n'est pas affecté.
+  - **9.2** Clic au retrigger (rejeu d'une note déjà active ou
+    sustainée). Cause : la branche retrigger coupait la voix
+    précédente via `osc.stop()` sans argument — osc interrompu en
+    pleine phase à gain élevé → clic marqué, pire en sustain.
+    Fix : `RETRIGGER_FADE = 0.008s` (local `WaveformEditor.jsx`).
+    Avant démarrage de la nouvelle voix, on applique à l'ancienne
+    le pattern E.8 (capture `gain.value` AVANT
+    `cancelScheduledValues`, `setValueAtTime`, rampe vers 0 en
+    8 ms, `osc.stop` différé avec marge 20 ms, cleanup dans
+    `onended`). La nouvelle voix démarre immédiatement, les deux
+    se superposent 8 ms — imperceptible mais supprime le tick.
+    `sustainedNotesRef.delete(idx)` préservé : la voix retriggée
+    ne réapparaît pas au relâchement de Espace. Invariant
+    retrigger "perçu net" (E.3.4) respecté.
 
 ### Backlog général (à caser quand pertinent)
 
