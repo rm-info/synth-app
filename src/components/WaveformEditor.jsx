@@ -7,6 +7,13 @@ import './WaveformEditor.css'
 
 const POINTS_RESOLUTION = 600
 
+// Durée (secondes) du micro-fade-out appliqué à la voix précédente quand
+// une note est retriggerée (rejouée alors qu'elle est déjà active ou
+// sustainée). Un stop() net produirait un clic : l'osc serait coupé au
+// milieu d'un cycle à amplitude élevée. 8 ms reste perçu comme net mais
+// supprime la discontinuité. La nouvelle voix démarre immédiatement.
+const RETRIGGER_FADE = 0.008
+
 function noteToFrequency(noteIndex, octave) {
   const midi = (octave + 1) * 12 + noteIndex
   return 440 * Math.pow(2, (midi - 69) / 12)
@@ -384,12 +391,22 @@ function WaveformEditor({
     if (params.testTuningSystem === 'free') return
 
     // Retrigger : si une voix existe déjà pour cette idx (sustainée ou non),
-    // on la coupe net avant de démarrer la nouvelle.
+    // on la fade-out en RETRIGGER_FADE ms. La nouvelle voix démarre tout
+    // de suite ; les deux se superposent brièvement — imperceptible mais
+    // évite le clic qu'une coupe franche produirait.
     if (activeNotesMapRef.current.has(idx)) {
       const existing = activeNotesMapRef.current.get(idx)
-      try { existing.osc.stop() } catch { /* already */ }
-      try { existing.osc.disconnect() } catch { /* already */ }
-      try { existing.gain.disconnect() } catch { /* already */ }
+      const prevCtx = audioCtxRef.current
+      const prevNow = prevCtx.currentTime
+      const currentGain = existing.gain.gain.value
+      existing.gain.gain.cancelScheduledValues(prevNow)
+      existing.gain.gain.setValueAtTime(currentGain, prevNow)
+      existing.gain.gain.linearRampToValueAtTime(0, prevNow + RETRIGGER_FADE)
+      try { existing.osc.stop(prevNow + RETRIGGER_FADE + 0.02) } catch { /* already */ }
+      existing.osc.onended = () => {
+        try { existing.osc.disconnect() } catch { /* already */ }
+        try { existing.gain.disconnect() } catch { /* already */ }
+      }
       activeNotesMapRef.current.delete(idx)
       sustainedNotesRef.current.delete(idx)
     }
