@@ -1,4 +1,9 @@
 import { SOUND_COLORS } from './audio'
+import {
+  DEFAULT_A4,
+  getTuningSystem,
+  frequencyToNearestNote,
+} from './lib/tuningSystems'
 
 // === Constantes partagées ===
 export const STORAGE_KEY = 'synth-app-state'
@@ -52,28 +57,15 @@ export const DEFAULT_EDITOR = {
 export const FREE_FREQ_MIN = 16
 export const FREE_FREQ_MAX = 32768
 
-export function noteToFrequency(noteIndex, octave) {
-  const midi = (octave + 1) * 12 + noteIndex
-  return 440 * Math.pow(2, (midi - 69) / 12)
-}
-
-// Inverse : trouve la note 12-TET la plus proche d'une fréquence donnée.
-// Clamp midi ∈ [12, 143] (C0..B10) pour rester dans les bornes de l'UI.
-export function frequencyToNearestNote(hz) {
-  const midi = Math.round(69 + 12 * Math.log2(hz / 440))
-  const clamped = Math.max(12, Math.min(143, midi))
-  return {
-    noteIndex: ((clamped % 12) + 12) % 12,
-    octave: Math.floor(clamped / 12) - 1,
-  }
-}
-
-// Fréquence effective d'un clip. En E.1, deux systèmes : 12-TET (noteIndex +
-// octave) et Libre (frequency explicite). Point d'extension unique pour les
-// futurs systèmes (24-TET, Pythagorean, etc.).
-export function clipFrequency(clip) {
-  if (clip.tuningSystem === 'free') return clip.frequency ?? 440
-  return noteToFrequency(clip.noteIndex ?? 9, clip.octave ?? 4)
+// Fréquence effective d'un clip. Délègue au registre des tempéraments
+// (`src/lib/tuningSystems.js`) : un système avec `freq` non-null calcule depuis
+// noteIndex/octave + a4Ref, un système `free` (freq === null) lit la fréquence
+// brute du clip. Point d'extension unique pour les futurs tempéraments
+// (24-TET, Pythagoricien, Just Intonation, maqâmât, etc.).
+export function clipFrequency(clip, a4Ref = DEFAULT_A4) {
+  const sys = getTuningSystem(clip.tuningSystem)
+  if (sys.freq === null) return clip.frequency ?? DEFAULT_A4
+  return sys.freq(clip.noteIndex ?? 9, clip.octave ?? 4, a4Ref)
 }
 
 export function makeDefaultTrack() {
@@ -965,9 +957,13 @@ export function reducer(state, action) {
     case 'SET_EDITOR_TEST_TUNING_SYSTEM': {
       const next = action.payload
       if (state.editor.testTuningSystem === next) return state
+      const a4Ref = state.a4Ref ?? DEFAULT_A4
       if (next === 'free') {
-        // 12-TET → Libre : on conserve la fréquence courante.
-        const curFreq = noteToFrequency(state.editor.testNoteIndex, state.editor.testOctave)
+        // Système-based → Libre : on conserve la fréquence courante.
+        const prevSys = getTuningSystem(state.editor.testTuningSystem)
+        const curFreq = prevSys.freq
+          ? prevSys.freq(state.editor.testNoteIndex, state.editor.testOctave, a4Ref)
+          : state.editor.testFrequency
         return {
           ...state,
           editor: {
@@ -977,7 +973,10 @@ export function reducer(state, action) {
           },
         }
       }
-      const { noteIndex, octave } = frequencyToNearestNote(state.editor.testFrequency)
+      // Libre → système-based. En F.1, seul 12-TET existe comme cible non-free,
+      // donc on retombe toujours sur 12-TET via frequencyToNearestNote. Quand
+      // d'autres tempéraments seront ajoutés, il faudra un inverse par système.
+      const { noteIndex, octave } = frequencyToNearestNote(state.editor.testFrequency, a4Ref)
       return {
         ...state,
         editor: { ...state.editor, testTuningSystem: '12-TET', testNoteIndex: noteIndex, testOctave: octave },

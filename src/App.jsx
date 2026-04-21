@@ -31,6 +31,7 @@ import {
 import { canMergeClips } from './lib/timelineLayout'
 import { KEY_CODE_TO_NOTE_INDEX } from './lib/keyboardMap'
 import { NOTE_NAMES as PRESSED_NOTE_NAMES } from './lib/clipNote'
+import { DEFAULT_A4, getTuningSystem } from './lib/tuningSystems'
 import {
   DURATION_BASES, DURATION_COEFS,
   deriveBaseAndCoef, effectiveDuration, isValidCoef,
@@ -80,9 +81,11 @@ function App() {
     [currentPatchId, patches],
   )
 
-  const editorFrequency = editor.testTuningSystem === 'free'
-    ? editor.testFrequency
-    : 440 * Math.pow(2, ((editor.testOctave + 1) * 12 + editor.testNoteIndex - 69) / 12)
+  const editorFrequency = (() => {
+    if (editor.testTuningSystem === 'free') return editor.testFrequency
+    const sys = getTuningSystem(editor.testTuningSystem)
+    return sys.freq ? sys.freq(editor.testNoteIndex, editor.testOctave, DEFAULT_A4) : editor.testFrequency
+  })()
 
   // Label affiché dans la toolbar Composer quand une touche de note est
   // maintenue (E.4.1). Utilise NOTE_NAMES avec ♯ Unicode.

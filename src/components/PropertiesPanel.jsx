@@ -6,6 +6,7 @@ import {
   MIN_CLIP_DURATION,
 } from '../lib/timelineLayout'
 import { formatClipNote } from '../lib/clipNote'
+import { DEFAULT_A4, getTuningSystem } from '../lib/tuningSystems'
 import { durationName } from '../lib/durations'
 import { PianoKeyboard, OctaveSelector } from './PianoKeyboard'
 import FreqInput from './FreqInput'
@@ -153,8 +154,8 @@ function NoteEditor({ clipIds, tuningSystem, noteIndex, octave, frequency, onUpd
     )
   }
 
-  const midi = (octave + 1) * 12 + noteIndex
-  const displayFreq = 440 * Math.pow(2, (midi - 69) / 12)
+  const sys = getTuningSystem(tuningSystem)
+  const displayFreq = sys.freq ? sys.freq(noteIndex, octave, DEFAULT_A4) : 0
 
   return (
     <div className="note-editor">

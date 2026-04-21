@@ -3,6 +3,7 @@ import { pointsToPeriodicWave, MIN_ATTACK } from '../audio'
 import FreqInput from './FreqInput'
 import { PianoKeyboard, OctaveSelector, NOTE_NAMES } from './PianoKeyboard'
 import { KEY_CODE_TO_NOTE_INDEX } from '../lib/keyboardMap'
+import { DEFAULT_A4, getTuningSystem } from '../lib/tuningSystems'
 import './WaveformEditor.css'
 
 const POINTS_RESOLUTION = 600
@@ -14,9 +15,13 @@ const POINTS_RESOLUTION = 600
 // supprime la discontinuité. La nouvelle voix démarre immédiatement.
 const RETRIGGER_FADE = 0.008
 
-function noteToFrequency(noteIndex, octave) {
-  const midi = (octave + 1) * 12 + noteIndex
-  return 440 * Math.pow(2, (midi - 69) / 12)
+// Preview du Designer : passe par le registre des tempéraments pour que toute
+// divergence avec le moteur de lecture (live/WAV) soit impossible par
+// construction.
+function previewNoteFrequency(tuningSystemId, noteIndex, octave, a4Ref) {
+  const sys = getTuningSystem(tuningSystemId)
+  if (!sys.freq) return null
+  return sys.freq(noteIndex, octave, a4Ref)
 }
 
 
@@ -169,7 +174,9 @@ function WaveformEditor({
   const { testTuningSystem, testNoteIndex, testOctave, preset: activePreset } = editor
   const freeMode = testTuningSystem === 'free'
 
-  const frequency = freeMode ? testFrequency : noteToFrequency(testNoteIndex, testOctave)
+  const frequency = freeMode
+    ? testFrequency
+    : previewNoteFrequency(testTuningSystem, testNoteIndex, testOctave, DEFAULT_A4)
   const defaultName = nextPatchName
 
   const canvasRef = useRef(null)
@@ -417,7 +424,7 @@ function WaveformEditor({
     const gain = ctx.createGain()
     osc.setPeriodicWave(pointsToPeriodicWave(pointsRef.current, ctx))
 
-    const freq = noteToFrequency(idx, oct)
+    const freq = previewNoteFrequency(params.testTuningSystem, idx, oct, DEFAULT_A4)
     const now = ctx.currentTime
     osc.frequency.setValueAtTime(freq, now)
 
