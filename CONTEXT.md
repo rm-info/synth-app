@@ -55,7 +55,14 @@ Itération F (multi-tempérament) **ouverte le 2026-04-22**. Phase 1 :
 infrastructure posée — registre des systèmes de tempérament
 (`src/lib/tuningSystems.js`) comme point d'extension unique, A4 de
 référence configurable dans le modèle (champ `a4Ref`, défaut 440 Hz,
-persisté, sans UI encore exposée).
+persisté, sans UI encore exposée). Phase 2 (2026-04-22) : premier
+tempérament alternatif — **Pythagoricien 12 centré sur C** (chaîne
+de quintes pures 3:2, loup entre F# et Db), sélecteurs de système
+dynamisés (Designer + Properties), ajout du sélecteur dans
+PropertiesPanel avec logique de bascule verrouillée au reducer
+(`UPDATE_CLIPS_PITCH` dérive les champs cohérents — frequency /
+noteIndex-octave — au changement de système). Nouvel input A4 dans
+la toolbar Composer (`A4Input`, 380-480 Hz entiers).
 
 ## Objectif
 
@@ -104,6 +111,7 @@ synth-app/
         ├── DurationButtons.jsx + .css         # boutons durée 7 bases + 3 coefs (phase 6.1)
         ├── SidebarResizer.jsx + .css          # poignée drag bordure sidebar (phase 7.4)
         ├── BpmInput.jsx                       # input BPM validation différée
+        ├── A4Input.jsx                        # input A4 validation différée (F.2.2)
         ├── FreqInput.jsx                      # input fréquence libre (phase 3.7)
         ├── Toast.jsx + .css                   # toast d'erreur (undo cross-onglet)
         ├── Toolbar.jsx + .css                 # toolbar (Composer)
@@ -162,8 +170,8 @@ type Clip = {                     // placement timeline + hauteur
   duration: number                // en noires : 4=ronde, 2=blanche, 1.5=noire pointée,
                                   // 1=noire, 0.75=croche pointée, 0.5=croche, 0.25=double
   // Hauteur sonore (itération E) :
-  tuningSystem: string            // clé du registre `TUNING_SYSTEMS` : '12-TET', 'free'
-                                  // (en F.1) — extensible en F.2+.
+  tuningSystem: string            // clé du registre `TUNING_SYSTEMS` : '12-TET',
+                                  // 'pythagorean-12', 'free' (F.2). Extensible.
   noteIndex: number | null        // 0..(notesPerOctave-1) du système courant,
                                   // null en Libre. 0..11 pour 12-TET aujourd'hui.
   octave: number | null           // 0-10 en 12-TET, null en Libre
@@ -179,7 +187,12 @@ type Clip = {                     // placement timeline + hauteur
 // délègue au registre `src/lib/tuningSystems.js`. Chaque entrée définit une
 // fonction `freq(noteIndex, octave, a4Ref) → Hz` (ou null pour 'free' qui lit
 // `clip.frequency`). Point d'extension unique : ajouter une entrée suffit,
-// aucun autre code n'a besoin d'en savoir plus.
+// aucun autre code n'a besoin d'en savoir plus. Systèmes actuels (F.2) :
+//   - '12-TET' : `a4Ref × 2^((midi-69)/12)`.
+//   - 'pythagorean-12' : chaîne de quintes 3:2 centrée sur C, ancrée sur A4
+//     (C4 = a4Ref × 16/27). 6 quintes montantes, 5 descendantes ; loup entre
+//     F# (+6) et Db (-5). Ratios dérivés à l'init dans `PYTH_RATIOS_FROM_C`.
+//   - 'free' : lit `clip.frequency` directement.
 
 // Persistance (localStorage, clé "synth-app-state") :
 // { patches, soundFolders, tracks, clips, bpm, numMeasures, a4Ref,
@@ -997,9 +1010,38 @@ Phases listées ci-dessous dans l'ordre chronologique d'implémentation.
   directe pour l'export WAV). Aucune UI d'édition exposée — A4 reste
   à 440 Hz pour l'utilisateur final. Comportement strictement
   identique à E.9.
+- ✅ **Phase 2** (2026-04-22) — Premier tempérament alternatif +
+  UI A4. 2 sous-commits :
+  - **2.1** Tempérament Pythagoricien 12 centré sur C. Ratios dérivés
+    à l'init par parcours de la chaîne (6 montantes, 5 descendantes,
+    loup F#↔Db ~678 cents). Mêmes noms de notes que 12-TET → clavier
+    et UI existants réutilisés. Ordre registre : 12-TET,
+    pythagorean-12, free. Sélecteurs dynamisés (Designer +
+    PropertiesPanel — ajout du sélecteur dans Properties, absent
+    auparavant : multi avec check `allSameTuningSystem` →
+    "Systèmes mixtes" en lecture seule sinon). Logique de bascule
+    portée par le reducer (`UPDATE_CLIPS_PITCH` étendu) pour
+    verrouiller l'invariant "clip cohérent" au modèle : vers 'free'
+    calcule la fréquence courante, entre systèmes de même grille
+    garde note/octave, sinon snap via 12-TET. Fix latent dans
+    `SET_EDITOR_TEST_TUNING_SYSTEM` du Designer (hardcode '12-TET'
+    en branche non-free) corrigé au passage.
+  - **2.2** Input A4 dans la toolbar Composer. Nouveau composant
+    `A4Input` (même pattern que `BpmInput` — validation différée,
+    Échap restaure, ±1 flèches / ±5 Shift). Fourchette 380-480 Hz
+    entiers. Action `SET_A4_REF` undoable, `a4Ref` ajouté à
+    `COMPOSER_FIELDS`. `A4Input` candidat à extraction en
+    `ValidatedIntegerInput` partagé si un 3e input similaire
+    apparaît (pas extrait par choix de scope en F.2).
 
 ## Historique (chronologie inverse)
 
+0000. **Iter F — Phase 2** (2026-04-22) : premier tempérament alternatif
+    (Pythagoricien 12 centré sur C, loup F#↔Db), sélecteurs dynamiques
+    Designer + Properties, nouveau sélecteur dans PropertiesPanel avec
+    logique de bascule verrouillée au reducer (dérivation cohérente des
+    champs hauteur au changement de système), nouveau composant
+    `A4Input` dans la toolbar Composer (380-480 Hz, undoable).
 000. **Iter F — Phase 1** (2026-04-22) : infrastructure multi-tempérament.
    Registre `src/lib/tuningSystems.js` comme point d'extension unique pour
    les systèmes d'accordage ; `clipFrequency(clip, a4Ref)` délégué au
@@ -1269,6 +1311,53 @@ Phases listées ci-dessous dans l'ordre chronologique d'implémentation.
     `PropertiesPanel` (affichage Hz dans NoteEditor). Aucune UI
     d'édition exposée — A4 reste à 440 Hz pour l'utilisateur final.
     Comportement strictement identique à E.9.
+- ✅ **Phase 2** (2026-04-22) — Premier tempérament alternatif +
+  UI A4. 2 sous-commits :
+  - **2.1** Tempérament Pythagoricien 12 centré sur C. Nouvelle
+    entrée `'pythagorean-12'` dans `TUNING_SYSTEMS`, label
+    "Pythagoricien 12 (quintes pures, centré sur C)". Mêmes 12 noms
+    de notes que 12-TET → clavier et UI existants réutilisés sans
+    modification. Ratios pythagoriciens dérivés à l'init par parcours
+    de la chaîne (constantes `PYTH_FIFTHS_FROM_C` = position dans la
+    chaîne par noteIndex, 6 montantes G D A E B F# et 5 descendantes
+    F Bb Eb Ab Db ; puis `PYTH_RATIOS_FROM_C` = (3/2)^k replié dans
+    [1, 2) par octave-fold). `pythagoreanFreq(noteIndex, octave,
+    a4Ref)` ancre C4 = a4Ref × 16/27 et multiplie par le ratio et
+    2^(octave-4). La quinte du loup tombe naturellement entre F#
+    (+6) et Db (-5) : ~678 cents au lieu de 702 — audible, attendu.
+    Ordre dans le registre : `12-TET`, `pythagorean-12`, `free`.
+    Sélecteurs de système dérivés du registre (itération
+    `Object.values(TUNING_SYSTEMS)`) — Designer et Properties
+    Composer. **Ajout du sélecteur dans PropertiesPanel** (absent
+    auparavant, seul le Designer en avait un) via composant local
+    `TuningSystemSelect` réutilisé en mono (ClipEditor) et multi
+    (MultiClipEditor). En multi, check `allSameTuningSystem` ajouté
+    à côté de `allSamePitch` → sélecteur éditable si homogène, sinon
+    "Systèmes mixtes" read-only. Logique de bascule portée par le
+    reducer (`UPDATE_CLIPS_PITCH` étendu) : vers `'free'` calcule
+    la fréquence courante (via `clipFrequency`), entre systèmes de
+    même `notesPerOctave` garde noteIndex/octave tels quels, sinon
+    snap via `frequencyToNearestNote` (12-TET ref pour F.2). Pattern
+    symétrique appliqué à `SET_EDITOR_TEST_TUNING_SYSTEM` du
+    Designer — corrige un bug latent (le hardcode `'12-TET'` en
+    branche non-free aurait snappé aléatoirement à la bascule
+    12-TET → Pythagoricien). Libre → Pythagoricien reste un snap
+    via 12-TET en F.2 : acceptable puisque les 12 noms de notes
+    sont partagés.
+  - **2.2** Input A4 dans la toolbar Composer. Nouveau composant
+    `A4Input.jsx` — pattern identique à `BpmInput` (validation
+    différée au blur/Enter, Échap restaure `preFocusValue`,
+    ArrowUp/Down ±1, Shift ±5). Fourchette 380-480 Hz entiers
+    (couvre tous les diapasons historiques usuels : Versailles 392,
+    baroque 415, XIXe français 435, moderne 440, contemporain
+    442-444). Ignoré pour F.2 : décimales (si besoin ressenti) et
+    extraction d'un helper `ValidatedIntegerInput` partagé avec
+    BpmInput (candidat si un 3e input similaire apparaît). Nouvelle
+    action `SET_A4_REF` ajoutée à `COMPOSER_UNDOABLE` ; `a4Ref`
+    ajouté à `COMPOSER_FIELDS` pour que l'undo Composer restaure
+    aussi la hauteur de référence. Intégration visuelle à côté du
+    BPM dans la même `toolbar-section` (même gap, suffixe "Hz" en
+    gris clair, style aligné).
 
 ### Backlog général (à caser quand pertinent)
 
