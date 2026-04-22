@@ -600,6 +600,15 @@ export function reducer(state, action) {
     case 'SET_BPM': {
       return { ...state, bpm: action.payload }
     }
+    case 'SET_A4_REF': {
+      // Pas de clamp côté reducer : c'est l'input qui valide la fourchette.
+      // Ignorer les valeurs non-finies pour éviter de casser l'état si un
+      // call-site bugue (NaN depuis parseInt d'une chaîne vide, etc.).
+      const v = action.payload
+      if (!Number.isFinite(v) || v <= 0) return state
+      if (state.a4Ref === v) return state
+      return { ...state, a4Ref: v }
+    }
     case 'ADD_MEASURES': {
       const count = action.payload
       if (count <= 0) return state
@@ -1168,7 +1177,7 @@ const COMPOSER_UNDOABLE = new Set([
   'ADD_CLIP', 'REMOVE_CLIP', 'UPDATE_CLIP', 'MOVE_CLIPS', 'RESIZE_CLIPS',
   'DUPLICATE_CLIPS', 'PASTE_CLIPS', 'SPLIT_CLIPS', 'MERGE_CLIPS', 'DELETE_SELECTED_CLIPS',
   'UPDATE_CLIPS_PATCH', 'UPDATE_CLIPS_DURATION', 'UPDATE_CLIPS_PITCH',
-  'CLEAR_TIMELINE', 'SET_BPM', 'ADD_MEASURES', 'REMOVE_LAST_MEASURE',
+  'CLEAR_TIMELINE', 'SET_BPM', 'SET_A4_REF', 'ADD_MEASURES', 'REMOVE_LAST_MEASURE',
   'DELETE_MEASURE', 'INSERT_MEASURES_AT', 'CUT_MEASURE', 'PASTE_MEASURES',
   'CREATE_TRACK', 'RENAME_TRACK', 'DELETE_TRACK', 'REORDER_TRACKS', 'UPDATE_TRACK',
 ])
@@ -1182,7 +1191,7 @@ const DESIGNER_UNDOABLE = new Set([
   'SET_EDITOR_ADSR', 'APPLY_EDITOR_PRESET', 'RESET_EDITOR',
 ])
 
-const COMPOSER_FIELDS = ['clips', 'numMeasures', 'bpm', 'selectedClipIds', 'tracks']
+const COMPOSER_FIELDS = ['clips', 'numMeasures', 'bpm', 'a4Ref', 'selectedClipIds', 'tracks']
 const DESIGNER_FIELDS = ['patches', 'soundFolders', 'editor']
 
 function pickFields(state, fields) {

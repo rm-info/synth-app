@@ -516,6 +516,7 @@ function App() {
   // === Handlers ===
 
   const setBpm = useCallback((v) => dispatch({ type: 'SET_BPM', payload: v }), [])
+  const setA4Ref = useCallback((v) => dispatch({ type: 'SET_A4_REF', payload: v }), [])
 
   const setZoomH = useCallback((next) => {
     dispatch({ type: 'SET_ZOOM_H', payload: next })
@@ -1363,6 +1364,8 @@ function App() {
                 <Toolbar
                   bpm={bpm}
                   onSetBpm={setBpm}
+                  a4Ref={a4Ref}
+                  onSetA4Ref={setA4Ref}
                   hasSelection={selectedClipIds.length > 0}
                   hasClipboard={!!clipboard && clipboard.clips.length > 0}
                   onCopy={handleCopy}

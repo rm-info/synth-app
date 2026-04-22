@@ -114,6 +114,42 @@
   background: #0f0f1a;
 }
 
+.a4-control {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: 14px;
+  color: #a0a0c0;
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+}
+
+.a4-input {
+  width: 48px;
+  padding: 4px 6px;
+  border: 1px solid #3a3a5a;
+  border-radius: 4px;
+  background: #1a1a2e;
+  color: #e0e0e0;
+  font-family: monospace;
+  font-size: 0.85rem;
+  text-align: center;
+  outline: none;
+}
+
+.a4-input:focus {
+  border-color: #00d4ff;
+  background: #0f0f1a;
+}
+
+.a4-unit {
+  color: #6a6a8a;
+  font-weight: 400;
+  font-size: 0.7rem;
+  letter-spacing: 0;
+}
+
 .duration-control-label {
   color: #a0a0c0;
   font-size: 0.75rem;

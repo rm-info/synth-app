@@ -1,4 +1,5 @@
 import BpmInput from './BpmInput'
+import A4Input from './A4Input'
 import DurationButtons from './DurationButtons'
 import './Toolbar.css'
 
@@ -10,6 +11,8 @@ import './Toolbar.css'
 function Toolbar({
   bpm,
   onSetBpm,
+  a4Ref,
+  onSetA4Ref,
   hasSelection,
   hasClipboard,
   onCopy,
@@ -68,6 +71,11 @@ function Toolbar({
         <label className="bpm-control" title="Tempo (noires par minute) — flèches haut/bas pour ±1, +Shift pour ±10">
           BPM
           <BpmInput value={bpm} onChange={onSetBpm} className="bpm-input" />
+        </label>
+        <label className="a4-control" title="Hauteur de référence A4 en Hz — flèches haut/bas pour ±1, +Shift pour ±5. Fourchette 380-480.">
+          A4
+          <A4Input value={a4Ref} onChange={onSetA4Ref} className="a4-input" />
+          <span className="a4-unit">Hz</span>
         </label>
       </div>
 
