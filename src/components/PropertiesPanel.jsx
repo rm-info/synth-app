@@ -6,7 +6,7 @@ import {
   MIN_CLIP_DURATION,
 } from '../lib/timelineLayout'
 import { formatClipNote } from '../lib/clipNote'
-import { getTuningSystem } from '../lib/tuningSystems'
+import { getTuningSystem, TUNING_SYSTEMS } from '../lib/tuningSystems'
 import { durationName } from '../lib/durations'
 import { PianoKeyboard, OctaveSelector } from './PianoKeyboard'
 import FreqInput from './FreqInput'
@@ -124,7 +124,27 @@ function PropertiesPanel({
   )
 }
 
-// Éditeur de hauteur : mini-clavier + octave en 12-TET, FreqInput en Libre.
+// Sélecteur de système de tempérament — dérivé du registre. Utilisé mono et
+// multi (à ce niveau, parce qu'on veut pouvoir éditer le système même quand
+// les notes diffèrent au sein d'une sélection). La logique de bascule
+// (dériver frequency ↔ noteIndex/octave au changement) est portée par le
+// reducer (UPDATE_CLIPS_PITCH) pour verrouiller l'invariant côté modèle.
+function TuningSystemSelect({ value, onChange }) {
+  return (
+    <select
+      className="field-input tuning-system-select"
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+    >
+      {Object.values(TUNING_SYSTEMS).map((sys) => (
+        <option key={sys.id} value={sys.id}>{sys.label}</option>
+      ))}
+    </select>
+  )
+}
+
+// Éditeur de hauteur à l'intérieur d'un système donné : mini-clavier + octave
+// pour les systèmes basés sur noteIndex/octave, FreqInput pour 'free'.
 // `clipIds` est un tableau — utilisé aussi bien pour mono (1 élément) que
 // pour multi homogène (N éléments) afin que l'action propage à tous les clips.
 function NoteEditor({ clipIds, tuningSystem, noteIndex, octave, frequency, a4Ref, onUpdateClipsPitch }) {
@@ -204,6 +224,10 @@ function ClipEditor({ clip, patches, tracks, durationMode, a4Ref, onUpdateClip, 
 
       <div className="field field-note">
         <span className="field-label">Note</span>
+        <TuningSystemSelect
+          value={clip.tuningSystem}
+          onChange={(sys) => onUpdateClipsPitch?.([{ id: clip.id, tuningSystem: sys }])}
+        />
         <NoteEditor
           clipIds={[clip.id]}
           tuningSystem={clip.tuningSystem}
@@ -295,6 +319,7 @@ function MultiClipEditor({
   const allSameDuration = selectedClips.every((c) => c.duration === firstDuration)
   const commonPatch = allSamePatch ? patches.find((p) => p.id === firstPatchId) : null
   const allSamePitch = selectedClips.every((c) => sameClipPitch(c, first))
+  const allSameTuningSystem = selectedClips.every((c) => c.tuningSystem === first.tuningSystem)
 
   const handleChangePatch = (newPatchId) => {
     if (!allSamePatch) return
@@ -367,18 +392,30 @@ function MultiClipEditor({
 
       <div className="field field-note">
         <span className="field-label">Note</span>
-        {allSamePitch ? (
-          <NoteEditor
-            clipIds={selectedClips.map((c) => c.id)}
-            tuningSystem={first.tuningSystem}
-            noteIndex={first.noteIndex}
-            octave={first.octave}
-            frequency={first.frequency}
-            a4Ref={a4Ref}
-            onUpdateClipsPitch={onUpdateClipsPitch}
-          />
+        {allSameTuningSystem ? (
+          <>
+            <TuningSystemSelect
+              value={first.tuningSystem}
+              onChange={(sys) =>
+                onUpdateClipsPitch?.(selectedClips.map((c) => ({ id: c.id, tuningSystem: sys })))
+              }
+            />
+            {allSamePitch ? (
+              <NoteEditor
+                clipIds={selectedClips.map((c) => c.id)}
+                tuningSystem={first.tuningSystem}
+                noteIndex={first.noteIndex}
+                octave={first.octave}
+                frequency={first.frequency}
+                a4Ref={a4Ref}
+                onUpdateClipsPitch={onUpdateClipsPitch}
+              />
+            ) : (
+              <span className="field-readonly">Notes mixtes</span>
+            )}
+          </>
         ) : (
-          <span className="field-readonly">Notes mixtes</span>
+          <span className="field-readonly">Systèmes mixtes</span>
         )}
       </div>
 

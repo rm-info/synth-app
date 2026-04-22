@@ -399,10 +399,16 @@ export function reducer(state, action) {
     }
     case 'UPDATE_CLIPS_PITCH': {
       // payload: [{ id, tuningSystem?, noteIndex?, octave?, frequency? }]
-      // Met à jour uniquement les champs explicitement présents dans chaque
-      // update (les autres restent inchangés sur le clip).
+      // Applique les champs explicites, puis — si le `tuningSystem` change et
+      // que les champs note/fréquence cibles ne sont pas fournis — dérive les
+      // valeurs cohérentes pour le nouveau système. Garantit l'invariant
+      // "clip cohérent" (free → frequency non null, système-based →
+      // noteIndex/octave non nuls) au niveau du modèle : tout dispatch
+      // UPDATE_CLIPS_PITCH (menu contextuel futur, raccourci clavier, etc.)
+      // en bénéficie sans dupliquer la logique.
       const updates = new Map(action.payload.map((u) => [u.id, u]))
       if (updates.size === 0) return state
+      const a4Ref = state.a4Ref ?? DEFAULT_A4
       return {
         ...state,
         clips: state.clips.map((c) => {
@@ -413,6 +419,37 @@ export function reducer(state, action) {
           if ('noteIndex' in u) next.noteIndex = u.noteIndex
           if ('octave' in u) next.octave = u.octave
           if ('frequency' in u) next.frequency = u.frequency
+
+          const systemChanged = 'tuningSystem' in u && u.tuningSystem !== c.tuningSystem
+          if (!systemChanged) return next
+
+          const prevSys = getTuningSystem(c.tuningSystem)
+          const nextSys = getTuningSystem(next.tuningSystem)
+          if (nextSys.freq === null) {
+            // Vers libre : si la fréquence n'est pas fournie explicitement,
+            // on conserve la hauteur courante rendue dans l'ancien système.
+            if (!('frequency' in u)) {
+              next.frequency = Math.round(clipFrequency(c, a4Ref) * 10) / 10
+            }
+            if (!('noteIndex' in u)) next.noteIndex = null
+            if (!('octave' in u)) next.octave = null
+          } else if (prevSys.freq !== null && prevSys.notesPerOctave === nextSys.notesPerOctave) {
+            // Entre systèmes de même grille (ex. 12-TET ↔ Pythagoricien en
+            // F.2) : noteIndex/octave gardés tels quels ; seule la fréquence
+            // de rendu diffère.
+            if (!('frequency' in u)) next.frequency = null
+          } else {
+            // Depuis libre, ou entre systèmes de grilles différentes :
+            // snap vers la note la plus proche (12-TET comme référence
+            // d'affichage pour F.2, cf. frequencyToNearestNote).
+            if (!('noteIndex' in u) || !('octave' in u)) {
+              const srcFreq = c.frequency ?? a4Ref
+              const nearest = frequencyToNearestNote(srcFreq, a4Ref)
+              if (!('noteIndex' in u)) next.noteIndex = nearest.noteIndex
+              if (!('octave' in u)) next.octave = nearest.octave
+            }
+            if (!('frequency' in u)) next.frequency = null
+          }
           return next
         }),
       }
@@ -967,9 +1004,13 @@ export function reducer(state, action) {
       const next = action.payload
       if (state.editor.testTuningSystem === next) return state
       const a4Ref = state.a4Ref ?? DEFAULT_A4
-      if (next === 'free') {
-        // Système-based → Libre : on conserve la fréquence courante.
-        const prevSys = getTuningSystem(state.editor.testTuningSystem)
+      const prevSys = getTuningSystem(state.editor.testTuningSystem)
+      const nextSys = getTuningSystem(next)
+
+      if (nextSys.freq === null) {
+        // Vers libre : on conserve la fréquence courante rendue dans l'ancien
+        // système. testNoteIndex/testOctave sont préservés (via ...editor)
+        // pour qu'un retour au système-based restaure la note précédente.
         const curFreq = prevSys.freq
           ? prevSys.freq(state.editor.testNoteIndex, state.editor.testOctave, a4Ref)
           : state.editor.testFrequency
@@ -977,18 +1018,28 @@ export function reducer(state, action) {
           ...state,
           editor: {
             ...state.editor,
-            testTuningSystem: 'free',
+            testTuningSystem: next,
             testFrequency: Math.round(curFreq * 10) / 10,
           },
         }
       }
-      // Libre → système-based. En F.1, seul 12-TET existe comme cible non-free,
-      // donc on retombe toujours sur 12-TET via frequencyToNearestNote. Quand
-      // d'autres tempéraments seront ajoutés, il faudra un inverse par système.
+
+      if (prevSys.freq !== null && prevSys.notesPerOctave === nextSys.notesPerOctave) {
+        // Entre systèmes de même grille : note/octave gardés, seul le rendu
+        // change (ex. 12-TET ↔ Pythagoricien).
+        return {
+          ...state,
+          editor: { ...state.editor, testTuningSystem: next },
+        }
+      }
+
+      // Depuis libre ou grille différente : snap via 12-TET. Quand d'autres
+      // grilles (24-TET, 31-EDO, …) seront ajoutées, il faudra un inverse
+      // par système.
       const { noteIndex, octave } = frequencyToNearestNote(state.editor.testFrequency, a4Ref)
       return {
         ...state,
-        editor: { ...state.editor, testTuningSystem: '12-TET', testNoteIndex: noteIndex, testOctave: octave },
+        editor: { ...state.editor, testTuningSystem: next, testNoteIndex: noteIndex, testOctave: octave },
       }
     }
     case 'SET_EDITOR_TEST_FREQUENCY': {

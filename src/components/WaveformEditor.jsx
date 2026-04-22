@@ -3,7 +3,7 @@ import { pointsToPeriodicWave, MIN_ATTACK } from '../audio'
 import FreqInput from './FreqInput'
 import { PianoKeyboard, OctaveSelector, NOTE_NAMES } from './PianoKeyboard'
 import { KEY_CODE_TO_NOTE_INDEX } from '../lib/keyboardMap'
-import { getTuningSystem } from '../lib/tuningSystems'
+import { getTuningSystem, TUNING_SYSTEMS } from '../lib/tuningSystems'
 import './WaveformEditor.css'
 
 const POINTS_RESOLUTION = 600
@@ -946,8 +946,9 @@ function WaveformEditor({
             value={testTuningSystem}
             onChange={(e) => editorActions.setTestTuningSystem(e.target.value)}
           >
-            <option value="12-TET">12-TET (Tempérament égal occidental)</option>
-            <option value="free">Libre (Hz)</option>
+            {Object.values(TUNING_SYSTEMS).map((sys) => (
+              <option key={sys.id} value={sys.id}>{sys.label}</option>
+            ))}
           </select>
         </div>
 
