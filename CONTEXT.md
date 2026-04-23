@@ -1444,6 +1444,34 @@ Phases listées ci-dessous dans l'ordre chronologique d'implémentation.
     système cible. Tests-clés : 12-TET C4 → 24-TET-egal reste C4
     (0¢), 24-TET-egal C↑4 → 12-TET snap C4 (~49¢ < ~51¢ de C♯4),
     24-TET-cairo Busalik (E +46¢) → 12-TET snap E.
+  - **3.5** (2026-04-23) Signes ↓ au lieu de ♭ en 24-TET. D♭ plein
+    et C♯ plein sont enharmoniques dans une grille 24-TET → écrire
+    ♭ pour les positions 3, 7, 13, 17, 21 attribuait deux noms à la
+    même position. Remplacement par ↓ (demi-bémol) dans
+    `TWENTYFOUR_NOTE_NAMES` ; `formatClipNote` et Grid24Layout
+    s'alignent automatiquement (lecture du registre).
+  - **3.6** (2026-04-23) Remapping QWERTY géométrique + preventDefault
+    Firefox. Rangée 1 (♯) décalée d'un cran : Digit4=C♯, Digit5=D♯,
+    Digit7=F♯, Digit8=G♯, Digit9=A♯ — chaque chiffre est centré
+    entre les deux lettres de la rangée du dessous (Digit4 entre
+    KeyE et KeyR → C♯ entre C↑ et D↑). Rangée 4 : Comma → KeyM
+    pour B↓ (KeyM entre KeyJ et KeyK = entre A et B). Designer
+    onKeyDown : `e.preventDefault()` déplacé AVANT le check
+    `e.repeat` — Firefox déclenche QuickFind sur ' (AZERTY Digit4)
+    à chaque keydown répété, pas seulement au premier.
+  - **3.7** (2026-04-23) Alignement grid-24 escalier + palette par
+    hue. Grid passe de 14 à 15 sub-cols pour permettre l'escalier :
+    chaque rangée décalée d'+1 sub-col par rapport à celle du
+    dessous (r3 offset 0, r2 +1, r1 +2, r4 +3). Chaque
+    demi-altération centrée entre les naturelles voisines, chaque
+    dièse plein centré entre les demi-dièses voisins — géométrie
+    cohérente avec le mapping QWERTY. Palette : 7 hues répartis
+    (HUE_PER_NATURAL = [0, 38, 76, 145, 200, 256, 310]), un par
+    naturelle. Altérations héritent du hue de leur "parente"
+    (↑ et ♯ → naturelle ascendante, ↓ → naturelle suivante).
+    Lightness varie par kind (♯ 35%, ♮ 62%, ↑/↓ 75%) →
+    différenciation conservée en niveaux de gris. États is-active
+    (cyan) et is-playing (jaune) écrasent par !important.
 
 ### Backlog général (à caser quand pertinent)
 
