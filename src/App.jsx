@@ -245,13 +245,10 @@ function App() {
     return () => window.removeEventListener('keydown', handler)
   }, [activeTab, selectedClipIds, clips, totalBeats])
 
-  // Shift/Ctrl "seuls" décalent `editor.testOctave`. Tap sur Shift sans autre
-  // touche → octave+1 ; tap sur Ctrl seul → octave-1. Toute autre touche OU
-  // un clic souris invalide le flag (les combos Shift+clic, Ctrl+C, etc. ne
-  // déclenchent rien). Actif en Designer ET en Composer (l'octave est
-  // partagée via state.editor.testOctave).
-  const shiftAloneRef = useRef(false)
-  const ctrlAloneRef = useRef(false)
+  // PageUp/PageDown décalent `editor.testOctave` (±1, bornes [0, 10]). Actif
+  // en Designer ET en Composer (octave partagée via state.editor.testOctave).
+  // Skip form fields et combos Ctrl/Alt/Cmd (navigation d'onglet navigateur).
+  // e.repeat autorisé : maintenir la touche traverse les octaves.
   const testOctaveRef = useRef(editor.testOctave)
   useEffect(() => {
     testOctaveRef.current = editor.testOctave
@@ -266,51 +263,19 @@ function App() {
 
     const onKeyDown = (e) => {
       if (isFormField(e.target)) return
-      if (e.key === 'Shift') {
-        if (!e.repeat) shiftAloneRef.current = true
-        return
+      if (e.ctrlKey || e.metaKey || e.altKey) return
+      if (e.key !== 'PageUp' && e.key !== 'PageDown') return
+      e.preventDefault()
+      const cur = testOctaveRef.current
+      if (e.key === 'PageUp' && cur < 10) {
+        dispatch({ type: 'SET_EDITOR_TEST_OCTAVE', payload: cur + 1 })
+      } else if (e.key === 'PageDown' && cur > 0) {
+        dispatch({ type: 'SET_EDITOR_TEST_OCTAVE', payload: cur - 1 })
       }
-      if (e.key === 'Control') {
-        if (!e.repeat) ctrlAloneRef.current = true
-        return
-      }
-      // Toute autre touche invalide les flags "seul".
-      shiftAloneRef.current = false
-      ctrlAloneRef.current = false
-    }
-
-    const onKeyUp = (e) => {
-      if (isFormField(e.target)) return
-      if (e.key === 'Shift') {
-        if (shiftAloneRef.current) {
-          shiftAloneRef.current = false
-          const cur = testOctaveRef.current
-          if (cur < 10) dispatch({ type: 'SET_EDITOR_TEST_OCTAVE', payload: cur + 1 })
-        }
-        return
-      }
-      if (e.key === 'Control') {
-        if (ctrlAloneRef.current) {
-          ctrlAloneRef.current = false
-          const cur = testOctaveRef.current
-          if (cur > 0) dispatch({ type: 'SET_EDITOR_TEST_OCTAVE', payload: cur - 1 })
-        }
-      }
-    }
-
-    const onMouseDown = () => {
-      shiftAloneRef.current = false
-      ctrlAloneRef.current = false
     }
 
     window.addEventListener('keydown', onKeyDown)
-    window.addEventListener('keyup', onKeyUp)
-    window.addEventListener('mousedown', onMouseDown)
-    return () => {
-      window.removeEventListener('keydown', onKeyDown)
-      window.removeEventListener('keyup', onKeyUp)
-      window.removeEventListener('mousedown', onMouseDown)
-    }
+    return () => window.removeEventListener('keydown', onKeyDown)
   }, [])
 
   // Suivi de la touche de note maintenue dans le Composer (phase E.4.1) +
