@@ -182,10 +182,10 @@ function NoteEditor({ clipIds, tuningSystem, noteIndex, octave, frequency, a4Ref
 
   return (
     <div className="note-editor">
-      <PianoKeyboard compact noteIndex={noteIndex} onSelectNote={applyNote} />
+      <PianoKeyboard compact tuningSystem={tuningSystem} noteIndex={noteIndex} onSelectNote={applyNote} />
       <OctaveSelector compact octave={octave} onSelectOctave={applyOctave} />
       <div className="note-editor-display">
-        <strong>{formatClipNote({ tuningSystem: '12-TET', noteIndex, octave })}</strong>
+        <strong>{formatClipNote({ tuningSystem, noteIndex, octave })}</strong>
         <span className="note-editor-hz"> — {displayFreq.toFixed(1)} Hz</span>
       </div>
     </div>

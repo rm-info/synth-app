@@ -103,6 +103,90 @@
   min-width: 140px;
 }
 
+/* --- Clavier 24 notes (grid-24) ---
+ * Grille explicite 4 rangées × 14 colonnes : chaque naturelle occupe
+ * 2 colonnes (cols 1-2, 3-4, …, 13-14), les altérations s'insèrent entre
+ * (cols 3-4, 5-6, …, 13-14) avec décalage d'une colonne. Les rangées 1 et
+ * 4 ont 5 cases chacune (4 trous d'enharmonie : Mi/Si pour les dièses,
+ * Mi/Si pour les bémols), les rangées 2 et 3 en ont 7. */
+.piano-keyboard-grid24 {
+  display: grid;
+  grid-template-columns: repeat(14, 1fr);
+  grid-template-rows: repeat(4, 1fr);
+  gap: 2px;
+  width: 100%;
+  min-width: 280px;
+  height: 160px;
+  user-select: none;
+  flex-shrink: 0;
+}
+
+.piano-keyboard-grid24.piano-keyboard-compact {
+  height: 64px;
+  min-width: 200px;
+  gap: 1px;
+}
+
+.grid24-key {
+  padding: 0;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 0.7rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 3px;
+  border: 1px solid #2a2a4a;
+  transition: background 0.1s, border-color 0.1s;
+}
+
+.grid24-key-natural {
+  background: #e8e8ef;
+  color: #1a1a2e;
+}
+.grid24-key-natural:hover {
+  background: #d6d6e0;
+}
+
+.grid24-key-half {
+  background: #8a8a9a;
+  color: #f0f0f6;
+}
+.grid24-key-half:hover {
+  background: #6a6a7a;
+}
+
+.grid24-key-sharp {
+  background: #1a1a2e;
+  color: #e8e8ef;
+  border-color: #4a4a6a;
+}
+.grid24-key-sharp:hover {
+  background: #2a2a4a;
+}
+
+.grid24-key.is-active {
+  background: #00d4ff !important;
+  border-color: #00b8e6;
+  color: #1a1a2e;
+}
+
+.grid24-key.is-playing {
+  background: #ffe27a !important;
+  border-color: #ffc600;
+  color: #1a1a2e;
+  box-shadow: 0 0 8px rgba(255, 198, 0, 0.55);
+}
+
+.grid24-key-label {
+  font-family: monospace;
+  pointer-events: none;
+}
+
+.piano-keyboard-grid24.piano-keyboard-compact .grid24-key-label {
+  display: none;
+}
+
 /* --- Sélecteur d'octave --- */
 .octave-selector {
   display: flex;

@@ -988,6 +988,7 @@ function WaveformEditor({
           ) : (
             <>
               <PianoKeyboard
+                tuningSystem={testTuningSystem}
                 noteIndex={testNoteIndex}
                 activeNotes={activeNoteIndices}
                 onSelectNote={editorActions.setTestNoteIndex}
