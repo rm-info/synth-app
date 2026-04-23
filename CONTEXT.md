@@ -33,8 +33,8 @@ adaptatif selon largeur), s'édite dans Properties via un mini-clavier
 (ou un FreqInput en mode libre), et s'ajuste au clavier (↑↓ demi-ton,
 Shift octave, ←→ ±0.125 beat, Shift+←→ ±1 beat). Phase 3 (2026-04-19) :
 le Designer devient un instrument de test polyphonique — clic/mouseup
-sur le clavier, raccourcis QWERTY physique (SDFGHJK + ERYUI), Shift/Ctrl
-seul pour décaler l'octave, Espace = pédale de sustain. Les 3 anciens
+sur le clavier, raccourcis QWERTY physique (SDFGHJK + ERYUI), PageUp/
+PageDown pour décaler l'octave, Espace = pédale de sustain. Les 3 anciens
 boutons Test impact/court/tenu sont retirés. Phase 4 (2026-04-19) :
 dans le Composer, touche maintenue pendant un drag = drop à la note
 correspondante (au lieu de la note par défaut du Designer). Touche
@@ -932,12 +932,13 @@ Phases listées ci-dessous dans l'ordre chronologique d'implémentation.
     sert de pont entre le listener (attaché une fois par activeTab) et
     les fonctions play/release recréées à chaque render. Sortie du
     Designer = stopAllInstrumentNotes.
-  - **3.3** Shift/Ctrl "seuls" décalent testOctave. shiftAloneRef /
-    ctrlAloneRef posés au keydown, invalidés par toute autre touche OU
-    par un mousedown (Shift+clic ne doit pas faire +1 octave). Au
-    keyup si le flag est encore true, dispatch setTestOctave(±1) avec
-    bornes [0, 10]. Shift+↑↓ du Composer n'interfère pas (activeTab
-    différent).
+  - **3.3** PageUp/PageDown décalent testOctave (±1, bornes [0, 10]).
+    Keydown unique, skip form fields et combos Ctrl/Alt/Cmd
+    (navigation d'onglet navigateur). e.repeat autorisé : maintenir la
+    touche traverse les octaves. Initialement Shift/Ctrl "seuls" via
+    flags shiftAloneRef/ctrlAloneRef invalidés par toute autre touche
+    ou mousedown, remplacé car l'ordre de relâchement dans des combos
+    créait des octaves intempestives.
   - **3.4** Pédale de sustain : Espace maintenue = sustainActiveRef.
     Le release est extrait dans `performRelease` et
     `releaseInstrumentNote` le diffère vers `sustainedNotesRef` quand
@@ -961,9 +962,9 @@ Phases listées ci-dessous dans l'ordre chronologique d'implémentation.
     clear. `handleAddClip` priorise pressedNoteKey : si set, clip créé
     en 12-TET à cette note + testOctave, sinon fallback
     `editorTestNoteFields`. Badge ♪ XN orange dans la toolbar Composer
-    pendant qu'une touche est maintenue. Shift/Ctrl "seuls" déplacés
-    dans un useEffect dédié de App (actif les deux onglets, gère aussi
-    l'invalidation sur mousedown).
+    pendant qu'une touche est maintenue. Raccourcis d'octave (PageUp/
+    PageDown) logés dans un useEffect dédié de App (actif les deux
+    onglets).
   - **4.2** State `lastAnchorClipId` (non undoable, non persisté)
     ajouté au reducer. Mis à jour par ADD_CLIP, DUPLICATE_CLIPS,
     SPLIT_CLIPS, MERGE_CLIPS, PASTE_CLIPS, SELECT_CLIPS (dernier du
@@ -1156,14 +1157,17 @@ Phases listées ci-dessous dans l'ordre chronologique d'implémentation.
   note/position. 3 sous-commits (2.1, 2.2, 2.3).
 - ✅ **Phase 3** (2026-04-19) — Designer = instrument de test
   polyphonique : mousedown/mouseup sur le clavier, raccourcis QWERTY
-  physique (event.code), Shift/Ctrl seul pour décaler l'octave, pédale
+  physique (event.code), PageUp/PageDown pour décaler l'octave, pédale
   de sustain Espace. 5 sous-commits (3.1, 3.2, 3.3, 3.4, 3.5). Les 3
-  boutons Test impact/court/tenu sont retirés.
+  boutons Test impact/court/tenu sont retirés. Phase 3.3 initialement
+  basée sur Shift/Ctrl "seuls", remplacée le 2026-04-23 par
+  PageUp/PageDown (l'ordre de relâchement dans les combos créait des
+  octaves intempestives).
 - ✅ **Phase 4** (2026-04-19) — Drop intelligent au Composer +
   placement contigu au clavier. 2 sous-commits (4.1, 4.2).
   Extraction de `KEY_CODE_TO_NOTE_INDEX` dans `src/lib/keyboardMap.js`
-  partagé entre les deux onglets. Shift/Ctrl seul pour décaler l'octave
-  est remonté dans App (actif les deux onglets).
+  partagé entre les deux onglets. Raccourcis d'octave logés dans App
+  (actif les deux onglets).
 - ✅ **Phase 5** (2026-04-19) — Fixes placement contigu. Commit unique.
   (1) dragstart/dragend en phase capture (PatchBank stopPropagation
   empêchait dragInProgressRef d'être set). (2) preventDefault sur
