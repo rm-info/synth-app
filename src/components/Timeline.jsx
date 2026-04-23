@@ -164,6 +164,7 @@ function Timeline({
   hasMeasureClipboard,
 }) {
   const wrapperRef = useRef(null)
+  const gridRef = useRef(null)
   const dropZoneRef = useRef(null)
   const visualizerCanvasRef = useRef(null)
   const [contextMenu, setContextMenu] = useState(null)
@@ -338,26 +339,29 @@ function Timeline({
       if (!e.ctrlKey) return
       e.preventDefault()
       const wrapper = wrapperRef.current
-      if (!wrapper) return
+      const grid = gridRef.current
+      if (!wrapper || !grid) return
 
       const delta = e.deltaY > 0 ? -2 : 2
       const oldZoom = zoomH
       const newZoom = Math.max(zoomHMin, Math.min(zoomHMax, oldZoom + delta))
       if (newZoom === oldZoom) return
 
-      // Position musicale (en beats) sous la souris avant zoom
-      const rect = wrapper.getBoundingClientRect()
-      const mouseX = e.clientX - rect.left
-      const targetX = wrapper.scrollLeft + mouseX
+      // Position musicale sous la souris — mesurée depuis le bord gauche de
+      // .timeline-grid (pas du wrapper), sinon la colonne sticky .track-headers-column
+      // (120 px) décale le calcul et le beat ancré dérive avec le zoom.
+      const gridRect = grid.getBoundingClientRect()
       const oldPxPerBeat = pxPerBeatFromZoom(oldZoom)
-      const beatPos = targetX / oldPxPerBeat
+      const beatPos = (e.clientX - gridRect.left) / oldPxPerBeat
 
       onSetZoomH(newZoom)
 
-      // Re-centrer après re-render pour conserver la position musicale sous la souris
+      // Re-centrer après re-render pour conserver la position musicale sous la souris.
+      // Delta de scroll = beatPos × variation de px/beat (la largeur des headers et
+      // la position de la souris dans le viewport s'annulent, pas besoin de les passer).
       requestAnimationFrame(() => {
         const newPxPerBeat = pxPerBeatFromZoom(newZoom)
-        wrapper.scrollLeft = beatPos * newPxPerBeat - mouseX
+        wrapper.scrollLeft += beatPos * (newPxPerBeat - oldPxPerBeat)
       })
     },
     [zoomH, zoomHMin, zoomHMax, onSetZoomH],
@@ -1219,6 +1223,7 @@ function Timeline({
         </div>
         <div
           className="timeline-grid"
+          ref={gridRef}
           style={{
             width: `${gridWidth}px`,
             minWidth: `${gridWidth}px`,
