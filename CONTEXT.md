@@ -63,6 +63,20 @@ PropertiesPanel avec logique de bascule verrouillée au reducer
 (`UPDATE_CLIPS_PITCH` dérive les champs cohérents — frequency /
 noteIndex-octave — au changement de système). Nouvel input A4 dans
 la toolbar Composer (`A4Input`, 380-480 Hz entiers).
+Phase 3 (2026-04-23) : **multi-tempérament 24 notes**. Registre
+enrichi (champs `layout` et `keyboardMap` portés par chaque entrée),
+`keyboardMap.js` supprimé. Deux nouveaux tempéraments **24-TET égal**
+et **24-TET Le Caire 1932** (table en dur, source aly-abbara.com,
+ancrée 'Oshairan = A4 = 440 Hz). Clavier visuel adaptatif :
+`PianoKeyboard` devient un dispatcher (`piano-12` / `grid-24`),
+`Grid24Layout` rend une grille 4 rangées × 14 colonnes avec 4 niveaux
+de couleur (naturelles, demi-dièses/-bémols, dièses pleins). Mapping
+QWERTY 24 positions exactement (S/D/F/G/H/J/K + E/R/T/Y/U/I/O +
+2/4/6/8/0 + X/C/B/N/,). Refonte raccourcis durées : NumPad sans Shift
+ET Shift+Digit (les Digit nus sont libérés pour les notes 24-TET).
+Snap inter-systèmes généralisé : `frequencyToNearestNote` (12-TET
+only) → `frequencyToNearestIn(hz, sysId, a4Ref)` qui itère sur la
+grille du système cible et minimise la distance en cents.
 
 ## Objectif
 
@@ -100,14 +114,14 @@ synth-app/
     │   ├── timelineLayout.js # layoutClips + computeBounds (partagés Timeline/Properties)
     │   ├── durations.js      # catalogue durées (bases + coefs, phase 6.1)
     │   ├── clipNote.js       # formatClipNote + NOTE_NAMES Unicode
-    │   └── keyboardMap.js    # KEY_CODE_TO_NOTE_INDEX (event.code → note)
+    │   └── tuningSystems.js  # registre tempéraments + freq + keyboardMap par système
     └── components/
         ├── Tabs.jsx + .css                    # bascule Designer / Composer
         ├── PatchBank.jsx + .css               # banque de patches partagée
         ├── WaveformEditor.jsx + .css          # éditeur ondes / patch (Designer)
         ├── Spectrogram.jsx + .css             # spectrogramme statique (Designer)
         ├── MiniPlayer.jsx + .css              # transport simplifié (Designer)
-        ├── PianoKeyboard.jsx + .css           # clavier 12 notes + octaves (partagé Designer/Properties)
+        ├── PianoKeyboard.jsx + .css           # dispatcher clavier (piano-12 / grid-24) + octaves
         ├── DurationButtons.jsx + .css         # boutons durée 7 bases + 3 coefs (phase 6.1)
         ├── SidebarResizer.jsx + .css          # poignée drag bordure sidebar (phase 7.4)
         ├── BpmInput.jsx                       # input BPM validation différée
@@ -1037,6 +1051,17 @@ Phases listées ci-dessous dans l'ordre chronologique d'implémentation.
 
 ## Historique (chronologie inverse)
 
+00000. **Iter F — Phase 3** (2026-04-23) : multi-tempérament 24 notes.
+    Registre enrichi (`layout` + `keyboardMap`), `keyboardMap.js`
+    supprimé. Deux nouvelles entrées 24-TET (égal + Le Caire 1932,
+    table en dur ancrée 'Oshairan = A4 = 440). `PianoKeyboard`
+    devient un dispatcher (`piano-12` / `grid-24`). Nouveau
+    `Grid24Layout` (CSS Grid 4×14, 4 niveaux de couleur, cases
+    d'enharmonie absentes). Refonte raccourcis durées : NumPad sans
+    Shift + Shift+Digit (Digit nus libérés pour 24-TET).
+    `frequencyToNearestNote` → `frequencyToNearestIn(hz, sysId,
+    a4Ref)` (snap inter-systèmes en cents). Mapping QWERTY 24
+    positions exactement.
 0000. **Iter F — Phase 2** (2026-04-22) : premier tempérament alternatif
     (Pythagoricien 12 centré sur C, loup F#↔Db), sélecteurs dynamiques
     Designer + Properties, nouveau sélecteur dans PropertiesPanel avec
@@ -1362,6 +1387,63 @@ Phases listées ci-dessous dans l'ordre chronologique d'implémentation.
     aussi la hauteur de référence. Intégration visuelle à côté du
     BPM dans la même `toolbar-section` (même gap, suffixe "Hz" en
     gris clair, style aligné).
+- ✅ **Phase 3** (2026-04-23) — Multi-tempérament 24 notes. 4 sous-commits :
+  - **3.1** Enrichissement du registre (`layout`, `keyboardMap`).
+    Chaque entrée porte désormais son layout (`'piano-12'`,
+    `'grid-24'`, `'free'`) et son mapping QWERTY (event.code →
+    noteIndex, ou `null` pour 'free'). `src/lib/keyboardMap.js`
+    supprimé : les consommateurs (listener Composer App.jsx,
+    listener Designer WaveformEditor) lisent dynamiquement
+    `getTuningSystem(testTuningSystem).keyboardMap`. Le clip placé
+    via touche maintenue hérite du `editor.testTuningSystem` (au
+    lieu de `'12-TET'` hardcodé). Guard modificateurs unifié
+    (note = pas de Shift/Ctrl/Alt/Meta) en préparation des durées
+    Shift+Digit et des notes Digit2..0 en 24-TET.
+    `getTuningSystem(id)` inconnu : `console.warn` + fallback
+    explicite (plus de fallback silencieux).
+  - **3.2** Ajout des deux 24-TET au registre. `'24-tet-equal'` :
+    formule `a4Ref·2^((i-18)/24)·2^(oct-4)` (A=index 18 ancré).
+    `'24-tet-cairo-1932'` : table en dur des 24 fréquences de
+    l'octave 4 (`CAIRO_1932_HZ_OCT4`), réindexée C-centrée, ancrée
+    'Oshairan = A4 = 440. Les "anomalies" — E à +46¢, E↑ à +38¢,
+    B à +42¢ — sont la signature des tierces et sixtes neutres des
+    maqâmat, à ne pas "corriger" vers le 24-TET égal. Noms partagés
+    (`TWENTYFOUR_NOTE_NAMES`) : `C, C↑, C♯, D♭, D, …, B↑`. Mapping
+    QWERTY 24 positions (`TWENTYFOUR_KEY_MAP`) : naturelles SDFGHJK,
+    demi-dièses ERTYUIO, dièses pleins 24680, demi-bémols XCBN,.
+    Ordre dans le registre : `12-TET`, `pythagorean-12`,
+    `24-tet-equal`, `24-tet-cairo-1932`, `free`.
+  - **3.3** Clavier visuel `Grid24Layout`. `PianoKeyboard` devient
+    un dispatcher (`LAYOUT_COMPONENTS = { 'piano-12':
+    PianoLayout12, 'grid-24': Grid24Layout }`). L'implémentation
+    piano historique est extraite telle quelle dans `PianoLayout12`
+    — aucun changement comportemental pour 12-TET / Pythag-12.
+    `Grid24Layout` : CSS Grid 4 rangées × 14 colonnes (chaque
+    naturelle occupe 2 cols, les altérations s'insèrent entre avec
+    décalage), 3 niveaux de couleur (naturelles claires,
+    demi-dièses/-bémols intermédiaires, dièses pleins sombres),
+    4 cases "réellement absentes" (Mi/Si rangée 1 et 4) qui
+    matérialisent l'enharmonie F♯=…, B♯=C, F♭=E, C♭=B. Hook
+    partagé `useMouseDownHandler` factorise la logique
+    mousedown→onKeyPress + window-mouseup→onKeyRelease entre les
+    deux layouts. Nouvelle prop `tuningSystem` passée par
+    WaveformEditor (`testTuningSystem`) et PropertiesPanel
+    (`clip.tuningSystem`).
+  - **3.4** Refonte raccourcis durées + snap inter-systèmes
+    généralisé. Durées : retiré Digit1..0 sans Shift (libérés pour
+    les notes 24-TET), ajouté NumPad1..0 sans Shift et Shift+Digit
+    en fallback laptop. `decodeRank()` factorise event → rang 1..10
+    (1..7 = bases, 8..10 = coefs ×1.25/Pointé/Double-pointé).
+    Snap : `frequencyToNearestNote` (12-TET only) →
+    `frequencyToNearestIn(hz, sysId, a4Ref)` qui itère sur la
+    grille du système cible × 11 octaves et minimise
+    `|1200·log2(candidate/hz)|`. Reducer
+    (`UPDATE_CLIPS_PITCH` + `SET_EDITOR_TEST_TUNING_SYSTEM`) lit la
+    fréquence source depuis le rendu de l'ancien système (et plus
+    de `clip.frequency`, qui peut être `null`) puis snappe vers le
+    système cible. Tests-clés : 12-TET C4 → 24-TET-egal reste C4
+    (0¢), 24-TET-egal C↑4 → 12-TET snap C4 (~49¢ < ~51¢ de C♯4),
+    24-TET-cairo Busalik (E +46¢) → 12-TET snap E.
 
 ### Backlog général (à caser quand pertinent)
 
