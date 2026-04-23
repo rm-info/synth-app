@@ -84,17 +84,20 @@ const TWELVE_KEY_MAP = {
   KeyI: 10, // A♯
 }
 
-// Noms 24-TET : pour chaque demi-ton, on insère un demi-dièse (↑) entre la
-// note naturelle/altérée et la suivante. Mi♯ = Fa et Si♯ = Do en enharmonie,
-// donc pas de demi-bémols entre E-F et B-C — d'où l'absence de Mi♯ et Si♯
-// (le quartier suivant Mi est F, pas E↑→E♯).
+// Noms 24-TET : ↑ = demi-dièse (quart de ton au-dessus de la naturelle),
+// ↓ = demi-bémol (quart de ton au-dessus d'un ♯ plein ou sous la naturelle
+// suivante). On n'utilise PAS ♭ plein : D♭ plein = C♯ plein par enharmonie
+// dans une grille 24-TET, donc écrire D♭ ici impliquerait deux noms pour la
+// même position. Les cases "absentes" (Mi♯, Si♯, Fa↓, Do↓ — autrement dit
+// E♯, B♯, F♭, C♭) ne correspondent à aucune position car F et E d'une part,
+// C et B d'autre part, ne sont séparés que d'un demi-ton.
 const TWENTYFOUR_NOTE_NAMES = [
-  'C',  'C↑', 'C♯', 'D♭',
-  'D',  'D↑', 'D♯', 'E♭',
+  'C',  'C↑', 'C♯', 'D↓',
+  'D',  'D↑', 'D♯', 'E↓',
   'E',  'E↑', 'F',  'F↑',
-  'F♯', 'G♭', 'G',  'G↑',
-  'G♯', 'A♭', 'A',  'A↑',
-  'A♯', 'B♭', 'B',  'B↑',
+  'F♯', 'G↓', 'G',  'G↑',
+  'G♯', 'A↓', 'A',  'A↑',
+  'A♯', 'B↓', 'B',  'B↑',
 ]
 
 // Mapping QWERTY → noteIndex pour les tempéraments à 24 notes. Les 24 touches
@@ -131,11 +134,11 @@ const TWENTYFOUR_KEY_MAP = {
   Digit8: 16, // G♯
   Digit0: 20, // A♯
   // Rangée 4 (demi-bémols, lettres bas)
-  KeyX: 3,  // D♭
-  KeyC: 7,  // E♭
-  KeyB: 13, // G♭
-  KeyN: 17, // A♭
-  Comma: 21, // B♭
+  KeyX: 3,  // D↓
+  KeyC: 7,  // E↓
+  KeyB: 13, // G↓
+  KeyN: 17, // A↓
+  Comma: 21, // B↓
 }
 
 function twentyFourTetEqualFreq(noteIndex, octave, a4Ref) {

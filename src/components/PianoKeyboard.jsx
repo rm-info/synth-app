@@ -98,7 +98,7 @@ function PianoLayout12({ noteIndex, active, compact, names, handleMouseDown }) {
 //   r1 : ─── C♯  D♯ ─── ─── F♯  G♯  A♯ ───        (dièses pleins)
 //   r2 : C↑  D↑  E↑  F↑  G↑  A↑  B↑               (demi-dièses)
 //   r3 : C   D   E   F   G   A   B                (naturelles)
-//   r4 : ─── D♭  E♭ ─── ─── G♭  A♭  B♭ ───        (demi-bémols)
+//   r4 : ─── D↓  E↓ ─── ─── G↓  A↓  B↓ ───        (demi-bémols)
 //
 // Les rangées 1 et 4 ont des trous à col 6-7 (Mi/Si — pas d'enharmonie F♭ ou
 // E♯) et col 14 (Si — pas de B♯). C'est l'absence visuelle qui matérialise
@@ -125,11 +125,11 @@ const GRID_24_CELLS = [
   [14, 3,  9, 'natural'], // G
   [18, 3, 11, 'natural'], // A
   [22, 3, 13, 'natural'], // B
-  [3,  4,  3, 'half'],    // D♭
-  [7,  4,  5, 'half'],    // E♭
-  [13, 4,  9, 'half'],    // G♭
-  [17, 4, 11, 'half'],    // A♭
-  [21, 4, 13, 'half'],    // B♭
+  [3,  4,  3, 'half'],    // D↓
+  [7,  4,  5, 'half'],    // E↓
+  [13, 4,  9, 'half'],    // G↓
+  [17, 4, 11, 'half'],    // A↓
+  [21, 4, 13, 'half'],    // B↓
 ]
 
 function Grid24Layout({ noteIndex, active, compact, names, handleMouseDown }) {
