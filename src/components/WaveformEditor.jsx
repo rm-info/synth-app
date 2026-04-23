@@ -571,12 +571,15 @@ function WaveformEditor({
       // Guard modificateurs sur le handler note (cf. F.3) : pas de Shift
       // (réservé aux durées), Ctrl/Alt/Meta (raccourcis métier/navigateur).
       if (e.shiftKey || e.ctrlKey || e.altKey || e.metaKey) return
-      if (e.repeat) return
       const keyboardMap = getTuningSystem(testTuningSystem).keyboardMap
       if (!keyboardMap) return
       const idx = keyboardMap[e.code]
       if (idx === undefined) return
+      // preventDefault AVANT le check repeat : Firefox déclenche son
+      // QuickFind sur ' (AZERTY Digit4) à chaque keydown répété, on doit
+      // bloquer toute la séquence — pas seulement la première frappe.
       e.preventDefault()
+      if (e.repeat) return
       const bridge = instrumentBridgeRef.current
       if (!bridge) return
       bridge.setTestNoteIndex(idx)

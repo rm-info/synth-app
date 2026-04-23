@@ -100,18 +100,24 @@ const TWENTYFOUR_NOTE_NAMES = [
   'A♯', 'B↓', 'B',  'B↑',
 ]
 
-// Mapping QWERTY → noteIndex pour les tempéraments à 24 notes. Les 24 touches
-// sont disposées en 4 rangées (cf. Grid24Layout) : rangée 1 chiffres pairs
-// (dièses pleins), rangée 2 lettres haut (demi-dièses), rangée 3 lettres milieu
-// (naturelles), rangée 4 lettres bas (demi-bémols). Mi/Si rangée 1 et 4 sont
-// vides (enharmonie).
+// Mapping QWERTY → noteIndex pour les tempéraments à 24 notes. Le mapping
+// suit la géométrie physique du clavier (event.code est position-based) :
 //
-// Les positions Comma (,) et Digit0 sont utilisées comme suite logique de la
-// rangée. Les positions des chiffres pairs (2/4/6/8/0) servent les dièses
-// pleins, ce qui explique pourquoi DigitX sans Shift devient un déclencheur
-// de note en 24-TET — la refonte F.3.4 libère les Digit pour ce rôle.
+//   rangée 1 (chiffres) : ─ ─ ─ 4 5 ─ 7 8 9 ─    ← dièses pleins
+//   rangée 2 (Q-O)      : ─ E R T Y U I O ─       ← demi-dièses (↑)
+//   rangée 3 (A-L)      : S D F G H J K            ← naturelles
+//   rangée 4 (Z-,)      : X C ─ B N M ─            ← demi-bémols (↓)
+//
+// Chaque chiffre/lettre est CENTRÉ entre les deux notes de la rangée du
+// dessous : Digit4 est physiquement entre KeyE et KeyR → C♯ (entre C↑ et D↑).
+// KeyX entre KeyS et KeyD → D↓ (entre C et D). Etc. Les positions Mi/Si
+// sont vides en rangées 1 et 4 (enharmonie : pas de E♯, B♯, F↓, C↓).
+//
+// La refonte F.3.4 a libéré les DigitX (sans Shift) — désormais utilisables
+// comme touches-position pour les dièses pleins. Shift+Digit reste réservé
+// aux durées (toutes les touches DigitX, mappées ou pas).
 const TWENTYFOUR_KEY_MAP = {
-  // Rangée 3 (naturelles)
+  // Rangée 3 (naturelles, lettres rangée du milieu)
   KeyS: 0,  // C
   KeyD: 4,  // D
   KeyF: 8,  // E
@@ -119,7 +125,7 @@ const TWENTYFOUR_KEY_MAP = {
   KeyH: 14, // G
   KeyJ: 18, // A
   KeyK: 22, // B
-  // Rangée 2 (demi-dièses)
+  // Rangée 2 (demi-dièses, lettres rangée du haut)
   KeyE: 1,  // C↑
   KeyR: 5,  // D↑
   KeyT: 9,  // E↑
@@ -127,18 +133,18 @@ const TWENTYFOUR_KEY_MAP = {
   KeyU: 15, // G↑
   KeyI: 19, // A↑
   KeyO: 23, // B↑
-  // Rangée 1 (dièses pleins, chiffres pairs)
-  Digit2: 2,  // C♯
-  Digit4: 6,  // D♯
-  Digit6: 12, // F♯
-  Digit8: 16, // G♯
-  Digit0: 20, // A♯
-  // Rangée 4 (demi-bémols, lettres bas)
-  KeyX: 3,  // D↓
-  KeyC: 7,  // E↓
-  KeyB: 13, // G↓
-  KeyN: 17, // A↓
-  Comma: 21, // B↓
+  // Rangée 1 (dièses pleins, chiffres entre les lettres E-R, R-T, …)
+  Digit4: 2,  // C♯ (entre KeyE et KeyR)
+  Digit5: 6,  // D♯ (entre KeyR et KeyT)
+  Digit7: 12, // F♯ (entre KeyY et KeyU)
+  Digit8: 16, // G♯ (entre KeyU et KeyI)
+  Digit9: 20, // A♯ (entre KeyI et KeyO)
+  // Rangée 4 (demi-bémols, lettres rangée du bas)
+  KeyX: 3,  // D↓ (entre KeyS et KeyD)
+  KeyC: 7,  // E↓ (entre KeyD et KeyF)
+  KeyB: 13, // G↓ (entre KeyG et KeyH)
+  KeyN: 17, // A↓ (entre KeyH et KeyJ)
+  KeyM: 21, // B↓ (entre KeyJ et KeyK)
 }
 
 function twentyFourTetEqualFreq(noteIndex, octave, a4Ref) {
