@@ -90,52 +90,62 @@ function PianoLayout12({ noteIndex, active, compact, names, handleMouseDown }) {
   )
 }
 
-// Clavier 24 notes en grille 4 rangées × 14 colonnes (chaque naturelle occupe
-// 2 colonnes, les altérations s'insèrent entre — d'où la grille à 14 colonnes
-// pour un placement précis au demi-pas).
+// Clavier 24 notes en grille 4 rangées × 15 sub-colonnes (chaque naturelle
+// occupe 2 sub-colonnes, chaque rangée décalée d'+1 sub-col par rapport à
+// celle du dessous → effet d'escalier d'un piano physique étendu).
 //
-// Layout (col 1..14) :
-//   r1 : ─── C♯  D♯ ─── ─── F♯  G♯  A♯ ───        (dièses pleins)
-//   r2 : C↑  D↑  E↑  F↑  G↑  A↑  B↑               (demi-dièses)
-//   r3 : C   D   E   F   G   A   B                (naturelles)
-//   r4 : ─── D↓  E↓ ─── ─── G↓  A↓  B↓ ───        (demi-bémols)
+// Layout (sub-col 1..16, end-line) :
+//   r1 (♯) :  ─ ─ C♯  D♯ ─  ─ F♯  G♯  A♯ ─       (3-5, 5-7, _, _, 9-11, 11-13, 13-15)
+//   r2 (↑) :  ─ C↑  D↑  E↑  F↑  G↑  A↑  B↑       (2-4, 4-6, 6-8, 8-10, 10-12, 12-14, 14-16)
+//   r3 (♮) :  C  D  E  F  G  A  B                (1-3, 3-5, 5-7, 7-9, 9-11, 11-13, 13-15)
+//   r4 (↓) :  ─  ─ D↓  E↓ ─  ─ G↓  A↓  B↓        (4-6, 6-8, _, _, 10-12, 12-14, 14-16)
 //
-// Les rangées 1 et 4 ont des trous à col 6-7 (Mi/Si — pas d'enharmonie F♭ ou
-// E♯) et col 14 (Si — pas de B♯). C'est l'absence visuelle qui matérialise
-// l'enharmonie Mi♯=Fa et Si♯=Do.
+// Décalages cumulés : rangée 3 = offset 0, r2 = +1, r1 = +2, r4 = +3 sub-col.
+// Les rangées 1 et 4 ont 5 cases (pas de E♯/B♯ ni F↓/C↓ — enharmonies).
+//
+// `parent` (0..6, index dans HUE_PER_NATURAL) : naturelle dont la note hérite
+// la teinte. ↑ et ♯ héritent de la naturelle ascendante (C↑ et C♯ → hue C).
+// ↓ hérite de la naturelle suivante (D↓ → hue D, pas hue C).
 const GRID_24_CELLS = [
-  // [noteIndex, gridRow, gridColumnStart, rowKind]
-  // rowKind ∈ 'sharp' (rangée 1), 'half' (rangées 2 et 4), 'natural' (rangée 3)
-  [2,  1,  3, 'sharp'],   // C♯
-  [6,  1,  5, 'sharp'],   // D♯
-  [12, 1,  9, 'sharp'],   // F♯
-  [16, 1, 11, 'sharp'],   // G♯
-  [20, 1, 13, 'sharp'],   // A♯
-  [1,  2,  1, 'half'],    // C↑
-  [5,  2,  3, 'half'],    // D↑
-  [9,  2,  5, 'half'],    // E↑
-  [11, 2,  7, 'half'],    // F↑
-  [15, 2,  9, 'half'],    // G↑
-  [19, 2, 11, 'half'],    // A↑
-  [23, 2, 13, 'half'],    // B↑
-  [0,  3,  1, 'natural'], // C
-  [4,  3,  3, 'natural'], // D
-  [8,  3,  5, 'natural'], // E
-  [10, 3,  7, 'natural'], // F
-  [14, 3,  9, 'natural'], // G
-  [18, 3, 11, 'natural'], // A
-  [22, 3, 13, 'natural'], // B
-  [3,  4,  3, 'half'],    // D↓
-  [7,  4,  5, 'half'],    // E↓
-  [13, 4,  9, 'half'],    // G↓
-  [17, 4, 11, 'half'],    // A↓
-  [21, 4, 13, 'half'],    // B↓
+  // [noteIndex, gridRow, gridColStart, gridColEnd, kind, parent]
+  // kind ∈ 'sharp' (r1) | 'half-up' (r2) | 'natural' (r3) | 'half-dn' (r4)
+  [2,  1,  3,  5,  'sharp',   0], // C♯ → hue C
+  [6,  1,  5,  7,  'sharp',   1], // D♯ → hue D
+  [12, 1,  9,  11, 'sharp',   3], // F♯ → hue F
+  [16, 1, 11,  13, 'sharp',   4], // G♯ → hue G
+  [20, 1, 13,  15, 'sharp',   5], // A♯ → hue A
+  [1,  2,  2,  4,  'half-up', 0], // C↑ → hue C
+  [5,  2,  4,  6,  'half-up', 1], // D↑ → hue D
+  [9,  2,  6,  8,  'half-up', 2], // E↑ → hue E
+  [11, 2,  8,  10, 'half-up', 3], // F↑ → hue F
+  [15, 2, 10,  12, 'half-up', 4], // G↑ → hue G
+  [19, 2, 12,  14, 'half-up', 5], // A↑ → hue A
+  [23, 2, 14,  16, 'half-up', 6], // B↑ → hue B
+  [0,  3,  1,  3,  'natural', 0], // C
+  [4,  3,  3,  5,  'natural', 1], // D
+  [8,  3,  5,  7,  'natural', 2], // E
+  [10, 3,  7,  9,  'natural', 3], // F
+  [14, 3,  9,  11, 'natural', 4], // G
+  [18, 3, 11,  13, 'natural', 5], // A
+  [22, 3, 13,  15, 'natural', 6], // B
+  [3,  4,  4,  6,  'half-dn', 1], // D↓ → hue D
+  [7,  4,  6,  8,  'half-dn', 2], // E↓ → hue E
+  [13, 4, 10,  12, 'half-dn', 4], // G↓ → hue G
+  [17, 4, 12,  14, 'half-dn', 5], // A↓ → hue A
+  [21, 4, 14,  16, 'half-dn', 6], // B↓ → hue B
 ]
+
+// 7 hues répartis sur le cercle chromatique, un par naturelle. Lightness et
+// saturation vivent dans le CSS via classes par kind. Les choix exacts (hues
+// répartis ~uniformément, ordre C-D-E-F-G-A-B) sont arbitraires mais stables
+// — l'utilisateur apprend l'association couleur ↔ note, comme sur un xylophone
+// pédagogique.
+const HUE_PER_NATURAL = [0, 38, 76, 145, 200, 256, 310]
 
 function Grid24Layout({ noteIndex, active, compact, names, handleMouseDown }) {
   return (
     <div className={`piano-keyboard piano-keyboard-grid24${compact ? ' piano-keyboard-compact' : ''}`} role="group" aria-label="Clavier 24-TET">
-      {GRID_24_CELLS.map(([idx, row, col, kind]) => {
+      {GRID_24_CELLS.map(([idx, row, colStart, colEnd, kind, parent]) => {
         const classes = ['grid24-key', `grid24-key-${kind}`]
         if (noteIndex === idx) classes.push('is-active')
         if (active.has(idx)) classes.push('is-playing')
@@ -145,7 +155,11 @@ function Grid24Layout({ noteIndex, active, compact, names, handleMouseDown }) {
             key={idx}
             type="button"
             className={classes.join(' ')}
-            style={{ gridRow: row, gridColumn: `${col} / span 2` }}
+            style={{
+              gridRow: row,
+              gridColumn: `${colStart} / ${colEnd}`,
+              '--hue': HUE_PER_NATURAL[parent],
+            }}
             onMouseDown={handleMouseDown(idx)}
             aria-label={label}
             aria-pressed={noteIndex === idx}

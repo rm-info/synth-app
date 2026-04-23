@@ -104,26 +104,27 @@
 }
 
 /* --- Clavier 24 notes (grid-24) ---
- * Grille explicite 4 rangées × 14 colonnes : chaque naturelle occupe
- * 2 colonnes (cols 1-2, 3-4, …, 13-14), les altérations s'insèrent entre
- * (cols 3-4, 5-6, …, 13-14) avec décalage d'une colonne. Les rangées 1 et
- * 4 ont 5 cases chacune (4 trous d'enharmonie : Mi/Si pour les dièses,
- * Mi/Si pour les bémols), les rangées 2 et 3 en ont 7. */
+ * Grille 4 rangées × 15 sub-colonnes (chaque naturelle = 2 sub-cols, chaque
+ * rangée décalée +1 sub-col par rapport à celle du dessous → escalier).
+ * Rangée 3 (♮) : sub-cols 1-15, rangée 2 (↑) : 2-16, rangée 1 (♯) : 3-15
+ * en 5 cases (trous Mi/Si), rangée 4 (↓) : 4-16 en 5 cases (trous Mi/Si).
+ * Chaque touche reçoit `--hue` (0-360) inline pour piloter la couleur HSL.
+ * Lightness par kind : ♯ sombre (35%), ♮ claire (62%), ↑/↓ moyenne (75%). */
 .piano-keyboard-grid24 {
   display: grid;
-  grid-template-columns: repeat(14, 1fr);
+  grid-template-columns: repeat(15, 1fr);
   grid-template-rows: repeat(4, 1fr);
   gap: 2px;
   width: 100%;
-  min-width: 280px;
+  min-width: 300px;
   height: 160px;
   user-select: none;
   flex-shrink: 0;
 }
 
 .piano-keyboard-grid24.piano-keyboard-compact {
-  height: 64px;
-  min-width: 200px;
+  height: 80px;
+  min-width: 220px;
   gap: 1px;
 }
 
@@ -136,35 +137,43 @@
   align-items: center;
   justify-content: center;
   border-radius: 3px;
-  border: 1px solid #2a2a4a;
-  transition: background 0.1s, border-color 0.1s;
+  border: 1px solid hsl(var(--hue), 30%, 25%);
+  background: hsl(var(--hue), 55%, 62%);
+  color: #1a1a2e;
+  transition: background 0.1s, border-color 0.1s, transform 0.05s;
+}
+.grid24-key:hover {
+  background: hsl(var(--hue), 60%, 70%);
 }
 
 .grid24-key-natural {
-  background: #e8e8ef;
-  color: #1a1a2e;
+  background: hsl(var(--hue), 55%, 62%);
 }
 .grid24-key-natural:hover {
-  background: #d6d6e0;
+  background: hsl(var(--hue), 60%, 70%);
 }
 
-.grid24-key-half {
-  background: #8a8a9a;
-  color: #f0f0f6;
+.grid24-key-half-up,
+.grid24-key-half-dn {
+  background: hsl(var(--hue), 45%, 75%);
+  color: #1a1a2e;
 }
-.grid24-key-half:hover {
-  background: #6a6a7a;
+.grid24-key-half-up:hover,
+.grid24-key-half-dn:hover {
+  background: hsl(var(--hue), 55%, 82%);
 }
 
 .grid24-key-sharp {
-  background: #1a1a2e;
-  color: #e8e8ef;
-  border-color: #4a4a6a;
+  background: hsl(var(--hue), 60%, 35%);
+  color: #f0f0f6;
 }
 .grid24-key-sharp:hover {
-  background: #2a2a4a;
+  background: hsl(var(--hue), 65%, 45%);
 }
 
+/* États : on conserve cyan/jaune sur tout le clavier pour préserver la
+ * lisibilité instantanée (note sélectionnée ↔ note jouée), même si ça écrase
+ * la teinte par-note. */
 .grid24-key.is-active {
   background: #00d4ff !important;
   border-color: #00b8e6;
