@@ -104,19 +104,20 @@
 }
 
 /* --- Clavier 24 notes (grid-24) ---
- * Grille 4 rangées × 15 sub-colonnes (chaque naturelle = 2 sub-cols, chaque
- * rangée décalée +1 sub-col par rapport à celle du dessous → escalier).
- * Rangée 3 (♮) : sub-cols 1-15, rangée 2 (↑) : 2-16, rangée 1 (♯) : 3-15
- * en 5 cases (trous Mi/Si), rangée 4 (↓) : 4-16 en 5 cases (trous Mi/Si).
- * Chaque touche reçoit `--hue` (0-360) inline pour piloter la couleur HSL.
- * Lightness par kind : ♯ sombre (35%), ♮ claire (62%), ↑/↓ moyenne (75%). */
+ * Grille 4 rangées × 30 sub-colonnes (chaque naturelle = 4 sub-cols, chaque
+ * rangée décalée d'1 sub-col = 1/4 d'unité par rapport à la rangée 3).
+ * ↑ va à droite de sa naturelle (+1), ♯ encore à droite (+2), ↓ à gauche
+ * de sa naturelle ascendante (-1) → centre visuel = 3 + noteIndex/2.
+ * Chaque touche reçoit `--hue` inline pour piloter la couleur HSL.
+ * Lightness par kind : ♯ 30%, ↑ 45%, ♮ 60%, ↓ 75% — gradient lisible en
+ * niveaux de gris (la rangée la plus sombre est la plus haute). */
 .piano-keyboard-grid24 {
   display: grid;
-  grid-template-columns: repeat(15, 1fr);
+  grid-template-columns: repeat(30, 1fr);
   grid-template-rows: repeat(4, 1fr);
   gap: 2px;
   width: 100%;
-  min-width: 300px;
+  min-width: 480px;
   height: 160px;
   user-select: none;
   flex-shrink: 0;
@@ -124,7 +125,7 @@
 
 .piano-keyboard-grid24.piano-keyboard-compact {
   height: 80px;
-  min-width: 220px;
+  min-width: 320px;
   gap: 1px;
 }
 
@@ -137,54 +138,60 @@
   align-items: center;
   justify-content: center;
   border-radius: 3px;
-  border: 1px solid hsl(var(--hue), 30%, 25%);
-  background: hsl(var(--hue), 55%, 62%);
+  border: 1px solid hsl(var(--hue), 30%, 22%);
   color: #1a1a2e;
   transition: background 0.1s, border-color 0.1s, transform 0.05s;
 }
-.grid24-key:hover {
-  background: hsl(var(--hue), 60%, 70%);
-}
 
 .grid24-key-natural {
-  background: hsl(var(--hue), 55%, 62%);
+  background: hsl(var(--hue), 55%, 60%);
 }
 .grid24-key-natural:hover {
-  background: hsl(var(--hue), 60%, 70%);
+  background: hsl(var(--hue), 60%, 68%);
 }
 
-.grid24-key-half-up,
+.grid24-key-half-up {
+  background: hsl(var(--hue), 50%, 45%);
+  color: #f4f4fa;
+}
+.grid24-key-half-up:hover {
+  background: hsl(var(--hue), 55%, 53%);
+}
+
 .grid24-key-half-dn {
-  background: hsl(var(--hue), 45%, 75%);
+  background: hsl(var(--hue), 50%, 75%);
   color: #1a1a2e;
 }
-.grid24-key-half-up:hover,
 .grid24-key-half-dn:hover {
-  background: hsl(var(--hue), 55%, 82%);
+  background: hsl(var(--hue), 60%, 82%);
 }
 
 .grid24-key-sharp {
-  background: hsl(var(--hue), 60%, 35%);
+  background: hsl(var(--hue), 60%, 30%);
   color: #f0f0f6;
 }
 .grid24-key-sharp:hover {
-  background: hsl(var(--hue), 65%, 45%);
+  background: hsl(var(--hue), 65%, 38%);
 }
 
-/* États : on conserve cyan/jaune sur tout le clavier pour préserver la
- * lisibilité instantanée (note sélectionnée ↔ note jouée), même si ça écrase
- * la teinte par-note. */
+/* Sélection (note courante du Designer) : fill cyan, écrase la teinte —
+ * c'est le repère "voici la note ciblée", il prime visuellement. */
 .grid24-key.is-active {
   background: #00d4ff !important;
   border-color: #00b8e6;
   color: #1a1a2e;
 }
 
+/* Surbrillance "en train de jouer" : outline jaune épais qui ne touche
+ * PAS au fond — la couleur HSL reste visible, l'identité de la note est
+ * préservée. Le glow externe reste pour le côté chaleur. outline-offset
+ * négatif fait l'outline sortir vers l'intérieur (sinon il chevaucherait
+ * la touche voisine via le gap CSS). */
 .grid24-key.is-playing {
-  background: #ffe27a !important;
-  border-color: #ffc600;
-  color: #1a1a2e;
-  box-shadow: 0 0 8px rgba(255, 198, 0, 0.55);
+  outline: 3px solid #ffc600;
+  outline-offset: -3px;
+  box-shadow: 0 0 10px rgba(255, 198, 0, 0.6);
+  z-index: 1;
 }
 
 .grid24-key-label {

@@ -90,49 +90,52 @@ function PianoLayout12({ noteIndex, active, compact, names, handleMouseDown }) {
   )
 }
 
-// Clavier 24 notes en grille 4 rangées × 15 sub-colonnes (chaque naturelle
-// occupe 2 sub-colonnes, chaque rangée décalée d'+1 sub-col par rapport à
-// celle du dessous → effet d'escalier d'un piano physique étendu).
+// Clavier 24 notes en grille 4 rangées × 30 sub-colonnes. Chaque naturelle
+// occupe 4 sub-cols (= largeur "unité naturelle"), chaque rangée décalée
+// d'1 sub-col (= 1/4 d'unité) par rapport à la rangée 3. ↑ va à droite de
+// sa naturelle, ↓ à gauche de sa naturelle ascendante (motif diamant).
 //
-// Layout (sub-col 1..16, end-line) :
-//   r1 (♯) :  ─ ─ C♯  D♯ ─  ─ F♯  G♯  A♯ ─       (3-5, 5-7, _, _, 9-11, 11-13, 13-15)
-//   r2 (↑) :  ─ C↑  D↑  E↑  F↑  G↑  A↑  B↑       (2-4, 4-6, 6-8, 8-10, 10-12, 12-14, 14-16)
-//   r3 (♮) :  C  D  E  F  G  A  B                (1-3, 3-5, 5-7, 7-9, 9-11, 11-13, 13-15)
-//   r4 (↓) :  ─  ─ D↓  E↓ ─  ─ G↓  A↓  B↓        (4-6, 6-8, _, _, 10-12, 12-14, 14-16)
+// Layout (sub-col 1..30) :
+//   r3 (♮) :  C    D    E    F    G    A    B            offset  0 (start k)
+//   r2 (↑) :   C↑   D↑   E↑   F↑   G↑   A↑   B↑          offset +1 (start k+1)
+//   r1 (♯) :    C♯   D♯ ▢▢   F♯   G♯   A♯ ▢▢             offset +2 (start k+2)
+//   r4 (↓) : ▢▢ D↓   E↓ ▢▢ ▢▢   G↓   A↓   B↓ ▢▢          offset −1 (start k−1)
 //
-// Décalages cumulés : rangée 3 = offset 0, r2 = +1, r1 = +2, r4 = +3 sub-col.
-// Les rangées 1 et 4 ont 5 cases (pas de E♯/B♯ ni F↓/C↓ — enharmonies).
+// Centre visuel = noteIndex/2 → la lecture gauche-droite parcourt la gamme
+// chromatique 24-TET dans l'ordre. Pas d'overlap dans une rangée (cellules
+// 4 sub-cols espacées de 4). Trous d'enharmonie : pas de E♯/B♯ (rangée 1)
+// ni F↓/C↓ (rangée 4).
 //
-// `parent` (0..6, index dans HUE_PER_NATURAL) : naturelle dont la note hérite
-// la teinte. ↑ et ♯ héritent de la naturelle ascendante (C↑ et C♯ → hue C).
-// ↓ hérite de la naturelle suivante (D↓ → hue D, pas hue C).
+// `parent` (0..6, index dans HUE_PER_NATURAL) : ↑ et ♯ héritent du hue de
+// la naturelle ascendante (C↑/C♯ → hue C), ↓ hérite du hue de la naturelle
+// suivante (D↓ → hue D, pas hue C — diamant cohérent : D↑ et D↓ même hue).
 const GRID_24_CELLS = [
   // [noteIndex, gridRow, gridColStart, gridColEnd, kind, parent]
   // kind ∈ 'sharp' (r1) | 'half-up' (r2) | 'natural' (r3) | 'half-dn' (r4)
-  [2,  1,  3,  5,  'sharp',   0], // C♯ → hue C
-  [6,  1,  5,  7,  'sharp',   1], // D♯ → hue D
-  [12, 1,  9,  11, 'sharp',   3], // F♯ → hue F
-  [16, 1, 11,  13, 'sharp',   4], // G♯ → hue G
-  [20, 1, 13,  15, 'sharp',   5], // A♯ → hue A
-  [1,  2,  2,  4,  'half-up', 0], // C↑ → hue C
-  [5,  2,  4,  6,  'half-up', 1], // D↑ → hue D
-  [9,  2,  6,  8,  'half-up', 2], // E↑ → hue E
-  [11, 2,  8,  10, 'half-up', 3], // F↑ → hue F
-  [15, 2, 10,  12, 'half-up', 4], // G↑ → hue G
-  [19, 2, 12,  14, 'half-up', 5], // A↑ → hue A
-  [23, 2, 14,  16, 'half-up', 6], // B↑ → hue B
-  [0,  3,  1,  3,  'natural', 0], // C
-  [4,  3,  3,  5,  'natural', 1], // D
-  [8,  3,  5,  7,  'natural', 2], // E
-  [10, 3,  7,  9,  'natural', 3], // F
-  [14, 3,  9,  11, 'natural', 4], // G
-  [18, 3, 11,  13, 'natural', 5], // A
-  [22, 3, 13,  15, 'natural', 6], // B
-  [3,  4,  4,  6,  'half-dn', 1], // D↓ → hue D
-  [7,  4,  6,  8,  'half-dn', 2], // E↓ → hue E
-  [13, 4, 10,  12, 'half-dn', 4], // G↓ → hue G
-  [17, 4, 12,  14, 'half-dn', 5], // A↓ → hue A
-  [21, 4, 14,  16, 'half-dn', 6], // B↓ → hue B
+  [2,  1,  3,  7,  'sharp',   0], // C♯ → hue C  (entre C et D)
+  [6,  1,  7,  11, 'sharp',   1], // D♯ → hue D  (entre D et E)
+  [12, 1, 15, 19, 'sharp',   3], // F♯ → hue F  (entre F et G)
+  [16, 1, 19, 23, 'sharp',   4], // G♯ → hue G  (entre G et A)
+  [20, 1, 23, 27, 'sharp',   5], // A♯ → hue A  (entre A et B)
+  [1,  2,  2,  6,  'half-up', 0], // C↑ → hue C
+  [5,  2,  6,  10, 'half-up', 1], // D↑ → hue D
+  [9,  2, 10, 14, 'half-up', 2], // E↑ → hue E
+  [11, 2, 14, 18, 'half-up', 3], // F↑ → hue F
+  [15, 2, 18, 22, 'half-up', 4], // G↑ → hue G
+  [19, 2, 22, 26, 'half-up', 5], // A↑ → hue A
+  [23, 2, 26, 30, 'half-up', 6], // B↑ → hue B
+  [0,  3,  1,  5,  'natural', 0], // C
+  [4,  3,  5,  9,  'natural', 1], // D
+  [8,  3,  9, 13, 'natural', 2], // E
+  [10, 3, 13, 17, 'natural', 3], // F
+  [14, 3, 17, 21, 'natural', 4], // G
+  [18, 3, 21, 25, 'natural', 5], // A
+  [22, 3, 25, 29, 'natural', 6], // B
+  [3,  4,  4,  8,  'half-dn', 1], // D↓ → hue D  (entre C♯ et D)
+  [7,  4,  8, 12, 'half-dn', 2], // E↓ → hue E  (entre D♯ et E)
+  [13, 4, 16, 20, 'half-dn', 4], // G↓ → hue G  (entre F♯ et G)
+  [17, 4, 20, 24, 'half-dn', 5], // A↓ → hue A  (entre G♯ et A)
+  [21, 4, 24, 28, 'half-dn', 6], // B↓ → hue B  (entre A♯ et B)
 ]
 
 // 7 hues répartis sur le cercle chromatique, un par naturelle. Lightness et
