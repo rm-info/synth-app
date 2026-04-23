@@ -432,6 +432,18 @@ Choix non évidents pris pour de bonnes raisons. À ne pas remettre en question
   est bloqué avec un Toast explicite, et symétriquement un undo
   Composer qui restaurerait des clips dont le son a été supprimé est
   aussi bloqué. Pas d'états incohérents possibles.
+- **Pile undo classée par nature de l'action, pas par onglet
+  source** (F.3.9) : `editor.testTuningSystem` est exposé dans deux
+  endroits — sélecteur Designer ET sélecteur dans la toolbar
+  Composer. Quel que soit le point de déclenchement, l'action
+  `SET_EDITOR_TEST_TUNING_SYSTEM` reste dans `DESIGNER_UNDOABLE`
+  (l'éditeur est sa juridiction sémantique). Un Ctrl+Z depuis le
+  Composer ne défait pas un changement de tempérament fait depuis
+  le Composer — il faut basculer vers le Designer. À surveiller
+  comme accroc UX éventuel ; alternative déjà étudiée (déplacer
+  l'action dans `COMPOSER_UNDOABLE` quand déclenchée depuis le
+  Composer) écartée pour ne pas faire dépendre la classification
+  de l'origine du dispatch (couplage UI ↔ reducer).
 - **Suppression patches/dossiers : blocage avec assistance, pas de
   cascade**. Si des clips référencent le patch, on bloque la suppression,
   on affiche un toast, on auto-sélectionne les clips concernés et on
@@ -1472,6 +1484,29 @@ Phases listées ci-dessous dans l'ordre chronologique d'implémentation.
     Lightness varie par kind (♯ 35%, ♮ 62%, ↑/↓ 75%) →
     différenciation conservée en niveaux de gris. États is-active
     (cyan) et is-playing (jaune) écrasent par !important.
+  - **3.8** (2026-04-23) Escalier 1/4 + palette différenciée +
+    surbrillance qui préserve la couleur. Grid passe de 15 à 30
+    sub-cols (4 sub-cols par naturelle). Décalage 1/4 d'unité par
+    rangée : r3 offset 0, r2 +1, r1 +2, r4 −1 (au lieu de +3).
+    D↑ et D↓ s'organisent désormais en diamant autour de D
+    (équidistants sur côtés opposés). Centre visuel = 3 +
+    noteIndex/2 → la grille devient une vraie gamme chromatique
+    24-TET linéaire de gauche à droite. Palette : ♮ 60%, ↑ 45%,
+    ♯ 30%, ↓ 75% (4 lightness distincts au lieu de 3, ↑ et ↓ ne
+    partagent plus la même teinte). is-playing devient outline
+    jaune épais (`outline: 3px solid #ffc600` + `outline-offset:
+    -3px` + glow) → le fill HSL natif reste visible, l'utilisateur
+    garde son repère couleur+position pendant la lecture. is-active
+    (sélection cyan) inchangé.
+  - **3.9** (2026-04-23) Sélecteur de tempérament dans la toolbar
+    Composer. Nouveau dropdown à côté de A4, options identiques
+    au sélecteur Designer (`Object.values(TUNING_SYSTEMS)`).
+    Reflète `editor.testTuningSystem` (single source of truth) ;
+    changement → dispatch `SET_EDITOR_TEST_TUNING_SYSTEM` (action
+    existante, pile undo `DESIGNER_UNDOABLE` inchangée). Permet de
+    vérifier/changer le tempérament des nouveaux clips placés au
+    clavier dans le Composer sans revenir au Designer. Aucun
+    raccourci clavier (report si besoin émerge).
 
 ### Backlog général (à caser quand pertinent)
 
