@@ -2,7 +2,7 @@ import { SOUND_COLORS } from './audio'
 import {
   DEFAULT_A4,
   getTuningSystem,
-  frequencyToNearestNote,
+  frequencyToNearestIn,
 } from './lib/tuningSystems'
 
 // === Constantes partagées ===
@@ -440,11 +440,14 @@ export function reducer(state, action) {
             if (!('frequency' in u)) next.frequency = null
           } else {
             // Depuis libre, ou entre systèmes de grilles différentes :
-            // snap vers la note la plus proche (12-TET comme référence
-            // d'affichage pour F.2, cf. frequencyToNearestNote).
+            // snap vers la note la plus proche du système cible. La
+            // fréquence source vient soit du clip libre, soit du rendu
+            // dans l'ancien système.
             if (!('noteIndex' in u) || !('octave' in u)) {
-              const srcFreq = c.frequency ?? a4Ref
-              const nearest = frequencyToNearestNote(srcFreq, a4Ref)
+              const srcFreq = prevSys.freq
+                ? prevSys.freq(c.noteIndex ?? 9, c.octave ?? 4, a4Ref)
+                : (c.frequency ?? a4Ref)
+              const nearest = frequencyToNearestIn(srcFreq, next.tuningSystem, a4Ref)
               if (!('noteIndex' in u)) next.noteIndex = nearest.noteIndex
               if (!('octave' in u)) next.octave = nearest.octave
             }
@@ -1042,10 +1045,13 @@ export function reducer(state, action) {
         }
       }
 
-      // Depuis libre ou grille différente : snap via 12-TET. Quand d'autres
-      // grilles (24-TET, 31-EDO, …) seront ajoutées, il faudra un inverse
-      // par système.
-      const { noteIndex, octave } = frequencyToNearestNote(state.editor.testFrequency, a4Ref)
+      // Depuis libre ou grille différente : snap vers le système cible.
+      // Source = fréquence courante rendue dans l'ancien système (ou
+      // testFrequency si l'ancien était free).
+      const srcFreq = prevSys.freq
+        ? prevSys.freq(state.editor.testNoteIndex, state.editor.testOctave, a4Ref)
+        : state.editor.testFrequency
+      const { noteIndex, octave } = frequencyToNearestIn(srcFreq, next, a4Ref)
       return {
         ...state,
         editor: { ...state.editor, testTuningSystem: next, testNoteIndex: noteIndex, testOctave: octave },

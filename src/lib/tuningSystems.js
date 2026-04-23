@@ -219,17 +219,34 @@ export function getTuningSystem(id) {
   return TUNING_SYSTEMS['12-TET']
 }
 
-// Inverse 12-TET : trouve la note la plus proche d'une fréquence. Utilisé au
-// switch free→12-TET pour préserver la hauteur courante. Clamp midi ∈ [12, 143]
-// (C0..B10) pour rester dans les bornes du sélecteur d'octave. Fonction
-// spécifique au 12-TET : une généralisation à d'autres systèmes-based
-// demanderait un inverse par système, à voir à l'ajout du premier tempérament
-// non 12-TET.
-export function frequencyToNearestNote(hz, a4Ref = DEFAULT_A4) {
-  const midi = Math.round(69 + 12 * Math.log2(hz / a4Ref))
-  const clamped = Math.max(12, Math.min(143, midi))
-  return {
-    noteIndex: ((clamped % 12) + 12) % 12,
-    octave: Math.floor(clamped / 12) - 1,
+// Bornes d'octave compatibles avec OctaveSelector (0..10).
+const MIN_OCTAVE = 0
+const MAX_OCTAVE = 10
+
+// Snap générique : trouve la note (noteIndex, octave) du système `sysId` la
+// plus proche de `hz` au sens des cents (1200·log2 du ratio). Itère sur
+// toutes les positions de la grille × 11 octaves, garde le minimum.
+//
+// L'erreur max attendue est `1200/(2·notesPerOctave)` cents (centre de
+// cluster) : 50¢ pour 12-TET, 25¢ pour 24-TET. Un snap depuis un système
+// proche perd moins ; un snap depuis 'free' peut perdre jusqu'à cette borne.
+//
+// Le système 'free' (freq === null) n'a pas d'inverse — appel illégal.
+export function frequencyToNearestIn(hz, sysId, a4Ref = DEFAULT_A4) {
+  const sys = getTuningSystem(sysId)
+  if (!sys.freq) {
+    throw new Error(`frequencyToNearestIn: système "${sysId}" n'a pas de freq()`)
   }
+  let best = { noteIndex: 0, octave: MIN_OCTAVE, cents: Infinity }
+  for (let oct = MIN_OCTAVE; oct <= MAX_OCTAVE; oct++) {
+    for (let i = 0; i < sys.notesPerOctave; i++) {
+      const candidate = sys.freq(i, oct, a4Ref)
+      if (candidate <= 0) continue
+      const cents = Math.abs(1200 * Math.log2(candidate / hz))
+      if (cents < best.cents) {
+        best = { noteIndex: i, octave: oct, cents }
+      }
+    }
+  }
+  return { noteIndex: best.noteIndex, octave: best.octave }
 }

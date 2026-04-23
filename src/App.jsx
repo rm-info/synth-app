@@ -383,10 +383,13 @@ function App() {
     }
   }, [activeTab, clips, lastAnchorClipId, defaultClipDuration, numMeasures, editor.testOctave, editor.testTuningSystem])
 
-  // Raccourcis 1-0 (Composer) pour piloter les boutons de durée.
-  //   1..7 → sélectionne la base correspondante (Carrée .. Triple croche).
-  //   8..0 → toggle les coefs (×1.25, Pointé, Double-pointé).
-  // Skip form fields et combos Ctrl/Cmd (Ctrl+9 = zoom navigateur).
+  // Raccourcis durée (Composer) :
+  //   NumPad1..7         → bases (Carrée .. Triple croche).
+  //   NumPad8/9/0        → coefs (×1.25, Pointé, Double-pointé).
+  //   Shift+Digit1..7    → bases (fallback laptop sans pavé).
+  //   Shift+Digit8/9/0   → coefs (idem).
+  // Les Digit sans Shift sont libérés (réservés aux notes 24-TET, F.3).
+  // Skip form fields et combos Ctrl/Alt/Meta (Ctrl+9 = zoom navigateur).
   useEffect(() => {
     if (activeTab !== 'composer') return
 
@@ -396,15 +399,31 @@ function App() {
       return !!target?.isContentEditable
     }
 
+    // Décode l'event vers un rang 1..10, ou null si la touche n'est pas un
+    // raccourci durée. Rangs 1..7 = bases, 8..10 = coefs (×1.25, Pointé, ××).
+    // Numpad sans Shift OU Digit avec Shift uniquement.
+    const decodeRank = (e) => {
+      if (e.ctrlKey || e.altKey || e.metaKey) return null
+      const numpad = e.code.match(/^Numpad([0-9])$/)
+      if (numpad && !e.shiftKey) {
+        const n = Number(numpad[1])
+        return n === 0 ? 10 : n
+      }
+      const digit = e.code.match(/^Digit([0-9])$/)
+      if (digit && e.shiftKey) {
+        const n = Number(digit[1])
+        return n === 0 ? 10 : n
+      }
+      return null
+    }
+
     const onKeyDown = (e) => {
       if (isFormField(e.target)) return
-      if (e.ctrlKey || e.metaKey) return
       if (e.repeat) return
-      if (e.code === 'Digit0') e.preventDefault()
-      // Bases 1..7 (event.code stable QWERTY/AZERTY)
-      const baseMatch = /^Digit([1-7])$/.exec(e.code)
-      if (baseMatch) {
-        const rank = parseInt(baseMatch[1], 10)
+      const rank = decodeRank(e)
+      if (rank == null) return
+
+      if (rank >= 1 && rank <= 7) {
         const b = DURATION_BASES.find((x) => x.rank === rank)
         if (!b) return
         e.preventDefault()
@@ -416,17 +435,13 @@ function App() {
         })
         return
       }
-      // Coefs : 8 → ×1.25, 9 → Pointé, 0 → Double-pointé
-      const coefRankMap = { Digit8: 8, Digit9: 9, Digit0: 10 }
-      const coefRank = coefRankMap[e.code]
-      if (coefRank == null) return
-      const c = DURATION_COEFS.find((x) => x.rank === coefRank)
+      // Coefs (rangs 8/9/10).
+      const c = DURATION_COEFS.find((x) => x.rank === rank)
       if (!c) return
       e.preventDefault()
       const { base: curBase, coef: curCoef } = deriveBaseAndCoef(defaultClipDuration)
       const base = curBase ?? 1
       if (curCoef === c.value) {
-        // Toggle off
         dispatch({ type: 'SET_DEFAULT_CLIP_DURATION', payload: effectiveDuration(base, null) })
         return
       }
