@@ -500,6 +500,10 @@ function App() {
 
   const setBpm = useCallback((v) => dispatch({ type: 'SET_BPM', payload: v }), [])
   const setA4Ref = useCallback((v) => dispatch({ type: 'SET_A4_REF', payload: v }), [])
+  // Sélecteur de tempérament exposé dans la toolbar Composer (F.3.9). Même
+  // action que le dropdown du Designer — la pile undo reste DESIGNER_UNDOABLE
+  // (la nature de l'action prime sur l'onglet d'origine).
+  const setTestTuningSystem = useCallback((id) => dispatch({ type: 'SET_EDITOR_TEST_TUNING_SYSTEM', payload: id }), [])
 
   const setZoomH = useCallback((next) => {
     dispatch({ type: 'SET_ZOOM_H', payload: next })
@@ -1349,6 +1353,8 @@ function App() {
                   onSetBpm={setBpm}
                   a4Ref={a4Ref}
                   onSetA4Ref={setA4Ref}
+                  testTuningSystem={editor.testTuningSystem}
+                  onSetTestTuningSystem={setTestTuningSystem}
                   hasSelection={selectedClipIds.length > 0}
                   hasClipboard={!!clipboard && clipboard.clips.length > 0}
                   onCopy={handleCopy}

@@ -1,6 +1,7 @@
 import BpmInput from './BpmInput'
 import A4Input from './A4Input'
 import DurationButtons from './DurationButtons'
+import { TUNING_SYSTEMS } from '../lib/tuningSystems'
 import './Toolbar.css'
 
 /**
@@ -13,6 +14,8 @@ function Toolbar({
   onSetBpm,
   a4Ref,
   onSetA4Ref,
+  testTuningSystem,
+  onSetTestTuningSystem,
   hasSelection,
   hasClipboard,
   onCopy,
@@ -77,6 +80,20 @@ function Toolbar({
           <A4Input value={a4Ref} onChange={onSetA4Ref} className="a4-input" />
           <span className="a4-unit">Hz</span>
         </label>
+        {testTuningSystem !== undefined && (
+          <label className="tuning-control" title="Tempérament des nouveaux clips placés au clavier. Synchronisé avec le sélecteur du Designer.">
+            Tempérament
+            <select
+              className="tuning-select"
+              value={testTuningSystem}
+              onChange={(e) => onSetTestTuningSystem?.(e.target.value)}
+            >
+              {Object.values(TUNING_SYSTEMS).map((sys) => (
+                <option key={sys.id} value={sys.id}>{sys.label}</option>
+              ))}
+            </select>
+          </label>
+        )}
       </div>
 
       <div className="toolbar-section">
