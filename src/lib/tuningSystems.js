@@ -13,6 +13,11 @@
 //    null si inapplicable.
 //  - freq : (noteIndex, octave, a4Ref) → Hz pour les systèmes basés sur
 //    degré/octave, ou null pour ceux qui lisent `clip.frequency` directement.
+//  - layout : type de rendu visuel du clavier ('piano-12', 'grid-24',
+//    'free' = pas de clavier). PianoKeyboard dispatch sur cette valeur.
+//  - keyboardMap : { [event.code]: noteIndex } pour les raccourcis QWERTY,
+//    ou null pour les systèmes sans clavier (free). Les consommateurs lisent
+//    ce mapping dynamiquement, jamais via une constante globale.
 
 export const DEFAULT_A4 = 440
 
@@ -54,6 +59,31 @@ function pythagoreanFreq(noteIndex, octave, a4Ref) {
   return c4 * PYTH_RATIOS_FROM_C[noteIndex] * Math.pow(2, octave - 4)
 }
 
+// Mapping QWERTY → noteIndex pour les tempéraments à 12 notes.
+// Rangée du milieu (blanches, façon clavier diatonique) :
+//   S  D  F  G  H  J  K
+//   C  D  E  F  G  A  B
+// Rangée du haut (noires) :
+//   E  R   ·  Y  U  I   ·
+//   C♯ D♯  ·  F♯ G♯ A♯  ·
+// (positions T et O sans correspondance — demi-tons E-F et B-C sans noire).
+// Utilise event.code plutôt que event.key pour fonctionner identiquement sur
+// QWERTY / AZERTY / DVORAK (mapping par position physique).
+const TWELVE_KEY_MAP = {
+  KeyS: 0,  // C
+  KeyD: 2,  // D
+  KeyF: 4,  // E
+  KeyG: 5,  // F
+  KeyH: 7,  // G
+  KeyJ: 9,  // A
+  KeyK: 11, // B
+  KeyE: 1,  // C♯
+  KeyR: 3,  // D♯
+  KeyY: 6,  // F♯
+  KeyU: 8,  // G♯
+  KeyI: 10, // A♯
+}
+
 // Ordre des clés = ordre d'apparition dans les sélecteurs UI : 12-TET en
 // premier (cas par défaut), puis les systèmes alternatifs, puis 'free' en
 // dernier (le cas "à part").
@@ -64,6 +94,8 @@ export const TUNING_SYSTEMS = {
     notesPerOctave: 12,
     noteNames: TWELVE_TET_NOTE_NAMES,
     freq: twelveTetFreq,
+    layout: 'piano-12',
+    keyboardMap: TWELVE_KEY_MAP,
   },
   'pythagorean-12': {
     id: 'pythagorean-12',
@@ -71,6 +103,8 @@ export const TUNING_SYSTEMS = {
     notesPerOctave: 12,
     noteNames: TWELVE_TET_NOTE_NAMES,
     freq: pythagoreanFreq,
+    layout: 'piano-12',
+    keyboardMap: TWELVE_KEY_MAP,
   },
   free: {
     id: 'free',
@@ -78,11 +112,16 @@ export const TUNING_SYSTEMS = {
     notesPerOctave: null,
     noteNames: null,
     freq: null,
+    layout: 'free',
+    keyboardMap: null,
   },
 }
 
 export function getTuningSystem(id) {
-  return TUNING_SYSTEMS[id] ?? TUNING_SYSTEMS['12-TET']
+  const sys = TUNING_SYSTEMS[id]
+  if (sys) return sys
+  console.warn(`Unknown tuning system "${id}", falling back to 12-TET`)
+  return TUNING_SYSTEMS['12-TET']
 }
 
 // Inverse 12-TET : trouve la note la plus proche d'une fréquence. Utilisé au

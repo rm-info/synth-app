@@ -1,8 +1,7 @@
 import { useRef, useState, useCallback, useEffect, useImperativeHandle } from 'react'
 import { pointsToPeriodicWave, MIN_ATTACK } from '../audio'
 import FreqInput from './FreqInput'
-import { PianoKeyboard, OctaveSelector, NOTE_NAMES } from './PianoKeyboard'
-import { KEY_CODE_TO_NOTE_INDEX } from '../lib/keyboardMap'
+import { PianoKeyboard, OctaveSelector } from './PianoKeyboard'
 import { getTuningSystem, TUNING_SYSTEMS } from '../lib/tuningSystems'
 import './WaveformEditor.css'
 
@@ -569,8 +568,13 @@ function WaveformEditor({
         return
       }
 
+      // Guard modificateurs sur le handler note (cf. F.3) : pas de Shift
+      // (réservé aux durées), Ctrl/Alt/Meta (raccourcis métier/navigateur).
+      if (e.shiftKey || e.ctrlKey || e.altKey || e.metaKey) return
       if (e.repeat) return
-      const idx = KEY_CODE_TO_NOTE_INDEX[e.code]
+      const keyboardMap = getTuningSystem(testTuningSystem).keyboardMap
+      if (!keyboardMap) return
+      const idx = keyboardMap[e.code]
       if (idx === undefined) return
       e.preventDefault()
       const bridge = instrumentBridgeRef.current
@@ -588,7 +592,9 @@ function WaveformEditor({
         return
       }
 
-      const idx = KEY_CODE_TO_NOTE_INDEX[e.code]
+      const keyboardMap = getTuningSystem(testTuningSystem).keyboardMap
+      if (!keyboardMap) return
+      const idx = keyboardMap[e.code]
       if (idx === undefined) return
       const bridge = instrumentBridgeRef.current
       if (!bridge) return
@@ -601,7 +607,7 @@ function WaveformEditor({
       window.removeEventListener('keydown', onKeyDown)
       window.removeEventListener('keyup', onKeyUp)
     }
-  }, [activeTab])
+  }, [activeTab, testTuningSystem])
 
   const clearCanvas = () => {
     editorActions.setPoints(blankPointsArray())
@@ -995,7 +1001,7 @@ function WaveformEditor({
               <div className="freq-label">
                 Note : <strong>{formatFreq(frequency)}</strong>
                 <span className="note-display">
-                  {' '}— {NOTE_NAMES[testNoteIndex]}{testOctave}
+                  {' '}— {getTuningSystem(testTuningSystem).noteNames?.[testNoteIndex] ?? ''}{testOctave}
                 </span>
                 {sustainActive && (
                   <span className="sustain-badge" title="Sustain actif (Espace)">

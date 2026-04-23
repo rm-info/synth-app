@@ -29,8 +29,6 @@ import {
   editorTestNoteFields,
 } from './reducer'
 import { canMergeClips } from './lib/timelineLayout'
-import { KEY_CODE_TO_NOTE_INDEX } from './lib/keyboardMap'
-import { NOTE_NAMES as PRESSED_NOTE_NAMES } from './lib/clipNote'
 import { getTuningSystem } from './lib/tuningSystems'
 import {
   DURATION_BASES, DURATION_COEFS,
@@ -88,9 +86,10 @@ function App() {
   })()
 
   // Label affiché dans la toolbar Composer quand une touche de note est
-  // maintenue (E.4.1). Utilise NOTE_NAMES avec ♯ Unicode.
+  // maintenue (E.4.1). Lit les noms du système courant pour gérer les
+  // tempéraments à plus de 12 notes (ex. 24-TET en F.3).
   const pressedNoteLabel = pressedNoteKey !== null
-    ? `${PRESSED_NOTE_NAMES[pressedNoteKey]}${editor.testOctave}`
+    ? `${getTuningSystem(editor.testTuningSystem).noteNames?.[pressedNoteKey] ?? ''}${editor.testOctave}`
     : null
 
   // === Effets de bord ===
@@ -293,11 +292,13 @@ function App() {
     const onKeyDown = (e) => {
       if (activeTab !== 'composer') return
       if (isFormField(e.target)) return
-      const idx = KEY_CODE_TO_NOTE_INDEX[e.code]
+      // Guard modificateurs : Shift réservé aux durées (F.3.4), Ctrl/Alt/Meta
+      // aux raccourcis métier ou navigateur. Une note pure n'a aucun modif.
+      if (e.shiftKey || e.ctrlKey || e.altKey || e.metaKey) return
+      const keyboardMap = getTuningSystem(editor.testTuningSystem).keyboardMap
+      if (!keyboardMap) return
+      const idx = keyboardMap[e.code]
       if (idx === undefined) return
-      // Combos Ctrl/Cmd (ex : Ctrl+D split, Ctrl+C copy) : on laisse passer
-      // aux autres handlers, pas de preventDefault.
-      if (e.ctrlKey || e.metaKey) return
       // Touche de note pure → preventDefault pour bloquer les raccourcis
       // navigateur (F = Find, etc.), même en drag et même si on n'enregistre
       // finalement rien (repeat).
@@ -311,7 +312,9 @@ function App() {
       // Pas de check activeTab côté keyup : on veut que le clean s'applique
       // même si l'utilisateur a changé d'onglet entre-temps.
       if (isFormField(e.target)) return
-      const idx = KEY_CODE_TO_NOTE_INDEX[e.code]
+      const keyboardMap = getTuningSystem(editor.testTuningSystem).keyboardMap
+      if (!keyboardMap) return
+      const idx = keyboardMap[e.code]
       if (idx === undefined) return
 
       const wasActive = pressedNoteKeyRef.current === idx
@@ -352,7 +355,7 @@ function App() {
           measure,
           beat,
           duration,
-          tuningSystem: '12-TET',
+          tuningSystem: editor.testTuningSystem,
           noteIndex: idx,
           octave: editor.testOctave,
           frequency: null,
@@ -378,7 +381,7 @@ function App() {
       window.removeEventListener('dragstart', onDragStart, true)
       window.removeEventListener('dragend', onDragEnd, true)
     }
-  }, [activeTab, clips, lastAnchorClipId, defaultClipDuration, numMeasures, editor.testOctave])
+  }, [activeTab, clips, lastAnchorClipId, defaultClipDuration, numMeasures, editor.testOctave, editor.testTuningSystem])
 
   // Raccourcis 1-0 (Composer) pour piloter les boutons de durée.
   //   1..7 → sélectionne la base correspondante (Carrée .. Triple croche).
@@ -610,7 +613,7 @@ function App() {
       const keyHeld = pressedNoteKeyRef.current !== null
       const note = keyHeld
         ? {
-            tuningSystem: '12-TET',
+            tuningSystem: editor.testTuningSystem,
             noteIndex: pressedNoteKeyRef.current,
             octave: editor.testOctave,
             frequency: null,
