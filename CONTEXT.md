@@ -1507,6 +1507,14 @@ Phases listées ci-dessous dans l'ordre chronologique d'implémentation.
     vérifier/changer le tempérament des nouveaux clips placés au
     clavier dans le Composer sans revenir au Designer. Aucun
     raccourci clavier (report si besoin émerge).
+  - **3.10** (2026-04-23) Sélection grid-24 préserve aussi la
+    couleur HSL. Oubli de F.3.8 : `is-active` gardait `background
+    cyan !important` qui écrasait le fill par-degré. Remplacé par
+    `box-shadow: inset 0 0 0 3px #00d4ff` — le fond HSL reste
+    visible. Combiné avec `is-playing` (outline jaune) via une
+    règle dédiée `.is-active.is-playing` qui pose `inset cyan` +
+    `glow jaune` simultanément. Triple indication possible sans
+    écraser la couleur. Piano-12 inchangé.
 
 ### Backlog général (à caser quand pertinent)
 
