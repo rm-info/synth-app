@@ -159,10 +159,11 @@ type Patch = {
   points: number[]                // 600 échantillons [-1, 1]
   amplitude: number               // 0..1
   preset: 'sine'|'square'|'sawtooth'|'triangle'|null  // null = dessin custom
-  attack: number                  // ms, 0-500
-  decay: number                   // ms, 0-500
+  attack: number                  // ms, 0-1000 (F.3.11)
+  hold: number                    // ms, 0-1000 (F.3.12) — plateau au peak entre attack et decay
+  decay: number                   // ms, 0-1000 (F.3.11)
   sustain: number                 // 0..1
-  release: number                 // ms, 0-500
+  release: number                 // ms, 0-1000 (F.3.11)
   folderId: string | null         // null = racine
 }
 
@@ -265,18 +266,18 @@ Seuls les **placements timeline** s'appellent "clips".
   - 12-TET : clavier piano 12 notes + 11 boutons d'octave, affichage
     "Note : X Hz — A4".
   - Libre : slider log 2^4-2^15 Hz + FreqInput éditable.
-- Éditeur ADSR **visuel** 400×120 : 4 poignées draggables (P1 attack+amplitude
-  en 2D, P2 decay+sustain, P3 fin sustain non-draggable, P4 release), courbe
-  cyan + remplissage, sliders éditables en colonne à droite (depuis F.3.11.1).
-  Le graph est fidèle : `p1.y = adsrLevelToY(amplitude)` (peak), `p2.y = p3.y =
-  adsrLevelToY(amp×sustain)` (sustain absolu = ratio du peak). À amp=0.5 et
-  sustain=1, P2 atteint visuellement P1 — comme dans le signal joué.
-  Constantes : `ADSR_MAX_MS = 1000` ms, `ADSR_SEGMENT_PX = 80`. Les 5 valeurs
-  (Amp, A, D, S, R) sont éditables au clavier via `NumberInput` (clic, parse
-  permissif, Enter/blur commit, Esc annule).
-- **Trois boutons Test** (impact •, court ━, tenu ∞) : impact joue A→D→R,
-  court ajoute un hold 1s entre decay et release, tenu joue indéfiniment
-  jusqu'à clic Stop (■). Auto-fin pour impact/court via `osc.onended`.
+- Éditeur AHDSR **visuel** 480×120 : 5 poignées draggables — P1
+  (attack+amplitude en 2D), P1h (hold+amplitude en 2D, F.3.12.2),
+  P2 (decay+sustain), P3 (fin sustain non-draggable), P4 (release).
+  Courbe cyan + remplissage, 6 sliders éditables en colonne à droite
+  (Amp → Attack → Hold → Decay → Sustain → Release, F.3.12.2). Graph
+  fidèle : `p1.y = adsrLevelToY(amplitude)` (peak), `p1h.y = p1.y`
+  (plateau hold horizontal), `p2.y = p3.y = adsrLevelToY(amp×sustain)`
+  (sustain absolu = ratio du peak). À amp=0.5 et sustain=1, P2 atteint
+  visuellement P1/P1h. À hold=0, P1h se confond avec P1.
+  Constantes : `ADSR_W = 480`, `ADSR_MAX_MS = 1000` ms,
+  `ADSR_SEGMENT_PX = 80`. Les 6 valeurs sont éditables au clavier via
+  `NumberInput` (clic, parse permissif, Enter/blur commit, Esc annule).
 - Hydratation auto depuis `currentPatch` (prop) via `useEffect` qui compare l'id
   contre `hydratedFromIdRef`. Hydrate uniquement les champs du patch (points,
   ADSR, amplitude, preset) ; les champs `test*` (contexte de test de
@@ -352,15 +353,22 @@ Seuls les **placements timeline** s'appellent "clips".
 
 - **Live (look-ahead)** : scheduler à fenêtre glissante (25ms tick,
   100ms look-ahead). Chaque clip → `OscillatorNode` (PeriodicWave) →
-  `GainNode` (ADSR) → `trackGainNode` → `analyserGain` →
+  `GainNode` (AHDSR) → `trackGainNode` → `analyserGain` →
   `AnalyserNode` + `destination`. Un `GainNode` par piste ;
   gain = `track.volume` si audible, 0 si muté/solo-exclu.
   Changements de clips détectés par comparaison de signatures ;
-  clips modifiés invalidés et reprogrammés.
+  clips modifiés invalidés et reprogrammés. Depuis F.3.12.1, la
+  signature inclut l'enveloppe du patch référencé → modifier
+  attack/hold/decay/sustain/release/amplitude pendant la lecture
+  re-schedule les clips à venir.
 - **Export WAV** : `OfflineAudioContext(2, sampleRate * totalDurationSec, 44100)`,
   même routage per-track GainNode, mono up-mixé en stéréo, encodage RIFF/PCM16
-- **ADSR par note** : rampes linéaires attack→peak→sustain→hold→release→0
-  avec `clipDuration = max(noteDurationSec, attack+decay+release)`
+- **AHDSR par note** : rampes linéaires
+  attack→peak→hold(plateau)→decay→sustain→release→0 avec
+  `clipDuration = max(noteDurationSec, attack + hold + decay + release)`.
+  Le plateau hold est rendu par deux `linearRampToValueAtTime` au même
+  niveau (peak), formulation idiomatique sans discontinuité
+  (pas de `setValueAtTime` au milieu).
 
 ## Décisions architecturales
 
@@ -871,9 +879,11 @@ Phases listées ci-dessous dans l'ordre chronologique d'implémentation.
   + Ctrl+V), PropertiesPanel affiche piste, Échap ferme menu contextuel (phase 4)
 
 ✅ **Itération D terminée** (2026-04-19) — Refonte Designer
-- Phase 1 — Refonte sélecteur de notes + boutons Test : dropdown "Système"
+- Phase 1 — Refonte sélecteur de notes : dropdown "Système"
   (12-TET / Libre), clavier piano 12 notes, sélecteur d'octave 0-10,
-  extension mode libre 2^4-2^15 Hz, trois boutons Test (impact/court/tenu).
+  extension mode libre 2^4-2^15 Hz. Les trois boutons Test
+  (impact/court/tenu) introduits ici ont été remplacés par la preview
+  polyphonique au clavier en E.3 puis retirés en F.3.5.
   Modèle : `mode: 'note' | 'free'` → `tuningSystem: '12-TET' | 'free'`
   (migration transparente via `normalizeSound`).
 
@@ -1070,6 +1080,19 @@ Phases listées ci-dessous dans l'ordre chronologique d'implémentation.
 
 ## Historique (chronologie inverse)
 
+0000000. **Iter F — Phase 3.12** (2026-04-24) : ADSR → AHDSR.
+    Champ `hold` (0-1000 ms, défaut 0) ajouté à l'enveloppe —
+    plateau au peak entre attack et decay, utile percussifs avec
+    punch et pédagogiquement précieux pour distinguer hold (forcé)
+    vs sustain (tant que la touche est tenue). Audio Designer +
+    Composer (live + WAV export) insèrent un plateau via deux
+    rampes linéaires successives au même niveau. Persistance
+    rétrocompat (?? 0). Re-scheduling pendant lecture désormais
+    sensible aux changements d'enveloppe du patch (signature
+    enrichie). UI : `ADSR_W` 400 → 480, nouveau handle P1h
+    (X=hold, Y=amp en 2D, indexé `5`), 6e slider Hold inséré entre
+    Attack et Decay. Drag P1h diagonal réutilise l'action combinée
+    `SET_EDITOR_ADSR_AND_AMP` de F.3.11.3.
 000000. **Iter F — Phase 3.11** (2026-04-24) : UI Enveloppe ADSR.
     Slider Amplitude rapatrié dans la zone Enveloppe (colonne droite
     à côté du canvas, 5 sliders Amp/A/D/S/R empilés). Graph fidèle
@@ -1575,6 +1598,35 @@ Phases listées ci-dessous dans l'ordre chronologique d'implémentation.
       effectivement modifiés (adsr+amp / adsr seul / amp seul /
       rien). Autres chemins (sliders, NumberInputs, drag P2/P4)
       inchangés.
+  - **3.12** (2026-04-24) Champ Hold — ADSR → AHDSR. 2 sous-commits :
+    - **3.12.1** Modèle + audio + persistance. Nouveau champ
+      `hold` (0-1000 ms, défaut 0) sur `editor` et `Patch`. Plateau
+      au peak inséré entre attack et decay via deux
+      `linearRampToValueAtTime` au même niveau (Designer
+      `playInstrumentNote`, Composer `usePlayback` schedulers live
+      et WAV export). `clipDuration = max(noteDurationSec, a + h +
+      d + r)`. Hydratation rétrocompat (`?? 0`) — patches
+      localStorage existants restent audibles à l'identique. La
+      signature de re-scheduling dans usePlayback inclut désormais
+      l'enveloppe du patch référencé (attack, hold, decay, sustain,
+      release, amplitude) — modifier ces champs pendant la lecture
+      re-schedule les clips à venir. `prevPatchesRef` track le
+      delta inter-patches. Pas d'UI dans ce sous-commit.
+    - **3.12.2** UI hold. `ADSR_W` 400 → 480 (unité de dessin,
+      canvas reste responsive). Nouveau point P1h = `{ x: attackPx
+      + holdPx, y: adsrLevelToY(amp) }` — même Y que P1 (peak
+      line). Trait dessiné P1 → P1h horizontal au peak (le plateau
+      hold), puis P1h → P2 (decay). p2/p3/p4.x recalés avec holdPx.
+      Drag P1h (idx 5) : 2D comme P1 (X=hold, Y=amp). Réutilise
+      sans nouveau code l'infrastructure F.3.11.3 (`endAdsrDrag`
+      bifurque vers `SET_EDITOR_ADSR_AND_AMP` si les deux drafts
+      ont bougé). Drags P2/P4 corrigés : la base X intègre désormais
+      `holdPx` (avant, calculait depuis attackPx seul → faux dès
+      qu'un hold était présent). Hit-test ordre P1, P1h, P2, P4 —
+      à hold=0 P1h gagne (préfère introduire du hold). 6e
+      slider/NumberInput Hold inséré entre Attack et Decay (ordre
+      Amp → Attack → Hold → Decay → Sustain → Release). Colonne
+      sliders 150 → 160 px, gap 8 → 6 px.
 
 ### Backlog général (à caser quand pertinent)
 
