@@ -266,24 +266,28 @@ Seuls les **placements timeline** s'appellent "clips".
   - 12-TET : clavier piano 12 notes + 11 boutons d'octave, affichage
     "Note : X Hz — A4".
   - Libre : slider log 2^4-2^15 Hz + FreqInput éditable.
-- Éditeur AHDSR **visuel** 320×120 : 4 poignées draggables — P1
+- Éditeur AHDSR **visuel** 380×120 : 4 poignées draggables — P1
   (attack+amplitude en 2D), P1h (hold seul en 1D depuis F.3.13.1),
   P2 (decay+sustain en 2D), P4 (release seul en 1D). Courbe cyan +
   remplissage, 6 sliders éditables en colonne à droite (Amp →
   Attack → Hold → Decay → Sustain → Release, F.3.12.2). Graph
-  fidèle : `p1.y = adsrLevelToY(amplitude)` (peak), `p1h.y = p1.y`
-  (plateau hold horizontal), `p2.y = adsrLevelToY(amp×sustain)`
-  (sustain absolu = ratio du peak — pas de plateau sustain visuel,
-  c'est un point d'arrivée à P2 puis release direct vers P4 depuis
-  F.3.13.1). À amp=0.5 et sustain=1, P2 atteint visuellement P1/P1h.
-  À hold=0, P1h se confond avec P1 ; le tie-break du hit-test
-  privilégie P1 → drag par défaut édite attack+amp, l'utilisateur
-  démarre le hold via slider/NumberInput.
-  Constantes : `ADSR_W = 4 × ADSR_SEGMENT_PX = 320`,
-  `ADSR_MAX_MS = 1000` ms, `ADSR_SEGMENT_PX = 80`. Les 6 valeurs
-  sont éditables au clavier via `NumberInput` (clic, parse permissif,
-  Enter/blur commit, Esc annule).
-  Polish handles (F.3.13.2) : cercles isotropes (dessinés en coords
+  fidèle : `p1.y = adsrLevelToY(amplitude)` (peak), `p2.y =
+  adsrLevelToY(amp×sustain)` (sustain absolu = ratio du peak). À
+  amp=0.5 et sustain=1, P2 atteint visuellement P1/P1h. P1h est
+  décalé verticalement de 8 px au-dessus de la peak line
+  (`ADSR_P1H_Y_OFFSET`, F.3.13.3) → à hold=0, P1 et P1h sont
+  visuellement séparés et tous deux grabables sans passer par le
+  slider. La ligne du plateau peak reste tracée à peakY ; seul le
+  handle est décalé. Plateau sustain restauré en tirets symboliques
+  entre P2 et P3 (P3 géométrique non-draggable, fin du plateau) — ne
+  représente pas une durée audio, c'est un repère visuel de la phase.
+  Constantes : `ADSR_W = 4 × ADSR_SEGMENT_PX + ADSR_SUSTAIN_PX = 380`,
+  `ADSR_MAX_MS = 1000` ms, `ADSR_SEGMENT_PX = 80`,
+  `ADSR_SUSTAIN_PX = 60`, `ADSR_HANDLE_RADIUS = 5`,
+  `ADSR_P1H_Y_OFFSET = 8`. Les 6 valeurs sont éditables au clavier
+  via `NumberInput` (clic, parse permissif, Enter/blur commit, Esc
+  annule).
+  Polish handles (F.3.13.2-3) : cercles isotropes (dessinés en coords
   physiques après reset transform, pas d'ellipses), curseur dynamique
   (default → grab au survol d'un handle → grabbing pendant drag),
   tooltips au survol indiquant le rôle de chaque handle (P1, P1h, P2,
@@ -1091,6 +1095,12 @@ Phases listées ci-dessous dans l'ordre chronologique d'implémentation.
 
 ## Historique (chronologie inverse)
 
+000000000. **Iter F — Phase 3.13.3** (2026-04-24) : affinages
+    visuels ADSR. Rayon handles 4 → 5 px. Plateau sustain restauré
+    en tirets symboliques (`ADSR_SUSTAIN_PX = 60`, `ADSR_W = 380`,
+    P3 géométrique non-draggable). P1h décalé verticalement de
+    8 px au-dessus de la peak line → à hold=0, P1 et P1h
+    visuellement séparés et tous deux grabables.
 00000000. **Iter F — Phase 3.13** (2026-04-24) : UX handles ADSR.
     P1h passe à 1D (X=hold seul, plus d'édition d'amplitude — la
     double édition P1/P1h post-3.12.2 était confuse). P3 et le
@@ -1674,6 +1684,19 @@ Phases listées ci-dessous dans l'ordre chronologique d'implémentation.
       Tooltip caché pendant un drag, bascule sous le handle si
       proche du bord haut. `findHoveredHandle(pos)` factorise le
       hit-test géométrique avec `handleAdsrMouseDown`.
+    - **3.13.3** Affinages visuels. Rayon des handles 4 → 5 px
+      (`ADSR_HANDLE_RADIUS`), HIT_RADIUS 11. Plateau sustain
+      restauré en tirets symboliques (`setLineDash([4, 4])`)
+      entre P2 et P3 — `ADSR_SUSTAIN_PX = 60`, `ADSR_W = 380`.
+      P3 géométrique non-draggable (fin du plateau), pas de
+      handle visible, drag P4 base réintègre `ADSR_SUSTAIN_PX`.
+      P1h décalé verticalement de 8 px au-dessus de la peak line
+      (`ADSR_P1H_Y_OFFSET = 8`) → à hold=0, P1 et P1h sont
+      séparés visuellement, tous deux grabables sans passer par
+      le slider Hold. La ligne du plateau peak reste tracée à
+      peakY (pas à p1h.y) — l'offset n'affecte que le rendu et
+      le hit-test du handle, pas la silhouette de l'enveloppe.
+      P1h reste 1D (drag X seul, Y ignoré).
 
 ### Backlog général (à caser quand pertinent)
 
