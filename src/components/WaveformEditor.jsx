@@ -43,7 +43,7 @@ function formatFreq(hz) {
   return `${r.toFixed(1)} Hz`
 }
 
-const ADSR_W = 400
+const ADSR_W = 480
 const ADSR_H = 120
 // F.3.11 : range A/D/R étendu à 1000 ms. À max-range, ADSR_SEGMENT_PX
 // reste à 80 — un segment "long" (1000 ms) occupe les 80 px alloués, donc
@@ -735,6 +735,7 @@ function WaveformEditor({
   }
 
   const attackPx = (attack / ADSR_MAX_MS) * ADSR_SEGMENT_PX
+  const holdPx = (hold / ADSR_MAX_MS) * ADSR_SEGMENT_PX
   const decayPx = (decay / ADSR_MAX_MS) * ADSR_SEGMENT_PX
   const releasePx = (release / ADSR_MAX_MS) * ADSR_SEGMENT_PX
 
@@ -742,11 +743,14 @@ function WaveformEditor({
   // P2/P3.y reflètent amp × sustain (le sustain est un ratio du peak, pas
   // un absolu). Avec amp=0.5 et sustain=1, P2 atteint exactement P1 → le
   // drop decay disparaît visuellement, comme dans le signal audio.
+  // F.3.12.2 : nouveau handle P1h = fin du plateau hold. Même Y que P1
+  // (peak line). À hold=0, P1h se confond visuellement avec P1.
   const sustainLevel = amplitude * sustain
   const p1 = { x: attackPx, y: adsrLevelToY(amplitude) }
-  const p2 = { x: attackPx + decayPx, y: adsrLevelToY(sustainLevel) }
-  const p3 = { x: attackPx + decayPx + ADSR_SUSTAIN_PX, y: adsrLevelToY(sustainLevel) }
-  const p4 = { x: attackPx + decayPx + ADSR_SUSTAIN_PX + releasePx, y: ADSR_H }
+  const p1h = { x: attackPx + holdPx, y: adsrLevelToY(amplitude) }
+  const p2 = { x: attackPx + holdPx + decayPx, y: adsrLevelToY(sustainLevel) }
+  const p3 = { x: attackPx + holdPx + decayPx + ADSR_SUSTAIN_PX, y: adsrLevelToY(sustainLevel) }
+  const p4 = { x: attackPx + holdPx + decayPx + ADSR_SUSTAIN_PX + releasePx, y: ADSR_H }
 
   const drawAdsr = useCallback(() => {
     const canvas = adsrCanvasRef.current
@@ -771,6 +775,7 @@ function WaveformEditor({
     ctx.beginPath()
     ctx.moveTo(0, ADSR_H)
     ctx.lineTo(p1.x, p1.y)
+    ctx.lineTo(p1h.x, p1h.y)
     ctx.lineTo(p2.x, p2.y)
     ctx.lineTo(p3.x, p3.y)
     ctx.lineTo(p4.x, p4.y)
@@ -783,22 +788,23 @@ function WaveformEditor({
     ctx.beginPath()
     ctx.moveTo(0, ADSR_H)
     ctx.lineTo(p1.x, p1.y)
+    ctx.lineTo(p1h.x, p1h.y)
     ctx.lineTo(p2.x, p2.y)
     ctx.lineTo(p3.x, p3.y)
     ctx.lineTo(p4.x, p4.y)
     ctx.stroke()
 
-    const handles = [p1, p2, p3, p4]
-    for (const h of handles) {
+    const handles = [p1, p1h, p2, p3, p4]
+    for (const handle of handles) {
       ctx.beginPath()
-      ctx.arc(h.x, h.y, ADSR_HANDLE_RADIUS, 0, 2 * Math.PI)
+      ctx.arc(handle.x, handle.y, ADSR_HANDLE_RADIUS, 0, 2 * Math.PI)
       ctx.fillStyle = '#ffffff'
       ctx.fill()
       ctx.strokeStyle = '#00d4ff'
       ctx.lineWidth = 1.5
       ctx.stroke()
     }
-  }, [p1.x, p1.y, p2.x, p2.y, p3.x, p3.y, p4.x, p4.y])
+  }, [p1.x, p1.y, p1h.x, p1h.y, p2.x, p2.y, p3.x, p3.y, p4.x, p4.y])
 
   useEffect(() => {
     drawAdsr()
@@ -853,12 +859,25 @@ function WaveformEditor({
       setDraftAmp(newAmp)
       return
     }
+    if (handleIdx === 5) {
+      // P1h (F.3.12.2) : 2D. X édite hold (delta après attack), Y édite
+      // amplitude. Même chemin de commit que P1 → SET_EDITOR_ADSR_AND_AMP
+      // si les deux axes ont effectivement bougé (cf. F.3.11.3).
+      const baseAtk = (draftAdsr?.attack ?? attack)
+      const baseAtkPx = (baseAtk / ADSR_MAX_MS) * ADSR_SEGMENT_PX
+      const newHoldPx = Math.max(0, Math.min(ADSR_SEGMENT_PX, pos.x - baseAtkPx))
+      setDraftAdsr((prev) => ({ ...(prev ?? {}), hold: pxToMs(newHoldPx) }))
+      const newAmp = Math.round(yToLevel(pos.y) * 100) / 100
+      setDraftAmp(newAmp)
+      return
+    }
     setDraftAdsr((prev) => {
       const next = { ...(prev ?? {}) }
       if (handleIdx === 2) {
         const baseAtk = next.attack ?? attack
-        const baseAtkPx = (baseAtk / ADSR_MAX_MS) * ADSR_SEGMENT_PX
-        const newDecayPx = Math.max(0, Math.min(ADSR_SEGMENT_PX, pos.x - baseAtkPx))
+        const baseHold = next.hold ?? hold
+        const baseStartPx = ((baseAtk + baseHold) / ADSR_MAX_MS) * ADSR_SEGMENT_PX
+        const newDecayPx = Math.max(0, Math.min(ADSR_SEGMENT_PX, pos.x - baseStartPx))
         next.decay = pxToMs(newDecayPx)
         // Y édite sustain via inverse : sustain = level / amp. amp courant
         // = draftAmp si dragué récemment, sinon valeur committée. amp=0
@@ -871,8 +890,9 @@ function WaveformEditor({
         }
       } else if (handleIdx === 4) {
         const baseAtk = next.attack ?? attack
+        const baseHold = next.hold ?? hold
         const baseDec = next.decay ?? decay
-        const base = ((baseAtk + baseDec) / ADSR_MAX_MS) * ADSR_SEGMENT_PX + ADSR_SUSTAIN_PX
+        const base = ((baseAtk + baseHold + baseDec) / ADSR_MAX_MS) * ADSR_SEGMENT_PX + ADSR_SUSTAIN_PX
         const newReleasePx = Math.max(0, Math.min(ADSR_SEGMENT_PX, pos.x - base))
         next.release = pxToMs(newReleasePx)
       }
@@ -882,8 +902,13 @@ function WaveformEditor({
 
   const handleAdsrMouseDown = (e) => {
     const pos = getAdsrPos(e)
+    // Ordre du hit-test : on teste P1h après P1 pour qu'à hold=0 (handles
+    // superposés) ce soit P1h qui gagne — drag P1h édite hold+amp, drag P1
+    // édite attack+amp. À hold=0, amener un peu de hold est l'action la
+    // plus probable, donc préférer P1h n'est pas un problème.
     const candidates = [
       { idx: 1, point: p1 },
+      { idx: 5, point: p1h },
       { idx: 2, point: p2 },
       { idx: 4, point: p4 },
     ]
@@ -1161,7 +1186,7 @@ function WaveformEditor({
       editorActions.setAmplitude(v)
     }
 
-    const liveValue = (key) => ({ attack, decay, sustain, release }[key])
+    const liveValue = (key) => ({ attack, hold, decay, sustain, release }[key])
 
     const renderMsSlider = (key, label) => (
       <div className="adsr-slider">
@@ -1275,6 +1300,7 @@ function WaveformEditor({
           <div className="adsr-sliders">
             {renderAmpSlider()}
             {renderMsSlider('attack', 'Attack')}
+            {renderMsSlider('hold', 'Hold')}
             {renderMsSlider('decay', 'Decay')}
             {renderSustainSlider()}
             {renderMsSlider('release', 'Release')}

@@ -411,8 +411,8 @@
 .adsr-sliders {
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  width: 150px;
+  gap: 6px;
+  width: 160px;
   flex-shrink: 0;
 }
 
