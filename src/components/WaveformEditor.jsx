@@ -44,12 +44,23 @@ function formatFreq(hz) {
 
 const ADSR_W = 400
 const ADSR_H = 120
-const ADSR_MAX_MS = 500
+// F.3.11 : range A/D/R étendu à 1000 ms. À max-range, ADSR_SEGMENT_PX
+// reste à 80 — un segment "long" (1000 ms) occupe les 80 px alloués, donc
+// les valeurs courantes (50-300 ms) tiennent dans une fraction. C'est
+// voulu : on réserve l'espace graphique pour les enveloppes lentes.
+const ADSR_MAX_MS = 1000
 const ADSR_SEGMENT_PX = 80
 const ADSR_SUSTAIN_PX = ADSR_W * 0.4
 const ADSR_PEAK_Y = ADSR_H * 0.05
 const ADSR_HIT_RADIUS = 10
 const ADSR_HANDLE_RADIUS = 4
+
+// Mappe un niveau d'amplitude [0, 1] vers une coordonnée Y du canvas ADSR.
+// level=1 → ADSR_PEAK_Y (haut), level=0 → ADSR_H (baseline). Encapsule
+// l'inversion de Y (le canvas a Y croissant vers le bas).
+function adsrLevelToY(level) {
+  return ADSR_PEAK_Y + (1 - level) * (ADSR_H - ADSR_PEAK_Y)
+}
 
 function stripSuffix(name) {
   let s = name
@@ -687,11 +698,15 @@ function WaveformEditor({
   const attackPx = (attack / ADSR_MAX_MS) * ADSR_SEGMENT_PX
   const decayPx = (decay / ADSR_MAX_MS) * ADSR_SEGMENT_PX
   const releasePx = (release / ADSR_MAX_MS) * ADSR_SEGMENT_PX
-  const sustainY = (1 - sustain) * ADSR_H
 
-  const p1 = { x: attackPx, y: ADSR_PEAK_Y }
-  const p2 = { x: attackPx + decayPx, y: sustainY }
-  const p3 = { x: attackPx + decayPx + ADSR_SUSTAIN_PX, y: sustainY }
+  // F.3.11.1 : graph fidèle au signal joué. P1.y reflète amplitude (peak),
+  // P2/P3.y reflètent amp × sustain (le sustain est un ratio du peak, pas
+  // un absolu). Avec amp=0.5 et sustain=1, P2 atteint exactement P1 → le
+  // drop decay disparaît visuellement, comme dans le signal audio.
+  const sustainLevel = amplitude * sustain
+  const p1 = { x: attackPx, y: adsrLevelToY(amplitude) }
+  const p2 = { x: attackPx + decayPx, y: adsrLevelToY(sustainLevel) }
+  const p3 = { x: attackPx + decayPx + ADSR_SUSTAIN_PX, y: adsrLevelToY(sustainLevel) }
   const p4 = { x: attackPx + decayPx + ADSR_SUSTAIN_PX + releasePx, y: ADSR_H }
 
   const drawAdsr = useCallback(() => {
@@ -781,19 +796,40 @@ function WaveformEditor({
 
   const pxToMs = (px) => Math.round((px / ADSR_SEGMENT_PX) * ADSR_MAX_MS)
 
+  // Convertit une coordonnée Y du canvas vers un niveau d'amplitude [0, 1].
+  // Inverse de adsrLevelToY ; clampé pour rester dans le domaine valide.
+  const yToLevel = (y) => {
+    const span = ADSR_H - ADSR_PEAK_Y
+    if (span <= 0) return 0
+    return Math.max(0, Math.min(1, 1 - (y - ADSR_PEAK_Y) / span))
+  }
+
   const applyHandleDrag = (handleIdx, pos) => {
+    if (handleIdx === 1) {
+      // P1 : 2D. X édite attack, Y édite amplitude. Deux drafts séparés
+      // (draftAdsr + draftAmp) — commités ensemble au mouseup.
+      const newAttackPx = Math.max(0, Math.min(ADSR_SEGMENT_PX, pos.x))
+      setDraftAdsr((prev) => ({ ...(prev ?? {}), attack: pxToMs(newAttackPx) }))
+      const newAmp = Math.round(yToLevel(pos.y) * 100) / 100
+      setDraftAmp(newAmp)
+      return
+    }
     setDraftAdsr((prev) => {
       const next = { ...(prev ?? {}) }
-      if (handleIdx === 1) {
-        const newAttackPx = Math.max(0, Math.min(ADSR_SEGMENT_PX, pos.x))
-        next.attack = pxToMs(newAttackPx)
-      } else if (handleIdx === 2) {
+      if (handleIdx === 2) {
         const baseAtk = next.attack ?? attack
         const baseAtkPx = (baseAtk / ADSR_MAX_MS) * ADSR_SEGMENT_PX
         const newDecayPx = Math.max(0, Math.min(ADSR_SEGMENT_PX, pos.x - baseAtkPx))
         next.decay = pxToMs(newDecayPx)
-        const newSustain = Math.max(0, Math.min(1, 1 - pos.y / ADSR_H))
-        next.sustain = Math.round(newSustain * 100) / 100
+        // Y édite sustain via inverse : sustain = level / amp. amp courant
+        // = draftAmp si dragué récemment, sinon valeur committée. amp=0
+        // rend le ratio indéterminé (graph plat sur la baseline) → no-op.
+        const baseAmp = draftAmp ?? amplitude
+        if (baseAmp > 0) {
+          const targetLevel = yToLevel(pos.y)
+          const newSustain = Math.max(0, Math.min(1, targetLevel / baseAmp))
+          next.sustain = Math.round(newSustain * 100) / 100
+        }
       } else if (handleIdx === 4) {
         const baseAtk = next.attack ?? attack
         const baseDec = next.decay ?? decay
@@ -849,6 +885,10 @@ function WaveformEditor({
     if (draggingHandle !== null) {
       setDraggingHandle(null)
       commitDraftAdsr()
+      // P1 drag écrit aussi dans draftAmp (Y = amplitude). On commit
+      // toujours les deux pour que l'undo cumule en une seule entrée
+      // perçue (deux dispatch successifs, mais geste utilisateur unique).
+      commitDraftAmp()
     }
   }
 
@@ -1017,20 +1057,6 @@ function WaveformEditor({
           )}
         </div>
 
-        <div className="control-group">
-          <label>
-            Amplitude: <strong>{Math.round(amplitude * 100)}%</strong>
-          </label>
-          <input
-            type="range"
-            min="0"
-            max="1"
-            step="0.01"
-            value={amplitude}
-            onChange={(e) => setDraftAmp(Number(e.target.value))}
-            {...sliderCommitter(commitDraftAmp)}
-          />
-        </div>
       </div>
 
       <div className="we-params-spacer" />
@@ -1077,26 +1103,50 @@ function WaveformEditor({
       </div>
     )
 
+    // L'amplitude vit dans son propre draft (draftAmp / commitDraftAmp).
+    // Slider rendu inline ici pour partager le layout colonne avec A/D/S/R
+    // sans le forcer dans le pipeline draftAdsr.
+    const renderAmpSlider = () => (
+      <div className="adsr-slider">
+        <label htmlFor="adsr-amplitude">
+          Amp <strong>{Math.round(amplitude * 100)}%</strong>
+        </label>
+        <input
+          id="adsr-amplitude"
+          type="range"
+          min="0"
+          max="1"
+          step="0.01"
+          value={amplitude}
+          onChange={(e) => setDraftAmp(Number(e.target.value))}
+          {...sliderCommitter(commitDraftAmp)}
+        />
+      </div>
+    )
+
     return (
       <div className="we-adsr-area">
         <header className="we-area-header">
           <h3 className="we-area-title">Enveloppe ADSR</h3>
         </header>
-        <div className="adsr-canvas-container" ref={adsrContainerRef}>
-          <canvas
-            ref={adsrCanvasRef}
-            className="adsr-canvas"
-            onMouseDown={handleAdsrMouseDown}
-            onMouseMove={handleAdsrMouseMove}
-            onMouseUp={endAdsrDrag}
-            onMouseLeave={endAdsrDrag}
-          />
-        </div>
-        <div className="adsr-sliders">
-          {renderSlider('attack', 'Attack', 500, 1, (_, v) => `${v} ms`)}
-          {renderSlider('decay', 'Decay', 500, 1, (_, v) => `${v} ms`)}
-          {renderSlider('sustain', 'Sustain', 1, 0.01, (_, v) => `${Math.round(v * 100)}%`)}
-          {renderSlider('release', 'Release', 500, 1, (_, v) => `${v} ms`)}
+        <div className="adsr-body">
+          <div className="adsr-canvas-container" ref={adsrContainerRef}>
+            <canvas
+              ref={adsrCanvasRef}
+              className="adsr-canvas"
+              onMouseDown={handleAdsrMouseDown}
+              onMouseMove={handleAdsrMouseMove}
+              onMouseUp={endAdsrDrag}
+              onMouseLeave={endAdsrDrag}
+            />
+          </div>
+          <div className="adsr-sliders">
+            {renderAmpSlider()}
+            {renderSlider('attack', 'Attack', ADSR_MAX_MS, 1, (_, v) => `${v} ms`)}
+            {renderSlider('decay', 'Decay', ADSR_MAX_MS, 1, (_, v) => `${v} ms`)}
+            {renderSlider('sustain', 'Sustain', 1, 0.01, (_, v) => `${Math.round(v * 100)}%`)}
+            {renderSlider('release', 'Release', ADSR_MAX_MS, 1, (_, v) => `${v} ms`)}
+          </div>
         </div>
       </div>
     )
