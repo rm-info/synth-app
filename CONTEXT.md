@@ -127,6 +127,7 @@ synth-app/
         ├── BpmInput.jsx                       # input BPM validation différée
         ├── A4Input.jsx                        # input A4 validation différée (F.2.2)
         ├── FreqInput.jsx                      # input fréquence libre (phase 3.7)
+        ├── NumberInput.jsx                    # input numérique générique paramétré par parse/format (F.3.11.2)
         ├── Toast.jsx + .css                   # toast d'erreur (undo cross-onglet)
         ├── Toolbar.jsx + .css                 # toolbar (Composer)
         ├── Timeline.jsx + .css                # grille + clips + curseur (Composer)
@@ -264,9 +265,15 @@ Seuls les **placements timeline** s'appellent "clips".
   - 12-TET : clavier piano 12 notes + 11 boutons d'octave, affichage
     "Note : X Hz — A4".
   - Libre : slider log 2^4-2^15 Hz + FreqInput éditable.
-- Éditeur ADSR **visuel** 400×120 : 4 poignées draggables (P1 attack, P2 decay+sustain,
-  P3 fin sustain non-draggable, P4 release), courbe cyan + remplissage, sliders read-only
-  en dessous
+- Éditeur ADSR **visuel** 400×120 : 4 poignées draggables (P1 attack+amplitude
+  en 2D, P2 decay+sustain, P3 fin sustain non-draggable, P4 release), courbe
+  cyan + remplissage, sliders éditables en colonne à droite (depuis F.3.11.1).
+  Le graph est fidèle : `p1.y = adsrLevelToY(amplitude)` (peak), `p2.y = p3.y =
+  adsrLevelToY(amp×sustain)` (sustain absolu = ratio du peak). À amp=0.5 et
+  sustain=1, P2 atteint visuellement P1 — comme dans le signal joué.
+  Constantes : `ADSR_MAX_MS = 1000` ms, `ADSR_SEGMENT_PX = 80`. Les 5 valeurs
+  (Amp, A, D, S, R) sont éditables au clavier via `NumberInput` (clic, parse
+  permissif, Enter/blur commit, Esc annule).
 - **Trois boutons Test** (impact •, court ━, tenu ∞) : impact joue A→D→R,
   court ajoute un hold 1s entre decay et release, tenu joue indéfiniment
   jusqu'à clic Stop (■). Auto-fin pour impact/court via `osc.onended`.
@@ -1063,6 +1070,17 @@ Phases listées ci-dessous dans l'ordre chronologique d'implémentation.
 
 ## Historique (chronologie inverse)
 
+000000. **Iter F — Phase 3.11** (2026-04-24) : UI Enveloppe ADSR.
+    Slider Amplitude rapatrié dans la zone Enveloppe (colonne droite
+    à côté du canvas, 5 sliders Amp/A/D/S/R empilés). Graph fidèle
+    au signal joué : `p1.y` reflète `amplitude`, `p2/p3.y` reflètent
+    `amp×sustain` (sustain absolu = ratio du peak). Drag P1 devient
+    2D (X=attack, Y=amp). ADSR_MAX_MS étendu à 1000 ms (plages A/D/R
+    plus longues). Les 5 valeurs sont éditables au clavier via un
+    nouveau composant générique `NumberInput` (parse/format
+    paramétrables) — clic, parse permissif sur "%"/"ms"/virgule,
+    Enter/blur commit, Esc annule. Allège la zone Paramètres pour
+    le clavier grid-24 24-TET.
 00000. **Iter F — Phase 3** (2026-04-23) : multi-tempérament 24 notes.
     Registre enrichi (`layout` + `keyboardMap`), `keyboardMap.js`
     supprimé. Deux nouvelles entrées 24-TET (égal + Le Caire 1932,
@@ -1515,6 +1533,37 @@ Phases listées ci-dessous dans l'ordre chronologique d'implémentation.
     règle dédiée `.is-active.is-playing` qui pose `inset cyan` +
     `glow jaune` simultanément. Triple indication possible sans
     écraser la couleur. Piano-12 inchangé.
+  - **3.11** (2026-04-24) UI Enveloppe — Amplitude rapatriée dans
+    l'ADSR + valeurs éditables + range étendu. 2 sous-commits :
+    - **3.11.1** Layout colonne sliders à droite du canvas ADSR
+      (.adsr-body flex row : canvas flex 1 + .adsr-sliders fixed
+      150px). Slider Amp déplacé depuis Paramètres → tête de
+      colonne, suivi de A/D/S/R. Allège la zone Paramètres pour
+      le clavier grid-24. Graph fidèle au signal joué :
+      `adsrLevelToY(level) = ADSR_PEAK_Y + (1-level)·(ADSR_H-
+      ADSR_PEAK_Y)`, `p1.y = adsrLevelToY(amp)`,
+      `p2.y = p3.y = adsrLevelToY(amp×sustain)`. À amp=0.5
+      sustain=1, P2 atteint visuellement P1 (drop decay disparaît,
+      comme dans l'audio). Drag P1 devient 2D : X édite attack
+      (draftAdsr), Y édite amp (draftAmp). Drag P2 Y inverse :
+      `sustain = level/amp` clampé ; amp=0 → no-op. ADSR_MAX_MS
+      passe de 500 à 1000 — sliders A/D/R max=1000, ADSR_SEGMENT_PX
+      reste 80 (les valeurs longues remplissent les 80 px alloués).
+      Pas de migration patch (les valeurs existantes restent
+      audibles à l'identique).
+    - **3.11.2** Valeurs ADSR éditables au clavier. Nouveau
+      composant générique `NumberInput` (paramétré par parse/format)
+      remplace les `<strong>` par des inputs cliquables. Pattern
+      FreqInput généralisé : pas de validation pendant la frappe,
+      parse + clamp + format au blur/Enter, Esc restaure
+      preFocusValueRef. Helpers : `parsePercent` / `formatPercent`
+      ("75" ↔ 0.75 ↔ "75%") et `parseMs` / `formatMs` ("240" ↔
+      240 ↔ "240 ms"), permissifs sur "%", "ms" suffix et virgule
+      décimale. `commitInputAdsr(key, v)` retire la clé du draftAdsr
+      avant le dispatch (sinon le slider afficherait la valeur draft
+      pré-input après commit). Slider et input partagent le draft —
+      le dernier qui commit gagne, pas de verrou. Focus guard
+      existant (`isFormField`) couvre déjà les nouveaux inputs.
 
 ### Backlog général (à caser quand pertinent)
 
@@ -1529,6 +1578,8 @@ Phases listées ci-dessous dans l'ordre chronologique d'implémentation.
 - Optimisation stockage localStorage (résolution points, quantification,
   ou IndexedDB)
 - Fréquence libre : flèches haut/bas dans FreqInput pour incréments fins
+- Flèches haut/bas dans NumberInput (sliders ADSR : Amp, A, D, S, R) pour
+  incréments fins, sur le modèle de A4Input/BpmInput
 - Anti-aliasing / qualité de synthèse audio (harmoniques parasites
   découvertes via spectrogramme sur les basses fréquences, voir
   image triangle C1)
