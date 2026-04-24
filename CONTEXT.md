@@ -274,19 +274,18 @@ Seuls les **placements timeline** s'appellent "clips".
   fidèle : `p1.y = adsrLevelToY(amplitude)` (peak), `p2.y =
   adsrLevelToY(amp×sustain)` (sustain absolu = ratio du peak). À
   amp=0.5 et sustain=1, P2 atteint visuellement P1/P1h. P1h est
-  décalé verticalement de 8 px au-dessus de la peak line
-  (`ADSR_P1H_Y_OFFSET`, F.3.13.3) → à hold=0, P1 et P1h sont
-  visuellement séparés et tous deux grabables sans passer par le
-  slider. La ligne du plateau peak reste tracée à peakY ; seul le
-  handle est décalé. Plateau sustain restauré en tirets symboliques
+  rendu et testé en priorité sur P1 (z-order — P1h dessiné après,
+  hit-testé avant) à hold=0 : grab attrape P1h, drag horizontal tire
+  le hold à partir de 0. Pour accéder à P1 dans cette configuration,
+  passer par les sliders Attack/Amp ou augmenter d'abord le hold via
+  le slider dédié. Plateau sustain restauré en tirets symboliques
   entre P2 et P3 (P3 géométrique non-draggable, fin du plateau) — ne
   représente pas une durée audio, c'est un repère visuel de la phase.
   Constantes : `ADSR_W = 4 × ADSR_SEGMENT_PX + ADSR_SUSTAIN_PX = 380`,
   `ADSR_MAX_MS = 1000` ms, `ADSR_SEGMENT_PX = 80`,
-  `ADSR_SUSTAIN_PX = 60`, `ADSR_HANDLE_RADIUS = 5`,
-  `ADSR_P1H_Y_OFFSET = 8`. Les 6 valeurs sont éditables au clavier
-  via `NumberInput` (clic, parse permissif, Enter/blur commit, Esc
-  annule).
+  `ADSR_SUSTAIN_PX = 60`, `ADSR_HANDLE_RADIUS = 5`. Les 6 valeurs
+  sont éditables au clavier via `NumberInput` (clic, parse permissif,
+  Enter/blur commit, Esc annule).
   Polish handles (F.3.13.2-3) : cercles isotropes (dessinés en coords
   physiques après reset transform, pas d'ellipses), curseur dynamique
   (default → grab au survol d'un handle → grabbing pendant drag),
@@ -1095,12 +1094,18 @@ Phases listées ci-dessous dans l'ordre chronologique d'implémentation.
 
 ## Historique (chronologie inverse)
 
+0000000000. **Iter F — Phase 3.13.4** (2026-04-24) : correction
+    z-order P1h. Rollback de l'offset vertical de 3.13.3 (mauvaise
+    interprétation de "P1h au-dessus de P1" — voulait dire z-order,
+    pas Y). `p1h.y` revient à `peakY`. À hold=0, P1h prend la priorité
+    via z-order (dessin) + ordre de hit-test (P1h avant P1). Grab
+    attrape P1h, drag horizontal tire le hold. Pour P1 dans cette
+    configuration : sliders ou augmenter d'abord le hold.
 000000000. **Iter F — Phase 3.13.3** (2026-04-24) : affinages
     visuels ADSR. Rayon handles 4 → 5 px. Plateau sustain restauré
     en tirets symboliques (`ADSR_SUSTAIN_PX = 60`, `ADSR_W = 380`,
-    P3 géométrique non-draggable). P1h décalé verticalement de
-    8 px au-dessus de la peak line → à hold=0, P1 et P1h
-    visuellement séparés et tous deux grabables.
+    P3 géométrique non-draggable). Tentative de décalage vertical
+    de P1h corrigée en 3.13.4.
 00000000. **Iter F — Phase 3.13** (2026-04-24) : UX handles ADSR.
     P1h passe à 1D (X=hold seul, plus d'édition d'amplitude — la
     double édition P1/P1h post-3.12.2 était confuse). P3 et le
@@ -1690,13 +1695,21 @@ Phases listées ci-dessous dans l'ordre chronologique d'implémentation.
       entre P2 et P3 — `ADSR_SUSTAIN_PX = 60`, `ADSR_W = 380`.
       P3 géométrique non-draggable (fin du plateau), pas de
       handle visible, drag P4 base réintègre `ADSR_SUSTAIN_PX`.
-      P1h décalé verticalement de 8 px au-dessus de la peak line
-      (`ADSR_P1H_Y_OFFSET = 8`) → à hold=0, P1 et P1h sont
-      séparés visuellement, tous deux grabables sans passer par
-      le slider Hold. La ligne du plateau peak reste tracée à
-      peakY (pas à p1h.y) — l'offset n'affecte que le rendu et
-      le hit-test du handle, pas la silhouette de l'enveloppe.
-      P1h reste 1D (drag X seul, Y ignoré).
+      Tentative de décalage vertical de P1h (8 px au-dessus de la
+      peak line) — corrigée en 3.13.4.
+    - **3.13.4** Correction P1h via z-order, pas Y-offset. Mauvaise
+      interprétation de "P1h au-dessus de P1" en 3.13.3 : voulait
+      dire en z-order, pas en Y. Rollback de
+      `ADSR_P1H_Y_OFFSET` ; `p1h.y = peakY`. Ordre de hit-test
+      inversé (P1h avant P1) dans `handleAdsrMouseDown` et
+      `findHoveredHandle` → tie-break à hold=0 favorise P1h. Ordre
+      de dessin déjà correct (P1 dessiné avant P1h, donc P1h sur
+      le dessus). Conséquence : à hold=0, un seul cercle visible
+      (P1h sur P1), grab attrape P1h, drag horizontal tire le hold.
+      Pour P1 dans cette configuration : sliders Attack/Amp ou
+      augmenter d'abord le hold. Silhouette de l'enveloppe à
+      nouveau strictement fidèle (plus de dérogation visuelle de
+      la peak line).
 
 ### Backlog général (à caser quand pertinent)
 
