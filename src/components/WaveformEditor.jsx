@@ -65,6 +65,38 @@ function adsrLevelToY(level) {
   return ADSR_PEAK_Y + (1 - level) * (ADSR_H - ADSR_PEAK_Y)
 }
 
+// Libellés des handles ADSR (F.3.13.2). Indexation alignée sur le hit-test :
+// 1=P1 (attack+amp), 5=P1h (hold), 2=P2 (decay+sustain), 4=P4 (release).
+const ADSR_HANDLE_LABELS = {
+  1: 'Attack + Amplitude',
+  5: 'Hold',
+  2: 'Decay + Sustain',
+  4: 'Release',
+}
+
+const ADSR_TOOLTIP_OFFSET = 12
+
+// Tooltip flottant au survol d'un handle ADSR. Coords px calculées à
+// event-time par le parent (sinon ESLint react-hooks/refs interdit l'accès
+// au ref pendant le render). Bascule sous le handle si proche du bord haut
+// (sinon le tooltip serait clippé par overflow:hidden du container).
+function AdsrTooltip({ handleIdx, px, py }) {
+  if (handleIdx == null) return null
+  const flip = py < 28
+  return (
+    <div
+      className={`adsr-tooltip${flip ? ' adsr-tooltip-flipped' : ''}`}
+      style={{
+        left: `${px}px`,
+        top: flip ? `${py + ADSR_TOOLTIP_OFFSET}px` : `${py - ADSR_TOOLTIP_OFFSET}px`,
+      }}
+      role="tooltip"
+    >
+      {ADSR_HANDLE_LABELS[handleIdx]}
+    </div>
+  )
+}
+
 // Parsers/formatters pour NumberInput dans la zone ADSR (F.3.11.2).
 // % stocké en [0, 1] : "75" → 0.75, format → "75%". Permissif sur "%" et
 // la virgule décimale. Arrondi à 2 décimales pour rester dans le pas du
@@ -248,6 +280,11 @@ function WaveformEditor({
 
   const [isDrawing, setIsDrawing] = useState(false)
   const [draggingHandle, setDraggingHandle] = useState(null)
+  // F.3.13.2 : handle survolé + position px du centre (pour le tooltip).
+  // Calcul à event-time (la lecture du ref pendant le render serait refusée
+  // par ESLint react-hooks/refs). Re-render au plus 4 fois par geste de la
+  // souris — négligeable.
+  const [hover, setHover] = useState(null) // { idx, px, py } | null
   const [saveMessage, setSaveMessage] = useState('')
   const saveMsgTimerRef = useRef(null)
 
@@ -795,10 +832,16 @@ function WaveformEditor({
     ctx.lineTo(p4.x, p4.y)
     ctx.stroke()
 
+    // F.3.13.2 : handles dessinés en coords PHYSIQUES (px DOM) après reset
+    // du transform, sinon le scale anisotrope (W/ADSR_W ≠ H/ADSR_H) les
+    // déforme en ellipses. Cercles isotropes peu importe le ratio canvas.
+    ctx.setTransform(1, 0, 0, 1, 0, 0)
+    const sx = W / ADSR_W
+    const sy = H / ADSR_H
     const handles = [p1, p1h, p2, p4]
     for (const handle of handles) {
       ctx.beginPath()
-      ctx.arc(handle.x, handle.y, ADSR_HANDLE_RADIUS, 0, 2 * Math.PI)
+      ctx.arc(handle.x * sx, handle.y * sy, ADSR_HANDLE_RADIUS, 0, 2 * Math.PI)
       ctx.fillStyle = '#ffffff'
       ctx.fill()
       ctx.strokeStyle = '#00d4ff'
@@ -933,9 +976,61 @@ function WaveformEditor({
     }
   }
 
+  // Détecte le handle survolé via hit-test géométrique. Retourne l'idx du
+  // handle (1, 5, 2, 4) ou null. Même logique que handleAdsrMouseDown mais
+  // sans déclencher de drag.
+  const findHoveredHandle = (pos) => {
+    const candidates = [
+      { idx: 1, point: p1 },
+      { idx: 5, point: p1h },
+      { idx: 2, point: p2 },
+      { idx: 4, point: p4 },
+    ]
+    let picked = null
+    let minDist = ADSR_HIT_RADIUS
+    for (const c of candidates) {
+      const dx = pos.x - c.point.x
+      const dy = pos.y - c.point.y
+      const dist = Math.sqrt(dx * dx + dy * dy)
+      if (dist < minDist) {
+        minDist = dist
+        picked = c.idx
+      }
+    }
+    return picked
+  }
+
   const handleAdsrMouseMove = (e) => {
-    if (!draggingHandle) return
-    applyHandleDrag(draggingHandle, getAdsrPos(e))
+    const pos = getAdsrPos(e)
+    if (draggingHandle) {
+      applyHandleDrag(draggingHandle, pos)
+      return
+    }
+    const idx = findHoveredHandle(pos)
+    if (idx === null) {
+      if (hover !== null) setHover(null)
+      return
+    }
+    // Coords px DOM du centre du handle, pour positionner le tooltip dans
+    // le repère du container (CSS left/top relatifs au position:relative
+    // ancestor). Calcul fait ici (event-time) parce que le rect du canvas
+    // n'est lisible que via getBoundingClientRect, pas accessible pendant
+    // le render (ESLint react-hooks/refs).
+    const canvas = adsrCanvasRef.current
+    if (!canvas) return
+    const rect = canvas.getBoundingClientRect()
+    const points = { 1: p1, 5: p1h, 2: p2, 4: p4 }
+    const point = points[idx]
+    const px = point.x * (rect.width / ADSR_W)
+    const py = point.y * (rect.height / ADSR_H)
+    if (!hover || hover.idx !== idx || hover.px !== px || hover.py !== py) {
+      setHover({ idx, px, py })
+    }
+  }
+
+  const handleAdsrMouseLeave = () => {
+    setHover(null)
+    endAdsrDrag()
   }
 
   // Filtre no-op partagé : ne garde que les clés du patch dont la valeur
@@ -1295,10 +1390,18 @@ function WaveformEditor({
             <canvas
               ref={adsrCanvasRef}
               className="adsr-canvas"
+              style={{
+                cursor: draggingHandle ? 'grabbing' : (hover ? 'grab' : 'default'),
+              }}
               onMouseDown={handleAdsrMouseDown}
               onMouseMove={handleAdsrMouseMove}
               onMouseUp={endAdsrDrag}
-              onMouseLeave={endAdsrDrag}
+              onMouseLeave={handleAdsrMouseLeave}
+            />
+            <AdsrTooltip
+              handleIdx={draggingHandle ? null : hover?.idx}
+              px={hover?.px}
+              py={hover?.py}
             />
           </div>
           <div className="adsr-sliders">

@@ -401,11 +401,38 @@
   height: 100%;
   border-radius: 6px;
   border: 1px solid #4a4a6a;
-  cursor: crosshair;
+  /* Curseur géré inline en JS (default → grab → grabbing selon hover/drag,
+   * F.3.13.2). Le crosshair par défaut donnait l'impression qu'on dessinait
+   * sur tout le canvas, alors que seuls les handles sont interactifs. */
+  cursor: default;
   user-select: none;
   touch-action: none;
   background: #1a1a2e;
   box-sizing: border-box;
+}
+
+/* Tooltip handle ADSR (F.3.13.2). Positionné absolument dans
+ * .adsr-canvas-container (position:relative). Centré horizontalement sur
+ * le handle (translateX -50%), au-dessus par défaut (translateY -100%) ou
+ * en dessous via .adsr-tooltip-flipped. */
+.adsr-tooltip {
+  position: absolute;
+  pointer-events: none;
+  background: #2a2a4a;
+  color: #d0d0e0;
+  border: 1px solid #4a4a6a;
+  border-radius: 4px;
+  padding: 3px 8px;
+  font-size: 0.7rem;
+  font-family: monospace;
+  white-space: nowrap;
+  transform: translate(-50%, -100%);
+  z-index: 2;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
+}
+
+.adsr-tooltip-flipped {
+  transform: translate(-50%, 0);
 }
 
 .adsr-sliders {
