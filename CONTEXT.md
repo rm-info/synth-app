@@ -1098,24 +1098,50 @@ Phases listées ci-dessous dans l'ordre chronologique d'implémentation.
     `COMPOSER_FIELDS`. `A4Input` candidat à extraction en
     `ValidatedIntegerInput` partagé si un 3e input similaire
     apparaît (pas extrait par choix de scope en F.2).
+- ✅ **Phase 3** (2026-04-23 → 2026-04-24) — Multi-tempérament 24
+  notes + refonte UI ADSR. ~13 sous-commits (détail dans Historique
+  et Roadmap). Registre enrichi : chaque entrée porte ses champs
+  `layout` et `keyboardMap` — `src/lib/keyboardMap.js` supprimé,
+  les consommateurs lisent `getTuningSystem(id).keyboardMap`. Deux
+  nouveaux tempéraments **24-TET égal** et **24-TET Le Caire 1932**
+  (table en dur, source aly-abbara.com, ancrée 'Oshairan = A4 = 440).
+  `PianoKeyboard` devient un dispatcher (`LAYOUT_COMPONENTS` :
+  `piano-12` → `PianoLayout12`, `grid-24` → `Grid24Layout`). Nouveau
+  `Grid24Layout` en CSS Grid 4×30 sub-cols (escalier 1/4 d'unité par
+  rangée), palette HSL par degré — 7 hues naturelles, lightness
+  différencié par kind ♮/♯/↑/↓ ; `is-active` et `is-playing` en
+  outlines pour préserver la couleur de position. Mapping QWERTY 24
+  positions géométriquement alignées (SDFGHJK naturelles, ERTYUIO
+  demi-dièses, 24680 dièses pleins, XCBNM demi-bémols). Refonte
+  raccourcis durées : NumPad sans Shift + Shift+Digit (Digit nus
+  libérés pour les notes 24-TET). Snap inter-systèmes généralisé :
+  `frequencyToNearestNote` (12-TET only) → `frequencyToNearestIn(hz,
+  sysId, a4Ref)` qui itère sur la grille du système cible × 11
+  octaves et minimise |cents|. Sélecteur de tempérament ajouté dans
+  la toolbar Composer (à côté de A4). **ADSR → AHDSR** : nouveau
+  champ `hold` (0-1000 ms, défaut 0) — plateau au peak entre attack
+  et decay, pédagogiquement précieux pour distinguer hold forcé vs
+  sustain tant que la touche est tenue. UI Enveloppe refondue :
+  Amplitude rapatriée dans la zone ADSR (6 sliders Amp/A/H/D/S/R
+  empilés), valeurs éditables au clavier via composant générique
+  `NumberInput`, tooltips au survol (`AdsrTooltip`), handles
+  isotropes, curseur dynamique, P3 retiré (sustain = niveau
+  sémantique, pas plateau temporel). Action combinée
+  `SET_EDITOR_ADSR_AND_AMP` pour unifier le drag P1 diagonal en un
+  seul snapshot undo. P1h géré en z-order (au-dessus de P1 en ordre
+  de dessin + hit-test), pas en Y-offset : silhouette fidèle.
 - ✅ **Phase 4.1** (2026-04-25) — Juste intonation majeure centrée
-  sur C. Ajout d'une entrée `'just-major-c'` au registre. Table
-  d'Ellis 5-limit en dur (`JUST_MAJOR_RATIOS_FROM_C`) : 1, 16/15,
-  9/8, 6/5, 5/4, 4/3, 45/32, 3/2, 8/5, 5/3, 9/5, 15/8. Ancrage
-  `C4 = a4Ref × 3/5` (conséquence de A/C = 5/3 dans la table et de
-  l'invariant A4 = a4Ref posé en F.2). Accidentels = enharmoniques
-  bémols fonctionnels (D♯=6/5=E♭ mineur, G♯=8/5=A♭ mineur, A♯=9/5=
-  B♭ mineur, C♯=16/15, F♯=45/32) — l'écart vs les dièses non
-  enharmoniques est précisément ce que le tempérament égal efface,
-  point pédagogique assumé. Aucun nouveau layout ni mapping clavier :
-  réutilisation de `piano-12` et `TWELVE_KEY_MAP`. Ordre registre :
-  `12-TET`, `pythagorean-12`, `just-major-c`, `24-tet-equal`,
-  `24-tet-cairo-1932`, `free`. Sélecteurs (Designer toolbar,
-  Composer toolbar, PropertiesPanel mono et multi) et reducer
-  (bascule de système via `UPDATE_CLIPS_PITCH` /
-  `SET_EDITOR_TEST_TUNING_SYSTEM`, snap inter-systèmes via
-  `frequencyToNearestIn` généralisé en F.3.4) consomment la nouvelle
-  entrée sans modification — le pattern d'extension posé en F.3 tient.
+  sur C. Ajout de l'entrée `'just-major-c'` au registre (3e
+  position, entre `pythagorean-12` et `24-tet-equal`). Table d'Ellis
+  5-limit en dur (`JUST_MAJOR_RATIOS_FROM_C`) ; ancrage `C4 = a4Ref
+  × 3/5` pour préserver l'invariant A4 = a4Ref exact (A/C = 5/3 dans
+  la table). Accidentels en enharmoniques bémols fonctionnels
+  (D♯=6/5, G♯=8/5, A♯=9/5, C♯=16/15, F♯=45/32) — écart vs dièses
+  non enharmoniques que le tempérament égal efface, point
+  pédagogique assumé. Aucun nouveau layout ni mapping : réutilise
+  `piano-12` et `TWELVE_KEY_MAP`. Sélecteurs et reducer consomment
+  la nouvelle entrée sans modification — le pattern d'extension
+  posé en F.3 tient.
 
 ## Historique (chronologie inverse)
 
