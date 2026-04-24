@@ -900,26 +900,47 @@ function WaveformEditor({
     applyHandleDrag(draggingHandle, getAdsrPos(e))
   }
 
+  // Filtre no-op partagé : ne garde que les clés du patch dont la valeur
+  // diffère réellement de l'éditeur courant. Évite de produire un snapshot
+  // undo "vide" si l'utilisateur termine un drag sans bouger d'axe.
+  const filterAdsrPatch = (draft) => {
+    if (!draft) return {}
+    const patch = {}
+    for (const k of Object.keys(draft)) {
+      if (draft[k] !== editor[k]) patch[k] = draft[k]
+    }
+    return patch
+  }
+
   const commitDraftAdsr = () => {
     if (draftAdsr && Object.keys(draftAdsr).length > 0) {
-      const patch = {}
-      for (const k of Object.keys(draftAdsr)) {
-        if (draftAdsr[k] !== editor[k]) patch[k] = draftAdsr[k]
-      }
+      const patch = filterAdsrPatch(draftAdsr)
       if (Object.keys(patch).length > 0) editorActions.setAdsr(patch)
       setDraftAdsr(null)
     }
   }
 
+  // F.3.11.3 : drag P1 diagonal écrit dans draftAdsr (attack) ET draftAmp.
+  // Si on commit séparément (deux dispatch), withUndo crée deux snapshots
+  // → 2 Ctrl+Z pour annuler un geste utilisateur unique. On bifurque vers
+  // l'action combinée SET_EDITOR_ADSR_AND_AMP quand les deux drafts ont
+  // bougé. Pour les drags P2/P4 (ADSR seul) ou les sliders Amp (amp seul),
+  // on garde les chemins existants.
   const endAdsrDrag = () => {
-    if (draggingHandle !== null) {
-      setDraggingHandle(null)
-      commitDraftAdsr()
-      // P1 drag écrit aussi dans draftAmp (Y = amplitude). On commit
-      // toujours les deux pour que l'undo cumule en une seule entrée
-      // perçue (deux dispatch successifs, mais geste utilisateur unique).
-      commitDraftAmp()
+    if (draggingHandle === null) return
+    setDraggingHandle(null)
+    const adsrPatch = filterAdsrPatch(draftAdsr)
+    const ampChanged = draftAmp != null && draftAmp !== editor.amplitude
+    const adsrChanged = Object.keys(adsrPatch).length > 0
+    if (adsrChanged && ampChanged) {
+      editorActions.setAdsrAndAmp({ adsr: adsrPatch, amplitude: draftAmp })
+    } else if (adsrChanged) {
+      editorActions.setAdsr(adsrPatch)
+    } else if (ampChanged) {
+      editorActions.setAmplitude(draftAmp)
     }
+    setDraftAdsr(null)
+    setDraftAmp(null)
   }
 
   const sliderCommitter = (commit) => ({

@@ -1066,6 +1066,17 @@ export function reducer(state, action) {
     case 'SET_EDITOR_ADSR': {
       return { ...state, editor: { ...state.editor, ...action.payload } }
     }
+    // F.3.11.3 : applique un patch ADSR ET une nouvelle amplitude en une
+    // seule action pour que le drag P1 diagonal (X=attack, Y=amp) produise
+    // un seul snapshot undo. payload : { adsr: {...}, amplitude: number }
+    // (les deux optionnels). Sans ça, deux dispatch successifs créaient
+    // deux entrées dans l'historique → 2 Ctrl+Z pour annuler un geste.
+    case 'SET_EDITOR_ADSR_AND_AMP': {
+      const { adsr, amplitude } = action.payload
+      const next = { ...state.editor, ...(adsr ?? {}) }
+      if (amplitude !== undefined) next.amplitude = amplitude
+      return { ...state, editor: next }
+    }
     case 'APPLY_EDITOR_PRESET': {
       const { preset, points } = action.payload
       return { ...state, editor: { ...state.editor, points, preset } }
@@ -1194,7 +1205,7 @@ const DESIGNER_UNDOABLE = new Set([
   'MOVE_PATCH_TO_FOLDER', 'MOVE_FOLDER',
   'SET_EDITOR_POINTS', 'SET_EDITOR_TEST_NOTE', 'SET_EDITOR_TEST_OCTAVE',
   'SET_EDITOR_TEST_TUNING_SYSTEM', 'SET_EDITOR_TEST_FREQUENCY', 'SET_EDITOR_AMPLITUDE',
-  'SET_EDITOR_ADSR', 'APPLY_EDITOR_PRESET', 'RESET_EDITOR',
+  'SET_EDITOR_ADSR', 'SET_EDITOR_ADSR_AND_AMP', 'APPLY_EDITOR_PRESET', 'RESET_EDITOR',
 ])
 
 const COMPOSER_FIELDS = ['clips', 'numMeasures', 'bpm', 'a4Ref', 'selectedClipIds', 'tracks']
