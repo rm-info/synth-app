@@ -1413,7 +1413,7 @@ function WaveformEditor({
     return (
       <div className="we-adsr-area">
         <header className="we-area-header">
-          <h3 className="we-area-title">Enveloppe ADSR</h3>
+          <h3 className="we-area-title">Enveloppe AHDSR</h3>
         </header>
         <div className="adsr-body">
           <div className="adsr-canvas-container" ref={adsrContainerRef}>
