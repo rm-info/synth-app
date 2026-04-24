@@ -59,11 +59,6 @@ const ADSR_W = 4 * ADSR_SEGMENT_PX + ADSR_SUSTAIN_PX
 const ADSR_PEAK_Y = ADSR_H * 0.05
 const ADSR_HIT_RADIUS = 11
 const ADSR_HANDLE_RADIUS = 5
-// F.3.13.3 : P1h décalé verticalement au-dessus de la peak line pour
-// rester grabable même à hold=0 (sinon il se confond avec P1 et le
-// hit-test favorise P1). Décalage purement visuel — la ligne du plateau
-// reste tracée à peakY, et P1h reste 1D (Y ignoré au drag).
-const ADSR_P1H_Y_OFFSET = 8
 
 // Mappe un niveau d'amplitude [0, 1] vers une coordonnée Y du canvas ADSR.
 // level=1 → ADSR_PEAK_Y (haut), level=0 → ADSR_H (baseline). Encapsule
@@ -790,13 +785,14 @@ function WaveformEditor({
   // absolu). Avec amp=0.5 et sustain=1, P2 atteint exactement P1 → le
   // drop decay disparaît visuellement, comme dans le signal audio.
   // F.3.12.2 : handle P1h = fin du plateau hold.
-  // F.3.13.3 : P1h décalé en Y (handle au-dessus de la peak line). P3
-  // géométrique non-draggable, fin du plateau sustain symbolique en
-  // tirets entre P2 et P3.
+  // F.3.13.4 : à hold=0, P1 et P1h sont coplanaires — la priorité est
+  // gérée par z-order (P1h dessiné après P1) + ordre de hit-test (P1h
+  // testé avant P1). P3 géométrique non-draggable, fin du plateau sustain
+  // symbolique en tirets entre P2 et P3.
   const sustainLevel = amplitude * sustain
   const peakY = adsrLevelToY(amplitude)
   const p1 = { x: attackPx, y: peakY }
-  const p1h = { x: attackPx + holdPx, y: peakY - ADSR_P1H_Y_OFFSET }
+  const p1h = { x: attackPx + holdPx, y: peakY }
   const p2 = { x: attackPx + holdPx + decayPx, y: adsrLevelToY(sustainLevel) }
   const p3 = { x: p2.x + ADSR_SUSTAIN_PX, y: p2.y }
   const p4 = { x: p3.x + releasePx, y: ADSR_H }
@@ -980,14 +976,14 @@ function WaveformEditor({
 
   const handleAdsrMouseDown = (e) => {
     const pos = getAdsrPos(e)
-    // F.3.13.1 : à hold=0, P1 et P1h se superposent ; minDist tie-break
-    // au PREMIER candidat testé. On teste P1 en premier → drag = attack
-    // + amplitude (2D), comportement intuitif. Pour démarrer un hold,
-    // l'utilisateur passe par le slider/NumberInput (assumé : hold=0
-    // ≡ patch sans plateau, l'affordance canvas n'est pas critique).
+    // F.3.13.4 : à hold=0, P1 et P1h se superposent ; minDist tie-break
+    // au PREMIER candidat testé. On teste P1h en premier → drag depuis
+    // l'overlap démarre le hold (l'action principale qu'on voudrait à
+    // hold=0 : "tirer" le hold à partir de zéro). P1 reste accessible
+    // via les sliders Attack/Amp ou en augmentant d'abord le hold.
     const candidates = [
-      { idx: 1, point: p1 },
       { idx: 5, point: p1h },
+      { idx: 1, point: p1 },
       { idx: 2, point: p2 },
       { idx: 4, point: p4 },
     ]
@@ -1012,9 +1008,11 @@ function WaveformEditor({
   // handle (1, 5, 2, 4) ou null. Même logique que handleAdsrMouseDown mais
   // sans déclencher de drag.
   const findHoveredHandle = (pos) => {
+    // F.3.13.4 : P1h en tête → tie-break à hold=0 favorise P1h. Cohérent
+    // avec l'ordre de dessin (P1h dessiné après P1, donc sur le dessus).
     const candidates = [
-      { idx: 1, point: p1 },
       { idx: 5, point: p1h },
+      { idx: 1, point: p1 },
       { idx: 2, point: p2 },
       { idx: 4, point: p4 },
     ]
