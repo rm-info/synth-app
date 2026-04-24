@@ -1564,6 +1564,17 @@ Phases listées ci-dessous dans l'ordre chronologique d'implémentation.
       pré-input après commit). Slider et input partagent le draft —
       le dernier qui commit gagne, pas de verrou. Focus guard
       existant (`isFormField`) couvre déjà les nouveaux inputs.
+    - **3.11.3** Fix undo : drag P1 diagonal unifié en un snapshot
+      via nouvelle action `SET_EDITOR_ADSR_AND_AMP` (payload
+      `{ adsr?, amplitude? }` fusionnés dans un seul update reducer).
+      Avant : endAdsrDrag dispatchait `SET_EDITOR_ADSR` puis
+      `SET_EDITOR_AMPLITUDE` → withUndo créait 2 snapshots → 2
+      Ctrl+Z pour annuler un geste. Filtre no-op factorisé dans
+      `filterAdsrPatch(draft)` — réutilisé par les chemins simple
+      et combiné. Bifurcation dans endAdsrDrag selon les drafts
+      effectivement modifiés (adsr+amp / adsr seul / amp seul /
+      rien). Autres chemins (sliders, NumberInputs, drag P2/P4)
+      inchangés.
 
 ### Backlog général (à caser quand pertinent)
 
