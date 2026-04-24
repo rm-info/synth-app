@@ -42,20 +42,22 @@ function scheduleOneClip(ctx, clip, patch, startTime, trackGainNodes, defaultDes
   const beatOffset = clipBeatOffset(clip)
   const clipStart = startTime + beatToSeconds(beatOffset, bpm)
   const a = Math.max((patch.attack ?? 10) / 1000, MIN_ATTACK)
+  const h = (patch.hold ?? 0) / 1000
   const d = (patch.decay ?? 100) / 1000
   const r = (patch.release ?? 100) / 1000
   const sus = patch.sustain ?? 0.7
   const amp = patch.amplitude
   const sustainLevel = sus * amp
   const placedDuration = beatToSeconds(clip.duration, bpm)
-  const minDuration = a + d + r
+  const minDuration = a + h + d + r
   const totalDuration = Math.max(placedDuration, minDuration)
   const releaseStart = clipStart + totalDuration - r
 
   osc.frequency.setValueAtTime(clipFrequency(clip, a4Ref), clipStart)
   gain.gain.setValueAtTime(0, clipStart)
   gain.gain.linearRampToValueAtTime(amp, clipStart + a)
-  gain.gain.linearRampToValueAtTime(sustainLevel, clipStart + a + d)
+  gain.gain.linearRampToValueAtTime(amp, clipStart + a + h)
+  gain.gain.linearRampToValueAtTime(sustainLevel, clipStart + a + h + d)
   gain.gain.linearRampToValueAtTime(sustainLevel, releaseStart)
   gain.gain.linearRampToValueAtTime(0, clipStart + totalDuration)
 
@@ -88,20 +90,22 @@ function scheduleAllClips(ctx, clips, patches, startTime, trackGainNodes, defaul
     const beatOffset = clipBeatOffset(clip)
     const clipStart = startTime + beatToSeconds(beatOffset, bpm)
     const a = Math.max((patch.attack ?? 10) / 1000, MIN_ATTACK)
+    const h = (patch.hold ?? 0) / 1000
     const d = (patch.decay ?? 100) / 1000
     const r = (patch.release ?? 100) / 1000
     const sus = patch.sustain ?? 0.7
     const amp = patch.amplitude
     const sustainLevel = sus * amp
     const placedDuration = beatToSeconds(clip.duration, bpm)
-    const minDuration = a + d + r
+    const minDuration = a + h + d + r
     const totalDuration = Math.max(placedDuration, minDuration)
     const releaseStart = clipStart + totalDuration - r
 
     osc.frequency.setValueAtTime(clipFrequency(clip, a4Ref), clipStart)
     gain.gain.setValueAtTime(0, clipStart)
     gain.gain.linearRampToValueAtTime(amp, clipStart + a)
-    gain.gain.linearRampToValueAtTime(sustainLevel, clipStart + a + d)
+    gain.gain.linearRampToValueAtTime(amp, clipStart + a + h)
+    gain.gain.linearRampToValueAtTime(sustainLevel, clipStart + a + h + d)
     gain.gain.linearRampToValueAtTime(sustainLevel, releaseStart)
     gain.gain.linearRampToValueAtTime(0, clipStart + totalDuration)
 
@@ -136,6 +140,10 @@ export function usePlayback({ clips, patches, tracks, bpm, a4Ref, totalDurationS
   const scheduledClipIdsRef = useRef(new Set())
   const activeNodesRef = useRef([]) // [{ osc, gain, clipId, endTime }]
   const prevClipsRef = useRef(null) // for change detection
+  // F.3.12.1 : on tracke aussi les patches pour détecter les changements
+  // d'enveloppe (attack, hold, decay, sustain, release, amplitude) en cours
+  // de lecture — les clips affectés sont re-schedulés à la volée.
+  const prevPatchesRef = useRef(null)
 
   // Refs for fresh state inside scheduler tick
   const clipsRef = useRef(clips)
@@ -173,6 +181,7 @@ export function usePlayback({ clips, patches, tracks, bpm, a4Ref, totalDurationS
     activeNodesRef.current = []
     scheduledClipIdsRef.current.clear()
     prevClipsRef.current = null
+    prevPatchesRef.current = null
   }, [])
 
   const stop = useCallback(() => {
@@ -225,6 +234,7 @@ export function usePlayback({ clips, patches, tracks, bpm, a4Ref, totalDurationS
     scheduledClipIdsRef.current.clear()
     activeNodesRef.current = []
     prevClipsRef.current = clipsRef.current
+    prevPatchesRef.current = patchesRef.current
 
     setIsPlaying(true)
     setCursorPos(0)
@@ -242,16 +252,26 @@ export function usePlayback({ clips, patches, tracks, bpm, a4Ref, totalDurationS
       const currentPatches = patchesRef.current
       const currentBpm = bpmRef.current
 
-      if (currentClips !== prevClipsRef.current) {
+      if (currentClips !== prevClipsRef.current || currentPatches !== prevPatchesRef.current) {
+        // La signature inclut l'enveloppe du patch référencé (F.3.12.1) :
+        // changer hold/attack/decay/sustain/release/amplitude d'un patch
+        // utilisé en cours de lecture re-schedule les clips à venir.
+        const sigOf = (c, patchList) => {
+          const p = patchList?.find(p => p.id === c.patchId)
+          const env = p
+            ? `${p.attack}:${p.hold ?? 0}:${p.decay}:${p.sustain}:${p.release}:${p.amplitude}`
+            : ''
+          return `${c.measure}:${c.beat}:${c.duration}:${c.patchId}:${c.trackId}:${c.tuningSystem}:${c.noteIndex}:${c.octave}:${c.frequency}|${env}`
+        }
         const currentIds = new Set(currentClips.map(c => c.id))
         const currentSigMap = new Map()
         for (const c of currentClips) {
-          currentSigMap.set(c.id, `${c.measure}:${c.beat}:${c.duration}:${c.patchId}:${c.trackId}:${c.tuningSystem}:${c.noteIndex}:${c.octave}:${c.frequency}`)
+          currentSigMap.set(c.id, sigOf(c, currentPatches))
         }
         const prevSigMap = new Map()
         if (prevClipsRef.current) {
           for (const c of prevClipsRef.current) {
-            prevSigMap.set(c.id, `${c.measure}:${c.beat}:${c.duration}:${c.patchId}:${c.trackId}:${c.tuningSystem}:${c.noteIndex}:${c.octave}:${c.frequency}`)
+            prevSigMap.set(c.id, sigOf(c, prevPatchesRef.current))
           }
         }
 
@@ -284,6 +304,7 @@ export function usePlayback({ clips, patches, tracks, bpm, a4Ref, totalDurationS
         }
 
         prevClipsRef.current = currentClips
+        prevPatchesRef.current = currentPatches
       }
 
       for (let i = activeNodesRef.current.length - 1; i >= 0; i--) {

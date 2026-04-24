@@ -31,7 +31,10 @@ export const COMPOSER_MAIN_MIN_WIDTH = 200
 // de restauration. Utilisée comme override de la CSS var depuis App.
 export const COMPOSER_SIDEBAR_COLLAPSED_WIDTH = 32
 
-export const DEFAULT_ADSR = { attack: 10, decay: 100, sustain: 0.7, release: 200 }
+// Enveloppe AHDSR (F.3.12) : `hold` est un plateau au peak inséré entre
+// l'attack et le decay (utile pour percussifs avec punch). Défaut 0 ms = pas
+// de plateau, comportement strictement identique à un ADSR classique.
+export const DEFAULT_ADSR = { attack: 10, hold: 0, decay: 100, sustain: 0.7, release: 200 }
 
 export const TRACK_COLORS = [
   '#5a8a7a', '#7a6a9a', '#9a8a5a', '#5a7a9a',
@@ -902,6 +905,7 @@ export function reducer(state, action) {
             amplitude: patchData.amplitude,
             preset: patchData.preset,
             attack: patchData.attack ?? DEFAULT_ADSR.attack,
+            hold: patchData.hold ?? DEFAULT_ADSR.hold,
             decay: patchData.decay ?? DEFAULT_ADSR.decay,
             sustain: patchData.sustain ?? DEFAULT_ADSR.sustain,
             release: patchData.release ?? DEFAULT_ADSR.release,
@@ -923,6 +927,7 @@ export function reducer(state, action) {
                 amplitude: patchData.amplitude,
                 preset: patchData.preset,
                 attack: patchData.attack,
+                hold: patchData.hold ?? DEFAULT_ADSR.hold,
                 decay: patchData.decay,
                 sustain: patchData.sustain,
                 release: patchData.release,
@@ -1106,6 +1111,7 @@ export function reducer(state, action) {
           amplitude: patch.amplitude,
           preset: patch.preset,
           attack: patch.attack,
+          hold: patch.hold ?? DEFAULT_ADSR.hold,
           decay: patch.decay,
           sustain: patch.sustain,
           release: patch.release,

@@ -136,6 +136,7 @@ function patchFieldsEqual(a, b) {
   if (a.amplitude !== b.amplitude) return false
   if (a.preset !== b.preset) return false
   if (a.attack !== b.attack) return false
+  if (a.hold !== b.hold) return false
   if (a.decay !== b.decay) return false
   if (a.sustain !== b.sustain) return false
   if (a.release !== b.release) return false
@@ -152,6 +153,7 @@ function snapshotPatchFields(editor) {
     amplitude: editor.amplitude,
     preset: editor.preset,
     attack: editor.attack,
+    hold: editor.hold,
     decay: editor.decay,
     sustain: editor.sustain,
     release: editor.release,
@@ -164,6 +166,7 @@ function patchToReference(patch) {
     amplitude: patch.amplitude,
     preset: patch.preset,
     attack: patch.attack,
+    hold: patch.hold ?? 0,
     decay: patch.decay,
     sustain: patch.sustain,
     release: patch.release,
@@ -208,6 +211,7 @@ function WaveformEditor({
   const amplitude = draftAmp ?? editor.amplitude
   const testFrequency = draftFreq ?? editor.testFrequency
   const attack = draftAdsr?.attack ?? editor.attack
+  const hold = draftAdsr?.hold ?? editor.hold ?? 0
   const decay = draftAdsr?.decay ?? editor.decay
   const sustain = draftAdsr?.sustain ?? editor.sustain
   const release = draftAdsr?.release ?? editor.release
@@ -249,7 +253,7 @@ function WaveformEditor({
   // closures périmées dans les listeners window/clavier).
   const instrumentParamsRef = useRef(null)
   instrumentParamsRef.current = {
-    attack, decay, sustain, release, amplitude,
+    attack, hold, decay, sustain, release, amplitude,
     testOctave, testTuningSystem, testFrequency, a4Ref,
   }
 
@@ -268,7 +272,7 @@ function WaveformEditor({
 
   const stateSnapshotRef = useRef(null)
   stateSnapshotRef.current = {
-    points, amplitude, preset: activePreset, attack, decay, sustain, release,
+    points, amplitude, preset: activePreset, attack, hold, decay, sustain, release,
   }
 
   useImperativeHandle(ref, () => ({
@@ -470,13 +474,17 @@ function WaveformEditor({
     osc.frequency.setValueAtTime(freq, now)
 
     const a = Math.max(params.attack / 1000, MIN_ATTACK)
+    const h = (params.hold ?? 0) / 1000
     const d = params.decay / 1000
     const sustainLevel = params.sustain * params.amplitude
 
     gain.gain.setValueAtTime(0, now)
     gain.gain.linearRampToValueAtTime(params.amplitude, now + a)
-    gain.gain.linearRampToValueAtTime(sustainLevel, now + a + d)
-    // Sustain hold indéfini jusqu'au release.
+    // Plateau hold (F.3.12) : la rampe vers le même niveau crée un segment
+    // horizontal sans discontinuité côté Web Audio.
+    gain.gain.linearRampToValueAtTime(params.amplitude, now + a + h)
+    gain.gain.linearRampToValueAtTime(sustainLevel, now + a + h + d)
+    // Sustain indéfini jusqu'au release.
 
     osc.connect(gain)
     gain.connect(ctx.destination)
@@ -678,6 +686,7 @@ function WaveformEditor({
     points: Array.from(points),
     amplitude,
     attack,
+    hold,
     decay,
     sustain,
     release,
