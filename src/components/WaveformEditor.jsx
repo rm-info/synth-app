@@ -43,7 +43,6 @@ function formatFreq(hz) {
   return `${r.toFixed(1)} Hz`
 }
 
-const ADSR_W = 480
 const ADSR_H = 120
 // F.3.11 : range A/D/R étendu à 1000 ms. À max-range, ADSR_SEGMENT_PX
 // reste à 80 — un segment "long" (1000 ms) occupe les 80 px alloués, donc
@@ -51,7 +50,10 @@ const ADSR_H = 120
 // voulu : on réserve l'espace graphique pour les enveloppes lentes.
 const ADSR_MAX_MS = 1000
 const ADSR_SEGMENT_PX = 80
-const ADSR_SUSTAIN_PX = ADSR_W * 0.4
+// F.3.13.1 : 4 segments (attack + hold + decay + release) — plus de plateau
+// sustain visuel (le sustain est un niveau atteint à P2, pas une zone). Au
+// max de tous les sliders, P4 est tangent au bord droit.
+const ADSR_W = 4 * ADSR_SEGMENT_PX
 const ADSR_PEAK_Y = ADSR_H * 0.05
 const ADSR_HIT_RADIUS = 10
 const ADSR_HANDLE_RADIUS = 4
@@ -740,17 +742,18 @@ function WaveformEditor({
   const releasePx = (release / ADSR_MAX_MS) * ADSR_SEGMENT_PX
 
   // F.3.11.1 : graph fidèle au signal joué. P1.y reflète amplitude (peak),
-  // P2/P3.y reflètent amp × sustain (le sustain est un ratio du peak, pas
-  // un absolu). Avec amp=0.5 et sustain=1, P2 atteint exactement P1 → le
+  // P2.y reflète amp × sustain (le sustain est un ratio du peak, pas un
+  // absolu). Avec amp=0.5 et sustain=1, P2 atteint exactement P1 → le
   // drop decay disparaît visuellement, comme dans le signal audio.
-  // F.3.12.2 : nouveau handle P1h = fin du plateau hold. Même Y que P1
-  // (peak line). À hold=0, P1h se confond visuellement avec P1.
+  // F.3.12.2 : handle P1h = fin du plateau hold. Même Y que P1 (peak line).
+  // À hold=0, P1h se confond visuellement avec P1.
+  // F.3.13.1 : sustain est un NIVEAU, pas une zone — la release part
+  // directement de P2 vers P4 (plus d'ancien P3 / plateau sustain visuel).
   const sustainLevel = amplitude * sustain
   const p1 = { x: attackPx, y: adsrLevelToY(amplitude) }
   const p1h = { x: attackPx + holdPx, y: adsrLevelToY(amplitude) }
   const p2 = { x: attackPx + holdPx + decayPx, y: adsrLevelToY(sustainLevel) }
-  const p3 = { x: attackPx + holdPx + decayPx + ADSR_SUSTAIN_PX, y: adsrLevelToY(sustainLevel) }
-  const p4 = { x: attackPx + holdPx + decayPx + ADSR_SUSTAIN_PX + releasePx, y: ADSR_H }
+  const p4 = { x: attackPx + holdPx + decayPx + releasePx, y: ADSR_H }
 
   const drawAdsr = useCallback(() => {
     const canvas = adsrCanvasRef.current
@@ -777,7 +780,6 @@ function WaveformEditor({
     ctx.lineTo(p1.x, p1.y)
     ctx.lineTo(p1h.x, p1h.y)
     ctx.lineTo(p2.x, p2.y)
-    ctx.lineTo(p3.x, p3.y)
     ctx.lineTo(p4.x, p4.y)
     ctx.lineTo(p4.x, ADSR_H)
     ctx.closePath()
@@ -790,11 +792,10 @@ function WaveformEditor({
     ctx.lineTo(p1.x, p1.y)
     ctx.lineTo(p1h.x, p1h.y)
     ctx.lineTo(p2.x, p2.y)
-    ctx.lineTo(p3.x, p3.y)
     ctx.lineTo(p4.x, p4.y)
     ctx.stroke()
 
-    const handles = [p1, p1h, p2, p3, p4]
+    const handles = [p1, p1h, p2, p4]
     for (const handle of handles) {
       ctx.beginPath()
       ctx.arc(handle.x, handle.y, ADSR_HANDLE_RADIUS, 0, 2 * Math.PI)
@@ -804,7 +805,7 @@ function WaveformEditor({
       ctx.lineWidth = 1.5
       ctx.stroke()
     }
-  }, [p1.x, p1.y, p1h.x, p1h.y, p2.x, p2.y, p3.x, p3.y, p4.x, p4.y])
+  }, [p1.x, p1.y, p1h.x, p1h.y, p2.x, p2.y, p4.x, p4.y])
 
   useEffect(() => {
     drawAdsr()
@@ -860,15 +861,15 @@ function WaveformEditor({
       return
     }
     if (handleIdx === 5) {
-      // P1h (F.3.12.2) : 2D. X édite hold (delta après attack), Y édite
-      // amplitude. Même chemin de commit que P1 → SET_EDITOR_ADSR_AND_AMP
-      // si les deux axes ont effectivement bougé (cf. F.3.11.3).
+      // P1h : 1D — X édite hold (delta après attack), Y ignoré.
+      // F.3.13.1 : P1h n'édite plus l'amplitude (la double édition P1/P1h
+      // était confuse). Le slider Hold ou le NumberInput restent
+      // disponibles pour démarrer le hold quand P1h est superposé à P1
+      // (hold=0).
       const baseAtk = (draftAdsr?.attack ?? attack)
       const baseAtkPx = (baseAtk / ADSR_MAX_MS) * ADSR_SEGMENT_PX
       const newHoldPx = Math.max(0, Math.min(ADSR_SEGMENT_PX, pos.x - baseAtkPx))
       setDraftAdsr((prev) => ({ ...(prev ?? {}), hold: pxToMs(newHoldPx) }))
-      const newAmp = Math.round(yToLevel(pos.y) * 100) / 100
-      setDraftAmp(newAmp)
       return
     }
     setDraftAdsr((prev) => {
@@ -889,10 +890,12 @@ function WaveformEditor({
           next.sustain = Math.round(newSustain * 100) / 100
         }
       } else if (handleIdx === 4) {
+        // F.3.13.1 : plus de plateau sustain — la base de P4 ne contient
+        // plus ADSR_SUSTAIN_PX, juste la somme attack + hold + decay.
         const baseAtk = next.attack ?? attack
         const baseHold = next.hold ?? hold
         const baseDec = next.decay ?? decay
-        const base = ((baseAtk + baseHold + baseDec) / ADSR_MAX_MS) * ADSR_SEGMENT_PX + ADSR_SUSTAIN_PX
+        const base = ((baseAtk + baseHold + baseDec) / ADSR_MAX_MS) * ADSR_SEGMENT_PX
         const newReleasePx = Math.max(0, Math.min(ADSR_SEGMENT_PX, pos.x - base))
         next.release = pxToMs(newReleasePx)
       }
@@ -902,10 +905,11 @@ function WaveformEditor({
 
   const handleAdsrMouseDown = (e) => {
     const pos = getAdsrPos(e)
-    // Ordre du hit-test : on teste P1h après P1 pour qu'à hold=0 (handles
-    // superposés) ce soit P1h qui gagne — drag P1h édite hold+amp, drag P1
-    // édite attack+amp. À hold=0, amener un peu de hold est l'action la
-    // plus probable, donc préférer P1h n'est pas un problème.
+    // F.3.13.1 : à hold=0, P1 et P1h se superposent ; minDist tie-break
+    // au PREMIER candidat testé. On teste P1 en premier → drag = attack
+    // + amplitude (2D), comportement intuitif. Pour démarrer un hold,
+    // l'utilisateur passe par le slider/NumberInput (assumé : hold=0
+    // ≡ patch sans plateau, l'affordance canvas n'est pas critique).
     const candidates = [
       { idx: 1, point: p1 },
       { idx: 5, point: p1h },
