@@ -82,8 +82,15 @@ Phase 4.1 (2026-04-25) : **Juste intonation majeure centrée sur C**
 naturelles, enharmoniques bémols fonctionnels pour les accidentels),
 ancrage `C4 = a4Ref × 3/5` pour préserver A4 = a4Ref. Mêmes noms de
 notes et même clavier physique que 12-TET (réutilise `piano-12` et
-`TWELVE_KEY_MAP`). Registre à 6 entrées : 12-TET, Pythagoricien 12,
-Juste majeure C, 24-TET égal, 24-TET Le Caire 1932, Libre.
+`TWELVE_KEY_MAP`). Phase 4.2 (2026-04-25) : **5-TET pentatonique
+égale** — 5 degrés nommés I..V, ratio de pas 2^(1/5) ≈ 240 cents,
+tonique I ancrée à `a4Ref` à l'octave 4 (plus de A en 5-TET : la
+"hauteur de référence" glisse du A vers le I). Nouveau layout
+`grid-5` (5 rectangles colorés en ligne, palette 5 hues à 72° de
+pas), mapping QWERTY `FIVE_KEY_MAP` = sous-ensemble SDFGH du 12-TET
+(mêmes positions physiques, sémantique de degrés). Registre à 7
+entrées : 12-TET, Pythagoricien 12, Juste majeure C, 24-TET égal,
+24-TET Le Caire 1932, 5-TET pentatonique, Libre.
 
 ## Objectif
 
@@ -128,7 +135,7 @@ synth-app/
         ├── WaveformEditor.jsx + .css          # éditeur ondes / patch (Designer)
         ├── Spectrogram.jsx + .css             # spectrogramme statique (Designer)
         ├── MiniPlayer.jsx + .css              # transport simplifié (Designer)
-        ├── PianoKeyboard.jsx + .css           # dispatcher clavier (piano-12 / grid-24) + octaves
+        ├── PianoKeyboard.jsx + .css           # dispatcher clavier (piano-12 / grid-24 / grid-5) + octaves
         ├── DurationButtons.jsx + .css         # boutons durée 7 bases + 3 coefs (phase 6.1)
         ├── SidebarResizer.jsx + .css          # poignée drag bordure sidebar (phase 7.4)
         ├── BpmInput.jsx                       # input BPM validation différée
@@ -1142,9 +1149,36 @@ Phases listées ci-dessous dans l'ordre chronologique d'implémentation.
   `piano-12` et `TWELVE_KEY_MAP`. Sélecteurs et reducer consomment
   la nouvelle entrée sans modification — le pattern d'extension
   posé en F.3 tient.
+- ✅ **Phase 4.2** (2026-04-25) — 5-TET pentatonique égale + layout
+  `grid-5`. Premier tempérament avec `notesPerOctave ∉ {12, 24}` :
+  5 divisions égales de l'octave, nomenclature I..V (pas d'emprunt
+  chromatique), tonique I ancrée à `a4Ref` à l'octave 4 —
+  généralisation sémantique de `a4Ref` comme "fréquence du degré 0
+  à oct 4". `FIVE_KEY_MAP` réutilise les positions SDFGH (sous-
+  ensemble strict du `TWELVE_KEY_MAP`) pour préserver la mémoire
+  motrice. Nouveau `Grid5Layout` dans `PianoKeyboard.jsx` : 5
+  rectangles en ligne (CSS Grid 1×5), palette 5 hues à 72° de pas
+  avec lightness uniforme (pas de hiérarchie d'altération en 5-TET),
+  patterns `is-active` (inset cyan) et `is-playing` (outline jaune
+  + glow) hérités de grid-24. Entrée insérée en 6e position
+  (avant `free`) pour ne pas disrupter les positions déjà adoptées.
 
 ## Historique (chronologie inverse)
 
+000000000000. **Iter F — Phase 4.2** (2026-04-25) : 5-TET
+    pentatonique égale + layout `grid-5`. 6e tempérament non-libre,
+    premier avec `notesPerOctave` hors {12, 24}. Degrés I..V
+    (nomenclature ratifiée, pas d'emprunt chromatique), ratio de
+    pas 2^(1/5) ≈ 240¢, tonique I ancrée à `a4Ref` à oct 4 (plus
+    de A → glissement sémantique de "A4 Hz" vers "fréquence de
+    référence du degré 0"). Mapping QWERTY `FIVE_KEY_MAP` =
+    sous-ensemble SDFGH du 12-TET (positions physiques préservées,
+    sémantique différente). Nouveau `Grid5Layout` dans
+    `PianoKeyboard.jsx` : grille 1×5, palette HSL à 72° de pas
+    (HUE_PER_DEGREE = [0, 72, 144, 216, 288]), lightness uniforme
+    (55%) — pas d'altération à hiérarchiser. `LAYOUT_COMPONENTS`
+    enrichi de `'grid-5'`. Le dispatcher posé en F.3.3 accueille
+    sans effort : le pattern d'extension tient.
 00000000000. **Iter F — Phase 4.1** (2026-04-25) : Juste intonation
     majeure centrée sur C. 5e tempérament non-libre : table d'Ellis
     5-limit en dur (7 naturelles aux ratios canoniques, 5
@@ -1793,7 +1827,29 @@ Phases listées ci-dessous dans l'ordre chronologique d'implémentation.
   Vérifs numériques : à `a4Ref=440`, C4=264 Hz, A4=440 Hz exactement ;
   triade C-E-G en ratios 5:4 et 3:2 purs (battements supprimés vs
   12-TET). À `a4Ref=415`, C4=249 Hz.
-- 🔜 **Phase 4.2** — 5-TET pentatonique (à livrer).
+- ✅ **Phase 4.2** (2026-04-25) — Tempérament 5-TET pentatonique
+  égale + layout `grid-5`. Nouvelle entrée `'5-tet'` au registre
+  (6e position, avant `free`). `FIVE_TET_NOTE_NAMES = ['I', 'II',
+  'III', 'IV', 'V']` — nomenclature ratifiée I..V, pas de reprise
+  de noms chromatiques (5-TET n'est pas un sous-ensemble du
+  chromatique). `fiveTetFreq(i, oct, a4Ref) = a4Ref · 2^(i/5 +
+  oct-4)` ancre la tonique I à `a4Ref` à l'octave 4 — en l'absence
+  de A en 5-TET, la "hauteur de référence A4" glisse vers "degré I
+  à oct 4". `FIVE_KEY_MAP` = sous-ensemble SDFGH du `TWELVE_KEY_MAP`
+  (mêmes `event.code` que les naturelles C/D/E/F/G, sémantique
+  différente — la mémoire motrice est préservée). Nouveau
+  `Grid5Layout` dans `PianoKeyboard.jsx` (parallèle à
+  `PianoLayout12` et `Grid24Layout` du même fichier) : CSS Grid 1×5,
+  largeur égale, labels I..V en chiffres romains monospace,
+  `HUE_PER_DEGREE = [0, 72, 144, 216, 288]`, lightness uniforme
+  (55%). Patterns `is-active` (inset cyan) et `is-playing` (outline
+  jaune + glow) repris de grid-24 pour préserver le fill HSL.
+  Dispatcher `LAYOUT_COMPONENTS` enrichi de `'grid-5'`. Vérifs
+  numériques : à `a4Ref=440`, I4=440, V4=766.08 Hz (960¢), I5=880
+  (octave juste) ; snap 12-TET C4 (261.63 Hz) → 5-TET retourne
+  II3 (252.71 Hz, meilleure approximation dans la grille) ;
+  bascule inverse II3 5-TET → 12-TET snappe à B3 (40¢ vs 60¢ pour
+  C4).
 - 🔜 **Phase 4.3** — 31-EDO (à livrer).
 
 ### Backlog général (à caser quand pertinent)
