@@ -50,13 +50,20 @@ const ADSR_H = 120
 // voulu : on réserve l'espace graphique pour les enveloppes lentes.
 const ADSR_MAX_MS = 1000
 const ADSR_SEGMENT_PX = 80
-// F.3.13.1 : 4 segments (attack + hold + decay + release) — plus de plateau
-// sustain visuel (le sustain est un niveau atteint à P2, pas une zone). Au
-// max de tous les sliders, P4 est tangent au bord droit.
-const ADSR_W = 4 * ADSR_SEGMENT_PX
+// F.3.13.3 : plateau sustain restauré comme indicateur SYMBOLIQUE de la
+// phase (tracé en tirets), de longueur fixe courte. Ne représente pas une
+// durée audio (le sustain dure tant que la note dure). 4 segments
+// pleins + 1 segment symbolique → ADSR_W = 380.
+const ADSR_SUSTAIN_PX = 60
+const ADSR_W = 4 * ADSR_SEGMENT_PX + ADSR_SUSTAIN_PX
 const ADSR_PEAK_Y = ADSR_H * 0.05
-const ADSR_HIT_RADIUS = 10
-const ADSR_HANDLE_RADIUS = 4
+const ADSR_HIT_RADIUS = 11
+const ADSR_HANDLE_RADIUS = 5
+// F.3.13.3 : P1h décalé verticalement au-dessus de la peak line pour
+// rester grabable même à hold=0 (sinon il se confond avec P1 et le
+// hit-test favorise P1). Décalage purement visuel — la ligne du plateau
+// reste tracée à peakY, et P1h reste 1D (Y ignoré au drag).
+const ADSR_P1H_Y_OFFSET = 8
 
 // Mappe un niveau d'amplitude [0, 1] vers une coordonnée Y du canvas ADSR.
 // level=1 → ADSR_PEAK_Y (haut), level=0 → ADSR_H (baseline). Encapsule
@@ -782,15 +789,17 @@ function WaveformEditor({
   // P2.y reflète amp × sustain (le sustain est un ratio du peak, pas un
   // absolu). Avec amp=0.5 et sustain=1, P2 atteint exactement P1 → le
   // drop decay disparaît visuellement, comme dans le signal audio.
-  // F.3.12.2 : handle P1h = fin du plateau hold. Même Y que P1 (peak line).
-  // À hold=0, P1h se confond visuellement avec P1.
-  // F.3.13.1 : sustain est un NIVEAU, pas une zone — la release part
-  // directement de P2 vers P4 (plus d'ancien P3 / plateau sustain visuel).
+  // F.3.12.2 : handle P1h = fin du plateau hold.
+  // F.3.13.3 : P1h décalé en Y (handle au-dessus de la peak line). P3
+  // géométrique non-draggable, fin du plateau sustain symbolique en
+  // tirets entre P2 et P3.
   const sustainLevel = amplitude * sustain
-  const p1 = { x: attackPx, y: adsrLevelToY(amplitude) }
-  const p1h = { x: attackPx + holdPx, y: adsrLevelToY(amplitude) }
+  const peakY = adsrLevelToY(amplitude)
+  const p1 = { x: attackPx, y: peakY }
+  const p1h = { x: attackPx + holdPx, y: peakY - ADSR_P1H_Y_OFFSET }
   const p2 = { x: attackPx + holdPx + decayPx, y: adsrLevelToY(sustainLevel) }
-  const p4 = { x: attackPx + holdPx + decayPx + releasePx, y: ADSR_H }
+  const p3 = { x: p2.x + ADSR_SUSTAIN_PX, y: p2.y }
+  const p4 = { x: p3.x + releasePx, y: ADSR_H }
 
   const drawAdsr = useCallback(() => {
     const canvas = adsrCanvasRef.current
@@ -811,30 +820,52 @@ function WaveformEditor({
     ctx.lineTo(ADSR_W, ADSR_H - 0.5)
     ctx.stroke()
 
+    // Remplissage : on suit la silhouette logique (ligne plateau à peakY,
+    // pas à p1h.y qui est décalé visuellement vers le haut). P2→P3
+    // horizontal pour matérialiser la phase sustain, puis release P3→P4.
     ctx.fillStyle = 'rgba(0, 212, 255, 0.12)'
     ctx.beginPath()
     ctx.moveTo(0, ADSR_H)
-    ctx.lineTo(p1.x, p1.y)
-    ctx.lineTo(p1h.x, p1h.y)
+    ctx.lineTo(p1.x, peakY)
+    ctx.lineTo(p1h.x, peakY)
     ctx.lineTo(p2.x, p2.y)
+    ctx.lineTo(p3.x, p3.y)
     ctx.lineTo(p4.x, p4.y)
     ctx.lineTo(p4.x, ADSR_H)
     ctx.closePath()
     ctx.fill()
 
+    // Segments solides : baseline → P1 → plateau peak → P2 (decay).
     ctx.strokeStyle = '#00d4ff'
     ctx.lineWidth = 2
+    ctx.setLineDash([])
     ctx.beginPath()
     ctx.moveTo(0, ADSR_H)
-    ctx.lineTo(p1.x, p1.y)
-    ctx.lineTo(p1h.x, p1h.y)
+    ctx.lineTo(p1.x, peakY)
+    ctx.lineTo(p1h.x, peakY)
     ctx.lineTo(p2.x, p2.y)
+    ctx.stroke()
+
+    // Plateau sustain : tirets symboliques (la durée n'a pas de sens
+    // physique, le sustain dure tant que la note dure). F.3.13.3.
+    ctx.setLineDash([4, 4])
+    ctx.beginPath()
+    ctx.moveTo(p2.x, p2.y)
+    ctx.lineTo(p3.x, p3.y)
+    ctx.stroke()
+
+    // Release : solide, P3 → P4 → baseline.
+    ctx.setLineDash([])
+    ctx.beginPath()
+    ctx.moveTo(p3.x, p3.y)
     ctx.lineTo(p4.x, p4.y)
     ctx.stroke()
 
     // F.3.13.2 : handles dessinés en coords PHYSIQUES (px DOM) après reset
     // du transform, sinon le scale anisotrope (W/ADSR_W ≠ H/ADSR_H) les
     // déforme en ellipses. Cercles isotropes peu importe le ratio canvas.
+    // P3 n'est PAS un handle — purement géométrique (fin du plateau
+    // sustain symbolique).
     ctx.setTransform(1, 0, 0, 1, 0, 0)
     const sx = W / ADSR_W
     const sy = H / ADSR_H
@@ -848,7 +879,7 @@ function WaveformEditor({
       ctx.lineWidth = 1.5
       ctx.stroke()
     }
-  }, [p1.x, p1.y, p1h.x, p1h.y, p2.x, p2.y, p4.x, p4.y])
+  }, [p1.x, p1.y, p1h.x, p1h.y, p2.x, p2.y, p3.x, p3.y, p4.x, p4.y, peakY])
 
   useEffect(() => {
     drawAdsr()
@@ -933,12 +964,13 @@ function WaveformEditor({
           next.sustain = Math.round(newSustain * 100) / 100
         }
       } else if (handleIdx === 4) {
-        // F.3.13.1 : plus de plateau sustain — la base de P4 ne contient
-        // plus ADSR_SUSTAIN_PX, juste la somme attack + hold + decay.
+        // F.3.13.3 : le plateau sustain symbolique (ADSR_SUSTAIN_PX) est
+        // réintégré entre P2 et P4 — P4.x doit donc être translaté de
+        // ADSR_SUSTAIN_PX par rapport à la fin du decay.
         const baseAtk = next.attack ?? attack
         const baseHold = next.hold ?? hold
         const baseDec = next.decay ?? decay
-        const base = ((baseAtk + baseHold + baseDec) / ADSR_MAX_MS) * ADSR_SEGMENT_PX
+        const base = ((baseAtk + baseHold + baseDec) / ADSR_MAX_MS) * ADSR_SEGMENT_PX + ADSR_SUSTAIN_PX
         const newReleasePx = Math.max(0, Math.min(ADSR_SEGMENT_PX, pos.x - base))
         next.release = pxToMs(newReleasePx)
       }
