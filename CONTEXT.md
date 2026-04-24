@@ -77,6 +77,13 @@ ET Shift+Digit (les Digit nus sont libérés pour les notes 24-TET).
 Snap inter-systèmes généralisé : `frequencyToNearestNote` (12-TET
 only) → `frequencyToNearestIn(hz, sysId, a4Ref)` qui itère sur la
 grille du système cible et minimise la distance en cents.
+Phase 4.1 (2026-04-25) : **Juste intonation majeure centrée sur C**
+— table d'Ellis 5-limit en dur (ratios canoniques pour les 7
+naturelles, enharmoniques bémols fonctionnels pour les accidentels),
+ancrage `C4 = a4Ref × 3/5` pour préserver A4 = a4Ref. Mêmes noms de
+notes et même clavier physique que 12-TET (réutilise `piano-12` et
+`TWELVE_KEY_MAP`). Registre à 6 entrées : 12-TET, Pythagoricien 12,
+Juste majeure C, 24-TET égal, 24-TET Le Caire 1932, Libre.
 
 ## Objectif
 
@@ -1091,9 +1098,38 @@ Phases listées ci-dessous dans l'ordre chronologique d'implémentation.
     `COMPOSER_FIELDS`. `A4Input` candidat à extraction en
     `ValidatedIntegerInput` partagé si un 3e input similaire
     apparaît (pas extrait par choix de scope en F.2).
+- ✅ **Phase 4.1** (2026-04-25) — Juste intonation majeure centrée
+  sur C. Ajout d'une entrée `'just-major-c'` au registre. Table
+  d'Ellis 5-limit en dur (`JUST_MAJOR_RATIOS_FROM_C`) : 1, 16/15,
+  9/8, 6/5, 5/4, 4/3, 45/32, 3/2, 8/5, 5/3, 9/5, 15/8. Ancrage
+  `C4 = a4Ref × 3/5` (conséquence de A/C = 5/3 dans la table et de
+  l'invariant A4 = a4Ref posé en F.2). Accidentels = enharmoniques
+  bémols fonctionnels (D♯=6/5=E♭ mineur, G♯=8/5=A♭ mineur, A♯=9/5=
+  B♭ mineur, C♯=16/15, F♯=45/32) — l'écart vs les dièses non
+  enharmoniques est précisément ce que le tempérament égal efface,
+  point pédagogique assumé. Aucun nouveau layout ni mapping clavier :
+  réutilisation de `piano-12` et `TWELVE_KEY_MAP`. Ordre registre :
+  `12-TET`, `pythagorean-12`, `just-major-c`, `24-tet-equal`,
+  `24-tet-cairo-1932`, `free`. Sélecteurs (Designer toolbar,
+  Composer toolbar, PropertiesPanel mono et multi) et reducer
+  (bascule de système via `UPDATE_CLIPS_PITCH` /
+  `SET_EDITOR_TEST_TUNING_SYSTEM`, snap inter-systèmes via
+  `frequencyToNearestIn` généralisé en F.3.4) consomment la nouvelle
+  entrée sans modification — le pattern d'extension posé en F.3 tient.
 
 ## Historique (chronologie inverse)
 
+00000000000. **Iter F — Phase 4.1** (2026-04-25) : Juste intonation
+    majeure centrée sur C. 5e tempérament non-libre : table d'Ellis
+    5-limit en dur (7 naturelles aux ratios canoniques, 5
+    accidentels en enharmoniques bémols — D♯=6/5, G♯=8/5, A♯=9/5,
+    plus C♯=16/15 et F♯=45/32). Ancrage `C4 = a4Ref × 3/5`
+    (A/C = 5/3 dans la table, invariant A4 = a4Ref préservé). Même
+    `notesPerOctave=12`, mêmes noms, même mapping QWERTY et même
+    layout `piano-12` que 12-TET et Pythag-12 — sélecteurs et
+    reducer consomment la nouvelle entrée sans modification. Le
+    pattern d'extension posé en F.3 tient : une seule entrée de
+    registre suffit.
 0000000000. **Iter F — Phase 3.13.4** (2026-04-24) : correction
     z-order P1h. Rollback de l'offset vertical de 3.13.3 (mauvaise
     interprétation de "P1h au-dessus de P1" — voulait dire z-order,
@@ -1710,6 +1746,29 @@ Phases listées ci-dessous dans l'ordre chronologique d'implémentation.
       augmenter d'abord le hold. Silhouette de l'enveloppe à
       nouveau strictement fidèle (plus de dérogation visuelle de
       la peak line).
+- ✅ **Phase 4.1** (2026-04-25) — Tempérament Juste intonation
+  majeure centrée sur C. 5e entrée du registre (`'just-major-c'`),
+  3e position (entre `pythagorean-12` et `24-tet-equal`). Table
+  d'Ellis 5-limit `JUST_MAJOR_RATIOS_FROM_C` en dur (valeurs
+  canoniques — dériver procéduralement obscurcirait) : `[1, 16/15,
+  9/8, 6/5, 5/4, 4/3, 45/32, 3/2, 8/5, 5/3, 9/5, 15/8]`.
+  `justMajorCFreq(noteIndex, octave, a4Ref)` ancre `C4 = a4Ref ×
+  3/5` (A/C = 5/3 dans la table → A4 = a4Ref exactement, invariant
+  F.2 préservé) et multiplie par le ratio et `2^(octave-4)`. Les 5
+  accidentels sont les enharmoniques bémols fonctionnels
+  (D♯=6/5=E♭ mineur, G♯=8/5=A♭ mineur, A♯=9/5=B♭ mineur, C♯=16/15,
+  F♯=45/32) — conséquence pédagogique assumée : D♯ sonne comme un
+  mi bémol pur. Aucun nouveau layout ni mapping clavier :
+  réutilisation de `piano-12` et `TWELVE_KEY_MAP`. Sélecteurs
+  (Designer, Composer, PropertiesPanel mono et multi) et reducer
+  (`UPDATE_CLIPS_PITCH`, `SET_EDITOR_TEST_TUNING_SYSTEM`, snap
+  `frequencyToNearestIn`) consomment la nouvelle entrée sans
+  modification — le pattern d'extension posé en F.3 tient.
+  Vérifs numériques : à `a4Ref=440`, C4=264 Hz, A4=440 Hz exactement ;
+  triade C-E-G en ratios 5:4 et 3:2 purs (battements supprimés vs
+  12-TET). À `a4Ref=415`, C4=249 Hz.
+- 🔜 **Phase 4.2** — 5-TET pentatonique (à livrer).
+- 🔜 **Phase 4.3** — 31-EDO (à livrer).
 
 ### Backlog général (à caser quand pertinent)
 
