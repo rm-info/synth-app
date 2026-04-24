@@ -1,6 +1,7 @@
 import { useRef, useState, useCallback, useEffect, useImperativeHandle } from 'react'
 import { pointsToPeriodicWave, MIN_ATTACK } from '../audio'
 import FreqInput from './FreqInput'
+import NumberInput from './NumberInput'
 import { PianoKeyboard, OctaveSelector } from './PianoKeyboard'
 import { getTuningSystem, TUNING_SYSTEMS } from '../lib/tuningSystems'
 import './WaveformEditor.css'
@@ -60,6 +61,35 @@ const ADSR_HANDLE_RADIUS = 4
 // l'inversion de Y (le canvas a Y croissant vers le bas).
 function adsrLevelToY(level) {
   return ADSR_PEAK_Y + (1 - level) * (ADSR_H - ADSR_PEAK_Y)
+}
+
+// Parsers/formatters pour NumberInput dans la zone ADSR (F.3.11.2).
+// % stocké en [0, 1] : "75" → 0.75, format → "75%". Permissif sur "%" et
+// la virgule décimale. Arrondi à 2 décimales pour rester dans le pas du
+// slider (step 0.01).
+function parsePercent(raw) {
+  if (typeof raw !== 'string') return NaN
+  const s = raw.replace(/%/g, '').trim().replace(',', '.')
+  if (s === '') return NaN
+  const v = parseFloat(s)
+  if (!Number.isFinite(v)) return NaN
+  return Math.round(v) / 100
+}
+function formatPercent(v) {
+  return `${Math.round(v * 100)}%`
+}
+
+// ms entières [0, ADSR_MAX_MS]. Permissif sur "ms" suffix et la virgule.
+function parseMs(raw) {
+  if (typeof raw !== 'string') return NaN
+  const s = raw.replace(/ms/gi, '').trim().replace(',', '.')
+  if (s === '') return NaN
+  const v = parseFloat(s)
+  if (!Number.isFinite(v)) return NaN
+  return Math.round(v)
+}
+function formatMs(v) {
+  return `${v} ms`
 }
 
 function stripSuffix(name) {
@@ -1082,21 +1112,83 @@ function WaveformEditor({
   )
 
   const renderAdsrArea = () => {
-    const renderSlider = (key, label, max, step, format) => (
+    // Commit depuis l'input ADSR : applique la valeur, et nettoie cette clé
+    // dans draftAdsr si un drag de slider était en cours (sinon le slider
+    // afficherait la valeur draft pré-input après commit). Les autres clés
+    // du draft sont préservées (drag d'un slider en parallèle d'un edit
+    // input sur une autre clé reste cohérent).
+    const commitInputAdsr = (key, v) => {
+      setDraftAdsr((prev) => {
+        if (!prev) return null
+        const next = { ...prev }
+        delete next[key]
+        return Object.keys(next).length === 0 ? null : next
+      })
+      editorActions.setAdsr({ [key]: v })
+    }
+    const commitInputAmp = (v) => {
+      setDraftAmp(null)
+      editorActions.setAmplitude(v)
+    }
+
+    const liveValue = (key) => ({ attack, decay, sustain, release }[key])
+
+    const renderMsSlider = (key, label) => (
       <div className="adsr-slider">
         <label htmlFor={`adsr-${key}`}>
-          {label} <strong>{format(editor[key], { attack, decay, sustain, release }[key])}</strong>
+          <span>{label}</span>
+          <NumberInput
+            value={liveValue(key)}
+            onChange={(v) => commitInputAdsr(key, v)}
+            min={0}
+            max={ADSR_MAX_MS}
+            parse={parseMs}
+            format={formatMs}
+            className="adsr-value-input"
+            ariaLabel={`${label} en millisecondes`}
+          />
         </label>
         <input
           id={`adsr-${key}`}
           type="range"
           min="0"
-          max={max}
-          step={step}
-          value={{ attack, decay, sustain, release }[key]}
+          max={ADSR_MAX_MS}
+          step={1}
+          value={liveValue(key)}
           onChange={(e) => {
             const val = Number(e.target.value)
             setDraftAdsr((prev) => ({ ...(prev ?? {}), [key]: val }))
+          }}
+          {...sliderCommitter(commitDraftAdsrSlider)}
+        />
+      </div>
+    )
+
+    const renderSustainSlider = () => (
+      <div className="adsr-slider">
+        <label htmlFor="adsr-sustain">
+          <span>Sustain</span>
+          <NumberInput
+            value={sustain}
+            onChange={(v) => commitInputAdsr('sustain', v)}
+            min={0}
+            max={1}
+            parse={parsePercent}
+            format={formatPercent}
+            className="adsr-value-input"
+            ariaLabel="Sustain en pourcentage"
+          />
+        </label>
+        <input
+          id="adsr-sustain"
+          type="range"
+          min="0"
+          max="1"
+          step="0.01"
+          value={sustain}
+          onChange={(e) => {
+            const val = Number(e.target.value)
+            setDraftAdsr((prev) => ({ ...(prev ?? {}), sustain: val }))
           }}
           {...sliderCommitter(commitDraftAdsrSlider)}
         />
@@ -1109,7 +1201,17 @@ function WaveformEditor({
     const renderAmpSlider = () => (
       <div className="adsr-slider">
         <label htmlFor="adsr-amplitude">
-          Amp <strong>{Math.round(amplitude * 100)}%</strong>
+          <span>Amp</span>
+          <NumberInput
+            value={amplitude}
+            onChange={commitInputAmp}
+            min={0}
+            max={1}
+            parse={parsePercent}
+            format={formatPercent}
+            className="adsr-value-input"
+            ariaLabel="Amplitude en pourcentage"
+          />
         </label>
         <input
           id="adsr-amplitude"
@@ -1142,10 +1244,10 @@ function WaveformEditor({
           </div>
           <div className="adsr-sliders">
             {renderAmpSlider()}
-            {renderSlider('attack', 'Attack', ADSR_MAX_MS, 1, (_, v) => `${v} ms`)}
-            {renderSlider('decay', 'Decay', ADSR_MAX_MS, 1, (_, v) => `${v} ms`)}
-            {renderSlider('sustain', 'Sustain', 1, 0.01, (_, v) => `${Math.round(v * 100)}%`)}
-            {renderSlider('release', 'Release', ADSR_MAX_MS, 1, (_, v) => `${v} ms`)}
+            {renderMsSlider('attack', 'Attack')}
+            {renderMsSlider('decay', 'Decay')}
+            {renderSustainSlider()}
+            {renderMsSlider('release', 'Release')}
           </div>
         </div>
       </div>

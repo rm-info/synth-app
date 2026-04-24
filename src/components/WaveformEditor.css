@@ -436,6 +436,33 @@
   font-weight: 600;
 }
 
+/* Input éditable de la valeur (F.3.11.2). Apparence d'un <strong> au repos
+ * (texte cyan, bold), cadre visible au focus pour signaler l'édition.
+ * Largeur fixe pour éviter le re-layout quand la valeur change. */
+.adsr-value-input {
+  font-family: inherit;
+  font-size: inherit;
+  font-weight: 600;
+  color: #00d4ff;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 3px;
+  padding: 0 4px;
+  width: 56px;
+  text-align: right;
+  outline: none;
+  cursor: text;
+}
+
+.adsr-value-input:hover {
+  border-color: #3a3a5a;
+}
+
+.adsr-value-input:focus {
+  border-color: #00d4ff;
+  background: #0f0f1a;
+}
+
 .adsr-slider input[type='range'] {
   width: 100%;
   accent-color: #00d4ff;
