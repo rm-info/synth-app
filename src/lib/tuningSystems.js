@@ -59,6 +59,38 @@ function pythagoreanFreq(noteIndex, octave, a4Ref) {
   return c4 * PYTH_RATIOS_FROM_C[noteIndex] * Math.pow(2, octave - 4)
 }
 
+// Ratios 5-limit de la juste intonation majeure centrée sur C (table
+// d'Ellis). Les 7 naturelles reçoivent les ratios canoniques (1, 9/8,
+// 5/4, 4/3, 3/2, 5/3, 15/8). Les 5 accidentels sont les enharmoniques
+// bémols fonctionnels (D♯=6/5=E♭ mineur, G♯=8/5=A♭ mineur, A♯=9/5=B♭
+// mineur) plus C♯=16/15 et F♯=45/32. Conséquence pédagogique assumée :
+// D♯ sonne comme un mi bémol pur, pas comme un ré dièse — typique des
+// claviers 12 tons en juste intonation, et c'est précisément l'écart
+// que le tempérament égal supprime.
+const JUST_MAJOR_RATIOS_FROM_C = [
+  1,       // C
+  16 / 15, // C♯
+  9 / 8,   // D
+  6 / 5,   // D♯ (= E♭ mineur)
+  5 / 4,   // E
+  4 / 3,   // F
+  45 / 32, // F♯
+  3 / 2,   // G
+  8 / 5,   // G♯ (= A♭ mineur)
+  5 / 3,   // A
+  9 / 5,   // A♯ (= B♭ mineur)
+  15 / 8,  // B
+]
+
+// En juste intonation majeure, A/C = 5/3 dans la table d'Ellis. Pour
+// respecter l'invariant A4 = a4Ref, C4 doit valoir a4Ref × 3/5. Les
+// autres notes s'obtiennent en multipliant par le ratio relatif à C,
+// l'octave cible par un facteur 2^(octave-4).
+function justMajorCFreq(noteIndex, octave, a4Ref) {
+  const c4 = (a4Ref * 3) / 5
+  return c4 * JUST_MAJOR_RATIOS_FROM_C[noteIndex] * Math.pow(2, octave - 4)
+}
+
 // Mapping QWERTY → noteIndex pour les tempéraments à 12 notes.
 // Rangée du milieu (blanches, façon clavier diatonique) :
 //   S  D  F  G  H  J  K
@@ -189,6 +221,15 @@ export const TUNING_SYSTEMS = {
     notesPerOctave: 12,
     noteNames: TWELVE_TET_NOTE_NAMES,
     freq: pythagoreanFreq,
+    layout: 'piano-12',
+    keyboardMap: TWELVE_KEY_MAP,
+  },
+  'just-major-c': {
+    id: 'just-major-c',
+    label: 'Juste intonation majeure (centrée sur C)',
+    notesPerOctave: 12,
+    noteNames: TWELVE_TET_NOTE_NAMES,
+    freq: justMajorCFreq,
     layout: 'piano-12',
     keyboardMap: TWELVE_KEY_MAP,
   },
