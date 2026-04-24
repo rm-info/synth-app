@@ -266,18 +266,29 @@ Seuls les **placements timeline** s'appellent "clips".
   - 12-TET : clavier piano 12 notes + 11 boutons d'octave, affichage
     "Note : X Hz — A4".
   - Libre : slider log 2^4-2^15 Hz + FreqInput éditable.
-- Éditeur AHDSR **visuel** 480×120 : 5 poignées draggables — P1
-  (attack+amplitude en 2D), P1h (hold+amplitude en 2D, F.3.12.2),
-  P2 (decay+sustain), P3 (fin sustain non-draggable), P4 (release).
-  Courbe cyan + remplissage, 6 sliders éditables en colonne à droite
-  (Amp → Attack → Hold → Decay → Sustain → Release, F.3.12.2). Graph
+- Éditeur AHDSR **visuel** 320×120 : 4 poignées draggables — P1
+  (attack+amplitude en 2D), P1h (hold seul en 1D depuis F.3.13.1),
+  P2 (decay+sustain en 2D), P4 (release seul en 1D). Courbe cyan +
+  remplissage, 6 sliders éditables en colonne à droite (Amp →
+  Attack → Hold → Decay → Sustain → Release, F.3.12.2). Graph
   fidèle : `p1.y = adsrLevelToY(amplitude)` (peak), `p1h.y = p1.y`
-  (plateau hold horizontal), `p2.y = p3.y = adsrLevelToY(amp×sustain)`
-  (sustain absolu = ratio du peak). À amp=0.5 et sustain=1, P2 atteint
-  visuellement P1/P1h. À hold=0, P1h se confond avec P1.
-  Constantes : `ADSR_W = 480`, `ADSR_MAX_MS = 1000` ms,
-  `ADSR_SEGMENT_PX = 80`. Les 6 valeurs sont éditables au clavier via
-  `NumberInput` (clic, parse permissif, Enter/blur commit, Esc annule).
+  (plateau hold horizontal), `p2.y = adsrLevelToY(amp×sustain)`
+  (sustain absolu = ratio du peak — pas de plateau sustain visuel,
+  c'est un point d'arrivée à P2 puis release direct vers P4 depuis
+  F.3.13.1). À amp=0.5 et sustain=1, P2 atteint visuellement P1/P1h.
+  À hold=0, P1h se confond avec P1 ; le tie-break du hit-test
+  privilégie P1 → drag par défaut édite attack+amp, l'utilisateur
+  démarre le hold via slider/NumberInput.
+  Constantes : `ADSR_W = 4 × ADSR_SEGMENT_PX = 320`,
+  `ADSR_MAX_MS = 1000` ms, `ADSR_SEGMENT_PX = 80`. Les 6 valeurs
+  sont éditables au clavier via `NumberInput` (clic, parse permissif,
+  Enter/blur commit, Esc annule).
+  Polish handles (F.3.13.2) : cercles isotropes (dessinés en coords
+  physiques après reset transform, pas d'ellipses), curseur dynamique
+  (default → grab au survol d'un handle → grabbing pendant drag),
+  tooltips au survol indiquant le rôle de chaque handle (P1, P1h, P2,
+  P4) — composant `AdsrTooltip` positionné absolument dans le
+  container, bascule sous le handle si proche du bord haut.
 - Hydratation auto depuis `currentPatch` (prop) via `useEffect` qui compare l'id
   contre `hydratedFromIdRef`. Hydrate uniquement les champs du patch (points,
   ADSR, amplitude, preset) ; les champs `test*` (contexte de test de
@@ -1080,6 +1091,16 @@ Phases listées ci-dessous dans l'ordre chronologique d'implémentation.
 
 ## Historique (chronologie inverse)
 
+00000000. **Iter F — Phase 3.13** (2026-04-24) : UX handles ADSR.
+    P1h passe à 1D (X=hold seul, plus d'édition d'amplitude — la
+    double édition P1/P1h post-3.12.2 était confuse). P3 et le
+    segment plateau sustain visuel supprimés : `ADSR_W` 480 → 320,
+    `ADSR_SUSTAIN_PX` retirée. Le sustain devient un niveau
+    (point d'arrivée à P2), la release descend directement de P2
+    vers P4. Polish handles : cercles isotropes (reset transform
+    + coords physiques), curseur dynamique
+    `default`/`grab`/`grabbing`, tooltips au survol indiquant le
+    rôle (`AdsrTooltip`). Audio inchangé.
 0000000. **Iter F — Phase 3.12** (2026-04-24) : ADSR → AHDSR.
     Champ `hold` (0-1000 ms, défaut 0) ajouté à l'enveloppe —
     plateau au peak entre attack et decay, utile percussifs avec
@@ -1627,6 +1648,32 @@ Phases listées ci-dessous dans l'ordre chronologique d'implémentation.
       slider/NumberInput Hold inséré entre Attack et Decay (ordre
       Amp → Attack → Hold → Decay → Sustain → Release). Colonne
       sliders 150 → 160 px, gap 8 → 6 px.
+  - **3.13** (2026-04-24) UX handles ADSR : recadrage P1h, P3 retiré,
+    polish. 2 sous-commits :
+    - **3.13.1** Canvas sémantique. P1h passe à 1D (X=hold seul, Y
+      ignoré) — la double édition d'amplitude P1/P1h post-3.12.2
+      était confuse. P3 et le segment plateau sustain visuel
+      supprimés : sustain est sémantiquement un NIVEAU (point
+      d'arrivée à P2), pas une zone temporelle, le moteur audio
+      n'a jamais tenu de plateau sustain fixe. La courbe descend
+      directement de P2 vers P4. `ADSR_W = 4 × ADSR_SEGMENT_PX =
+      320` (plus de zone fixe), `ADSR_SUSTAIN_PX` supprimée. Drag
+      P4 base recalculée sans le segment fixe. Hit-test à hold=0 :
+      P1 testé en premier → tie-break favorise drag attack+amp,
+      hold démarre via slider/NumberInput. Audio inchangé.
+    - **3.13.2** Polish handles : cercles isotropes (dessinés en
+      coords physiques après `setTransform(1,0,0,1,0,0)` — plus
+      d'ellipses dues au scale anisotrope du canvas), curseur
+      dynamique (`default` ailleurs → `grab` au survol → `grabbing`
+      pendant drag), tooltips au survol via composant `AdsrTooltip`
+      (P1: Attack+Amplitude, P1h: Hold, P2: Decay+Sustain, P4:
+      Release). État `hover = { idx, px, py }` populé à event-time
+      dans `handleAdsrMouseMove` — coords px DOM calculées via
+      `getBoundingClientRect`, passées en props au tooltip
+      (interdiction ESLint d'accéder au ref pendant render).
+      Tooltip caché pendant un drag, bascule sous le handle si
+      proche du bord haut. `findHoveredHandle(pos)` factorise le
+      hit-test géométrique avec `handleAdsrMouseDown`.
 
 ### Backlog général (à caser quand pertinent)
 
