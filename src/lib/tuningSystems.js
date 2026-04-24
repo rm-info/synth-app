@@ -202,6 +202,34 @@ function twentyFourTetCairo1932Freq(noteIndex, octave, a4Ref) {
   return CAIRO_1932_HZ_OCT4[noteIndex] * (a4Ref / 440) * Math.pow(2, octave - 4)
 }
 
+// Degrés pentatoniques égaux : nomenclature ratifiée I..V (chiffres
+// romains) — pas de noms empruntés à la nomenclature 12-TET, puisque
+// 5-TET n'est pas un sous-ensemble du chromatique. Pédagogiquement :
+// terrain neutre pour explorer l'équipartition à autre nombre de
+// degrés que 12 ou 24.
+const FIVE_TET_NOTE_NAMES = ['I', 'II', 'III', 'IV', 'V']
+
+// Sous-ensemble strict du TWELVE_KEY_MAP (mêmes event.code S/D/F/G/H que
+// les naturelles C/D/E/F/G en 12-TET) mais sémantique différente —
+// l'utilisateur qui connaît les positions physiques garde sa mémoire
+// motrice, seule la hauteur produite change.
+const FIVE_KEY_MAP = {
+  KeyS: 0, // I
+  KeyD: 1, // II
+  KeyF: 2, // III
+  KeyG: 3, // IV
+  KeyH: 4, // V
+}
+
+// 5 divisions égales de l'octave, ratio de pas = 2^(1/5) ≈ 240 cents.
+// La tonique (degré I) est ancrée à `a4Ref` à l'octave 4 : en l'absence
+// de A en 5-TET, la "fréquence de référence" glisse du A vers le I.
+// Cette interprétation unifie `a4Ref` comme "fréquence du degré 0 à
+// oct 4" pour tous les systèmes sauf Cairo 1932 (ancré 'Oshairan=A4).
+function fiveTetFreq(noteIndex, octave, a4Ref) {
+  return a4Ref * Math.pow(2, noteIndex / 5 + (octave - 4))
+}
+
 // Ordre des clés = ordre d'apparition dans les sélecteurs UI : 12-TET en
 // premier (cas par défaut), puis les systèmes alternatifs, puis 'free' en
 // dernier (le cas "à part").
@@ -250,6 +278,15 @@ export const TUNING_SYSTEMS = {
     freq: twentyFourTetCairo1932Freq,
     layout: 'grid-24',
     keyboardMap: TWENTYFOUR_KEY_MAP,
+  },
+  '5-tet': {
+    id: '5-tet',
+    label: '5-TET (pentatonique égale)',
+    notesPerOctave: 5,
+    noteNames: FIVE_TET_NOTE_NAMES,
+    freq: fiveTetFreq,
+    layout: 'grid-5',
+    keyboardMap: FIVE_KEY_MAP,
   },
   free: {
     id: 'free',

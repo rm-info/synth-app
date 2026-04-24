@@ -176,12 +176,48 @@ function Grid24Layout({ noteIndex, active, compact, names, handleMouseDown }) {
   )
 }
 
+// Clavier pentatonique égal (5-TET) : 5 rectangles en ligne, largeur égale,
+// labels I..V. Palette : 5 hues répartis sur le cercle chromatique (72° de
+// pas), lightness et saturation uniformes — 5-TET n'a pas de sous-catégorie
+// de "kind" (pas d'altération), un seul niveau suffit. `is-active` (inset
+// cyan) et `is-playing` (outline jaune) réutilisent les patterns grid-24
+// qui préservent la couleur de fond par-degré.
+const HUE_PER_DEGREE = [0, 72, 144, 216, 288]
+
+function Grid5Layout({ noteIndex, active, compact, names, handleMouseDown }) {
+  return (
+    <div className={`piano-keyboard piano-keyboard-grid5${compact ? ' piano-keyboard-compact' : ''}`} role="group" aria-label="Clavier 5-TET">
+      {HUE_PER_DEGREE.map((hue, idx) => {
+        const classes = ['grid5-key']
+        if (noteIndex === idx) classes.push('is-active')
+        if (active.has(idx)) classes.push('is-playing')
+        const label = names?.[idx] ?? ''
+        return (
+          <button
+            key={idx}
+            type="button"
+            className={classes.join(' ')}
+            style={{ '--hue': hue }}
+            onMouseDown={handleMouseDown(idx)}
+            aria-label={label}
+            aria-pressed={noteIndex === idx}
+            title={compact ? label : undefined}
+          >
+            {!compact && <span className="grid5-key-label">{label}</span>}
+          </button>
+        )
+      })}
+    </div>
+  )
+}
+
 // Dispatcher : chaque tempérament déclare son `layout`, on cherche le composant
-// correspondant ici. Pour ajouter un grid-N (5-TET, 31-EDO, …) : déclarer
+// correspondant ici. Pour ajouter un grid-N (31-EDO, …) : déclarer
 // l'entrée registre + ajouter le composant ci-dessous, rien d'autre.
 const LAYOUT_COMPONENTS = {
   'piano-12': PianoLayout12,
   'grid-24': Grid24Layout,
+  'grid-5': Grid5Layout,
 }
 
 // Deux modes d'interaction :
