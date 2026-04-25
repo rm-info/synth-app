@@ -122,6 +122,20 @@ Tables de cents inline (Helmholtz/Ellis pour mésotonique, Barbour
 réutilisation de `piano-12` et `TWELVE_KEY_MAP`. Visual cues
 activés pour les deux. Registre à 10 entrées. Tier 2 (gamelan,
 22-TET, 53-EDO) reste en backlog.
+Phase 6 (2026-04-25) : **Tier 2 gamelan**. Deux tempéraments
+javanais d'après Surjodiningrat-Sudarjana-Susanto 1972 (étude
+empirique de référence) : **Slendro** (5 notes, pas presque
+égaux mais avec déviations audibles vs 5-EDO — signature
+gamelan ; réutilise grid-5 et FIVE_KEY_MAP) et **Pelog** (7
+notes, pas très inégaux, deux grands trous ; nouveau layout
+`grid-7` calqué sur grid-5, mapping QWERTY home row SDFGHJK).
+Cellules équidistantes (convention piano-12), nomenclature
+romaine I..V / I..VII (pas d'import javanais natif). Tonique
+deg 0 = a4Ref. Visual cues désactivés (les patterns du
+catalogue n'ont pas de sens en gamelan). Registre à 12
+entrées. Reste 22-EDO et 53-EDO en backlog. Dette UI dropdown
+(12 entrées) commence à frotter — à traiter dans une phase
+dédiée.
 
 ## Objectif
 
@@ -167,7 +181,7 @@ synth-app/
         ├── WaveformEditor.jsx + .css          # éditeur ondes / patch (Designer)
         ├── Spectrogram.jsx + .css             # spectrogramme statique (Designer)
         ├── MiniPlayer.jsx + .css              # transport simplifié (Designer)
-        ├── PianoKeyboard.jsx + .css           # dispatcher clavier (piano-12 / grid-24 / grid-5 / grid-31) + octaves + halo .is-cued (F.4.4)
+        ├── PianoKeyboard.jsx + .css           # dispatcher clavier (piano-12 / grid-24 / grid-5 / grid-7 / grid-31) + octaves + halo .is-cued (F.4.4)
         ├── DurationButtons.jsx + .css         # boutons durée 7 bases + 3 coefs (phase 6.1)
         ├── SidebarResizer.jsx + .css          # poignée drag bordure sidebar (phase 7.4)
         ├── BpmInput.jsx                       # input BPM validation différée
@@ -485,6 +499,24 @@ Choix non évidents pris pour de bonnes raisons. À ne pas remettre en question
   testTuningSystem volatil retournait silencieusement à `'12-TET'` au
   reload pendant que `visualCueTonic` survivait avec son ancienne
   valeur — produit des indices hors borne potentiellement crashants.
+- **Tempéraments à accordage variable : référence documentée
+  explicite (F.6)** : pour les systèmes dont l'accordage varie
+  ethnographiquement (gamelan javanais, et plus tard maqâmât en
+  pratique vivante, shrutis indiens, etc.), on s'engage sur **un**
+  accordage mesuré et publié, cité en commentaire dans
+  `tuningSystems.js`. Principe : pas d'invention, pas de moyenne
+  inventée, pas d'extrapolation. Pour Slendro et Pelog : Surjodiningrat,
+  Sudarjana & Susanto, "Tone Measurements of Outstanding Javanese
+  Gamelans in Jogjakarta and Surakarta" (1972). Si un autre accordage
+  est demandé (Yogyakarta, Sumarsam, Tenzer), c'est une **entrée
+  séparée** du registre — pas un override paramétrable.
+  Conséquence : le label de l'entrée mentionne explicitement la
+  région/source ("Slendro (gamelan javanais, Surakarta)"). Cohérent
+  avec la posture humble du BACKLOG ("ne pas inventer pour les
+  traditions sous-documentées") et avec le 24-TET Le Caire 1932 qui
+  cite déjà aly-abbara.com. Le mécanisme d'import custom de cents
+  par l'utilisateur (backlog) couvrira les cas où aucune référence
+  pré-existante ne convient.
 - **Catalogue de visual cues universel en cents (itération F.4.4)** :
   `src/lib/visualCues.js` définit chaque pattern (triade, gamme,
   septième…) comme une liste d'intervalles **en cents depuis la
@@ -1139,7 +1171,7 @@ Phases listées ci-dessous dans l'ordre chronologique d'implémentation.
   précédente lors d'un retrigger (clic de voice-stealing sur note
   déjà active ou sustainée) (voir Roadmap).
 
-🚧 **Itération F — Tier 1 + Tier 3 livrés** — Multi-tempérament (Tier 2 en backlog)
+🚧 **Itération F — Tier 1 + Tier 2 (gamelan) + Tier 3 livrés** — Multi-tempérament
 - ✅ **Phase 1** (2026-04-22) — Infrastructure multi-tempérament.
   Création de `src/lib/tuningSystems.js` : registre `TUNING_SYSTEMS`
   (clé = id de système) avec `{ id, label, notesPerOctave, noteNames,
@@ -1326,9 +1358,61 @@ Phases listées ci-dessous dans l'ordre chronologique d'implémentation.
   marqué) → Werckmeister III (compromis bien-tempéré, toutes
   tonalités utilisables) → 12-TET (uniforme). Tier 2 (gamelan,
   22-TET, 53-EDO) reste en backlog.
+- ✅ **Phase 6** (2026-04-25) — Tier 2 gamelan. Deux tempéraments
+  javanais d'après Surjodiningrat, Sudarjana & Susanto, "Tone
+  Measurements of Outstanding Javanese Gamelans in Jogjakarta
+  and Surakarta" (1972) — étude empirique de référence, citée
+  en commentaire du registre. **`'slendro'`** (5 notes, accordage
+  Surakarta moyen, cents [0, 241, 481, 719, 958] ; réutilise
+  layout `grid-5` et `FIVE_KEY_MAP` — strict alignement avec
+  5-TET côté UI, audio différent par les ~3¢ de déviation par
+  rapport à 5-EDO) et **`'pelog'`** (7 notes, cents [0, 119, 258,
+  539, 678, 794, 1058] ; nouveau layout `grid-7` calqué sur
+  grid-5 avec 7 hues à 360°/7 ≈ 51° de pas, mapping QWERTY home
+  row SDFGHJK = `PELOG_KEY_MAP`, sous-ensemble strict de
+  `TWELVE_KEY_MAP`). Cellules équidistantes alors que les pitchs
+  Pelog ne le sont pas — convention partagée avec piano-12 et
+  tous les autres layouts. Nomenclature romaine I..V / I..VII —
+  pas d'import des noms javanais natifs (barang/gulu/dada/lima/
+  nem ou ji/ro/lu/pat/mo/nem/pi), décision de scope assumée
+  pour limiter la friction terminologique en classe. Tonique
+  deg 0 = `a4Ref` (cohérence 5-TET / 31-EDO ; pas d'A en
+  gamelan). Visual cues **désactivés** : `slendro`/`pelog` absents
+  de `VISUAL_CUE_SUPPORTED_SYSTEMS`, la barre se masque
+  automatiquement via la logique F.4.4 existante. Pelog Bem /
+  Pelog Barang non modélisés comme entrées séparées — le clavier
+  expose les 7 notes, l'utilisateur choisit son sous-ensemble
+  joué. Insérés en 10e/11e position du registre (entre `31-edo`
+  et `free`). `LAYOUT_COMPONENTS` enrichi de `'grid-7'` →
+  `Grid7Layout` (nouveau composant dans `PianoKeyboard.jsx`,
+  parallèle à `Grid5Layout`). Vérifs (a4Ref=440) : Slendro I oct 4
+  = 440.000, V = 765.200, I oct 5 = 880.000 (octave juste).
+  Pelog I = 440.000, II = 471.308 (~119¢ — intervalle "petit"
+  caractéristique), IV = 600.711 (~539¢ — 4e degré loin du
+  tonique), VII = 810.701, I oct 5 = 880.000. Registre à 12
+  entrées. Reste en backlog : 22-EDO et 53-EDO du Tier 2 ; refonte
+  UI dropdown catégorisé (12 entrées commencent à frotter).
 
 ## Historique (chronologie inverse)
 
+000000000000000000. **Iter F — Phase 6** (2026-04-25) : Tier 2 gamelan —
+    Slendro et Pelog d'après Surjodiningrat, Sudarjana & Susanto 1972
+    (étude empirique de référence). Slendro 5 notes (cents [0, 241, 481,
+    719, 958], déviations audibles vs 5-EDO — signature gamelan, ~3¢ sur
+    II), réutilise grid-5 + FIVE_KEY_MAP de F.4.2 — strict alignement UI
+    avec 5-TET. Pelog 7 notes (cents [0, 119, 258, 539, 678, 794, 1058],
+    deux grands trous ~281¢ et ~264¢), nouveau layout grid-7 calqué sur
+    grid-5 (7 hues à 360°/7 ≈ 51° de pas, hauteur 90/56px alignée), nouveau
+    PELOG_KEY_MAP home row SDFGHJK (sous-ensemble strict de TWELVE_KEY_MAP).
+    Cellules équidistantes (convention piano-12) alors que les pitchs ne
+    le sont pas. Nomenclature romaine I..V / I..VII — pas d'import des
+    noms javanais natifs (décision de scope). Tonique deg 0 = a4Ref.
+    Visual cues désactivés (slendro/pelog absents de
+    VISUAL_CUE_SUPPORTED_SYSTEMS, masquage automatique). Pelog Bem /
+    Barang non modélisés (sous-ensembles que l'utilisateur joue
+    directement sur les 7 notes). Insérés en 10e/11e position. Registre
+    à 12 entrées. Reste en backlog : 22-EDO, 53-EDO, refonte UI dropdown
+    catégorisé.
 00000000000000000. **Iter F — Phase 5** (2026-04-25) : Tier 3 historiques
     européens — Mésotonique 1/4 de comma (centré sur C, chaîne E♭→G♯,
     tierces 5/4 pures à 386.314¢ exact, loup G♯↔E♭, cents Helmholtz/
@@ -1761,7 +1845,7 @@ Phases listées ci-dessous dans l'ordre chronologique d'implémentation.
     ne réapparaît pas au relâchement de Espace. Invariant
     retrigger "perçu net" (E.3.4) respecté.
 
-### Itération F (multi-tempérament) — Tier 1 + Tier 3 livrés
+### Itération F (multi-tempérament) — Tier 1 + Tier 2 (gamelan) + Tier 3 livrés
 
 - ✅ **Phase 1** (2026-04-22) — Infrastructure multi-tempérament.
   Deux sous-commits :
@@ -2198,10 +2282,56 @@ Phases listées ci-dessous dans l'ordre chronologique d'implémentation.
   (catalogue baroque non-exhaustif assumé), tempéraments
   non-européens (Tier 2 — gamelan, shrutis indiens — restent en
   backlog), tonique alternative pour mésotonique.
-- **Dette UI dropdown tempéraments** : 10 entrées dans le sélecteur,
-  ça commence à devenir long. À traiter si ajout d'un Tier 2 — soit
-  catégorisation visuelle (optgroup HTML : "Égaux", "Justes",
-  "Historiques", "Micro-tonaux", "Libre"), soit modal dédié.
+- ✅ **Phase 6** (2026-04-25) — Tier 2 gamelan : Slendro et Pelog
+  d'après Surjodiningrat, Sudarjana & Susanto, "Tone Measurements
+  of Outstanding Javanese Gamelans in Jogjakarta and Surakarta"
+  (1972). Single commit (~80 lignes effectives, scope cohérent
+  bloc gamelan).
+  **`'slendro'`** : 5 notes, accordage Surakarta moyen, cents
+  [0, 241, 481, 719, 958]. Réutilise layout `grid-5` et
+  `FIVE_KEY_MAP` — aucun nouveau code UI, juste une entrée registre
+  + table de cents + freq. Différence audible vs 5-TET (~3¢ sur II,
+  ~0.2¢ sur V) — c'est précisément ce qu'on veut faire entendre.
+  **`'pelog'`** : 7 notes, accordage Surakarta moyen, cents
+  [0, 119, 258, 539, 678, 794, 1058]. Nouveau layout `grid-7`
+  calqué strictement sur `grid-5` (7 cellules équidistantes,
+  palette `HUE_PER_PELOG_DEGREE = [0, 51, 103, 154, 206, 257, 309]`
+  à 360°/7 ≈ 51° de pas, lightness uniforme alignée sur grid-5,
+  hauteur 90px / 56px compact). `PELOG_KEY_MAP` home row SDFGHJK,
+  sous-ensemble strict de `TWELVE_KEY_MAP` — préserve la mémoire
+  motrice. Cellules équidistantes alors que les pitchs Pelog ne le
+  sont pas (deux grands trous ~281¢ et ~264¢) — convention partagée
+  avec piano-12 et tous les autres layouts. Nomenclature romaine
+  I..V / I..VII — pas d'import des noms javanais natifs (barang/
+  gulu/dada/lima/nem ou ji/ro/lu/pat/mo/nem/pi), décision de scope
+  pour limiter la friction terminologique en classe. Tonique
+  deg 0 = a4Ref (cohérence 5-TET / 31-EDO ; pas d'A en gamelan).
+  Visual cues **désactivés** (slendro/pelog absents de
+  `VISUAL_CUE_SUPPORTED_SYSTEMS`) — les patterns du catalogue n'ont
+  pas de sens en gamelan, la barre se masque automatiquement via
+  `systemSupportsVisualCues()` (logique F.4.4). Pelog Bem / Pelog
+  Barang non modélisés comme entrées séparées — le clavier expose
+  les 7 notes, l'utilisateur choisit son sous-ensemble joué.
+  Référence académique citée en commentaire dans `tuningSystems.js`
+  pour traçabilité. Insérés en 10e/11e position du registre (entre
+  `31-edo` et `free`). Vérifs (a4Ref=440) : Slendro I oct 4 = 440.000,
+  V = 765.200, I oct 5 = 880.000 (octave juste). Pelog I = 440.000,
+  II = 471.308 (~119¢), IV = 600.711 (~539¢), VII = 810.701, I oct 5
+  = 880.000. Hors scope F.6 : Pelog Bem/Barang séparés, autres
+  accordages (Yogyakarta, Sumarsam, Tenzer), noms javanais natifs,
+  visual cues gamelan-spécifiques (Pathet), import custom de cents
+  par l'utilisateur, 22-EDO et 53-EDO, refonte UI dropdown.
+- **Reste en backlog Tier 2** : **22-EDO** (approximation shrutis
+  indiens — layout possiblement réutilisable depuis grid-31 ou un
+  grid-22 dédié), **53-EDO** (approximation fine de la juste
+  intonation — sous question de valeur ajoutée pédagogique vs
+  31-EDO déjà disponible).
+- **Dette UI dropdown tempéraments** (12 entrées) — à traiter dans
+  une phase dédiée. Pistes : optgroup HTML ("Égaux occidentaux",
+  "Justes", "Historiques européens", "Maqâmât", "Gamelan",
+  "Micro-tonaux", "Libre") ou modal catégorisé. Bénéfice
+  pédagogique direct : la catégorisation explicite la structure
+  du domaine.
 
 ### Backlog général (à caser quand pertinent)
 
