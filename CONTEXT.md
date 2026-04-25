@@ -88,9 +88,23 @@ tonique I ancrée à `a4Ref` à l'octave 4 (plus de A en 5-TET : la
 "hauteur de référence" glisse du A vers le I). Nouveau layout
 `grid-5` (5 rectangles colorés en ligne, palette 5 hues à 72° de
 pas), mapping QWERTY `FIVE_KEY_MAP` = sous-ensemble SDFGH du 12-TET
-(mêmes positions physiques, sémantique de degrés). Registre à 7
-entrées : 12-TET, Pythagoricien 12, Juste majeure C, 24-TET égal,
-24-TET Le Caire 1932, 5-TET pentatonique, Libre.
+(mêmes positions physiques, sémantique de degrés).
+Phase 4.3 (2026-04-25) : **31-EDO explorateur micro-tonal** — 31
+divisions égales de l'octave (step ≈ 38.71¢), tierce 10 degrés à
++0.78¢ du ratio juste 5/4 (quasi-pure, signature méantone du
+système). Interprétation abstraite : degrés numérotés 1..31, pas
+d'import de la nomenclature méantone (cohérent avec 5-TET). Tonique
+deg 0 ancrée à `a4Ref` à oct 4. Nouveau layout `grid-31` (4 rangées
+× 8 colonnes moins la case haut-droite, escalier 1/4 d'unité par
+rangée → 35 sub-cols, palette 4 hues à 90° de pas). Mapping QWERTY
+`THIRTYONE_KEY_MAP` 31 positions sur les 4 rangées physiques du
+clavier en serpentin-colonne (KeyZ KeyS KeyE Digit4 KeyX … KeyP).
+**Tier 1 multi-tempérament clos** (4.1 juste-majeure, 4.2 5-TET,
+4.3 31-EDO). Registre à 8 entrées : 12-TET, Pythagoricien 12,
+Juste majeure C, 24-TET égal, 24-TET Le Caire 1932, 5-TET
+pentatonique, 31-EDO, Libre. Tier 2 (Slendro, Pelog, 22-TET, 53-EDO)
+et Tier 3 (mésotoniques historiques, Werckmeister) restent en
+backlog si itération F est reprise.
 
 ## Objectif
 
@@ -1065,7 +1079,7 @@ Phases listées ci-dessous dans l'ordre chronologique d'implémentation.
   précédente lors d'un retrigger (clic de voice-stealing sur note
   déjà active ou sustainée) (voir Roadmap).
 
-🚧 **Itération F en cours** — Multi-tempérament
+🚧 **Itération F — Tier 1 livré** — Multi-tempérament (Tier 2/3 en backlog)
 - ✅ **Phase 1** (2026-04-22) — Infrastructure multi-tempérament.
   Création de `src/lib/tuningSystems.js` : registre `TUNING_SYSTEMS`
   (clé = id de système) avec `{ id, label, notesPerOctave, noteNames,
@@ -1162,9 +1176,63 @@ Phases listées ci-dessous dans l'ordre chronologique d'implémentation.
   patterns `is-active` (inset cyan) et `is-playing` (outline jaune
   + glow) hérités de grid-24. Entrée insérée en 6e position
   (avant `free`) pour ne pas disrupter les positions déjà adoptées.
+- ✅ **Phase 4.3** (2026-04-25) — 31-EDO explorateur micro-tonal +
+  layout `grid-31`. Nouvelle entrée `'31-edo'` au registre (7e
+  position, avant `free`). 31 divisions égales (step 1200/31 ≈
+  38.71¢) ; tonique deg 0 ancrée à `a4Ref` à oct 4 (cohérence avec
+  5-TET). Interprétation abstraite : degrés numérotés 1..31
+  (`THIRTYONE_EDO_NOTE_NAMES`), pas d'emprunt à la nomenclature
+  méantone (C♯/D♭, double-dièses) — cohérent avec la position
+  pédagogique de 5-TET. Suffixe "." dans les noms (`"1."` à `"31."`)
+  comme séparateur visuel pour `formatClipNote` (`"23." + "4"` →
+  `"23.4"`), masqué sur les touches du clavier. `THIRTYONE_KEY_MAP`
+  31 positions sur les 4 rangées physiques du clavier QWERTY en
+  serpentin-colonne (KeyZ KeyS KeyE Digit4 KeyX KeyD KeyR Digit5 …
+  KeyP) — 8 colonnes × 4 rangées moins la case haut-droite manquante
+  (degré 31 = octave non représenté). Nouveau `Grid31Layout` dans
+  `PianoKeyboard.jsx` : CSS Grid 4×35 sub-cols, escalier 1/4
+  d'unité par rangée (extension du pattern grid-24 à 8 colonnes au
+  lieu de 7). Axe horizontal monotone : `start_subCol(k+1) =
+  start_subCol(k) + 1` que ce soit une montée intra-colonne ou un
+  saut de colonne. Palette `HUE_PER_ROW = [0, 90, 180, 270]` (4
+  hues à 90° de pas, un par rangée), lightness uniforme 62%.
+  Hauteur 160px / 80px compact alignée sur grid-24 (autre layout
+  4-rangées) plutôt que sur grid-5 (1 rangée). Patterns `is-active`
+  (inset cyan) et `is-playing` (outline jaune + glow) hérités du
+  pattern grid-24. `LAYOUT_COMPONENTS` enrichi de `'grid-31'`.
+  Vérifs numériques (a4Ref=440) : deg 0 oct 4 = 440 Hz exact, deg 0
+  oct 5 = 880 Hz exact (octave juste), deg 10 vs 5/4 = +0.78¢
+  (tierce méantone quasi-pure, signature 31-EDO), deg 18 vs 3/2 =
+  −5.18¢ (quinte méantone). Snap 12-TET C4 → 31-EDO deg 8 oct 3
+  (écart 9.68¢ < step/2 = 19.35¢). **Tier 1 multi-tempérament clos**
+  (4.1 juste-majeure, 4.2 5-TET, 4.3 31-EDO).
 
 ## Historique (chronologie inverse)
 
+0000000000000. **Iter F — Phase 4.3** (2026-04-25) : 31-EDO,
+    explorateur micro-tonal — 31 divisions égales de l'octave
+    (step ≈ 38.71¢), 7e tempérament non-libre. Interprétation
+    abstraite (degrés 1..31 via `THIRTYONE_EDO_NOTE_NAMES`, pas
+    d'emprunt à la nomenclature méantone — cohérent avec la
+    position prise en 5-TET). Tonique deg 0 ancrée à `a4Ref` oct 4
+    (`thirtyOneEdoFreq(i, oct, a4) = a4 · 2^(i/31 + oct-4)`).
+    Suffixe "." dans les noms comme séparateur visuel pour
+    `formatClipNote`, masqué sur les touches. `THIRTYONE_KEY_MAP`
+    31 positions sur les 4 rangées physiques du clavier QWERTY en
+    serpentin-colonne (Z-row, A-row, Q-row, digit ; KeyZ KeyS KeyE
+    Digit4 KeyX … KeyP). Nouveau `Grid31Layout` dans
+    `PianoKeyboard.jsx` : 4 rangées × 8 colonnes moins la case
+    haut-droite (degré 31 = octave non représenté → 31 cellules),
+    escalier 1/4 d'unité par rangée → 35 sub-cols, palette `HUE_PER_ROW
+    = [0, 90, 180, 270]` (4 hues à 90° de pas), lightness uniforme
+    62%, hauteur 160px / 80px compact alignée sur grid-24.
+    `LAYOUT_COMPONENTS` enrichi de `'grid-31'`. Vérifs : deg 0 oct 4
+    = 440 Hz exact, deg 10 ≈ 5/4 à +0.78¢ (tierce méantone
+    quasi-pure, signature 31-EDO), deg 18 ≈ 3/2 à −5.18¢ (quinte
+    méantone). **Tier 1 multi-tempérament clos** (4.1 juste-majeure,
+    4.2 5-TET, 4.3 31-EDO) ; Tier 2 (Slendro, Pelog, 22-TET, 53-EDO)
+    et Tier 3 (mésotoniques historiques, Werckmeister) restent en
+    backlog si itération F est reprise.
 000000000000. **Iter F — Phase 4.2** (2026-04-25) : 5-TET
     pentatonique égale + layout `grid-5`. 6e tempérament non-libre,
     premier avec `notesPerOctave` hors {12, 24}. Degrés I..V
@@ -1498,7 +1566,7 @@ Phases listées ci-dessous dans l'ordre chronologique d'implémentation.
     ne réapparaît pas au relâchement de Espace. Invariant
     retrigger "perçu net" (E.3.4) respecté.
 
-### Itération F (multi-tempérament) — en cours
+### Itération F (multi-tempérament) — Tier 1 livré
 
 - ✅ **Phase 1** (2026-04-22) — Infrastructure multi-tempérament.
   Deux sous-commits :
@@ -1850,7 +1918,31 @@ Phases listées ci-dessous dans l'ordre chronologique d'implémentation.
   II3 (252.71 Hz, meilleure approximation dans la grille) ;
   bascule inverse II3 5-TET → 12-TET snappe à B3 (40¢ vs 60¢ pour
   C4).
-- 🔜 **Phase 4.3** — 31-EDO (à livrer).
+- ✅ **Phase 4.3** (2026-04-25) — Tempérament 31-EDO + layout
+  `grid-31`. Nouvelle entrée `'31-edo'` au registre (7e position,
+  avant `free`). 31 divisions égales (step 1200/31 ≈ 38.71¢) ;
+  tonique deg 0 ancrée à `a4Ref` oct 4 (cohérence avec 5-TET —
+  généralisation `a4Ref` = "fréquence du degré 0 à oct 4").
+  Interprétation abstraite : `THIRTYONE_EDO_NOTE_NAMES` numérotés
+  1..31 (avec suffixe "." comme séparateur visuel pour
+  `formatClipNote`), pas d'emprunt à la nomenclature méantone.
+  `THIRTYONE_KEY_MAP` 31 positions sur les 4 rangées physiques du
+  clavier QWERTY en serpentin-colonne (Z/A/Q/digit, 8 colonnes
+  moins la case haut-droite). Nouveau `Grid31Layout` (4×35 sub-cols,
+  escalier 1/4 d'unité par rangée — extension du pattern grid-24 à
+  8 colonnes), palette `HUE_PER_ROW = [0, 90, 180, 270]` à 90° de
+  pas, lightness uniforme 62%, hauteur 160px / 80px compact (aligné
+  grid-24, pas grid-5). `LAYOUT_COMPONENTS` enrichi de `'grid-31'`.
+  Vérifs numériques : deg 10 ≈ tierce 5/4 à +0.78¢ (signature
+  méantone 31-EDO), deg 18 ≈ quinte 3/2 à −5.18¢. Hors scope :
+  nomenclature méantone optionnelle (C♯/D♭, double-dièses), repères
+  visuels triades/gammes (transverse, voir backlog), clavier
+  isomorphique Wicki-Hayden, autres N-EDO, tonique alternative,
+  tooltip pédagogique micro-intervalles.
+- **Tier 1 multi-tempérament clos** : 4.1 juste-majeure, 4.2 5-TET,
+  4.3 31-EDO livrés. Tier 2 (Slendro, Pelog, 22-TET, 53-EDO) et
+  Tier 3 (mésotoniques historiques — 1/4-comma, 1/6-comma —
+  Werckmeister) restent en candidats si itération F est reprise.
 
 ### Backlog général (à caser quand pertinent)
 
