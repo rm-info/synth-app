@@ -477,6 +477,14 @@ function App() {
           composerAsideWidth,
           composerBankCollapsed,
           composerAsideCollapsed,
+          // F.4.4.3 : état d'exploration Designer persisté de bout en bout.
+          // Chaque presse-touche dispatch un SET_EDITOR_TEST_NOTE qui re-tire
+          // ce useEffect → setItem(localStorage). Coût acceptable :
+          // JSON.stringify d'un état moyen (~50 KB) reste sous le ms.
+          editorTestTuningSystem: editor.testTuningSystem,
+          editorTestNoteIndex: editor.testNoteIndex,
+          editorTestOctave: editor.testOctave,
+          editorTestFrequency: editor.testFrequency,
           editorVisualCuePattern: editor.visualCuePattern,
           editorVisualCueTonic: editor.visualCueTonic,
         }),
@@ -488,6 +496,7 @@ function App() {
     patches, soundFolders, tracks, clips, bpm, numMeasures, a4Ref,
     spectrogramVisible, durationMode, activeTab, patchCounter, clipCounter, folderCounter, trackCounter,
     composerBankWidth, composerAsideWidth, composerBankCollapsed, composerAsideCollapsed,
+    editor.testTuningSystem, editor.testNoteIndex, editor.testOctave, editor.testFrequency,
     editor.visualCuePattern, editor.visualCueTonic,
   ])
 

@@ -3,7 +3,9 @@ import {
   DEFAULT_A4,
   getTuningSystem,
   frequencyToNearestIn,
+  TUNING_SYSTEMS,
 } from './lib/tuningSystems'
+import { VISUAL_CUE_PATTERNS } from './lib/visualCues'
 
 // === Constantes partagées ===
 export const STORAGE_KEY = 'synth-app-state'
@@ -162,16 +164,78 @@ export function loadPersistedState() {
       composerAsideWidth: typeof parsed.composerAsideWidth === 'number' ? parsed.composerAsideWidth : null,
       composerBankCollapsed: typeof parsed.composerBankCollapsed === 'boolean' ? parsed.composerBankCollapsed : null,
       composerAsideCollapsed: typeof parsed.composerAsideCollapsed === 'boolean' ? parsed.composerAsideCollapsed : null,
-      // F.4.4 : préférences visual cues (Designer). Pattern inconnu →
-      // fallback 'none' au prochain rendu (cuedNoteIndices retourne Set
-      // vide). Tonic invalide → 0. Pas de validation contre le catalogue
-      // ici : éviter le couplage reducer → visualCues.
-      editorVisualCuePattern:
-        typeof parsed.editorVisualCuePattern === 'string' ? parsed.editorVisualCuePattern : 'none',
-      editorVisualCueTonic:
-        Number.isInteger(parsed.editorVisualCueTonic) && parsed.editorVisualCueTonic >= 0
-          ? parsed.editorVisualCueTonic
-          : 0,
+      // F.4.4.3 : état d'exploration Designer persisté de bout en bout.
+      // Tous les champs `editor.test*` + `editor.visualCue*` survivent au
+      // reload. Validation/clamp défensifs ici (point d'entrée unique) :
+      //  - testTuningSystem inconnu du registre → fallback '12-TET'.
+      //  - testNoteIndex clampé à [0, notesPerOctave - 1] du système
+      //    résolu (sauf Libre où l'index est inactif → conservé tel quel).
+      //  - testOctave clampé à [0, 10] (cohérence OctaveSelector).
+      //  - testFrequency : nombre fini > 0, sinon 440.
+      //  - visualCuePattern validé contre VISUAL_CUE_PATTERNS, fallback
+      //    'none' (résiste au retrait futur d'un pattern du catalogue).
+      //  - visualCueTonic clampé comme testNoteIndex.
+      // Cas test : localStorage manipulé manuellement à testNoteIndex=999
+      // → clamp à notesPerOctave-1 ; '31-edo' retiré du registre →
+      // fallback 12-TET + clamp testNoteIndex à 11.
+      ...(() => {
+        // Différencie "absent" (undefined → propagé tel quel pour qu'un
+        // ?? plus loin retombe sur DEFAULT_EDITOR) de "présent mais
+        // invalide" (clamp/sanitize). Garantit qu'un upgrade depuis
+        // F.4.4.2 (sans ces champs en localStorage) restaure les valeurs
+        // par défaut, sans écrire 0 partout.
+        const tsRaw = parsed.editorTestTuningSystem
+        const editorTestTuningSystem =
+          tsRaw === undefined ? undefined
+          : (typeof tsRaw === 'string' && tsRaw in TUNING_SYSTEMS) ? tsRaw
+          : '12-TET'
+        // Pour résoudre `npo`, on doit avoir un système. Si testTuningSystem
+        // est absent du storage, on prend le défaut '12-TET' uniquement pour
+        // décider du clamp, sans pour autant fixer `editorTestTuningSystem`.
+        const sys = getTuningSystem(editorTestTuningSystem ?? '12-TET')
+        const npo = sys.notesPerOctave
+
+        const clampInt = (v, max) => Math.max(0, Math.min(max, v))
+        const validateClampedInt = (v, max) =>
+          v === undefined ? undefined
+          : Number.isInteger(v) ? clampInt(v, max)
+          : 0
+
+        const editorTestNoteIndex = npo !== null
+          ? validateClampedInt(parsed.editorTestNoteIndex, npo - 1)
+          : (parsed.editorTestNoteIndex === undefined ? undefined
+             : Number.isInteger(parsed.editorTestNoteIndex) ? parsed.editorTestNoteIndex
+             : 9)
+
+        const editorTestOctave = validateClampedInt(parsed.editorTestOctave, 10)
+
+        const tfRaw = parsed.editorTestFrequency
+        const editorTestFrequency =
+          tfRaw === undefined ? undefined
+          : (typeof tfRaw === 'number' && Number.isFinite(tfRaw) && tfRaw > 0) ? tfRaw
+          : 440
+
+        const vcpRaw = parsed.editorVisualCuePattern
+        const editorVisualCuePattern =
+          vcpRaw === undefined ? undefined
+          : (typeof vcpRaw === 'string' && vcpRaw in VISUAL_CUE_PATTERNS) ? vcpRaw
+          : 'none'
+
+        const editorVisualCueTonic = npo !== null
+          ? validateClampedInt(parsed.editorVisualCueTonic, npo - 1)
+          : (parsed.editorVisualCueTonic === undefined ? undefined
+             : Number.isInteger(parsed.editorVisualCueTonic) ? parsed.editorVisualCueTonic
+             : 0)
+
+        return {
+          editorTestTuningSystem,
+          editorTestNoteIndex,
+          editorTestOctave,
+          editorTestFrequency,
+          editorVisualCuePattern,
+          editorVisualCueTonic,
+        }
+      })(),
     }
   } catch {
     return null
@@ -193,9 +257,17 @@ export function buildInitialState() {
     // Designer (champ undoable)
     patches: persisted?.patches ?? [],
     soundFolders: persisted?.soundFolders ?? [],
+    // F.4.4.3 : tous les champs `test*` et `visualCue*` sont restaurés
+    // depuis localStorage (validés et clampés dans loadPersistedState).
+    // Les autres champs (points, ADSR, amplitude…) restent vides à
+    // l'init — l'éditeur de patch, lui, n'est pas persisté.
     editor: {
       ...DEFAULT_EDITOR,
       points: [...DEFAULT_EDITOR.points],
+      testTuningSystem: persisted?.editorTestTuningSystem ?? DEFAULT_EDITOR.testTuningSystem,
+      testNoteIndex: persisted?.editorTestNoteIndex ?? DEFAULT_EDITOR.testNoteIndex,
+      testOctave: persisted?.editorTestOctave ?? DEFAULT_EDITOR.testOctave,
+      testFrequency: persisted?.editorTestFrequency ?? DEFAULT_EDITOR.testFrequency,
       visualCuePattern: persisted?.editorVisualCuePattern ?? 'none',
       visualCueTonic: persisted?.editorVisualCueTonic ?? 0,
     },
