@@ -1,9 +1,14 @@
-import { useRef, useState, useCallback, useEffect, useImperativeHandle } from 'react'
+import { useRef, useState, useCallback, useEffect, useImperativeHandle, useMemo } from 'react'
 import { pointsToPeriodicWave, MIN_ATTACK } from '../audio'
 import FreqInput from './FreqInput'
 import NumberInput from './NumberInput'
 import { PianoKeyboard, OctaveSelector } from './PianoKeyboard'
 import { getTuningSystem, TUNING_SYSTEMS } from '../lib/tuningSystems'
+import {
+  VISUAL_CUE_PATTERNS,
+  cuedNoteIndices,
+  systemSupportsVisualCues,
+} from '../lib/visualCues'
 import './WaveformEditor.css'
 
 const POINTS_RESOLUTION = 600
@@ -252,8 +257,24 @@ function WaveformEditor({
   const sustain = draftAdsr?.sustain ?? editor.sustain
   const release = draftAdsr?.release ?? editor.release
 
-  const { testTuningSystem, testNoteIndex, testOctave, preset: activePreset } = editor
+  const {
+    testTuningSystem, testNoteIndex, testOctave, preset: activePreset,
+    visualCuePattern, visualCueTonic,
+  } = editor
   const freeMode = testTuningSystem === 'free'
+
+  // F.4.4 : repères visuels sur le clavier. Le calcul est borné (≤ 7
+  // intervalles × snap O(N×11) avec N ≤ 31), donc useMemo suffit pour
+  // éviter de recompute à chaque render. Set vide si pattern 'none' ou
+  // si le système ne supporte pas — appelable sans guard côté layout.
+  const cuedNotes = useMemo(() => {
+    if (!visualCuePattern || visualCuePattern === 'none') return new Set()
+    if (!systemSupportsVisualCues(testTuningSystem)) return new Set()
+    return cuedNoteIndices(visualCuePattern, visualCueTonic, testTuningSystem, a4Ref)
+  }, [visualCuePattern, visualCueTonic, testTuningSystem, a4Ref])
+
+  const showCuesBar = systemSupportsVisualCues(testTuningSystem)
+  const cueTonicMax = getTuningSystem(testTuningSystem).notesPerOctave ?? 0
 
   const frequency = freeMode
     ? testFrequency
@@ -1244,10 +1265,41 @@ function WaveformEditor({
             </>
           ) : (
             <>
+              {showCuesBar && (
+                <div className="visual-cues-bar">
+                  <label className="visual-cues-label">
+                    Repère :
+                    <select
+                      className="tuning-system-select visual-cues-select"
+                      value={visualCuePattern}
+                      onChange={(e) => editorActions.setVisualCuePattern(e.target.value)}
+                    >
+                      {Object.entries(VISUAL_CUE_PATTERNS).map(([id, pattern]) => (
+                        <option key={id} value={id}>{pattern.label}</option>
+                      ))}
+                    </select>
+                  </label>
+                  {visualCuePattern !== 'none' && cueTonicMax > 0 && (
+                    <label className="visual-cues-label">
+                      Tonique :
+                      <select
+                        className="tuning-system-select visual-cues-select"
+                        value={visualCueTonic}
+                        onChange={(e) => editorActions.setVisualCueTonic(Number(e.target.value))}
+                      >
+                        {Array.from({ length: cueTonicMax }, (_, i) => (
+                          <option key={i} value={i}>{i + 1}</option>
+                        ))}
+                      </select>
+                    </label>
+                  )}
+                </div>
+              )}
               <PianoKeyboard
                 tuningSystem={testTuningSystem}
                 noteIndex={testNoteIndex}
                 activeNotes={activeNoteIndices}
+                cuedNotes={cuedNotes}
                 onSelectNote={editorActions.setTestNoteIndex}
                 onKeyPress={playInstrumentNote}
                 onKeyRelease={releaseInstrumentNote}

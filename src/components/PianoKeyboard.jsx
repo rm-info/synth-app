@@ -44,7 +44,7 @@ const BLACK_KEYS = [
   { note: 10, afterWhite: 5 }, // A♯ entre A et B
 ]
 
-function PianoLayout12({ noteIndex, active, compact, names, handleMouseDown }) {
+function PianoLayout12({ noteIndex, active, cued, compact, names, handleMouseDown }) {
   return (
     <div className={`piano-keyboard piano-keyboard-12${compact ? ' piano-keyboard-compact' : ''}`} role="group" aria-label="Clavier piano">
       <div className="piano-whites">
@@ -52,6 +52,7 @@ function PianoLayout12({ noteIndex, active, compact, names, handleMouseDown }) {
           const classes = ['piano-key', 'piano-key-white']
           if (noteIndex === idx) classes.push('is-active')
           if (active.has(idx)) classes.push('is-playing')
+          if (cued.has(idx)) classes.push('is-cued')
           return (
             <button
               key={idx}
@@ -72,6 +73,7 @@ function PianoLayout12({ noteIndex, active, compact, names, handleMouseDown }) {
           const classes = ['piano-key', 'piano-key-black']
           if (noteIndex === note) classes.push('is-active')
           if (active.has(note)) classes.push('is-playing')
+          if (cued.has(note)) classes.push('is-cued')
           return (
             <button
               key={note}
@@ -145,13 +147,14 @@ const GRID_24_CELLS = [
 // pédagogique.
 const HUE_PER_NATURAL = [0, 38, 76, 145, 200, 256, 310]
 
-function Grid24Layout({ noteIndex, active, compact, names, handleMouseDown }) {
+function Grid24Layout({ noteIndex, active, cued, compact, names, handleMouseDown }) {
   return (
     <div className={`piano-keyboard piano-keyboard-grid24${compact ? ' piano-keyboard-compact' : ''}`} role="group" aria-label="Clavier 24-TET">
       {GRID_24_CELLS.map(([idx, row, colStart, colEnd, kind, parent]) => {
         const classes = ['grid24-key', `grid24-key-${kind}`]
         if (noteIndex === idx) classes.push('is-active')
         if (active.has(idx)) classes.push('is-playing')
+        if (cued.has(idx)) classes.push('is-cued')
         const label = names?.[idx] ?? ''
         return (
           <button
@@ -184,13 +187,14 @@ function Grid24Layout({ noteIndex, active, compact, names, handleMouseDown }) {
 // qui préservent la couleur de fond par-degré.
 const HUE_PER_DEGREE = [0, 72, 144, 216, 288]
 
-function Grid5Layout({ noteIndex, active, compact, names, handleMouseDown }) {
+function Grid5Layout({ noteIndex, active, cued, compact, names, handleMouseDown }) {
   return (
     <div className={`piano-keyboard piano-keyboard-grid5${compact ? ' piano-keyboard-compact' : ''}`} role="group" aria-label="Clavier 5-TET">
       {HUE_PER_DEGREE.map((hue, idx) => {
         const classes = ['grid5-key']
         if (noteIndex === idx) classes.push('is-active')
         if (active.has(idx)) classes.push('is-playing')
+        if (cued.has(idx)) classes.push('is-cued')
         const label = names?.[idx] ?? ''
         return (
           <button
@@ -239,7 +243,7 @@ function Grid5Layout({ noteIndex, active, compact, names, handleMouseDown }) {
 // jaune, fond HSL préservé).
 const GRID31_HUE_PER_COL = [0, 38, 76, 130, 180, 220, 280, 320]
 
-function Grid31Layout({ noteIndex, active, compact, handleMouseDown }) {
+function Grid31Layout({ noteIndex, active, cued, compact, handleMouseDown }) {
   return (
     <div className={`piano-keyboard piano-keyboard-grid31${compact ? ' piano-keyboard-compact' : ''}`} role="group" aria-label="Clavier 31-EDO">
       {Array.from({ length: 31 }, (_, k) => {
@@ -251,6 +255,7 @@ function Grid31Layout({ noteIndex, active, compact, handleMouseDown }) {
         const classes = ['grid31-key', `grid31-key-r${rangeIndex}`]
         if (noteIndex === k) classes.push('is-active')
         if (active.has(k)) classes.push('is-playing')
+        if (cued.has(k)) classes.push('is-cued')
         const label = String(k + 1)
         return (
           <button
@@ -296,6 +301,10 @@ const LAYOUT_COMPONENTS = {
 // `activeNotes` (Set<number>) colore en permanence les touches dont la note
 // est actuellement jouée (feedback visuel pendant un sustain).
 //
+// `cuedNotes` (Set<number>, F.4.4) marque les touches d'un pattern visuel
+// (gamme/accord). Halo magenta autour de la cellule, préserve le fill HSL
+// et coexiste avec is-active/is-playing.
+//
 // `tuningSystem` détermine le layout et les noms de notes affichés. Default
 // '12-TET' pour rétro-compat des call-sites qui ne le passent pas encore.
 //
@@ -304,6 +313,7 @@ export function PianoKeyboard({
   tuningSystem = '12-TET',
   noteIndex,
   activeNotes,
+  cuedNotes,
   onSelectNote,
   onKeyPress,
   onKeyRelease,
@@ -314,11 +324,13 @@ export function PianoKeyboard({
   const handleMouseDown = useMouseDownHandler({ onSelectNote, onKeyPress, onKeyRelease })
   if (!Layout) return null
   const active = activeNotes ?? new Set()
+  const cued = cuedNotes ?? new Set()
   const names = sys.noteNames ?? NOTE_NAMES
   return (
     <Layout
       noteIndex={noteIndex}
       active={active}
+      cued={cued}
       compact={compact}
       names={names}
       handleMouseDown={handleMouseDown}

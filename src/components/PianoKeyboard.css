@@ -377,6 +377,51 @@
   display: none;
 }
 
+/* --- Repères visuels (gammes/accords) — classe .is-cued (F.4.4) ---
+ * Halo magenta autour de la cellule, tracé en `box-shadow` externe (spread
+ * positif) pour préserver le fill HSL de la palette de chaque layout.
+ * Coexiste avec :
+ *  - .is-active (inset cyan dans grid-24/grid-5/grid-31, background cyan
+ *    dans piano-12) : on combine via box-shadow comma-separated quand le
+ *    layout pose un inset, sinon (piano-12) le halo s'ajoute simplement.
+ *  - .is-playing (outline jaune externe + glow box-shadow dans grids,
+ *    glow box-shadow dans piano-12) : on combine box-shadow externes via
+ *    virgule, l'outline jaune coexiste sans interférence.
+ * Stratégie : règle générique pour le cas seul, puis règles surcharge
+ * pour chaque combinaison. */
+.is-cued {
+  box-shadow: 0 0 0 2px #e832e2;
+}
+
+/* Grids (24/5/31) — combinaisons. Le layout grid-24 a déjà des règles
+ * .is-active.is-playing dédiées (F.3.10) qui posent un inset cyan + glow ;
+ * on les étend ici pour superposer le halo magenta. */
+.grid24-key.is-active.is-cued,
+.grid5-key.is-active.is-cued,
+.grid31-key.is-active.is-cued {
+  box-shadow: inset 0 0 0 3px #00d4ff, 0 0 0 2px #e832e2;
+}
+
+.grid24-key.is-cued.is-playing,
+.grid5-key.is-cued.is-playing,
+.grid31-key.is-cued.is-playing {
+  box-shadow: 0 0 0 2px #e832e2, 0 0 10px rgba(255, 198, 0, 0.6);
+}
+
+.grid24-key.is-active.is-cued.is-playing,
+.grid5-key.is-active.is-cued.is-playing,
+.grid31-key.is-active.is-cued.is-playing {
+  box-shadow: inset 0 0 0 3px #00d4ff, 0 0 0 2px #e832e2, 0 0 10px rgba(255, 198, 0, 0.6);
+}
+
+/* Piano-12 — l'is-active y change le `background`, pas le box-shadow ;
+ * pas de règle inset cyan à combiner. La règle générique `.is-cued`
+ * suffit pour les états seul / actif. Combinaison avec is-playing :
+ * superposer halo magenta + glow jaune. */
+.piano-key.is-cued.is-playing {
+  box-shadow: 0 0 0 2px #e832e2, 0 0 10px rgba(255, 198, 0, 0.6);
+}
+
 /* --- Sélecteur d'octave --- */
 .octave-selector {
   display: flex;

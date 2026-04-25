@@ -281,6 +281,32 @@
   border-color: #00d4ff;
 }
 
+/* Barre repères visuels (F.4.4) — flex row au-dessus du clavier, deux
+ * selects côte à côte (Repère + Tonique). Visible quand le système courant
+ * supporte les visual cues (12-TET, Pythag-12, juste-majeure, 24-TET égal,
+ * Le Caire 1932, 31-EDO). Réutilise le style .tuning-system-select pour
+ * l'apparence des dropdowns. */
+.visual-cues-bar {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 6px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.visual-cues-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: #a0a0c0;
+  font-size: 0.85rem;
+}
+
+.visual-cues-select {
+  width: auto;
+  min-width: 80px;
+}
+
 /* Badge affiché quand la pédale de sustain (Espace) est active. */
 .sustain-badge {
   display: inline-block;
