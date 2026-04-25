@@ -91,6 +91,63 @@ function justMajorCFreq(noteIndex, octave, a4Ref) {
   return c4 * JUST_MAJOR_RATIOS_FROM_C[noteIndex] * Math.pow(2, octave - 4)
 }
 
+// Mésotonique au quart de comma : chaque quinte tempérée par 1/4 de
+// comma syntonique, ce qui produit des tierces majeures pures (5/4).
+// Quinte mésotonique = 5^(1/4) en ratio = 1200·log₂(5)/4 ≈ 696.578¢.
+// Chaîne de quintes de E♭ (-3) à G♯ (+8), centrée sur C. La quinte
+// du loup tombe entre G♯ (+8) et E♭ (-3), audible et attendue —
+// c'est la signature historique du tempérament. Cents standards
+// (Helmholtz/Ellis), arrondis à 3 décimales.
+const MEANTONE_QUARTER_COMMA_CENTS = [
+  0,        // C  (chain 0)
+  76.049,   // C♯ (chain +7)
+  193.157,  // D  (chain +2)
+  310.265,  // D♯/E♭ (chain -3)
+  386.314,  // E  (chain +4)
+  503.422,  // F  (chain -1)
+  579.471,  // F♯ (chain +6)
+  696.578,  // G  (chain +1)
+  772.627,  // G♯ (chain +8)
+  889.735,  // A  (chain +3)
+  1006.843, // A♯/B♭ (chain -2)
+  1082.892, // B  (chain +5)
+]
+
+// A est à l'index 9 dans le tableau, à 889.735¢ au-dessus de C. Pour
+// ancrer A4 = a4Ref, C4 doit valoir a4Ref × 2^(-889.735/1200). Mêmes
+// règles d'octave que les autres systèmes-based (facteur 2^(octave-4)).
+function meantoneQuarterCommaFreq(noteIndex, octave, a4Ref) {
+  const c4 = a4Ref * Math.pow(2, -MEANTONE_QUARTER_COMMA_CENTS[9] / 1200)
+  return c4 * Math.pow(2, MEANTONE_QUARTER_COMMA_CENTS[noteIndex] / 1200) * Math.pow(2, octave - 4)
+}
+
+// Werckmeister III (Andreas Werckmeister, "Musikalische Temperatur",
+// 1691) : 4 quintes tempérées chacune par 1/4 du comma pythagoricien
+// (C-G, G-D, D-A, B-F♯), 8 quintes pures (3/2). Distribue le comma
+// pour que toutes les tonalités soient utilisables, avec C-majeur le
+// plus pur et les tonalités lointaines progressivement colorées.
+// Référence pour Bach (Das wohltemperierte Klavier). Cents standards
+// (cf. Barbour, "Tuning and Temperament", 1951).
+const WERCKMEISTER_III_CENTS = [
+  0,        // C
+  90.225,   // C♯
+  192.180,  // D
+  294.135,  // D♯/E♭
+  390.225,  // E
+  498.045,  // F
+  588.270,  // F♯
+  696.090,  // G
+  792.180,  // G♯
+  888.270,  // A
+  996.090,  // A♯/B♭
+  1092.180, // B
+]
+
+function werckmeisterIIIFreq(noteIndex, octave, a4Ref) {
+  const c4 = a4Ref * Math.pow(2, -WERCKMEISTER_III_CENTS[9] / 1200)
+  return c4 * Math.pow(2, WERCKMEISTER_III_CENTS[noteIndex] / 1200) * Math.pow(2, octave - 4)
+}
+
 // Mapping QWERTY → noteIndex pour les tempéraments à 12 notes.
 // Rangée du milieu (blanches, façon clavier diatonique) :
 //   S  D  F  G  H  J  K
@@ -302,6 +359,24 @@ export const TUNING_SYSTEMS = {
     notesPerOctave: 12,
     noteNames: TWELVE_TET_NOTE_NAMES,
     freq: justMajorCFreq,
+    layout: 'piano-12',
+    keyboardMap: TWELVE_KEY_MAP,
+  },
+  'meantone-quarter-comma': {
+    id: 'meantone-quarter-comma',
+    label: 'Mésotonique 1/4 de comma (centré sur C)',
+    notesPerOctave: 12,
+    noteNames: TWELVE_TET_NOTE_NAMES,
+    freq: meantoneQuarterCommaFreq,
+    layout: 'piano-12',
+    keyboardMap: TWELVE_KEY_MAP,
+  },
+  'werckmeister-iii': {
+    id: 'werckmeister-iii',
+    label: 'Werckmeister III (bien tempéré, 1691)',
+    notesPerOctave: 12,
+    noteNames: TWELVE_TET_NOTE_NAMES,
+    freq: werckmeisterIIIFreq,
     layout: 'piano-12',
     keyboardMap: TWELVE_KEY_MAP,
   },

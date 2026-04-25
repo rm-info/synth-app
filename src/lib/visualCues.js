@@ -37,6 +37,7 @@ export const VISUAL_CUE_PATTERNS = {
 // pas de degrés. Tout autre système non-libre du registre est éligible.
 export const VISUAL_CUE_SUPPORTED_SYSTEMS = new Set([
   '12-TET', 'pythagorean-12', 'just-major-c',
+  'meantone-quarter-comma', 'werckmeister-iii',
   '24-tet-equal', '24-tet-cairo-1932', '31-edo',
 ])
 
