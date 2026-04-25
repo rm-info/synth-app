@@ -1194,8 +1194,11 @@ Phases listées ci-dessous dans l'ordre chronologique d'implémentation.
   d'unité par rangée (extension du pattern grid-24 à 8 colonnes au
   lieu de 7). Axe horizontal monotone : `start_subCol(k+1) =
   start_subCol(k) + 1` que ce soit une montée intra-colonne ou un
-  saut de colonne. Palette `HUE_PER_ROW = [0, 90, 180, 270]` (4
-  hues à 90° de pas, un par rangée), lightness uniforme 62%.
+  saut de colonne. Palette `GRID31_HUE_PER_COL` (8 hues par
+  colonne, étendant le pattern `HUE_PER_NATURAL` de grid-24 à 8
+  entrées) + 4 lightness par rangée (75/60/45/30%, alignée sur la
+  grammaire ↓→♮→↑→♯ de grid-24) ; voir 4.3.1 pour la correction
+  par rapport à la palette initiale 4-hues-par-rangée.
   Hauteur 160px / 80px compact alignée sur grid-24 (autre layout
   4-rangées) plutôt que sur grid-5 (1 rangée). Patterns `is-active`
   (inset cyan) et `is-playing` (outline jaune + glow) hérités du
@@ -1209,6 +1212,17 @@ Phases listées ci-dessous dans l'ordre chronologique d'implémentation.
 
 ## Historique (chronologie inverse)
 
+00000000000000. **Iter F — Phase 4.3.1** (2026-04-25) : correction
+    palette grid-31. La palette livrée en 4.3 (`HUE_PER_ROW = 4 hues
+    par rangée`) produisait 4 grosses bandes horizontales — peu
+    informatif et déconnecté de la grammaire visuelle de
+    Grid24Layout. Rectifié : hue par colonne (8 hues —
+    `GRID31_HUE_PER_COL = [0, 38, 76, 130, 180, 220, 280, 320]`,
+    extension du pattern `HUE_PER_NATURAL`) + lightness par rangée
+    (75/60/45/30% du bas vers le haut, reprise stricte de la
+    progression ↓→♮→↑→♯ de grid-24). Lightness portée par 4 classes
+    `.grid31-key-r0..r3` (texte sombre/clair flippé au seuil ~52%),
+    hue inline via `--hue`. is-active/is-playing inchangés.
 0000000000000. **Iter F — Phase 4.3** (2026-04-25) : 31-EDO,
     explorateur micro-tonal — 31 divisions égales de l'octave
     (step ≈ 38.71¢), 7e tempérament non-libre. Interprétation
@@ -1939,6 +1953,13 @@ Phases listées ci-dessous dans l'ordre chronologique d'implémentation.
   visuels triades/gammes (transverse, voir backlog), clavier
   isomorphique Wicki-Hayden, autres N-EDO, tonique alternative,
   tooltip pédagogique micro-intervalles.
+  - ✅ **4.3.1** (2026-04-25) — Correction palette grid-31. Hue par
+    colonne (8 hues) + lightness par rangée (75/60/45/30%, alignée
+    sur la grammaire ↓→♮→↑→♯ de grid-24), au lieu de la palette
+    initiale 4-hues-par-rangée qui produisait des bandes
+    horizontales peu informatives. 4 classes
+    `.grid31-key-r0..r3` portent la lightness (texte
+    sombre/clair flippé au seuil ~52%), hue inline via `--hue`.
 - **Tier 1 multi-tempérament clos** : 4.1 juste-majeure, 4.2 5-TET,
   4.3 31-EDO livrés. Tier 2 (Slendro, Pelog, 22-TET, 53-EDO) et
   Tier 3 (mésotoniques historiques — 1/4-comma, 1/6-comma —
