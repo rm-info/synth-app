@@ -331,6 +331,51 @@ function thirtyOneEdoFreq(noteIndex, octave, a4Ref) {
   return a4Ref * Math.pow(2, noteIndex / 31 + (octave - 4))
 }
 
+// Slendro javanais, accordage Surakarta moyen mesuré par Surjodiningrat,
+// Sudarjana & Susanto, "Tone Measurements of Outstanding Javanese
+// Gamelans in Jogjakarta and Surakarta" (1972). 5 pas presque égaux mais
+// avec des déviations audibles — c'est précisément la signature gamelan
+// vs 5-EDO mathématique. Cents arrondis à l'entier ; la précision réelle
+// des mesures ne dépasse pas ±5¢ et varie d'un ensemble à l'autre.
+const SLENDRO_SURAKARTA_CENTS = [0, 241, 481, 719, 958]
+
+// Reuse FIVE_TET_NOTE_NAMES (I..V) — décision de scope F.6 : pas
+// d'import de la nomenclature javanaise (barang/gulu/dada/lima/nem)
+// pour limiter la friction terminologique en classe.
+
+function slendroFreq(noteIndex, octave, a4Ref) {
+  return a4Ref * Math.pow(2, SLENDRO_SURAKARTA_CENTS[noteIndex] / 1200 + (octave - 4))
+}
+
+// Pelog javanais, accordage Surakarta moyen mesuré par la même étude
+// de référence (Surjodiningrat & al. 1972). 7 pas très inégaux, deux
+// grands trous caractéristiques (entre III et IV : ~281¢ ; entre VI
+// et VII : ~264¢). Les deux modes traditionnels Pelog Bem (sous-
+// ensemble I/II/III/V/VI) et Pelog Barang (sous-ensemble II/III/V/VI/
+// VII) ne sont PAS modélisés ici — le clavier expose les 7 notes,
+// l'utilisateur choisit le sous-ensemble joué.
+const PELOG_SURAKARTA_CENTS = [0, 119, 258, 539, 678, 794, 1058]
+
+const PELOG_NOTE_NAMES = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII']
+
+// Mapping QWERTY home row (SDFGHJK), sous-ensemble strict de
+// TWELVE_KEY_MAP : mêmes positions physiques que les naturelles
+// C/D/E/F/G/A/B en 12-TET, sémantique gamelan. Préserve la mémoire
+// motrice pour qui passe de l'occidental au gamelan.
+const PELOG_KEY_MAP = {
+  KeyS: 0, // I
+  KeyD: 1, // II
+  KeyF: 2, // III
+  KeyG: 3, // IV
+  KeyH: 4, // V
+  KeyJ: 5, // VI
+  KeyK: 6, // VII
+}
+
+function pelogFreq(noteIndex, octave, a4Ref) {
+  return a4Ref * Math.pow(2, PELOG_SURAKARTA_CENTS[noteIndex] / 1200 + (octave - 4))
+}
+
 // Ordre des clés = ordre d'apparition dans les sélecteurs UI : 12-TET en
 // premier (cas par défaut), puis les systèmes alternatifs, puis 'free' en
 // dernier (le cas "à part").
@@ -415,6 +460,24 @@ export const TUNING_SYSTEMS = {
     freq: thirtyOneEdoFreq,
     layout: 'grid-31',
     keyboardMap: THIRTYONE_KEY_MAP,
+  },
+  slendro: {
+    id: 'slendro',
+    label: 'Slendro (gamelan javanais, Surakarta)',
+    notesPerOctave: 5,
+    noteNames: FIVE_TET_NOTE_NAMES,
+    freq: slendroFreq,
+    layout: 'grid-5',
+    keyboardMap: FIVE_KEY_MAP,
+  },
+  pelog: {
+    id: 'pelog',
+    label: 'Pelog (gamelan javanais, Surakarta)',
+    notesPerOctave: 7,
+    noteNames: PELOG_NOTE_NAMES,
+    freq: pelogFreq,
+    layout: 'grid-7',
+    keyboardMap: PELOG_KEY_MAP,
   },
   free: {
     id: 'free',

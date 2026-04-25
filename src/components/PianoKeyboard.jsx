@@ -215,6 +215,42 @@ function Grid5Layout({ noteIndex, active, cued, compact, names, handleMouseDown 
   )
 }
 
+// Clavier gamelan Pelog (grid-7) : 7 rectangles en ligne, largeur égale,
+// labels I..VII. Strictement calqué sur Grid5Layout — cellules équidistantes
+// alors que les pitchs ne le sont pas (deux grands trous Pelog), même
+// convention que piano-12 et tous les autres layouts. Palette : 7 hues à
+// 360°/7 ≈ 51° de pas, lightness uniforme alignée sur grid-5 — pas de
+// hiérarchie d'altération à représenter dans un système gamelan.
+const HUE_PER_PELOG_DEGREE = [0, 51, 103, 154, 206, 257, 309]
+
+function Grid7Layout({ noteIndex, active, cued, compact, names, handleMouseDown }) {
+  return (
+    <div className={`piano-keyboard piano-keyboard-grid7${compact ? ' piano-keyboard-compact' : ''}`} role="group" aria-label="Clavier 7 degrés">
+      {HUE_PER_PELOG_DEGREE.map((hue, idx) => {
+        const classes = ['grid7-key']
+        if (noteIndex === idx) classes.push('is-active')
+        if (active.has(idx)) classes.push('is-playing')
+        if (cued.has(idx)) classes.push('is-cued')
+        const label = names?.[idx] ?? ''
+        return (
+          <button
+            key={idx}
+            type="button"
+            className={classes.join(' ')}
+            style={{ '--hue': hue }}
+            onMouseDown={handleMouseDown(idx)}
+            aria-label={label}
+            aria-pressed={noteIndex === idx}
+            title={compact ? label : undefined}
+          >
+            {!compact && <span className="grid7-key-label">{label}</span>}
+          </button>
+        )
+      })}
+    </div>
+  )
+}
+
 // Clavier 31-EDO en grille 4 rangées × 8 colonnes moins la case haut-droite
 // (degré 31 = octave, non représenté → 31 cellules). Chaque cellule occupe
 // 4 sub-cols, et chaque rangée est décalée d'+1 sub-col par rapport à la
@@ -287,6 +323,7 @@ const LAYOUT_COMPONENTS = {
   'piano-12': PianoLayout12,
   'grid-24': Grid24Layout,
   'grid-5': Grid5Layout,
+  'grid-7': Grid7Layout,
   'grid-31': Grid31Layout,
 }
 
