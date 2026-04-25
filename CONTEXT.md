@@ -253,11 +253,13 @@ type Clip = {                     // placement timeline + hauteur
 //   patchCounter, clipCounter, folderCounter, trackCounter,
 //   composerBankWidth, composerAsideWidth,
 //   composerBankCollapsed, composerAsideCollapsed,
-//   editorVisualCuePattern, editorVisualCueTonic }
+//   editorTestTuningSystem, editorTestNoteIndex, editorTestOctave,
+//   editorTestFrequency, editorVisualCuePattern, editorVisualCueTonic }
 // NON persisté (volatile) : selectedClipIds, currentPatchId, zoomH,
 // defaultClipDuration, lastAnchorClipId, composerFlash,
-// editor (éditeur vide au reload, sauf visualCue* re-injectés depuis
-// les 2 clés top-level ci-dessus), clipboard, measureClipboard,
+// editor.points / amplitude / ADSR / preset (vides au reload, l'éditeur
+// de patch n'est pas restauré ; seuls les champs `test*` et `visualCue*`
+// d'exploration Designer le sont — F.4.4.3), clipboard, measureClipboard,
 // piles undo/redo, settlingTops (Timeline local).
 //
 // État `editor` (Designer, non persisté en bloc) — extrait pertinent :
@@ -460,6 +462,20 @@ Choix non évidents pris pour de bonnes raisons. À ne pas remettre en question
   ajouter 24-TET ou Pythagoricien = ajouter une entrée au registre,
   zéro `if/else` à modifier ailleurs. `formatClipNote` et `NOTE_NAMES`
   dérivent aussi du registre (pas de copie locale).
+- **Persistance unifiée de l'état d'exploration Designer (F.4.4.3)** :
+  tous les champs `editor.test*` (testTuningSystem, testNoteIndex,
+  testOctave, testFrequency) ET `editor.visualCue*` (visualCuePattern,
+  visualCueTonic) sont persistés ensemble dans localStorage. L'éditeur
+  de patch lui-même (points, ADSR, amplitude, preset) reste volatile —
+  séparation entre **état d'exploration** (préférences de session,
+  persistées) et **brouillon de patch** (intermédiaire, jeté au reload).
+  Validation/clamp défensifs au load (`loadPersistedState`) : un système
+  inconnu du registre → fallback `'12-TET'`, indices hors borne → clamp
+  à `[0, notesPerOctave-1]`, pattern visual cue inconnu → `'none'`,
+  champ absent → fallback `DEFAULT_EDITOR` via `??`. Avant 4.4.3 :
+  testTuningSystem volatil retournait silencieusement à `'12-TET'` au
+  reload pendant que `visualCueTonic` survivait avec son ancienne
+  valeur — produit des indices hors borne potentiellement crashants.
 - **Catalogue de visual cues universel en cents (itération F.4.4)** :
   `src/lib/visualCues.js` définit chaque pattern (triade, gamme,
   septième…) comme une liste d'intervalles **en cents depuis la
@@ -1279,6 +1295,31 @@ Phases listées ci-dessous dans l'ordre chronologique d'implémentation.
 
 ## Historique (chronologie inverse)
 
+0000000000000000. **Iter F — Phase 4.4.3** (2026-04-25) : persistance
+    cohérente de l'état d'exploration Designer + clamp défensif.
+    F.4.4 avait livré la persistance de `visualCuePattern`/
+    `visualCueTonic` mais laissé `testTuningSystem`/`testNoteIndex`/
+    `testOctave`/`testFrequency` volatiles. Après reload, le système
+    revenait silencieusement à `'12-TET'` pendant que `visualCueTonic`
+    gardait sa valeur précédente, produisant des indices hors borne
+    (e.g. tonic=25 alors que 12-TET plafonne à 11). Bug latent depuis
+    F.3 mais visible depuis F.4.4. Correction : 4 nouveaux champs au
+    JSON localStorage (`editorTestTuningSystem`, `editorTestNoteIndex`,
+    `editorTestOctave`, `editorTestFrequency`), aux deps du useEffect
+    de persistance ; `loadPersistedState` enrichi d'un bloc de
+    validation/clamp défensif unifié pour les 6 champs Designer.
+    Trois cas distincts : **absent** (undefined dans JSON) → propage
+    undefined pour que `buildInitialState` retombe sur `DEFAULT_EDITOR`
+    via `??` (préserve la migration F.4.4.2 → F.4.4.3) ; **présent et
+    valide** → utilisé tel quel ; **présent mais invalide** (système
+    retiré du registre, indice hors borne, pattern inconnu) →
+    sanitize/clamp. Règles : système inconnu → fallback `'12-TET'` ;
+    `testNoteIndex`/`visualCueTonic` clampés à `[0, notesPerOctave-1]`
+    du système résolu (Libre = pas de clamp) ; `testOctave` clampé à
+    `[0, 10]` ; `visualCuePattern` validé contre `VISUAL_CUE_PATTERNS`.
+    Nouveau couplage `reducer → visualCues` (import de
+    `VISUAL_CUE_PATTERNS`) : justifié — la validation defensive a
+    besoin du catalogue ; pas de cycle.
 000000000000000. **Iter F — Phase 4.4** (2026-04-25) : repères visuels
     passifs (gammes & accords) sur le clavier — saveur A pédagogique,
     feature transverse (multi-systèmes). Nouveau `src/lib/visualCues.js`
@@ -2075,6 +2116,16 @@ Phases listées ci-dessous dans l'ordre chronologique d'implémentation.
     Grid24Layout, Grid5Layout, Grid31Layout). CSS `.is-cued` halo
     magenta box-shadow externe (#e832e2) ; combinaisons avec
     `is-active` et `is-playing` via comma-separated, fill HSL préservé.
+  - ✅ **4.4.3** (2026-04-25) — Fix persistance cohérente état Designer.
+    `editor.testTuningSystem`/`testNoteIndex`/`testOctave`/`testFrequency`
+    désormais persistés en localStorage (4 nouvelles clés à plat dans
+    le JSON). `loadPersistedState` enrichi d'un bloc de validation/clamp
+    défensif : système inconnu → fallback 12-TET, indices hors borne →
+    clamp `[0, notesPerOctave-1]`, pattern inconnu → 'none', champ
+    absent → propagé pour fallback `DEFAULT_EDITOR` via `??` (préserve
+    la migration F.4.4.2 → F.4.4.3). Avant 4.4.3 : reload perdait
+    silencieusement le système courant tout en gardant le tonic des
+    visual cues — cas pathologique d'indice hors borne possible.
 - **Saveur B (active/compositionnelle)** reste en backlog : sélection
   par clic-multi sur le clavier pour mémoriser un accord/gamme custom,
   édition utilisateur du catalogue. À reconsidérer si le besoin émerge.
