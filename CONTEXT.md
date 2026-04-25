@@ -105,6 +105,14 @@ Juste majeure C, 24-TET égal, 24-TET Le Caire 1932, 5-TET
 pentatonique, 31-EDO, Libre. Tier 2 (Slendro, Pelog, 22-TET, 53-EDO)
 et Tier 3 (mésotoniques historiques, Werckmeister) restent en
 backlog si itération F est reprise.
+Phase 4.4 (2026-04-25) : **repères visuels passifs** sur le clavier
+— catalogue universel de gammes & accords en cents (`src/lib/visualCues.js`,
+8 patterns), snappés vers les degrés du système courant via
+`frequencyToNearestIn` (la même "triade majeure" produit [0,4,7] en
+12-TET et [0,10,18] en 31-EDO). UI barre "Repère + Tonique" dans
+le Designer (masquée pour 5-TET et Libre). Halo magenta
+`.is-cued` cross-layout, coexiste avec `is-active`/`is-playing`.
+Saveur B (sélection compositionnelle active) en backlog.
 
 ## Objectif
 
@@ -142,14 +150,15 @@ synth-app/
     │   ├── timelineLayout.js # layoutClips + computeBounds (partagés Timeline/Properties)
     │   ├── durations.js      # catalogue durées (bases + coefs, phase 6.1)
     │   ├── clipNote.js       # formatClipNote + NOTE_NAMES Unicode
-    │   └── tuningSystems.js  # registre tempéraments + freq + keyboardMap par système
+    │   ├── tuningSystems.js  # registre tempéraments + freq + keyboardMap par système
+    │   └── visualCues.js     # catalogue gammes/accords en cents + cuedNoteIndices (F.4.4)
     └── components/
         ├── Tabs.jsx + .css                    # bascule Designer / Composer
         ├── PatchBank.jsx + .css               # banque de patches partagée
         ├── WaveformEditor.jsx + .css          # éditeur ondes / patch (Designer)
         ├── Spectrogram.jsx + .css             # spectrogramme statique (Designer)
         ├── MiniPlayer.jsx + .css              # transport simplifié (Designer)
-        ├── PianoKeyboard.jsx + .css           # dispatcher clavier (piano-12 / grid-24 / grid-5) + octaves
+        ├── PianoKeyboard.jsx + .css           # dispatcher clavier (piano-12 / grid-24 / grid-5 / grid-31) + octaves + halo .is-cued (F.4.4)
         ├── DurationButtons.jsx + .css         # boutons durée 7 bases + 3 coefs (phase 6.1)
         ├── SidebarResizer.jsx + .css          # poignée drag bordure sidebar (phase 7.4)
         ├── BpmInput.jsx                       # input BPM validation différée
@@ -243,11 +252,20 @@ type Clip = {                     // placement timeline + hauteur
 //   spectrogramVisible, durationMode, activeTab,
 //   patchCounter, clipCounter, folderCounter, trackCounter,
 //   composerBankWidth, composerAsideWidth,
-//   composerBankCollapsed, composerAsideCollapsed }
+//   composerBankCollapsed, composerAsideCollapsed,
+//   editorVisualCuePattern, editorVisualCueTonic }
 // NON persisté (volatile) : selectedClipIds, currentPatchId, zoomH,
 // defaultClipDuration, lastAnchorClipId, composerFlash,
-// editor (éditeur vide au reload), clipboard, measureClipboard,
+// editor (éditeur vide au reload, sauf visualCue* re-injectés depuis
+// les 2 clés top-level ci-dessus), clipboard, measureClipboard,
 // piles undo/redo, settlingTops (Timeline local).
+//
+// État `editor` (Designer, non persisté en bloc) — extrait pertinent :
+//   testTuningSystem, testNoteIndex, testOctave, testFrequency  // preview
+//   amplitude, attack, hold, decay, sustain, release, points    // patch
+//   visualCuePattern: string  // F.4.4, défaut 'none'
+//   visualCueTonic:   number  // F.4.4, défaut 0, snap à 0 si > notesPerOctave
+//                              du nouveau système à la bascule
 // Détection d'ancien format (savedSounds/soundCounter/noteCounter/
 // placementCounter) → reset complet, pas de migration (deal assumé E.1).
 ```
@@ -442,6 +460,23 @@ Choix non évidents pris pour de bonnes raisons. À ne pas remettre en question
   ajouter 24-TET ou Pythagoricien = ajouter une entrée au registre,
   zéro `if/else` à modifier ailleurs. `formatClipNote` et `NOTE_NAMES`
   dérivent aussi du registre (pas de copie locale).
+- **Catalogue de visual cues universel en cents (itération F.4.4)** :
+  `src/lib/visualCues.js` définit chaque pattern (triade, gamme,
+  septième…) comme une liste d'intervalles **en cents depuis la
+  tonique**, indépendamment de tout système. Le snap vers les degrés
+  du système courant est fait dynamiquement par `cuedNoteIndices()`
+  via `frequencyToNearestIn`. Choix vs alternative (catalogues
+  per-système, ex. mapping `[0, 4, 7]` pour 12-TET, `[0, 8, 14]`
+  pour 24-TET) : 1) le catalogue universel est *intentionnellement
+  unique* — la "triade majeure" est un objet musical pur (5/4 et 3/2),
+  les écarts de chaque système par rapport à la pureté sont
+  précisément ce qu'on veut donner à voir pédagogiquement ; 2) ajouter
+  un système ou un pattern reste une opération O(1) — pas de
+  multiplication NxM des entrées de catalogue. Effet de bord
+  intéressant : la "gamme par tons" 12-TET (200¢) ne se ferme pas
+  régulièrement en 31-EDO (séquence non périodique [0,5,10,16,21,26]
+  au lieu de [0,5,10,15,20,25,31]), ce qui est la signature de la
+  non-divisibilité de 1200 par 200 dans une grille de pas 38.71¢.
 - **A4 de référence configurable (itération F.1)** : champ d'état
   `a4Ref` (Hz, défaut 440), persisté, global — pas un champ d'éditeur.
   Passé explicitement à `clipFrequency` et aux fonctions `freq` du
@@ -1209,9 +1244,66 @@ Phases listées ci-dessous dans l'ordre chronologique d'implémentation.
   −5.18¢ (quinte méantone). Snap 12-TET C4 → 31-EDO deg 8 oct 3
   (écart 9.68¢ < step/2 = 19.35¢). **Tier 1 multi-tempérament clos**
   (4.1 juste-majeure, 4.2 5-TET, 4.3 31-EDO).
+- ✅ **Phase 4.4** (2026-04-25) — Repères visuels (gammes & accords)
+  sur le clavier, saveur A passive. Nouveau fichier
+  `src/lib/visualCues.js` : `VISUAL_CUE_PATTERNS` (8 entrées : `none`
+  + 3 accords + 4 gammes — triade majeure/mineure, septième de
+  dominante, gamme majeure/mineure naturelle, pentatonique majeure,
+  gamme par tons), définis comme listes d'intervalles **en cents
+  depuis la tonique** (ratios purs 5-limit / 7-limit pour dom7).
+  Helper `cuedNoteIndices(patternId, tonicDeg, sysId, a4Ref)` snappe
+  vers les degrés du système courant via `frequencyToNearestIn` —
+  même définition produit [0,4,7] en 12-TET et [0,10,18] en 31-EDO,
+  ce qui est précisément l'intérêt pédagogique. Systèmes supportés
+  via `VISUAL_CUE_SUPPORTED_SYSTEMS` : 12-TET, Pythag-12, juste-
+  majeure, 24-TET égal, Le Caire 1932, 31-EDO. Pas 5-TET (errs > 90¢
+  sur la triade majeure) ni Libre (pas de degrés). État éditeur :
+  `editor.visualCuePattern` (défaut `'none'`) + `editor.visualCueTonic`
+  (défaut 0), pile undo Designer, persistés à plat dans localStorage
+  (clés `editorVisualCuePattern` + `editorVisualCueTonic`, ré-injectés
+  dans `editor` au `buildInitialState`). `SET_EDITOR_TEST_TUNING_SYSTEM`
+  enrichi : si `visualCueTonic` dépasse `notesPerOctave` du nouveau
+  système, snap à 0 (le pattern reste). UI WaveformEditor : barre
+  "Repère + Tonique" au-dessus du clavier, visible uniquement quand
+  le système supporte les cues. PianoKeyboard : nouvelle prop
+  `cuedNotes` propagée à chaque layout (les 4 layouts ajoutent
+  `is-cued` à la className des cellules concernées). CSS `.is-cued` :
+  halo magenta `box-shadow: 0 0 0 2px #e832e2` en externe, préserve
+  le fill HSL ; combinaisons avec `is-active` (inset cyan) et
+  `is-playing` (outline jaune + glow) gérées via box-shadow
+  comma-separated. Saveur B (sélection compositionnelle active par
+  clic-multi) reste en BACKLOG. Vérifs : 12-TET tonic 7 (G) triade
+  maj → [2,7,11] ; 31-EDO tonic 0 pentat. maj → [0,5,10,18,23] ;
+  31-EDO tonic 0 whole-tone → [0,5,10,16,21,26] (séquence non
+  régulière car 200¢ ne divise pas 31-EDO).
 
 ## Historique (chronologie inverse)
 
+000000000000000. **Iter F — Phase 4.4** (2026-04-25) : repères visuels
+    passifs (gammes & accords) sur le clavier — saveur A pédagogique,
+    feature transverse (multi-systèmes). Nouveau `src/lib/visualCues.js`
+    avec catalogue universel en cents depuis la tonique (8 patterns :
+    `none`, triade majeure/mineure, dom7, gamme majeure, mineure
+    naturelle, pentatonique majeure, gamme par tons). `cuedNoteIndices()`
+    snappe vers les degrés du système courant via `frequencyToNearestIn`
+    — la même définition produit [0,4,7] en 12-TET, [0,10,18] en 31-EDO.
+    `VISUAL_CUE_SUPPORTED_SYSTEMS` exclut 5-TET (errs > 90¢ sur triade
+    majeure) et Libre (pas de degrés). 2 sous-commits :
+    - **4.4.1** Catalogue + état éditeur (`visualCuePattern`,
+      `visualCueTonic`), 2 actions reducer dans `DESIGNER_UNDOABLE`,
+      persistance à plat dans localStorage (clés
+      `editorVisualCuePattern`/`editorVisualCueTonic`, ré-injectées
+      dans `editor` au `buildInitialState`). `SET_EDITOR_TEST_TUNING_SYSTEM`
+      enrichi : tonic snap à 0 si > `notesPerOctave` du nouveau système.
+    - **4.4.2** UI barre "Repère + Tonique" dans WaveformEditor au-dessus
+      du clavier, visible uniquement si système supporté.
+      `PianoKeyboard` reçoit prop `cuedNotes` (Set<number>) propagée à
+      chaque layout (PianoLayout12, Grid24Layout, Grid5Layout,
+      Grid31Layout). CSS `.is-cued` : halo magenta box-shadow externe,
+      combinaisons avec `is-active` (inset cyan) et `is-playing`
+      (outline jaune + glow) via comma-separated. Triple superposition
+      possible (cued + active + playing) sans masquer le fill HSL.
+    Saveur B (sélection compositionnelle active) reste en BACKLOG.
 00000000000000. **Iter F — Phase 4.3.1** (2026-04-25) : correction
     palette grid-31. La palette livrée en 4.3 (`HUE_PER_ROW = 4 hues
     par rangée`) produisait 4 grosses bandes horizontales — peu
@@ -1964,6 +2056,28 @@ Phases listées ci-dessous dans l'ordre chronologique d'implémentation.
   4.3 31-EDO livrés. Tier 2 (Slendro, Pelog, 22-TET, 53-EDO) et
   Tier 3 (mésotoniques historiques — 1/4-comma, 1/6-comma —
   Werckmeister) restent en candidats si itération F est reprise.
+- ✅ **Phase 4.4** (2026-04-25) — Repères visuels (gammes & accords)
+  passifs sur le clavier — saveur A pédagogique, feature transverse
+  (multi-systèmes, hors 5-TET et Libre). 2 sous-commits :
+  - **4.4.1** Catalogue `src/lib/visualCues.js` (8 patterns :
+    none + 3 accords + 4 gammes, en cents purs depuis la tonique).
+    Helper `cuedNoteIndices(patternId, tonicDeg, sysId, a4Ref)` snappe
+    vers les degrés du système courant via `frequencyToNearestIn` —
+    [0,4,7] en 12-TET, [0,10,18] en 31-EDO pour la même triade
+    majeure. État éditeur (`visualCuePattern` + `visualCueTonic`)
+    + 2 actions reducer dans `DESIGNER_UNDOABLE`. Persistance à plat
+    dans localStorage. `SET_EDITOR_TEST_TUNING_SYSTEM` snap tonic à 0
+    si > nouvelle `notesPerOctave`.
+  - **4.4.2** UI barre "Repère + Tonique" dans WaveformEditor au-dessus
+    du clavier (visible si `systemSupportsVisualCues(testTuningSystem)`).
+    Sélecteur Tonique numéroté 1..N, n'apparaît que si pattern non-`none`.
+    Prop `cuedNotes` propagée à tous les layouts (PianoLayout12,
+    Grid24Layout, Grid5Layout, Grid31Layout). CSS `.is-cued` halo
+    magenta box-shadow externe (#e832e2) ; combinaisons avec
+    `is-active` et `is-playing` via comma-separated, fill HSL préservé.
+- **Saveur B (active/compositionnelle)** reste en backlog : sélection
+  par clic-multi sur le clavier pour mémoriser un accord/gamme custom,
+  édition utilisateur du catalogue. À reconsidérer si le besoin émerge.
 
 ### Backlog général (à caser quand pertinent)
 
