@@ -44,6 +44,11 @@ export const TRACK_COLORS = [
 // Éditeur : les champs `test*` ne servent qu'à piloter la preview dans
 // Designer. Ils ne sont PAS copiés dans le patch sauvegardé. C'est le clip
 // qui portera la hauteur lors du placement sur la timeline.
+//
+// `visualCue*` (F.4.4) : préférences d'affichage du clavier (repères
+// pédagogiques). État éditeur, persisté en localStorage à plat
+// (editorVisualCuePattern / editorVisualCueTonic), pas porté par les
+// patches. Pattern 'none' = aucun repère affiché (état neutre).
 export const DEFAULT_EDITOR = {
   points: new Array(POINTS_RESOLUTION).fill(0),
   testTuningSystem: '12-TET', // '12-TET' | 'free'
@@ -52,6 +57,8 @@ export const DEFAULT_EDITOR = {
   testFrequency: 440,
   amplitude: 1,
   preset: null,
+  visualCuePattern: 'none',
+  visualCueTonic: 0,
   ...DEFAULT_ADSR,
 }
 
@@ -155,6 +162,16 @@ export function loadPersistedState() {
       composerAsideWidth: typeof parsed.composerAsideWidth === 'number' ? parsed.composerAsideWidth : null,
       composerBankCollapsed: typeof parsed.composerBankCollapsed === 'boolean' ? parsed.composerBankCollapsed : null,
       composerAsideCollapsed: typeof parsed.composerAsideCollapsed === 'boolean' ? parsed.composerAsideCollapsed : null,
+      // F.4.4 : préférences visual cues (Designer). Pattern inconnu →
+      // fallback 'none' au prochain rendu (cuedNoteIndices retourne Set
+      // vide). Tonic invalide → 0. Pas de validation contre le catalogue
+      // ici : éviter le couplage reducer → visualCues.
+      editorVisualCuePattern:
+        typeof parsed.editorVisualCuePattern === 'string' ? parsed.editorVisualCuePattern : 'none',
+      editorVisualCueTonic:
+        Number.isInteger(parsed.editorVisualCueTonic) && parsed.editorVisualCueTonic >= 0
+          ? parsed.editorVisualCueTonic
+          : 0,
     }
   } catch {
     return null
@@ -176,7 +193,12 @@ export function buildInitialState() {
     // Designer (champ undoable)
     patches: persisted?.patches ?? [],
     soundFolders: persisted?.soundFolders ?? [],
-    editor: { ...DEFAULT_EDITOR, points: [...DEFAULT_EDITOR.points] },
+    editor: {
+      ...DEFAULT_EDITOR,
+      points: [...DEFAULT_EDITOR.points],
+      visualCuePattern: persisted?.editorVisualCuePattern ?? 'none',
+      visualCueTonic: persisted?.editorVisualCueTonic ?? 0,
+    },
 
     // Compteurs (state mais hors historique : on ne fait pas reculer un compteur
     // sur undo, sinon on risque de réutiliser un id supprimé puis recréé)
@@ -1024,6 +1046,15 @@ export function reducer(state, action) {
       const prevSys = getTuningSystem(state.editor.testTuningSystem)
       const nextSys = getTuningSystem(next)
 
+      // F.4.4 : si le tonique des visual cues dépasse la grille du nouveau
+      // système (ex. 31-EDO tonic 25 → 12-TET dont la grille s'arrête à
+      // 11), snap à 0. Le pattern lui-même est préservé pour qu'un retour
+      // dans un système qui supporte les cues le retrouve.
+      const tonicMax = nextSys.notesPerOctave ?? null
+      const cueTonic = (tonicMax !== null && state.editor.visualCueTonic >= tonicMax)
+        ? 0
+        : state.editor.visualCueTonic
+
       if (nextSys.freq === null) {
         // Vers libre : on conserve la fréquence courante rendue dans l'ancien
         // système. testNoteIndex/testOctave sont préservés (via ...editor)
@@ -1037,6 +1068,7 @@ export function reducer(state, action) {
             ...state.editor,
             testTuningSystem: next,
             testFrequency: Math.round(curFreq * 10) / 10,
+            visualCueTonic: cueTonic,
           },
         }
       }
@@ -1046,7 +1078,7 @@ export function reducer(state, action) {
         // change (ex. 12-TET ↔ Pythagoricien).
         return {
           ...state,
-          editor: { ...state.editor, testTuningSystem: next },
+          editor: { ...state.editor, testTuningSystem: next, visualCueTonic: cueTonic },
         }
       }
 
@@ -1059,8 +1091,20 @@ export function reducer(state, action) {
       const { noteIndex, octave } = frequencyToNearestIn(srcFreq, next, a4Ref)
       return {
         ...state,
-        editor: { ...state.editor, testTuningSystem: next, testNoteIndex: noteIndex, testOctave: octave },
+        editor: {
+          ...state.editor,
+          testTuningSystem: next,
+          testNoteIndex: noteIndex,
+          testOctave: octave,
+          visualCueTonic: cueTonic,
+        },
       }
+    }
+    case 'SET_EDITOR_VISUAL_CUE_PATTERN': {
+      return { ...state, editor: { ...state.editor, visualCuePattern: action.payload } }
+    }
+    case 'SET_EDITOR_VISUAL_CUE_TONIC': {
+      return { ...state, editor: { ...state.editor, visualCueTonic: action.payload } }
     }
     case 'SET_EDITOR_TEST_FREQUENCY': {
       return { ...state, editor: { ...state.editor, testFrequency: action.payload } }
@@ -1212,6 +1256,7 @@ const DESIGNER_UNDOABLE = new Set([
   'SET_EDITOR_POINTS', 'SET_EDITOR_TEST_NOTE', 'SET_EDITOR_TEST_OCTAVE',
   'SET_EDITOR_TEST_TUNING_SYSTEM', 'SET_EDITOR_TEST_FREQUENCY', 'SET_EDITOR_AMPLITUDE',
   'SET_EDITOR_ADSR', 'SET_EDITOR_ADSR_AND_AMP', 'APPLY_EDITOR_PRESET', 'RESET_EDITOR',
+  'SET_EDITOR_VISUAL_CUE_PATTERN', 'SET_EDITOR_VISUAL_CUE_TONIC',
 ])
 
 const COMPOSER_FIELDS = ['clips', 'numMeasures', 'bpm', 'a4Ref', 'selectedClipIds', 'tracks']

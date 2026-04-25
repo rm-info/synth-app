@@ -477,6 +477,8 @@ function App() {
           composerAsideWidth,
           composerBankCollapsed,
           composerAsideCollapsed,
+          editorVisualCuePattern: editor.visualCuePattern,
+          editorVisualCueTonic: editor.visualCueTonic,
         }),
       )
     } catch {
@@ -486,6 +488,7 @@ function App() {
     patches, soundFolders, tracks, clips, bpm, numMeasures, a4Ref,
     spectrogramVisible, durationMode, activeTab, patchCounter, clipCounter, folderCounter, trackCounter,
     composerBankWidth, composerAsideWidth, composerBankCollapsed, composerAsideCollapsed,
+    editor.visualCuePattern, editor.visualCueTonic,
   ])
 
   // Hydratation de l'éditeur quand currentPatchId change. Non-undoable.
@@ -1261,6 +1264,8 @@ function App() {
     setAdsrAndAmp: (payload) => dispatch({ type: 'SET_EDITOR_ADSR_AND_AMP', payload }),
     applyPreset: (preset, points) =>
       dispatch({ type: 'APPLY_EDITOR_PRESET', payload: { preset, points } }),
+    setVisualCuePattern: (id) => dispatch({ type: 'SET_EDITOR_VISUAL_CUE_PATTERN', payload: id }),
+    setVisualCueTonic: (deg) => dispatch({ type: 'SET_EDITOR_VISUAL_CUE_TONIC', payload: deg }),
   }), [])
 
   return (
