@@ -100,11 +100,9 @@ rangée → 35 sub-cols, palette 4 hues à 90° de pas). Mapping QWERTY
 `THIRTYONE_KEY_MAP` 31 positions sur les 4 rangées physiques du
 clavier en serpentin-colonne (KeyZ KeyS KeyE Digit4 KeyX … KeyP).
 **Tier 1 multi-tempérament clos** (4.1 juste-majeure, 4.2 5-TET,
-4.3 31-EDO). Registre à 8 entrées : 12-TET, Pythagoricien 12,
-Juste majeure C, 24-TET égal, 24-TET Le Caire 1932, 5-TET
-pentatonique, 31-EDO, Libre. Tier 2 (Slendro, Pelog, 22-TET, 53-EDO)
-et Tier 3 (mésotoniques historiques, Werckmeister) restent en
-backlog si itération F est reprise.
+4.3 31-EDO). Tier 2 (Slendro, Pelog, 22-TET, 53-EDO) reste en
+backlog ; Tier 3 (mésotoniques historiques, Werckmeister) livré
+en F.5.
 Phase 4.4 (2026-04-25) : **repères visuels passifs** sur le clavier
 — catalogue universel de gammes & accords en cents (`src/lib/visualCues.js`,
 8 patterns), snappés vers les degrés du système courant via
@@ -113,6 +111,17 @@ Phase 4.4 (2026-04-25) : **repères visuels passifs** sur le clavier
 le Designer (masquée pour 5-TET et Libre). Halo magenta
 `.is-cued` cross-layout, coexiste avec `is-active`/`is-playing`.
 Saveur B (sélection compositionnelle active) en backlog.
+Phase 5 (2026-04-25) : **Tier 3 historiques européens**.
+Deux tempéraments 12 notes ajoutés : **Mésotonique 1/4 de comma**
+(centré sur C, chaîne E♭→G♯, tierces majeures 5/4 pures, loup G♯↔E♭ ;
+Renaissance/début Baroque) et **Werckmeister III** (1691, 4 quintes
+tempérées par 1/4 de comma pythagoricien + 8 pures ; tempérament
+Bach, toutes tonalités utilisables avec couleurs progressives).
+Tables de cents inline (Helmholtz/Ellis pour mésotonique, Barbour
+1951 pour Werckmeister). Aucun nouveau layout ni mapping —
+réutilisation de `piano-12` et `TWELVE_KEY_MAP`. Visual cues
+activés pour les deux. Registre à 10 entrées. Tier 2 (gamelan,
+22-TET, 53-EDO) reste en backlog.
 
 ## Objectif
 
@@ -1130,7 +1139,7 @@ Phases listées ci-dessous dans l'ordre chronologique d'implémentation.
   précédente lors d'un retrigger (clic de voice-stealing sur note
   déjà active ou sustainée) (voir Roadmap).
 
-🚧 **Itération F — Tier 1 livré** — Multi-tempérament (Tier 2/3 en backlog)
+🚧 **Itération F — Tier 1 + Tier 3 livrés** — Multi-tempérament (Tier 2 en backlog)
 - ✅ **Phase 1** (2026-04-22) — Infrastructure multi-tempérament.
   Création de `src/lib/tuningSystems.js` : registre `TUNING_SYSTEMS`
   (clé = id de système) avec `{ id, label, notesPerOctave, noteNames,
@@ -1292,9 +1301,48 @@ Phases listées ci-dessous dans l'ordre chronologique d'implémentation.
   maj → [2,7,11] ; 31-EDO tonic 0 pentat. maj → [0,5,10,18,23] ;
   31-EDO tonic 0 whole-tone → [0,5,10,16,21,26] (séquence non
   régulière car 200¢ ne divise pas 31-EDO).
+- ✅ **Phase 5** (2026-04-25) — Tier 3 historiques européens.
+  Deux tempéraments 12 notes ajoutés au registre :
+  **`'meantone-quarter-comma'`** (Mésotonique 1/4 de comma centré
+  sur C, chaîne E♭→G♯, tierces majeures 5/4 pures à 386.314¢ exact,
+  loup G♯↔E♭ ; cents Helmholtz/Ellis) et **`'werckmeister-iii'`**
+  (Andreas Werckmeister 1691, 4 quintes tempérées chacune par 1/4
+  de comma pythagoricien sur C-G/G-D/D-A/B-F♯ + 8 quintes pures ;
+  tempérament Bach pour le Wohltemperierte Klavier ; cents Barbour
+  1951). Tables de cents inline (les fonctions ratio existantes
+  pythagorean/just ne motivent pas un helper unifié — abstractions
+  natives différentes). Ancrage A4 = a4Ref via
+  `c4 = a4Ref × 2^(-CENTS[9]/1200)` (pattern symétrique aux autres
+  systèmes 12-notes basés sur C). Insérés en 4e/5e position du
+  registre (entre `just-major-c` et `24-tet-equal`) — regroupement
+  des systèmes 12-notes. Aucun nouveau layout, aucun nouveau
+  mapping — réutilisation de `piano-12` et `TWELVE_KEY_MAP`. Visual
+  cues activés (`VISUAL_CUE_SUPPORTED_SYSTEMS` étendu). Registre
+  à 10 entrées. Vérifs (a4Ref=440) : Mésotonique C4=263.181,
+  E4=328.977 (= C4×5/4 exact), G4=393.548, A4=440.000 ; Werckmeister
+  III C4=263.404, E4=329.998, G4=393.768, A4=440.000.
+  Triptyque pédagogique complété : Pythagoricien (quintes pures,
+  tierces fausses) → Mésotonique 1/4-comma (tierces pures, wolf
+  marqué) → Werckmeister III (compromis bien-tempéré, toutes
+  tonalités utilisables) → 12-TET (uniforme). Tier 2 (gamelan,
+  22-TET, 53-EDO) reste en backlog.
 
 ## Historique (chronologie inverse)
 
+00000000000000000. **Iter F — Phase 5** (2026-04-25) : Tier 3 historiques
+    européens — Mésotonique 1/4 de comma (centré sur C, chaîne E♭→G♯,
+    tierces 5/4 pures à 386.314¢ exact, loup G♯↔E♭, cents Helmholtz/
+    Ellis) et Werckmeister III (1691, 4 quintes tempérées par 1/4 de
+    comma pythagoricien C-G/G-D/D-A/B-F♯ + 8 pures, tempérament Bach,
+    cents Barbour 1951). Tables de cents inline (les fonctions ratio
+    pythagorean/just ne motivent pas un helper unifié). Ancrage
+    A4 = a4Ref par `c4 = a4Ref × 2^(-CENTS[9]/1200)`. Insérés en 4e/
+    5e position dans le registre, regroupement des 12-notes.
+    Réutilisation `piano-12` + `TWELVE_KEY_MAP` — aucune ligne ailleurs
+    qu'au registre + visualCues. Visual cues activés. Registre à 10
+    entrées. Vérifs : Mésotonique E/C = 1.250000 exact (5/4),
+    A4 = 440.000 dans les deux. Triptyque pédagogique complété
+    (Pythagoricien → Mésotonique → Werckmeister → 12-TET).
 0000000000000000. **Iter F — Phase 4.4.3** (2026-04-25) : persistance
     cohérente de l'état d'exploration Designer + clamp défensif.
     F.4.4 avait livré la persistance de `visualCuePattern`/
@@ -1713,7 +1761,7 @@ Phases listées ci-dessous dans l'ordre chronologique d'implémentation.
     ne réapparaît pas au relâchement de Espace. Invariant
     retrigger "perçu net" (E.3.4) respecté.
 
-### Itération F (multi-tempérament) — Tier 1 livré
+### Itération F (multi-tempérament) — Tier 1 + Tier 3 livrés
 
 - ✅ **Phase 1** (2026-04-22) — Infrastructure multi-tempérament.
   Deux sous-commits :
@@ -2094,9 +2142,7 @@ Phases listées ci-dessous dans l'ordre chronologique d'implémentation.
     `.grid31-key-r0..r3` portent la lightness (texte
     sombre/clair flippé au seuil ~52%), hue inline via `--hue`.
 - **Tier 1 multi-tempérament clos** : 4.1 juste-majeure, 4.2 5-TET,
-  4.3 31-EDO livrés. Tier 2 (Slendro, Pelog, 22-TET, 53-EDO) et
-  Tier 3 (mésotoniques historiques — 1/4-comma, 1/6-comma —
-  Werckmeister) restent en candidats si itération F est reprise.
+  4.3 31-EDO livrés.
 - ✅ **Phase 4.4** (2026-04-25) — Repères visuels (gammes & accords)
   passifs sur le clavier — saveur A pédagogique, feature transverse
   (multi-systèmes, hors 5-TET et Libre). 2 sous-commits :
@@ -2129,6 +2175,33 @@ Phases listées ci-dessous dans l'ordre chronologique d'implémentation.
 - **Saveur B (active/compositionnelle)** reste en backlog : sélection
   par clic-multi sur le clavier pour mémoriser un accord/gamme custom,
   édition utilisateur du catalogue. À reconsidérer si le besoin émerge.
+- ✅ **Phase 5** (2026-04-25) — Tier 3 historiques européens.
+  Deux tempéraments 12 notes au registre :
+  **`'meantone-quarter-comma'`** (Mésotonique 1/4 de comma centré
+  sur C, chaîne E♭→G♯, tierces 5/4 pures à 386.314¢ exact, loup
+  G♯↔E♭, cents Helmholtz/Ellis) et **`'werckmeister-iii'`** (1691,
+  4 quintes tempérées C-G/G-D/D-A/B-F♯ par 1/4 de comma pythagoricien
+  + 8 pures, tempérament Bach pour Wohltemperierte Klavier, cents
+  Barbour 1951). Tables de cents inline ; ancrage A4 = a4Ref par
+  `c4 = a4Ref × 2^(-CENTS[9]/1200)`. Insérés en 4e/5e position
+  (entre `just-major-c` et `24-tet-equal`), regroupement des 12-notes.
+  Aucun nouveau layout, aucun nouveau mapping — réutilisation
+  `piano-12` + `TWELVE_KEY_MAP`. Visual cues activés
+  (`VISUAL_CUE_SUPPORTED_SYSTEMS` étendu). Registre à 10 entrées.
+  Vérifs : Mésotonique E/C = 1.250000 exact (5/4) ; les deux ancrent
+  A4 = 440.000 exactement. Triptyque pédagogique européen complété :
+  Pythagoricien (quintes pures, tierces fausses) → Mésotonique
+  1/4-comma (tierces pures, wolf marqué) → Werckmeister III
+  (compromis bien-tempéré, toutes tonalités utilisables) → 12-TET
+  (uniforme, tempéré partout). Hors scope : Werckmeister IV/V/VI
+  (moins documentés), Kirnberger I/II/III, Vallotti, Young
+  (catalogue baroque non-exhaustif assumé), tempéraments
+  non-européens (Tier 2 — gamelan, shrutis indiens — restent en
+  backlog), tonique alternative pour mésotonique.
+- **Dette UI dropdown tempéraments** : 10 entrées dans le sélecteur,
+  ça commence à devenir long. À traiter si ajout d'un Tier 2 — soit
+  catégorisation visuelle (optgroup HTML : "Égaux", "Justes",
+  "Historiques", "Micro-tonaux", "Libre"), soit modal dédié.
 
 ### Backlog général (à caser quand pertinent)
 
