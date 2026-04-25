@@ -281,6 +281,80 @@
   display: none;
 }
 
+/* --- Clavier 31-EDO (grid-31) ---
+ * Grille 4 rangées × 35 sub-cols (chaque degré occupe 4 sub-cols, escalier
+ * d'1 sub-col par rangée — extension du pattern grid-24 à 8 colonnes au
+ * lieu de 7). 31 cellules au total : la case haut-droite est absente
+ * (degré 31 = octave, non représenté). L'axe horizontal encode linéairement
+ * la hauteur (start_subCol(k+1) = start_subCol(k) + 1).
+ * Hauteur 160px / compact 80px : aligné sur grid-24 (autre layout 4-rangées),
+ * pas sur piano-12/grid-5 qui n'ont qu'une rangée.
+ * Palette HSL : 4 hues à 90° de pas (HUE_PER_ROW = [0, 90, 180, 270]),
+ * un par rangée physique du clavier — pas de hiérarchie d'altération en
+ * 31-EDO interprété abstraitement. is-active et is-playing héritent des
+ * patterns grid-24 (inset cyan / outline jaune + glow, fond HSL préservé). */
+.piano-keyboard-grid31 {
+  display: grid;
+  grid-template-columns: repeat(35, 1fr);
+  grid-template-rows: repeat(4, 1fr);
+  gap: 2px;
+  width: 100%;
+  min-width: 480px;
+  height: 160px;
+  user-select: none;
+  flex-shrink: 0;
+}
+
+.piano-keyboard-grid31.piano-keyboard-compact {
+  height: 80px;
+  min-width: 320px;
+  gap: 1px;
+}
+
+.grid31-key {
+  padding: 0;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 0.7rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 3px;
+  border: 1px solid hsl(var(--hue), 30%, 22%);
+  background: hsl(var(--hue), 60%, 62%);
+  color: #1a1a2e;
+  transition: background 0.1s, border-color 0.1s, transform 0.05s;
+}
+
+.grid31-key:hover {
+  background: hsl(var(--hue), 65%, 70%);
+}
+
+.grid31-key.is-active {
+  box-shadow: inset 0 0 0 3px #00d4ff;
+}
+
+.grid31-key.is-playing {
+  outline: 3px solid #ffc600;
+  outline-offset: -3px;
+  box-shadow: 0 0 10px rgba(255, 198, 0, 0.6);
+  z-index: 1;
+}
+
+.grid31-key.is-active.is-playing {
+  box-shadow: inset 0 0 0 3px #00d4ff, 0 0 10px rgba(255, 198, 0, 0.6);
+}
+
+.grid31-key-label {
+  font-family: monospace;
+  font-weight: 600;
+  pointer-events: none;
+}
+
+.piano-keyboard-grid31.piano-keyboard-compact .grid31-key-label {
+  display: none;
+}
+
 /* --- Sélecteur d'octave --- */
 .octave-selector {
   display: flex;

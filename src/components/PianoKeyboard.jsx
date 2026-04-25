@@ -211,6 +211,67 @@ function Grid5Layout({ noteIndex, active, compact, names, handleMouseDown }) {
   )
 }
 
+// Clavier 31-EDO en grille 4 rangées × 8 colonnes moins la case haut-droite
+// (degré 31 = octave, non représenté → 31 cellules). Chaque cellule occupe
+// 4 sub-cols, et chaque rangée est décalée d'+1 sub-col par rapport à la
+// rangée du dessous (escalier 1/4 d'unité — extension du pattern grid-24).
+// Conséquence : l'axe horizontal encode linéairement la hauteur — le degré
+// k commence à `1 + k` en sub-col (relation monotone, vrai aussi bien pour
+// une montée intra-colonne que pour un saut de colonne). 35 sub-cols au
+// total (k=30 → start_subCol=31, end_subCol=35).
+//
+// Mapping rangée physique du clavier QWERTY ↔ visualRow :
+//   r1 (visualRow 1, en haut)    = rangée chiffres (Digit4..Digit0)
+//   r2 (visualRow 2)              = Q-row (KeyE..KeyP)
+//   r3 (visualRow 3)              = A-row (KeyS..KeyL)
+//   r4 (visualRow 4, en bas)      = Z-row (KeyZ..Comma)
+// Au clavier physique : rangée chiffres en haut, rangée Z en bas — le layout
+// reflète directement la position des doigts. Le serpentin-colonne (k=0
+// bas-gauche, k=3 haut col 1, k=4 bas col 2…) découle de THIRTYONE_KEY_MAP.
+//
+// Palette : 4 hues à 90° de pas, un par rangée — pas de hiérarchie
+// d'altération en 31-EDO interprété abstraitement. Lightness uniforme
+// (alignée sur Grid24Layout naturelles : 60%). is-active et is-playing
+// hérités du pattern grid-24/grid-5 (inset cyan + outline jaune, fond HSL
+// préservé).
+const HUE_PER_ROW = [0, 90, 180, 270]
+
+function Grid31Layout({ noteIndex, active, compact, handleMouseDown }) {
+  return (
+    <div className={`piano-keyboard piano-keyboard-grid31${compact ? ' piano-keyboard-compact' : ''}`} role="group" aria-label="Clavier 31-EDO">
+      {Array.from({ length: 31 }, (_, k) => {
+        const rangeIndex = k % 4
+        const visualRow = 4 - rangeIndex
+        const col = 1 + Math.floor(k / 4)
+        const startSubCol = 1 + (col - 1) * 4 + rangeIndex
+        const endSubCol = startSubCol + 4
+        const classes = ['grid31-key']
+        if (noteIndex === k) classes.push('is-active')
+        if (active.has(k)) classes.push('is-playing')
+        const label = String(k + 1)
+        return (
+          <button
+            key={k}
+            type="button"
+            className={classes.join(' ')}
+            style={{
+              gridRow: visualRow,
+              gridColumn: `${startSubCol} / ${endSubCol}`,
+              '--hue': HUE_PER_ROW[rangeIndex],
+            }}
+            onMouseDown={handleMouseDown(k)}
+            aria-label={label}
+            aria-pressed={noteIndex === k}
+            title={compact ? label : undefined}
+          >
+            {!compact && <span className="grid31-key-label">{label}</span>}
+          </button>
+        )
+      })}
+    </div>
+  )
+}
+
 // Dispatcher : chaque tempérament déclare son `layout`, on cherche le composant
 // correspondant ici. Pour ajouter un grid-N (31-EDO, …) : déclarer
 // l'entrée registre + ajouter le composant ci-dessous, rien d'autre.
@@ -218,6 +279,7 @@ const LAYOUT_COMPONENTS = {
   'piano-12': PianoLayout12,
   'grid-24': Grid24Layout,
   'grid-5': Grid5Layout,
+  'grid-31': Grid31Layout,
 }
 
 // Deux modes d'interaction :

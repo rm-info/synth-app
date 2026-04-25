@@ -230,6 +230,50 @@ function fiveTetFreq(noteIndex, octave, a4Ref) {
   return a4Ref * Math.pow(2, noteIndex / 5 + (octave - 4))
 }
 
+// 31-EDO : 31 divisions égales de l'octave, step = 1200/31 ≈ 38.71 cents.
+// Interprétation abstraite — degrés numérotés 1..31, pas de notion
+// "naturelle vs altération" ni de noms méantone (C♯/D♭, double-dièses).
+// Cohérence avec 5-TET : pas d'emprunt chromatique forcé. Tonique
+// (degré 0) ancrée à `a4Ref` à l'octave 4, comme 5-TET. Le suffixe
+// "." dans les noms (`"1."`, `"23."`, …) sert de séparateur visuel
+// quand `formatClipNote` concatène `noteNames[i] + octave` : "23." + "4"
+// → "23.4" (degré 23 oct 4) au lieu de "234" ambigu. Sur les touches
+// du clavier le point est masqué (Grid31Layout affiche `String(i+1)`).
+const THIRTYONE_EDO_NOTE_NAMES = Array.from(
+  { length: 31 },
+  (_, i) => `${i + 1}.`
+)
+
+// Mapping QWERTY → noteIndex pour 31-EDO. Les 4 rangées physiques du
+// clavier sont parcourues bas-gauche → haut-droite en serpentin-colonne :
+// dans chaque colonne on monte depuis la rangée Z (bas) jusqu'à la rangée
+// chiffres (haut), puis on passe à la colonne suivante. 8 colonnes × 4
+// rangées = 32 positions, moins la case haut-droite (degré 31 = octave,
+// non représentée) = 31 touches. event.code est position-based : même
+// mapping physique sur QWERTY / AZERTY / DVORAK.
+const THIRTYONE_KEY_MAP = {
+  // Col 1 (degs 0-3) : Z-row, A-row, Q-row, digit
+  KeyZ: 0,   KeyS: 1,   KeyE: 2,   Digit4: 3,
+  // Col 2 (degs 4-7)
+  KeyX: 4,   KeyD: 5,   KeyR: 6,   Digit5: 7,
+  // Col 3 (degs 8-11)
+  KeyC: 8,   KeyF: 9,   KeyT: 10,  Digit6: 11,
+  // Col 4 (degs 12-15)
+  KeyV: 12,  KeyG: 13,  KeyY: 14,  Digit7: 15,
+  // Col 5 (degs 16-19)
+  KeyB: 16,  KeyH: 17,  KeyU: 18,  Digit8: 19,
+  // Col 6 (degs 20-23)
+  KeyN: 20,  KeyJ: 21,  KeyI: 22,  Digit9: 23,
+  // Col 7 (degs 24-27)
+  KeyM: 24,  KeyK: 25,  KeyO: 26,  Digit0: 27,
+  // Col 8 (degs 28-30) : pas de Digit pour la case manquante
+  Comma: 28, KeyL: 29,  KeyP: 30,
+}
+
+function thirtyOneEdoFreq(noteIndex, octave, a4Ref) {
+  return a4Ref * Math.pow(2, noteIndex / 31 + (octave - 4))
+}
+
 // Ordre des clés = ordre d'apparition dans les sélecteurs UI : 12-TET en
 // premier (cas par défaut), puis les systèmes alternatifs, puis 'free' en
 // dernier (le cas "à part").
@@ -287,6 +331,15 @@ export const TUNING_SYSTEMS = {
     freq: fiveTetFreq,
     layout: 'grid-5',
     keyboardMap: FIVE_KEY_MAP,
+  },
+  '31-edo': {
+    id: '31-edo',
+    label: '31-EDO (explorateur micro-tonal)',
+    notesPerOctave: 31,
+    noteNames: THIRTYONE_EDO_NOTE_NAMES,
+    freq: thirtyOneEdoFreq,
+    layout: 'grid-31',
+    keyboardMap: THIRTYONE_KEY_MAP,
   },
   free: {
     id: 'free',
