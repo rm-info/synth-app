@@ -289,9 +289,11 @@
  * la hauteur (start_subCol(k+1) = start_subCol(k) + 1).
  * Hauteur 160px / compact 80px : aligné sur grid-24 (autre layout 4-rangées),
  * pas sur piano-12/grid-5 qui n'ont qu'une rangée.
- * Palette HSL : 4 hues à 90° de pas (HUE_PER_ROW = [0, 90, 180, 270]),
- * un par rangée physique du clavier — pas de hiérarchie d'altération en
- * 31-EDO interprété abstraitement. is-active et is-playing héritent des
+ * Palette HSL : 8 hues par colonne (GRID31_HUE_PER_COL inline via --hue) +
+ * 4 lightness par rangée (classes .grid31-key-r0..r3, où r0 = bas / r3 =
+ * haut). La progression de lightness 75→60→45→30% reprend exactement la
+ * grammaire ↓→♮→↑→♯ de grid-24 — couleur de texte sombre/claire flippée
+ * au seuil ~52% pour rester lisible. is-active et is-playing héritent des
  * patterns grid-24 (inset cyan / outline jaune + glow, fond HSL préservé). */
 .piano-keyboard-grid31 {
   display: grid;
@@ -321,14 +323,34 @@
   justify-content: center;
   border-radius: 3px;
   border: 1px solid hsl(var(--hue), 30%, 22%);
-  background: hsl(var(--hue), 60%, 62%);
-  color: #1a1a2e;
   transition: background 0.1s, border-color 0.1s, transform 0.05s;
 }
 
-.grid31-key:hover {
-  background: hsl(var(--hue), 65%, 70%);
+/* Lightness par rangée — r0 = bas (clair), r3 = haut (sombre).
+ * Reprise stricte de la progression grid-24 ↓→♮→↑→♯ : 75/60/45/30%. */
+.grid31-key-r0 {
+  background: hsl(var(--hue), 60%, 75%);
+  color: #1a1a2e;
 }
+.grid31-key-r0:hover { background: hsl(var(--hue), 65%, 82%); }
+
+.grid31-key-r1 {
+  background: hsl(var(--hue), 60%, 60%);
+  color: #1a1a2e;
+}
+.grid31-key-r1:hover { background: hsl(var(--hue), 65%, 68%); }
+
+.grid31-key-r2 {
+  background: hsl(var(--hue), 60%, 45%);
+  color: #f4f4fa;
+}
+.grid31-key-r2:hover { background: hsl(var(--hue), 65%, 53%); }
+
+.grid31-key-r3 {
+  background: hsl(var(--hue), 60%, 30%);
+  color: #f0f0f6;
+}
+.grid31-key-r3:hover { background: hsl(var(--hue), 65%, 38%); }
 
 .grid31-key.is-active {
   box-shadow: inset 0 0 0 3px #00d4ff;

@@ -229,12 +229,15 @@ function Grid5Layout({ noteIndex, active, compact, names, handleMouseDown }) {
 // reflète directement la position des doigts. Le serpentin-colonne (k=0
 // bas-gauche, k=3 haut col 1, k=4 bas col 2…) découle de THIRTYONE_KEY_MAP.
 //
-// Palette : 4 hues à 90° de pas, un par rangée — pas de hiérarchie
-// d'altération en 31-EDO interprété abstraitement. Lightness uniforme
-// (alignée sur Grid24Layout naturelles : 60%). is-active et is-playing
-// hérités du pattern grid-24/grid-5 (inset cyan + outline jaune, fond HSL
-// préservé).
-const HUE_PER_ROW = [0, 90, 180, 270]
+// Palette : hue par colonne (8 zones de hauteur), lightness par rangée
+// (4 crans modulant la "phase" au sein de la zone) — alignée sur la
+// grammaire de Grid24Layout (hue = naturelle, lightness = altération).
+// 8 hues étendant le pattern HUE_PER_NATURAL de grid-24 à 8 entrées.
+// Lightness reprend la progression grid-24 ↓→♮→↑→♯ (75%, 60%, 45%, 30%) :
+// rangée 4 (bas) la plus claire, rangée 1 (haut) la plus sombre. is-active
+// et is-playing hérités du pattern grid-24/grid-5 (inset cyan + outline
+// jaune, fond HSL préservé).
+const GRID31_HUE_PER_COL = [0, 38, 76, 130, 180, 220, 280, 320]
 
 function Grid31Layout({ noteIndex, active, compact, handleMouseDown }) {
   return (
@@ -245,7 +248,7 @@ function Grid31Layout({ noteIndex, active, compact, handleMouseDown }) {
         const col = 1 + Math.floor(k / 4)
         const startSubCol = 1 + (col - 1) * 4 + rangeIndex
         const endSubCol = startSubCol + 4
-        const classes = ['grid31-key']
+        const classes = ['grid31-key', `grid31-key-r${rangeIndex}`]
         if (noteIndex === k) classes.push('is-active')
         if (active.has(k)) classes.push('is-playing')
         const label = String(k + 1)
@@ -257,7 +260,7 @@ function Grid31Layout({ noteIndex, active, compact, handleMouseDown }) {
             style={{
               gridRow: visualRow,
               gridColumn: `${startSubCol} / ${endSubCol}`,
-              '--hue': HUE_PER_ROW[rangeIndex],
+              '--hue': GRID31_HUE_PER_COL[col - 1],
             }}
             onMouseDown={handleMouseDown(k)}
             aria-label={label}
