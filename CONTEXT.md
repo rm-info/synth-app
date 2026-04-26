@@ -532,6 +532,23 @@ Choix non évidents pris pour de bonnes raisons. À ne pas remettre en question
   cite déjà aly-abbara.com. Le mécanisme d'import custom de cents
   par l'utilisateur (backlog) couvrira les cas où aucune référence
   pré-existante ne convient.
+- **Convention de nommage des tempéraments : TET réservé aux
+  équipartites (F.7.6)** : le sigle "TET" (Tempérament Égal /
+  Tone Equal Temperament) est réservé aux systèmes mathématiquement
+  équipartis (12-TET, 24-TET équipartite, 5-TET, 31-EDO — qui utilise
+  la variante EDO mais relève du même principe). Les systèmes
+  mesurés ou irréguliers (Maqâmât Cairo 1932 mesurés, Slendro et
+  Pelog Surakarta, shrutis indiens) ne portent pas ce sigle dans
+  leur libellé. Raison : un libellé "24-TET (Le Caire 1932)"
+  laissait croire à une équipartition mathématique alors que les
+  mesures dévient sciemment (tierces neutres des maqâmat). Cette
+  convention vaut pour les ajouts futurs : si un nouveau système
+  est dérivé de mesures ou d'une accordage non-uniforme, son
+  libellé doit l'indiquer (e.g. "Maqâmât …", "Gamelan …", "shrutis
+  …") plutôt que d'emprunter "TET". Les ids existants sont conservés
+  malgré cette convention (`'24-tet-cairo-1932'` reste, le coût d'un
+  rename global dépasse le bénéfice — ils restent des identifiants
+  internes invisibles à l'utilisateur).
 - **Posture mode note : possession totale du clavier
   alphanumérique (F.7.5)** : hors form-field et hors raccourcis OS
   (Ctrl/Alt/Meta), le mode note "possède" l'ensemble fixe
@@ -1521,6 +1538,24 @@ Phases listées ci-dessous dans l'ordre chronologique d'implémentation.
 
 ## Historique (chronologie inverse)
 
+000000000000000000000. **Iter F — Phase 7.6** (2026-04-26) : libellés
+    Cairo 1932 clarifiés. L'entrée `'24-tet-cairo-1932'` portait un
+    libellé `'24-TET (Le Caire 1932, source: aly-abbara.com)'`
+    trompeur : TET implique équipartite mathématique, or les valeurs
+    sont des MESURES empiriques sur instruments réels qui dévient
+    sciemment (tierces et sixtes neutres des maqâmat — E à +46¢, B
+    à +42¢). Le congrès du Caire 1932 a deux héritages distincts :
+    adoption théorique de 24-TET équipartite comme grille de notation
+    savante (= notre entrée `'24-tet-equal'`) ET publication de
+    mesures empiriques non-équiparties (= notre entrée
+    `'24-tet-cairo-1932'`). Libellés rectifiés :
+    `'24-TET équipartite (Cairo 1932 théorique)'` et `'Maqâmât Le
+    Caire 1932 (24 hauteurs mesurées, aly-abbara.com)'`. Commentaire
+    de la table `CAIRO_1932_HZ_OCT4` reformulé pour expliciter
+    "mesures empiriques" et la distinction avec l'équipartite. Ids
+    inchangés (`'24-tet-equal'` et `'24-tet-cairo-1932'`) — pas de
+    coût utilisateur, évite find-replace global. Single commit
+    ~5 lignes effectives.
 00000000000000000000. **Iter F — Phase 7.5** (2026-04-26) : guard
     preventDefault systémique sur les touches alphanumériques et
     ponctuations candidates au mode note. Complète F.3.6 pour les
