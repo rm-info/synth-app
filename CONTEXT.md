@@ -189,14 +189,15 @@ synth-app/
     │   ├── durations.js      # catalogue durées (bases + coefs, phase 6.1)
     │   ├── clipNote.js       # formatClipNote + NOTE_NAMES Unicode
     │   ├── tuningSystems.js  # registre tempéraments + freq + keyboardMap par système
-    │   └── visualCues.js     # catalogue gammes/accords en cents + cuedNoteIndices (F.4.4)
+    │   ├── visualCues.js     # catalogue gammes/accords en cents + cuedNoteIndices (F.4.4)
+    │   └── keyboardCandidates.js  # NOTE_GUARD_KEYS — touches du mode note (F.7.5)
     └── components/
         ├── Tabs.jsx + .css                    # bascule Designer / Composer
         ├── PatchBank.jsx + .css               # banque de patches partagée
         ├── WaveformEditor.jsx + .css          # éditeur ondes / patch (Designer)
         ├── Spectrogram.jsx + .css             # spectrogramme statique (Designer)
         ├── MiniPlayer.jsx + .css              # transport simplifié (Designer)
-        ├── PianoKeyboard.jsx + .css           # dispatcher clavier (piano-12 / grid-24 / grid-5 / grid-7 / grid-31) + octaves + halo .is-cued (F.4.4)
+        ├── PianoKeyboard.jsx + .css           # dispatcher clavier (piano-12 / grid-24 / grid-5 / grid-7 / grid-31 / grid-22-bhatkhande / grid-22-sarngadeva) + octaves + halo .is-cued (F.4.4)
         ├── DurationButtons.jsx + .css         # boutons durée 7 bases + 3 coefs (phase 6.1)
         ├── SidebarResizer.jsx + .css          # poignée drag bordure sidebar (phase 7.4)
         ├── BpmInput.jsx                       # input BPM validation différée
