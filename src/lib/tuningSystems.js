@@ -240,12 +240,16 @@ function twentyFourTetEqualFreq(noteIndex, octave, a4Ref) {
   return a4Ref * Math.pow(2, (noteIndex - 18) / 24) * Math.pow(2, octave - 4)
 }
 
-// Table en dur des 24 fréquences de l'octave 4 du tempérament Le Caire 1932,
-// extraites de la table publiée sur aly-abbara.com et réindexées C-centrées
-// (l'index 0 correspond à C). Ancrée sur 'Oshairan = A4 = 440 Hz quand
-// a4Ref = 440. Les écarts apparents — E à +46¢, E↑ à +38¢, B à +42¢ — sont
-// la signature des tierces et sixtes neutres des maqâmat ; ne pas "corriger"
-// vers le 24-TET égal.
+// Mesures empiriques des hauteurs en usage publiées par le Congrès du
+// Caire 1932 sur des instruments réels (égyptiens, syriens, turcs,
+// tunisiens), agrégées et republiées par aly-abbara.com. Réindexation
+// C-centrée (index 0 = C). Ancrée sur 'Oshairan = A4 = 440 Hz quand
+// a4Ref = 440. Les écarts apparents — E à +46¢, E↑ à +38¢, B à +42¢ vs
+// 24-TET équipartite — sont la signature des tierces et sixtes neutres
+// des maqâmat ; ne PAS "corriger" vers l'équipartite, ce serait justement
+// effacer la spécificité du système. Distinct du framework théorique
+// 24-TET équipartite (entrée `'24-tet-equal'` du registre) que le même
+// congrès a adopté comme grille de notation savante.
 const CAIRO_1932_HZ_OCT4 = [
   261.335, 267.76,  275.63,  284.84,
   294.03,  300.43,  310.62,  320.47,
@@ -584,7 +588,7 @@ export const TUNING_SYSTEMS = {
   },
   '24-tet-equal': {
     id: '24-tet-equal',
-    label: '24-TET (tempérament égal)',
+    label: '24-TET équipartite (Cairo 1932 théorique)',
     notesPerOctave: 24,
     noteNames: TWENTYFOUR_NOTE_NAMES,
     freq: twentyFourTetEqualFreq,
@@ -593,7 +597,7 @@ export const TUNING_SYSTEMS = {
   },
   '24-tet-cairo-1932': {
     id: '24-tet-cairo-1932',
-    label: '24-TET (Le Caire 1932, source: aly-abbara.com)',
+    label: 'Maqâmât Le Caire 1932 (24 hauteurs mesurées, aly-abbara.com)',
     notesPerOctave: 24,
     noteNames: TWENTYFOUR_NOTE_NAMES,
     freq: twentyFourTetCairo1932Freq,
