@@ -133,9 +133,24 @@ Cellules équidistantes (convention piano-12), nomenclature
 romaine I..V / I..VII (pas d'import javanais natif). Tonique
 deg 0 = a4Ref. Visual cues désactivés (les patterns du
 catalogue n'ont pas de sens en gamelan). Registre à 12
-entrées. Reste 22-EDO et 53-EDO en backlog. Dette UI dropdown
-(12 entrées) commence à frotter — à traiter dans une phase
-dédiée.
+entrées.
+Phase 7 (2026-04-26) : **Tier 2 shrutis indiens**, deux
+frameworks théoriques sur les mêmes 22 shrutis canoniques
+5-limit. **Bhatkhande** (1909-1932, modernisation hindustani,
+distribution 1-4-4-4-1-4-4 — sa et pa sont des piliers
+étroits) et **Sarngadeva** (Sangita Ratnakara XIIIe,
+distribution Bharata classique 4-3-2-4-4-3-2 — sa, ma, pa
+habitent 4 sub-shrutis chacun, "piliers larges"). Substrat
+acoustique partagé (`SHRUTI_CANONICAL_CENTS` + `shrutiFreq`
+factorisés) ; sémantique différente (deux layouts dédiés
+`grid-22-bhatkhande` et `grid-22-sarngadeva`, deux
+nomenclatures romaines avec sous-lettres I/IIa..IId/…/V/…,
+deux mappings QWERTY). Ancrage sa = a4Ref. Visual cues
+désactivés. Pédagogiquement complémentaires : on entend la
+même chose, on lit deux grammaires. Registre à 14 entrées.
+Reste 22-EDO Erlich (distinct des shrutis indiens) et 53-EDO
+en backlog. Dette UI dropdown (14 entrées) devient urgente —
+à traiter en phase dédiée.
 
 ## Objectif
 
@@ -517,6 +532,28 @@ Choix non évidents pris pour de bonnes raisons. À ne pas remettre en question
   cite déjà aly-abbara.com. Le mécanisme d'import custom de cents
   par l'utilisateur (backlog) couvrira les cas où aucune référence
   pré-existante ne convient.
+- **Catalogue partagé pour systèmes équivalents acoustiquement
+  (F.7)** : quand deux systèmes du registre se distinguent par leur
+  *grammaire culturelle* (grouping, layout, labels, mapping QWERTY)
+  mais reposent sur les **mêmes cents**, on factorise la table de
+  cents et la fonction `freq` dans une seule constante / un seul
+  helper réutilisé par les deux entrées. Posé pour Bhatkhande et
+  Sarngadeva (`SHRUTI_CANONICAL_CENTS` + `shrutiFreq` partagés ;
+  deux entrées registre `'shrutis-bhatkhande'` et
+  `'shrutis-sarngadeva'`, deux layouts `grid-22-*` et deux paires
+  `*_NAMES` / `*_KEY_MAP` distinctes). Raison : les sons sont
+  strictement les mêmes (un noteIndex donné produit la même
+  fréquence dans les deux systèmes — la bascule entre les deux
+  préserve la hauteur tout en changeant les labels), c'est la
+  *lecture musicologique* qui diffère. Conséquence : aucun risque
+  de divergence numérique entre les deux systèmes, et un éventuel
+  3e framework sur le même substrat (ex. Bharata reconstructed
+  selon Sambamoorthy) ne demande qu'un nouveau triplet
+  `noms + keymap + layout` + une nouvelle entrée registre. Cohérent
+  avec la décision F.6 (référence documentée explicite par accordage)
+  et avec le pattern d'extension F.3 (le registre reste le point
+  d'extension unique — on n'étend pas son schéma, on ajoute des
+  entrées qui se partagent du code).
 - **Catalogue de visual cues universel en cents (itération F.4.4)** :
   `src/lib/visualCues.js` définit chaque pattern (triade, gamme,
   septième…) comme une liste d'intervalles **en cents depuis la
@@ -1171,7 +1208,7 @@ Phases listées ci-dessous dans l'ordre chronologique d'implémentation.
   précédente lors d'un retrigger (clic de voice-stealing sur note
   déjà active ou sustainée) (voir Roadmap).
 
-🚧 **Itération F — Tier 1 + Tier 2 (gamelan) + Tier 3 livrés** — Multi-tempérament
+🚧 **Itération F — Tier 1 + Tier 2 (gamelan + shrutis indiens) + Tier 3 livrés** — Multi-tempérament
 - ✅ **Phase 1** (2026-04-22) — Infrastructure multi-tempérament.
   Création de `src/lib/tuningSystems.js` : registre `TUNING_SYSTEMS`
   (clé = id de système) avec `{ id, label, notesPerOctave, noteNames,
@@ -1392,9 +1429,112 @@ Phases listées ci-dessous dans l'ordre chronologique d'implémentation.
   tonique), VII = 810.701, I oct 5 = 880.000. Registre à 12
   entrées. Reste en backlog : 22-EDO et 53-EDO du Tier 2 ; refonte
   UI dropdown catégorisé (12 entrées commencent à frotter).
+- ✅ **Phase 7** (2026-04-26) — Tier 2 shrutis indiens (deux
+  frameworks). Path B : on ship deux entrées registre dédiées
+  (`'shrutis-bhatkhande'` et `'shrutis-sarngadeva'`) plutôt qu'un
+  unique "22 shrutis" générique, parce que la grammaire culturelle
+  est précisément ce que les frameworks encodent. 2 sous-commits :
+  - **7.1** Catalogue partagé + Bhatkhande. `SHRUTI_CANONICAL_CENTS`
+    (22 valeurs entières dérivées du 5-limit just intonation,
+    sources Te Nijenhuis 1974 / Rowell 1992 / Bhatkhande 1909-1932)
+    et helper `shrutiFreq(noteIndex, octave, a4Ref)` ancré sa = a4Ref
+    à oct 4 (cohérence 5-TET / 31-EDO / gamelan). Bhatkhande
+    (V.N. Bhatkhande, *Hindustani Sangeet Paddhati*, 1909-1932) :
+    distribution **1-4-4-4-1-4-4** — sa (I) et pa (V) sont des
+    piliers à 1 cellule chacun, re/ga/ma/dha/ni reçoivent chacune
+    4 sub-shrutis. Nomenclature romaine `I, IIa..IId, IIIa..IIId,
+    IVa..IVd, V, VIa..VId, VIIa..VIId` (22 noms terminés par lettre
+    → pas besoin de séparateur "." pour `formatClipNote`). Mapping
+    QWERTY `BHATKHANDE_KEY_MAP` 22 positions : Z-row = 7 svaras à
+    leur position la plus grave (ZXCVBNM = sa, IIa, IIIa, IVa, pa,
+    VIa, VIIa), 3 rangées au-dessus pour les sub-shrutis ascendantes
+    des 5 clusters non-piliers (gaps physiques au-dessus de sa et pa
+    — reflet de la grammaire visuelle). Nouveau layout
+    `grid-22-bhatkhande` dans `PianoKeyboard.jsx` : 7 colonnes svaras
+    sur grille 4 rangées × 32 sub-cols, escalier 1 sub-col par rangée
+    (extension du pattern grid-31 à 7 colonnes), gaps visuels
+    au-dessus des colonnes sa (col 1) et pa (col 5). Palette
+    `HUE_PER_SHRUTI_SVARA = [0, 51, 103, 154, 206, 257, 309]`
+    (réutilise les 7 hues de grid-7 — cohérence visuelle cross-system
+    pelog/shrutis) × 4 lightness par rangée (75/60/45/30%, alignée
+    sur grid-31 ↓→♮→↑→♯). CSS `.grid22-key` posé en 7.1 mutualisé
+    avec 7.2.
+  - **7.2** Sarngadeva. Sarngadeva (*Sangita Ratnakara*, XIIIe s.) :
+    distribution **4-3-2-4-4-3-2** (Bharata classique préservé) — sa,
+    ma, pa habitent 4 sub-shrutis chacun (zones étendues), ri et dha
+    3, ga et ni 2. Mêmes 22 cents canoniques que Bhatkhande (`shrutiFreq`
+    partagé) — différence purement organisationnelle. Nomenclature
+    `Ia..Id, IIa..IIc, IIIa..IIIb, IVa..IVd, Va..Vd, VIa..VIc,
+    VIIa..VIIb` (la sub-shruti la plus grave porte le nom de la svara :
+    Ia = sa, IIa = ri, IIIa = ga, IVa = ma, Va = pa, VIa = dha,
+    VIIa = ni). Mapping QWERTY `SARNGADEVA_KEY_MAP` 22 positions :
+    Z-row = 7 svaras nommées (mêmes ZXCVBNM que Bhatkhande pour
+    préserver la mémoire motrice cross-framework), colonnes hautes
+    pour sa/ma/pa (jusqu'au digit row), basses pour ga/ni (s'arrêtent
+    à la rangée A). Nouveau composant `Grid22SarngadevaLayout` qui
+    réutilise strictement les classes CSS `.piano-keyboard-grid22` et
+    `.grid22-key` posées en 7.1 — la grille géométrique est identique
+    (32 sub-cols, 4 rangées, mêmes hues svara), seules les cellules
+    peuplées diffèrent. Grammaire visuelle "piliers larges" (sa/ma/pa
+    montent jusqu'au digit row) contraste avec "piliers étroits" de
+    Bhatkhande — c'est l'écart pédagogique central qu'on veut donner
+    à voir. `LAYOUT_COMPONENTS` enrichi de `'grid-22-bhatkhande'` et
+    `'grid-22-sarngadeva'`. Visual cues désactivés sur les deux
+    (patterns 5-limit harmoniques ne s'appliquent pas au contexte
+    modal-mélodique indien). Insérés en 12e/13e position du registre
+    (entre `pelog` et `free`). Vérifs (a4Ref=440) : sa oct 4 = 440.000
+    Hz exact (Bhatkhande I = noteIndex 0 ; Sarngadeva Ia = noteIndex
+    0), re shuddha = 495.026 (Bhatkhande IId = noteIndex 4 ;
+    Sarngadeva IIa = noteIndex 4 ; ~9/8 à +0.09¢ d'écart vs ratio
+    pur — conséquence du choix d'arrondir SHRUTI_CANONICAL_CENTS à
+    l'entier, conforme à la pratique slendro/pelog), pa = 660.017
+    (3/2 à +0.06¢), ni shuddha (Bhatkhande VIId = Sarngadeva indice
+    21) = 835.421, sa oct 5 = 880.000 (octave juste). Bascule
+    Bhatkhande ↔ Sarngadeva : noteIndex préservé → fréquence
+    préservée, seuls les labels changent (ex. "IId.4" → "IIa.4"
+    pour la même 495 Hz). Registre à 14 entrées. Reste en backlog :
+    22-EDO Erlich (distinct des shrutis indiens — reste un candidat
+    xenharmonique séparé), 53-EDO, refonte UI dropdown (14 entrées
+    rend la dette urgente), Bharata reconstructed (Sambamoorthy)
+    comme 3e framework potentiel si demande explicite, modes
+    indiens (ragas/pathets) comme sous-ensembles surlignés —
+    feature pédagogique future.
 
 ## Historique (chronologie inverse)
 
+0000000000000000000. **Iter F — Phase 7** (2026-04-26) : Tier 2 shrutis
+    indiens, deux frameworks théoriques sur les mêmes 22 cents
+    canoniques 5-limit (Path B). **Bhatkhande** (V.N. Bhatkhande,
+    *Hindustani Sangeet Paddhati*, 1909-1932) — distribution
+    1-4-4-4-1-4-4 (sa/pa piliers étroits) ; layout
+    `grid-22-bhatkhande` avec gaps visuels au-dessus des colonnes
+    sa et pa. **Sarngadeva** (*Sangita Ratnakara*, XIIIe s.) —
+    distribution Bharata classique 4-3-2-4-4-3-2 (sa/ma/pa piliers
+    larges, ga/ni minces) ; layout `grid-22-sarngadeva` partage la
+    même grille géométrique 4×32 sub-cols mais peuple les cellules
+    selon une autre distribution. Substrat acoustique partagé via
+    `SHRUTI_CANONICAL_CENTS` + helper `shrutiFreq` factorisés
+    (décision archi : "Catalogue partagé pour systèmes équivalents
+    acoustiquement"). Nomenclatures romaines avec sous-lettres
+    (Bhatkhande : I/IIa..IId/V/… ; Sarngadeva : Ia..Id/IIa..IIc/…),
+    pas de séparateur "." pour `formatClipNote`. Mappings QWERTY
+    dédiés ; Z-row = 7 svaras dans les deux (ZXCVBNM = sa, ri/IIa,
+    ga/IIIa, ma/IVa, pa, dha/VIa, ni/VIIa) — mémoire motrice
+    cross-framework préservée. Ancrage sa = a4Ref à oct 4 (cohérence
+    5-TET/31-EDO/gamelan). Visual cues désactivés (patterns
+    harmoniques 5-limit ne s'appliquent pas au contexte
+    modal-mélodique indien). Insérés en 12e/13e position (entre
+    `pelog` et `free`). Vérifs (a4Ref=440) : sa = 440.000 exact, re
+    shuddha = 495.026 (~9/8 à +0.09¢, écart dû à l'arrondi entier
+    des cents canoniques — conforme à la pratique slendro/pelog),
+    pa = 660.017 (~3/2 à +0.06¢), sa oct 5 = 880.000. Bascule
+    Bhatkhande ↔ Sarngadeva : noteIndex et fréquence préservés,
+    seuls les labels changent. 2 sous-commits (7.1 catalogue +
+    Bhatkhande ; 7.2 Sarngadeva). Registre à 14 entrées. Reste en
+    backlog : 22-EDO Erlich (xenharmonique distinct des shrutis),
+    53-EDO, refonte UI dropdown (urgente avec 14 entrées), Bharata
+    reconstructed (Sambamoorthy) si demande explicite, modes
+    indiens (ragas/pathets) en sous-ensembles surlignés.
 000000000000000000. **Iter F — Phase 6** (2026-04-25) : Tier 2 gamelan —
     Slendro et Pelog d'après Surjodiningrat, Sudarjana & Susanto 1972
     (étude empirique de référence). Slendro 5 notes (cents [0, 241, 481,
@@ -1845,7 +1985,7 @@ Phases listées ci-dessous dans l'ordre chronologique d'implémentation.
     ne réapparaît pas au relâchement de Espace. Invariant
     retrigger "perçu net" (E.3.4) respecté.
 
-### Itération F (multi-tempérament) — Tier 1 + Tier 2 (gamelan) + Tier 3 livrés
+### Itération F (multi-tempérament) — Tier 1 + Tier 2 (gamelan + shrutis indiens) + Tier 3 livrés
 
 - ✅ **Phase 1** (2026-04-22) — Infrastructure multi-tempérament.
   Deux sous-commits :
@@ -2321,17 +2461,94 @@ Phases listées ci-dessous dans l'ordre chronologique d'implémentation.
   accordages (Yogyakarta, Sumarsam, Tenzer), noms javanais natifs,
   visual cues gamelan-spécifiques (Pathet), import custom de cents
   par l'utilisateur, 22-EDO et 53-EDO, refonte UI dropdown.
-- **Reste en backlog Tier 2** : **22-EDO** (approximation shrutis
-  indiens — layout possiblement réutilisable depuis grid-31 ou un
-  grid-22 dédié), **53-EDO** (approximation fine de la juste
+- ✅ **Phase 7** (2026-04-26) — Tier 2 shrutis indiens : Bhatkhande
+  et Sarngadeva (deux frameworks théoriques, mêmes 22 cents). Path
+  B ratifié en session de design — un seul "22 shrutis" générique
+  aurait perdu la grammaire culturelle, c'est précisément l'objet
+  de la phase. 2 sous-commits :
+  - **7.1** Catalogue partagé (cents + freq helper) + Bhatkhande.
+    `SHRUTI_CANONICAL_CENTS` (22 valeurs entières dérivées du
+    5-limit just intonation, sources Te Nijenhuis 1974 / Rowell 1992
+    / Bhatkhande 1909-1932) + `shrutiFreq(noteIndex, octave, a4Ref)`
+    ancré sa = a4Ref. Bhatkhande (V.N. Bhatkhande, *Hindustani
+    Sangeet Paddhati*, 1909-1932) : **distribution 1-4-4-4-1-4-4** —
+    sa et pa piliers à 1 sub-shruti chacun, re/ga/ma/dha/ni
+    reçoivent chacune 4 sub-shrutis. Nomenclature romaine avec
+    sous-lettres `I, IIa..IId, …, V, VIa..VId, VIIa..VIId` (22
+    noms terminés par lettre — pas de séparateur "." nécessaire
+    pour `formatClipNote`, contrairement à 31-EDO). `BHATKHANDE_KEY_MAP`
+    22 positions QWERTY : Z-row = 7 svaras à leur position la plus
+    grave (ZXCVBNM = sa, IIa, IIIa, IVa, pa, VIa, VIIa) ; A-row /
+    Q-row / Digit-row = sub-shrutis ascendantes des 5 clusters
+    non-piliers (gaps physiques au-dessus de sa et pa). Nouveau
+    layout `grid-22-bhatkhande` dans `PianoKeyboard.jsx` : grille
+    4 rangées × 32 sub-cols, escalier 1 sub-col par rangée
+    (extension du pattern grid-31 à 7 colonnes svara au lieu de
+    8 colonnes 31-EDO), gaps visuels au-dessus des colonnes sa
+    (col 1) et pa (col 5) — c'est la signature "piliers étroits"
+    de Bhatkhande. Palette `HUE_PER_SHRUTI_SVARA = [0, 51, 103, 154,
+    206, 257, 309]` (réutilise les 7 hues de grid-7 pour cohérence
+    visuelle pelog/shrutis cross-system) × 4 lightness par rangée
+    (75/60/45/30%, alignée sur grid-31). CSS `.grid22-key` /
+    `.piano-keyboard-grid22` posé en 7.1 mutualisé avec 7.2 (les
+    deux layouts partagent strictement la grille géométrique).
+  - **7.2** Sarngadeva. Sarngadeva (*Sangita Ratnakara*, XIIIe s.) :
+    **distribution 4-3-2-4-4-3-2** (Bharata classique préservé) —
+    sa, ma, pa habitent 4 sub-shrutis chacun (zones étendues),
+    ri et dha 3, ga et ni 2. Mêmes 22 cents canoniques que
+    Bhatkhande (`shrutiFreq` partagé) ; différence purement
+    organisationnelle. Nomenclature `Ia..Id, IIa..IIc, IIIa..IIIb,
+    IVa..IVd, Va..Vd, VIa..VIc, VIIa..VIIb` — la sub-shruti la plus
+    grave porte le nom de la svara (Ia=sa, IIa=ri, IIIa=ga, IVa=ma,
+    Va=pa, VIa=dha, VIIa=ni). `SARNGADEVA_KEY_MAP` 22 positions
+    QWERTY : Z-row = 7 svaras nommées sur les mêmes ZXCVBNM que
+    Bhatkhande (préserve la mémoire motrice cross-framework) ;
+    colonnes hautes pour sa/ma/pa (jusqu'au digit row), basses
+    pour ga/ni (s'arrêtent à la rangée A). Nouveau composant
+    `Grid22SarngadevaLayout` réutilise `.grid22-key` /
+    `.piano-keyboard-grid22` posés en 7.1 — la grille géométrique
+    est identique (32 sub-cols, 4 rangées, mêmes hues svara, même
+    escalier), seules les cellules peuplées diffèrent. Grammaire
+    visuelle "piliers larges" (sa/ma/pa montent jusqu'au digit row)
+    contraste avec "piliers étroits" de Bhatkhande — c'est l'écart
+    pédagogique central qu'on veut donner à voir. `LAYOUT_COMPONENTS`
+    enrichi de `'grid-22-bhatkhande'` et `'grid-22-sarngadeva'`.
+    Visual cues désactivés sur les deux entrées (patterns 5-limit
+    harmoniques ne s'appliquent pas au contexte modal-mélodique
+    indien — les ragas mériteraient un catalogue dédié, hors scope
+    F.7). Insérés en 12e/13e position du registre (entre `pelog`
+    et `free`). Vérifs (a4Ref=440) : sa oct 4 = 440.000 exact
+    (Bhatkhande I = noteIndex 0 ; Sarngadeva Ia = noteIndex 0),
+    re shuddha = 495.026 (Bhatkhande IId / Sarngadeva IIa = noteIndex
+    4 ; ~9/8 à +0.09¢ d'écart vs ratio pur — conséquence du choix
+    d'arrondir SHRUTI_CANONICAL_CENTS à l'entier, conforme à la
+    pratique slendro/pelog), pa = 660.017 (3/2 à +0.06¢), ni
+    shuddha (noteIndex 21) = 835.421, sa oct 5 = 880.000 (octave
+    juste). Bascule Bhatkhande ↔ Sarngadeva : noteIndex et
+    fréquence préservés, seuls les labels changent (ex. "IId.4" en
+    Bhatkhande devient "IIa.4" en Sarngadeva pour la même 495 Hz).
+    Hors scope F.7 : 22-EDO Erlich (système distinct des shrutis
+    indiens authentiques, candidat xenharmonique séparé), Bharata
+    reconstructed (Sambamoorthy — 3e framework potentiel mais
+    reconstruction trop variable selon l'auteur), noms natifs
+    sanskrits (sa/re/ga/ma/pa/dha/ni ou komal/shuddha re — feature
+    "tooltips culturels" éventuelle, transverse), modes indiens
+    (ragas/pathets) avec sous-ensembles surlignés (équivalent
+    gamelan Pelog Bem/Barang — belle feature pédagogique future
+    avec catalogue de ragas Bhairav, Yaman, etc.), 53-EDO et autres
+    EDO Tier 2, refonte UI dropdown.
+- **Reste en backlog Tier 2** : **22-EDO Erlich**
+  (xenharmonique — distinct des frameworks shrutis indiens
+  authentiques livrés en F.7 ; layout possiblement réutilisable
+  depuis grid-31), **53-EDO** (approximation fine de la juste
   intonation — sous question de valeur ajoutée pédagogique vs
   31-EDO déjà disponible).
-- **Dette UI dropdown tempéraments** (12 entrées) — à traiter dans
-  une phase dédiée. Pistes : optgroup HTML ("Égaux occidentaux",
-  "Justes", "Historiques européens", "Maqâmât", "Gamelan",
-  "Micro-tonaux", "Libre") ou modal catégorisé. Bénéfice
-  pédagogique direct : la catégorisation explicite la structure
-  du domaine.
+- **Dette UI dropdown tempéraments** (14 entrées) — devient
+  urgente, prochaine phase F candidate. Pistes : optgroup HTML
+  ("Égaux occidentaux", "Justes", "Historiques européens",
+  "Maqâmât", "Gamelan", "Shrutis indiens", "Micro-tonaux", "Libre")
+  ou modal catégorisé. Bénéfice pédagogique direct : la
+  catégorisation explicite la structure du domaine.
 
 ### Backlog général (à caser quand pertinent)
 
