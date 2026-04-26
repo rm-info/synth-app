@@ -409,6 +409,88 @@ function Grid22BhatkhandeLayout({ noteIndex, active, cued, compact, names, handl
   )
 }
 
+// Clavier Sarngadeva (grid-22-sarngadeva) : mêmes 22 shrutis indiens
+// que Bhatkhande, mais distribution 4-3-2-4-4-3-2 (Bharata classique,
+// Sangita Ratnakara XIIIe). Sa, ma et pa "habitent" 4 sub-shrutis
+// chacun (zones étendues — colonnes les plus hautes), ri et dha 3,
+// ga et ni 2 (colonnes les plus basses). Géométrie partagée avec
+// Bhatkhande : mêmes 32 sub-cols, mêmes 4 rangées, même escalier 1
+// sub-col par rangée, mêmes hues par colonne svara. Ce qui change :
+// quelles cellules sont peuplées dans cette grille.
+//
+//   visualRow 4 (Z, bas) : Ia  IIa IIIa IVa Va  VIa VIIa
+//   visualRow 3 (A)      : Ib  IIb IIIb IVb Vb  VIb VIIb
+//   visualRow 2 (Q)      : Ic  IIc      IVc Vc  VIc
+//   visualRow 1 (Digit)  : Id           IVd Vd
+//
+// La grammaire visuelle "piliers larges" (sa, ma, pa montent jusqu'au
+// digit row) contraste avec Bhatkhande "piliers étroits" (sa et pa
+// limités à la rangée du bas) — c'est l'écart pédagogique central
+// entre les deux frameworks indiens.
+const GRID_22_SARNGADEVA_CELLS = [
+  // Z-row (rangeIndex 0) : 7 svaras nommées à leur position la plus grave
+  [0,  1, 0], // Ia    (sa)
+  [4,  2, 0], // IIa   (ri)
+  [7,  3, 0], // IIIa  (ga)
+  [9,  4, 0], // IVa   (ma)
+  [13, 5, 0], // Va    (pa)
+  [17, 6, 0], // VIa   (dha)
+  [20, 7, 0], // VIIa  (ni)
+  // A-row (rangeIndex 1) : sub-shruti b — toutes les svaras ont au moins 2 sub-shrutis
+  [1,  1, 1], // Ib
+  [5,  2, 1], // IIb
+  [8,  3, 1], // IIIb
+  [10, 4, 1], // IVb
+  [14, 5, 1], // Vb
+  [18, 6, 1], // VIb
+  [21, 7, 1], // VIIb
+  // Q-row (rangeIndex 2) : sub-shruti c — gaps au-dessus de ga (col 3) et ni (col 7)
+  [2,  1, 2], // Ic
+  [6,  2, 2], // IIc
+  [11, 4, 2], // IVc
+  [15, 5, 2], // Vc
+  [19, 6, 2], // VIc
+  // Digit row (rangeIndex 3) : sub-shruti d — uniquement sa, ma, pa
+  [3,  1, 3], // Id
+  [12, 4, 3], // IVd
+  [16, 5, 3], // Vd
+]
+
+function Grid22SarngadevaLayout({ noteIndex, active, cued, compact, names, handleMouseDown }) {
+  return (
+    <div className={`piano-keyboard piano-keyboard-grid22${compact ? ' piano-keyboard-compact' : ''}`} role="group" aria-label="Clavier 22 shrutis (Sarngadeva)">
+      {GRID_22_SARNGADEVA_CELLS.map(([idx, svaraCol, rangeIndex]) => {
+        const visualRow = 4 - rangeIndex
+        const startSubCol = 1 + (svaraCol - 1) * 4 + rangeIndex
+        const endSubCol = startSubCol + 4
+        const classes = ['grid22-key', `grid22-key-r${rangeIndex}`]
+        if (noteIndex === idx) classes.push('is-active')
+        if (active.has(idx)) classes.push('is-playing')
+        if (cued.has(idx)) classes.push('is-cued')
+        const label = names?.[idx] ?? ''
+        return (
+          <button
+            key={idx}
+            type="button"
+            className={classes.join(' ')}
+            style={{
+              gridRow: visualRow,
+              gridColumn: `${startSubCol} / ${endSubCol}`,
+              '--hue': HUE_PER_SHRUTI_SVARA[svaraCol - 1],
+            }}
+            onMouseDown={handleMouseDown(idx)}
+            aria-label={label}
+            aria-pressed={noteIndex === idx}
+            title={compact ? label : undefined}
+          >
+            {!compact && <span className="grid22-key-label">{label}</span>}
+          </button>
+        )
+      })}
+    </div>
+  )
+}
+
 // Dispatcher : chaque tempérament déclare son `layout`, on cherche le composant
 // correspondant ici. Pour ajouter un grid-N (31-EDO, …) : déclarer
 // l'entrée registre + ajouter le composant ci-dessous, rien d'autre.
@@ -419,6 +501,7 @@ const LAYOUT_COMPONENTS = {
   'grid-7': Grid7Layout,
   'grid-31': Grid31Layout,
   'grid-22-bhatkhande': Grid22BhatkhandeLayout,
+  'grid-22-sarngadeva': Grid22SarngadevaLayout,
 }
 
 // Deux modes d'interaction :

@@ -465,6 +465,74 @@ const BHATKHANDE_KEY_MAP = {
   Digit0: 21, // VIId (ni shuddha)
 }
 
+// Sarngadeva (Sangita Ratnakara, XIIIe s.) préserve la distribution
+// classique de Bharata 4-3-2-4-4-3-2 : sa et pa "habitent" 4 shrutis
+// chacun (zones étendues plutôt que points isolés), ga et ni n'ont
+// que 2 sub-shrutis. Même substrat acoustique que Bhatkhande
+// (SHRUTI_CANONICAL_CENTS partagés) — l'organisation visuelle et
+// les labels diffèrent, les fréquences sont strictement les mêmes
+// pour un noteIndex donné.
+//
+// Notation : Ia..Id, IIa..IIc, IIIa..IIIb, IVa..IVd, Va..Vd,
+// VIa..VIc, VIIa..VIIb. Ia est nommée "sa", IIa "ri", IIIa "ga", IVa
+// "ma", Va "pa", VIa "dha", VIIa "ni" — la sub-shruti la plus grave
+// porte le nom de la svara, les autres montent vers la svara
+// suivante.
+const SHRUTI_SARNGADEVA_NAMES = [
+  'Ia', 'Ib', 'Ic', 'Id',
+  'IIa', 'IIb', 'IIc',
+  'IIIa', 'IIIb',
+  'IVa', 'IVb', 'IVc', 'IVd',
+  'Va', 'Vb', 'Vc', 'Vd',
+  'VIa', 'VIb', 'VIc',
+  'VIIa', 'VIIb',
+]
+
+// Mapping QWERTY Sarngadeva. Z-row = 7 svaras nommées (chaque svara à
+// la position la plus grave de son cluster) sur Z X C V B N M —
+// préserve la mémoire motrice partagée avec Bhatkhande, pelog,
+// 5-tet/slendro (la touche Z = "tonique" dans tous les systèmes
+// micro-tonaux). Les colonnes montent à hauteur variable selon la
+// distribution 4-3-2-4-4-3-2 :
+//   col sa (4) : Z(Ia) S(Ib) E(Ic) 4(Id)
+//   col ri (3) : X(IIa) D(IIb) R(IIc)
+//   col ga (2) : C(IIIa) F(IIIb)
+//   col ma (4) : V(IVa) G(IVb) Y(IVc) 7(IVd)
+//   col pa (4) : B(Va) H(Vb) U(Vc) 8(Vd)
+//   col dha (3): N(VIa) J(VIb) I(VIc)
+//   col ni (2) : M(VIIa) K(VIIb)
+const SARNGADEVA_KEY_MAP = {
+  // sa column (4 cells)
+  KeyZ: 0,    // Ia (sa)
+  KeyS: 1,    // Ib
+  KeyE: 2,    // Ic
+  Digit4: 3,  // Id
+  // ri column (3 cells)
+  KeyX: 4,    // IIa (ri)
+  KeyD: 5,    // IIb
+  KeyR: 6,    // IIc
+  // ga column (2 cells)
+  KeyC: 7,    // IIIa (ga)
+  KeyF: 8,    // IIIb
+  // ma column (4 cells)
+  KeyV: 9,    // IVa (ma)
+  KeyG: 10,   // IVb
+  KeyY: 11,   // IVc
+  Digit7: 12, // IVd
+  // pa column (4 cells)
+  KeyB: 13,   // Va (pa)
+  KeyH: 14,   // Vb
+  KeyU: 15,   // Vc
+  Digit8: 16, // Vd
+  // dha column (3 cells)
+  KeyN: 17,   // VIa (dha)
+  KeyJ: 18,   // VIb
+  KeyI: 19,   // VIc
+  // ni column (2 cells)
+  KeyM: 20,   // VIIa (ni)
+  KeyK: 21,   // VIIb
+}
+
 // Ordre des clés = ordre d'apparition dans les sélecteurs UI : 12-TET en
 // premier (cas par défaut), puis les systèmes alternatifs, puis 'free' en
 // dernier (le cas "à part").
@@ -576,6 +644,15 @@ export const TUNING_SYSTEMS = {
     freq: shrutiFreq,
     layout: 'grid-22-bhatkhande',
     keyboardMap: BHATKHANDE_KEY_MAP,
+  },
+  'shrutis-sarngadeva': {
+    id: 'shrutis-sarngadeva',
+    label: '22 shrutis (Sarngadeva XIIIe, distribution Bharata classique)',
+    notesPerOctave: 22,
+    noteNames: SHRUTI_SARNGADEVA_NAMES,
+    freq: shrutiFreq,
+    layout: 'grid-22-sarngadeva',
+    keyboardMap: SARNGADEVA_KEY_MAP,
   },
   free: {
     id: 'free',
