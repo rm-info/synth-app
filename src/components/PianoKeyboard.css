@@ -445,6 +445,102 @@
   display: none;
 }
 
+/* --- Claviers 22 shrutis (grid-22-bhatkhande, grid-22-sarngadeva) ---
+ * Les deux frameworks indiens partagent strictement la même géométrie de
+ * grille (32 sub-cols × 4 rangées, escalier 1 sub-col par rangée — extension
+ * du pattern grid-31 à 7 colonnes svara au lieu de 8 colonnes 31-EDO) et la
+ * même grammaire visuelle (1 hue par colonne svara, lightness modulée par
+ * rangée). Ce qui les distingue : la distribution des cellules dans cette
+ * grille (1-4-4-4-1-4-4 vs 4-3-2-4-4-3-2) — c'est précisément ce qu'on
+ * veut donner à voir.
+ *
+ * Hauteur 160px / compact 80px : aligné sur grid-31 (autre layout 4-rangées
+ * micro-tonal). Min-width 480px laisse 7 colonnes svara visiblement
+ * cliquables (≈ 60px chacune en taille standard).
+ *
+ * Lightness par rangée : 75/60/45/30% — reprise stricte de la progression
+ * grid-31 (rangée 0 = bas = clair, rangée 3 = haut = sombre). Couleur de
+ * texte sombre/claire flippée au seuil ~52% pour rester lisible. */
+.piano-keyboard-grid22 {
+  display: grid;
+  grid-template-columns: repeat(32, 1fr);
+  grid-template-rows: repeat(4, 1fr);
+  gap: 2px;
+  width: 100%;
+  min-width: 480px;
+  height: 160px;
+  user-select: none;
+  flex-shrink: 0;
+}
+
+.piano-keyboard-grid22.piano-keyboard-compact {
+  height: 80px;
+  min-width: 320px;
+  gap: 1px;
+}
+
+.grid22-key {
+  padding: 0;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 0.7rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 3px;
+  border: 1px solid hsl(var(--hue), 30%, 22%);
+  transition: background 0.1s, border-color 0.1s, transform 0.05s;
+}
+
+.grid22-key-r0 {
+  background: hsl(var(--hue), 60%, 75%);
+  color: #1a1a2e;
+}
+.grid22-key-r0:hover { background: hsl(var(--hue), 65%, 82%); }
+
+.grid22-key-r1 {
+  background: hsl(var(--hue), 60%, 60%);
+  color: #1a1a2e;
+}
+.grid22-key-r1:hover { background: hsl(var(--hue), 65%, 68%); }
+
+.grid22-key-r2 {
+  background: hsl(var(--hue), 60%, 45%);
+  color: #f4f4fa;
+}
+.grid22-key-r2:hover { background: hsl(var(--hue), 65%, 53%); }
+
+.grid22-key-r3 {
+  background: hsl(var(--hue), 60%, 30%);
+  color: #f0f0f6;
+}
+.grid22-key-r3:hover { background: hsl(var(--hue), 65%, 38%); }
+
+.grid22-key.is-active {
+  box-shadow: inset 0 0 0 3px #00d4ff;
+}
+
+.grid22-key.is-playing {
+  outline: 3px solid #ffc600;
+  outline-offset: -3px;
+  box-shadow: 0 0 10px rgba(255, 198, 0, 0.6);
+  z-index: 1;
+}
+
+.grid22-key.is-active.is-playing {
+  box-shadow: inset 0 0 0 3px #00d4ff, 0 0 10px rgba(255, 198, 0, 0.6);
+}
+
+.grid22-key-label {
+  font-family: monospace;
+  font-weight: 600;
+  pointer-events: none;
+}
+
+.piano-keyboard-grid22.piano-keyboard-compact .grid22-key-label {
+  display: none;
+}
+
 /* --- Repères visuels (gammes/accords) — classe .is-cued (F.4.4) ---
  * Halo magenta autour de la cellule, tracé en `box-shadow` externe (spread
  * positif) pour préserver le fill HSL de la palette de chaque layout.

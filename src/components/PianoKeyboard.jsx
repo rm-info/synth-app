@@ -316,6 +316,99 @@ function Grid31Layout({ noteIndex, active, cued, compact, handleMouseDown }) {
   )
 }
 
+// Clavier Bhatkhande (grid-22-bhatkhande) : 22 shrutis indiens regroupés
+// en 7 svaras avec distribution 1-4-4-4-1-4-4. Sa (col 1) et pa (col 5)
+// sont des "piliers" : 1 cellule en bas seulement. Re/ga/ma/dha/ni
+// (cols 2,3,4,6,7) reçoivent 4 sub-shrutis empilées (a en bas, d en
+// haut). La grammaire visuelle "piliers étroits" est la signature
+// pédagogique de Bhatkhande vs Sarngadeva.
+//
+// Géométrie partagée avec grid-31 : escalier 1 sub-col par rangée,
+// chaque cellule 4 sub-cols de large. Visualisation des 7 colonnes
+// svaras à intervalles réguliers (équidistance visuelle malgré les
+// pitchs inégaux — convention partagée avec piano-12 et tous les
+// autres layouts).
+//
+//   visualRow 4 (Z, bas) : I  IIa IIIa IVa V  VIa VIIa
+//   visualRow 3 (A)      :    IIb IIIb IVb    VIb VIIb
+//   visualRow 2 (Q)      :    IIc IIIc IVc    VIc VIIc
+//   visualRow 1 (Digit)  :    IId IIId IVd    VId VIId
+//
+// Palette HSL : 7 hues par colonne svara (HUE_PER_PELOG_DEGREE
+// réutilisé — même grammaire que grid-7, cohérence cross-system),
+// lightness modulée par rangée (75/60/45/30%, reprise stricte de
+// grid-31). Hauteur 160px / compact 80px alignée sur grid-31/grid-24
+// (autres layouts 4-rangées).
+const HUE_PER_SHRUTI_SVARA = [0, 51, 103, 154, 206, 257, 309]
+
+// Cellules Bhatkhande : [noteIndex, svaraCol (1..7), rangeIndex (0=Z, 3=Digit)].
+// noteIndex suit l'ordre du tableau SHRUTI_BHATKHANDE_NAMES dans
+// tuningSystems.js (I=0, IIa=1..IId=4, IIIa=5..IIId=8, IVa=9..IVd=12,
+// V=13, VIa=14..VId=17, VIIa=18..VIId=21).
+const GRID_22_BHATKHANDE_CELLS = [
+  // Z-row (rangeIndex 0) : 7 svaras à leur position la plus grave
+  [0,  1, 0], // I    (sa)
+  [1,  2, 0], // IIa
+  [5,  3, 0], // IIIa
+  [9,  4, 0], // IVa
+  [13, 5, 0], // V    (pa)
+  [14, 6, 0], // VIa
+  [18, 7, 0], // VIIa
+  // A-row (rangeIndex 1) : sub-shruti b des 5 clusters non-piliers
+  [2,  2, 1], // IIb
+  [6,  3, 1], // IIIb
+  [10, 4, 1], // IVb
+  [15, 6, 1], // VIb
+  [19, 7, 1], // VIIb
+  // Q-row (rangeIndex 2) : sub-shruti c
+  [3,  2, 2], // IIc
+  [7,  3, 2], // IIIc
+  [11, 4, 2], // IVc
+  [16, 6, 2], // VIc
+  [20, 7, 2], // VIIc
+  // Digit row (rangeIndex 3) : sub-shruti d (= shuddha "standard")
+  [4,  2, 3], // IId
+  [8,  3, 3], // IIId
+  [12, 4, 3], // IVd
+  [17, 6, 3], // VId
+  [21, 7, 3], // VIId
+]
+
+function Grid22BhatkhandeLayout({ noteIndex, active, cued, compact, names, handleMouseDown }) {
+  return (
+    <div className={`piano-keyboard piano-keyboard-grid22${compact ? ' piano-keyboard-compact' : ''}`} role="group" aria-label="Clavier 22 shrutis (Bhatkhande)">
+      {GRID_22_BHATKHANDE_CELLS.map(([idx, svaraCol, rangeIndex]) => {
+        const visualRow = 4 - rangeIndex
+        const startSubCol = 1 + (svaraCol - 1) * 4 + rangeIndex
+        const endSubCol = startSubCol + 4
+        const classes = ['grid22-key', `grid22-key-r${rangeIndex}`]
+        if (noteIndex === idx) classes.push('is-active')
+        if (active.has(idx)) classes.push('is-playing')
+        if (cued.has(idx)) classes.push('is-cued')
+        const label = names?.[idx] ?? ''
+        return (
+          <button
+            key={idx}
+            type="button"
+            className={classes.join(' ')}
+            style={{
+              gridRow: visualRow,
+              gridColumn: `${startSubCol} / ${endSubCol}`,
+              '--hue': HUE_PER_SHRUTI_SVARA[svaraCol - 1],
+            }}
+            onMouseDown={handleMouseDown(idx)}
+            aria-label={label}
+            aria-pressed={noteIndex === idx}
+            title={compact ? label : undefined}
+          >
+            {!compact && <span className="grid22-key-label">{label}</span>}
+          </button>
+        )
+      })}
+    </div>
+  )
+}
+
 // Dispatcher : chaque tempérament déclare son `layout`, on cherche le composant
 // correspondant ici. Pour ajouter un grid-N (31-EDO, …) : déclarer
 // l'entrée registre + ajouter le composant ci-dessous, rien d'autre.
@@ -325,6 +418,7 @@ const LAYOUT_COMPONENTS = {
   'grid-5': Grid5Layout,
   'grid-7': Grid7Layout,
   'grid-31': Grid31Layout,
+  'grid-22-bhatkhande': Grid22BhatkhandeLayout,
 }
 
 // Deux modes d'interaction :

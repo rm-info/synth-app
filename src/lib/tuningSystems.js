@@ -376,6 +376,95 @@ function pelogFreq(noteIndex, octave, a4Ref) {
   return a4Ref * Math.pow(2, PELOG_SURAKARTA_CENTS[noteIndex] / 1200 + (octave - 4))
 }
 
+// 22 shrutis canoniques de la musique classique indienne, dérivés du
+// 5-limit just intonation (mêmes ratios qu'Ellis : 1, 16/15, 256/243,
+// 10/9, 9/8, …). Substrat acoustique commun aux frameworks Bhatkhande
+// et Sarngadeva : ces derniers organisent les 22 mêmes positions
+// différemment (grouping, layout, labels), mais les sons sont
+// strictement identiques. Pédagogiquement : on entend la même chose,
+// on lit deux grammaires.
+//
+// Sources : Te Nijenhuis, "Indian Music: History and Structure" (1974) ;
+// Rowell, "Music and Musical Thought in Early India" (1992) ;
+// Bhatkhande, "Hindustani Sangeet Paddhati" (1909-1932).
+const SHRUTI_CANONICAL_CENTS = [
+  0,    90,   112,  182,
+  204,  294,  316,  386,
+  408,  498,  520,  568,
+  590,  702,  792,  814,
+  884,  906,  996,  1018,
+  1088, 1110,
+]
+
+// Ancrage : sa (noteIndex 0) = a4Ref à oct 4, cohérent avec 5-TET,
+// 31-EDO, slendro, pelog. Helper partagé entre les deux frameworks
+// shrutis — les noms de notes diffèrent, la fréquence ne dépend que
+// du noteIndex.
+function shrutiFreq(noteIndex, octave, a4Ref) {
+  return a4Ref * Math.pow(2, SHRUTI_CANONICAL_CENTS[noteIndex] / 1200 + (octave - 4))
+}
+
+// Bhatkhande (1909-1932) regroupe les 22 shrutis en 7 svaras avec une
+// distribution 1-4-4-4-1-4-4 : sa et pa sont des piliers à 1 position
+// chacun (singularités étroites) ; re, ga, ma, dha, ni reçoivent
+// chacune 4 sub-positions. Conséquence visuelle dans le layout
+// grid-22-bhatkhande : colonnes sa et pa réduites à 1 cellule (gaps
+// au-dessus), 5 colonnes hautes pour les autres svaras.
+//
+// Notation : I, IIa..IId, IIIa..IIId, IVa..IVd, V, VIa..VId,
+// VIIa..VIId. Le chiffre romain encode la svara, la sous-lettre la
+// sub-shruti (a = la plus grave du cluster, d = la plus aiguë). Pas
+// de suffixe "." (cf. 31-EDO) : les noms se terminent par lettre,
+// donc `formatClipNote` peut concaténer l'octave sans ambiguïté.
+const SHRUTI_BHATKHANDE_NAMES = [
+  'I',
+  'IIa', 'IIb', 'IIc', 'IId',
+  'IIIa', 'IIIb', 'IIIc', 'IIId',
+  'IVa', 'IVb', 'IVc', 'IVd',
+  'V',
+  'VIa', 'VIb', 'VIc', 'VId',
+  'VIIa', 'VIIb', 'VIIc', 'VIId',
+]
+
+// Mapping QWERTY → noteIndex Bhatkhande. Z-row = 7 svaras à leur
+// position la plus grave (sa, IIa, IIIa, IVa, pa, VIa, VIIa) sur les
+// touches Z X C V B N M — préserve la mémoire motrice de la "ligne
+// du bas". Au-dessus, 3 rangées de sub-shrutis ascendantes pour les
+// 5 clusters non-piliers : gaps physiques au-dessus de sa (col 1)
+// et pa (col 5), reflet exact de la grammaire visuelle Bhatkhande.
+//   Z-row    : Z(I) X(IIa) C(IIIa) V(IVa) B(V) N(VIa) M(VIIa)
+//   A-row    :       D(IIb) F(IIIb) G(IVb)       J(VIb) K(VIIb)
+//   Q-row    :       R(IIc) T(IIIc) Y(IVc)       I(VIc) O(VIIc)
+//   Digit    :       5(IId) 6(IIId) 7(IVd)       9(VId) 0(VIId)
+const BHATKHANDE_KEY_MAP = {
+  // Z-row (bottom)
+  KeyZ: 0,    // I (sa)
+  KeyX: 1,    // IIa
+  KeyC: 5,    // IIIa
+  KeyV: 9,    // IVa
+  KeyB: 13,   // V (pa)
+  KeyN: 14,   // VIa
+  KeyM: 18,   // VIIa
+  // A-row (au-dessus de re, ga, ma, dha, ni — gaps au-dessus de sa et pa)
+  KeyD: 2,    // IIb
+  KeyF: 6,    // IIIb
+  KeyG: 10,   // IVb
+  KeyJ: 15,   // VIb
+  KeyK: 19,   // VIIb
+  // Q-row (idem)
+  KeyR: 3,    // IIc
+  KeyT: 7,    // IIIc
+  KeyY: 11,   // IVc
+  KeyI: 16,   // VIc
+  KeyO: 20,   // VIIc
+  // Digit row (idem)
+  Digit5: 4,  // IId (re shuddha)
+  Digit6: 8,  // IIId (ga shuddha)
+  Digit7: 12, // IVd (tivra ma)
+  Digit9: 17, // VId (dha shuddha)
+  Digit0: 21, // VIId (ni shuddha)
+}
+
 // Ordre des clés = ordre d'apparition dans les sélecteurs UI : 12-TET en
 // premier (cas par défaut), puis les systèmes alternatifs, puis 'free' en
 // dernier (le cas "à part").
@@ -478,6 +567,15 @@ export const TUNING_SYSTEMS = {
     freq: pelogFreq,
     layout: 'grid-7',
     keyboardMap: PELOG_KEY_MAP,
+  },
+  'shrutis-bhatkhande': {
+    id: 'shrutis-bhatkhande',
+    label: '22 shrutis (Bhatkhande, modernisation indienne)',
+    notesPerOctave: 22,
+    noteNames: SHRUTI_BHATKHANDE_NAMES,
+    freq: shrutiFreq,
+    layout: 'grid-22-bhatkhande',
+    keyboardMap: BHATKHANDE_KEY_MAP,
   },
   free: {
     id: 'free',
