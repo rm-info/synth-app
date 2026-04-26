@@ -8,16 +8,21 @@
 //    `editor.testTuningSystem`. Doit matcher la clé du registre.
 //  - label : libellé long affiché dans les UI (dropdowns).
 //  - notesPerOctave : nombre de degrés par octave, ou null pour les systèmes
-//    sans notion de degré (libre en Hz).
+//    sans notion de degré (libre en Hz). Pour les systèmes paramétrés par un
+//    N variable (X-EDO, F.8), c'est une fonction `(xEdoN) => N`.
 //  - noteNames : tableau des noms de degré (longueur = notesPerOctave), ou
-//    null si inapplicable.
-//  - freq : (noteIndex, octave, a4Ref) → Hz pour les systèmes basés sur
-//    degré/octave, ou null pour ceux qui lisent `clip.frequency` directement.
+//    null si inapplicable. Idem : factory `(xEdoN) => string[]` pour X-EDO.
+//  - freq : (noteIndex, octave, a4Ref, xEdoN) → Hz pour les systèmes basés
+//    sur degré/octave, ou null pour ceux qui lisent `clip.frequency`
+//    directement. Le 4ᵉ argument `xEdoN` n'est utilisé que par X-EDO ;
+//    les autres systèmes l'ignorent silencieusement.
 //  - layout : type de rendu visuel du clavier ('piano-12', 'grid-24',
 //    'free' = pas de clavier). PianoKeyboard dispatch sur cette valeur.
 //  - keyboardMap : { [event.code]: noteIndex } pour les raccourcis QWERTY,
-//    ou null pour les systèmes sans clavier (free). Les consommateurs lisent
-//    ce mapping dynamiquement, jamais via une constante globale.
+//    ou null pour les systèmes sans clavier (free). Pour X-EDO, factory
+//    `(xEdoN) => mapping`. Les consommateurs lisent ce mapping via les
+//    helpers `getKeyboardMap(sys, xEdoN)` (et leurs cousins pour
+//    `noteNames` / `notesPerOctave`) qui résolvent le polymorphisme.
 
 export const DEFAULT_A4 = 440
 
@@ -537,6 +542,65 @@ const SARNGADEVA_KEY_MAP = {
   KeyK: 21,   // VIIb
 }
 
+// === X-EDO paramétrique (F.8) ===
+//
+// Système d'équipartition à N degrés où N est choisi par l'utilisateur
+// (1..53 — borne UI fixée par la table de layouts physiques QWERTY de
+// `xEdoLayouts.js`). Une seule entrée registre, dont les champs `noteNames`,
+// `keyboardMap` et `notesPerOctave` deviennent des **factories** prenant
+// `xEdoN` en argument. La résolution est centralisée par les helpers
+// `getNoteNames` / `getKeyboardMap` / `getNotesPerOctave` (voir plus bas) :
+// les call-sites reçoivent toujours des valeurs concrètes.
+//
+// Bornes par défaut : `DEFAULT_X_EDO_N = 31` (cohérent avec l'ancien
+// 31-EDO supprimé en F.8.1.4 — premier hydratation post-migration retombe
+// sur ce N si rien n'est persisté).
+export const X_EDO_MIN = 1
+export const X_EDO_MAX = 53
+export const DEFAULT_X_EDO_N = 31
+
+// Suffixe "." aligné sur l'ancien THIRTYONE_EDO_NOTE_NAMES : sert de
+// séparateur visuel quand `formatClipNote` concatène avec l'octave
+// ("23." + "4" → "23.4"). Affichage clavier nu via `String(i+1)`.
+function xEdoNoteNames(xEdoN) {
+  return Array.from({ length: xEdoN }, (_, i) => `${i + 1}.`)
+}
+
+// 31-EDO historique = a4Ref * 2^(noteIndex/31 + (octave-4)). Généralisé :
+// même formule avec N variable. Tonique (degré 0) ancrée à `a4Ref` à
+// l'octave 4, cohérent avec 5-TET / 31-EDO / gamelan / shrutis. Le 4ᵉ
+// argument xEdoN est OBLIGATOIRE pour ce système — un undefined produirait
+// un NaN. Les autres systèmes du registre l'ignorent.
+function xEdoFreq(noteIndex, octave, a4Ref, xEdoN) {
+  return a4Ref * Math.pow(2, noteIndex / xEdoN + (octave - 4))
+}
+
+// Bouchon en F.8.1.1 : remplacé en F.8.1.2 par la table des 53 layouts
+// physiques (`xEdoLayouts.js`). Renvoyer `{}` ici garantit que tant que
+// la table n'est pas branchée, aucune touche ne déclenche de note en
+// X-EDO — fail-safe plutôt que mapping erroné.
+function xEdoKeyboardMap() {
+  return {}
+}
+
+// === Helpers de résolution (xEdoN) ===
+//
+// Encapsulent le polymorphisme statique-vs-factory : pour les systèmes
+// classiques renvoient le champ tel quel ; pour X-EDO appellent la factory
+// avec `xEdoN`. Évite que chaque call-site duplique le ternaire
+// `typeof sys.X === 'function' ? sys.X(xEdoN) : sys.X`.
+export function getNotesPerOctave(sys, xEdoN) {
+  return typeof sys.notesPerOctave === 'function' ? sys.notesPerOctave(xEdoN) : sys.notesPerOctave
+}
+
+export function getNoteNames(sys, xEdoN) {
+  return typeof sys.noteNames === 'function' ? sys.noteNames(xEdoN) : sys.noteNames
+}
+
+export function getKeyboardMap(sys, xEdoN) {
+  return typeof sys.keyboardMap === 'function' ? sys.keyboardMap(xEdoN) : sys.keyboardMap
+}
+
 // Ordre des clés = ordre d'apparition dans les sélecteurs UI : 12-TET en
 // premier (cas par défaut), puis les systèmes alternatifs, puis 'free' en
 // dernier (le cas "à part").
@@ -658,6 +722,15 @@ export const TUNING_SYSTEMS = {
     layout: 'grid-22-sarngadeva',
     keyboardMap: SARNGADEVA_KEY_MAP,
   },
+  'x-edo': {
+    id: 'x-edo',
+    label: 'X-EDO (équipartition à X degrés)',
+    notesPerOctave: xEdoN => xEdoN,
+    noteNames: xEdoNoteNames,
+    freq: xEdoFreq,
+    layout: 'grid-x-edo',
+    keyboardMap: xEdoKeyboardMap,
+  },
   free: {
     id: 'free',
     label: 'Libre (Hz)',
@@ -689,15 +762,21 @@ const MAX_OCTAVE = 10
 // proche perd moins ; un snap depuis 'free' peut perdre jusqu'à cette borne.
 //
 // Le système 'free' (freq === null) n'a pas d'inverse — appel illégal.
-export function frequencyToNearestIn(hz, sysId, a4Ref = DEFAULT_A4) {
+//
+// `xEdoN` est utilisé uniquement quand `sysId === 'x-edo'`. Les autres
+// systèmes l'ignorent. Quand X-EDO est ciblé sans xEdoN passé, on retombe
+// sur DEFAULT_X_EDO_N pour rester déterministe (utile en cas d'appel
+// transitoire pendant la migration de state).
+export function frequencyToNearestIn(hz, sysId, a4Ref = DEFAULT_A4, xEdoN = DEFAULT_X_EDO_N) {
   const sys = getTuningSystem(sysId)
   if (!sys.freq) {
     throw new Error(`frequencyToNearestIn: système "${sysId}" n'a pas de freq()`)
   }
+  const npo = getNotesPerOctave(sys, xEdoN)
   let best = { noteIndex: 0, octave: MIN_OCTAVE, cents: Infinity }
   for (let oct = MIN_OCTAVE; oct <= MAX_OCTAVE; oct++) {
-    for (let i = 0; i < sys.notesPerOctave; i++) {
-      const candidate = sys.freq(i, oct, a4Ref)
+    for (let i = 0; i < npo; i++) {
+      const candidate = sys.freq(i, oct, a4Ref, xEdoN)
       if (candidate <= 0) continue
       const cents = Math.abs(1200 * Math.log2(candidate / hz))
       if (cents < best.cents) {
