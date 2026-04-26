@@ -532,6 +532,25 @@ Choix non évidents pris pour de bonnes raisons. À ne pas remettre en question
   cite déjà aly-abbara.com. Le mécanisme d'import custom de cents
   par l'utilisateur (backlog) couvrira les cas où aucune référence
   pré-existante ne convient.
+- **Posture mode note : possession totale du clavier
+  alphanumérique (F.7.5)** : hors form-field et hors raccourcis OS
+  (Ctrl/Alt/Meta), le mode note "possède" l'ensemble fixe
+  `NOTE_GUARD_KEYS` (alphanumériques + ponctuations à risque
+  navigateur — Slash, Quote, Backquote, etc.) défini dans
+  `src/lib/keyboardCandidates.js`. Les listeners notes Designer et
+  Composer appellent `preventDefault()` sur ces touches *avant* tout
+  lookup `keyboardMap` ou check Shift, indépendamment du système
+  courant. Raison : sinon un utilisateur qui tâtonne avec un système
+  ne mappant pas une touche donnée se fait happer par le navigateur
+  (Firefox QuickFind sur ' = Digit4 AZERTY en 12-TET, par exemple).
+  La constante est statique et inclut volontairement des codes hors
+  registre (les ponctuations) ; ne pas la dériver dynamiquement
+  depuis `TUNING_SYSTEMS`. Si un nouveau système mappe une touche
+  absente d'ici, l'ajouter explicitement. Cohérent avec la décision
+  F.3 (registre = seul point d'extension) : le registre dicte
+  *quelles touches déclenchent une note dans un système donné*, mais
+  la posture mode note est *transverse à l'app* — d'où le fichier
+  séparé.
 - **Catalogue partagé pour systèmes équivalents acoustiquement
   (F.7)** : quand deux systèmes du registre se distinguent par leur
   *grammaire culturelle* (grouping, layout, labels, mapping QWERTY)
@@ -1502,6 +1521,25 @@ Phases listées ci-dessous dans l'ordre chronologique d'implémentation.
 
 ## Historique (chronologie inverse)
 
+00000000000000000000. **Iter F — Phase 7.5** (2026-04-26) : guard
+    preventDefault systémique sur les touches alphanumériques et
+    ponctuations candidates au mode note. Complète F.3.6 pour les
+    systèmes ne mappant pas une touche donnée — en 12-TET, presser
+    `'` (= Digit4 AZERTY) ouvrait toujours Firefox QuickFind parce
+    que F.3.6 conditionnait le `preventDefault` au lookup
+    `keyboardMap[e.code]`. Posture renforcée : nouvelle constante
+    `NOTE_GUARD_KEYS` (`src/lib/keyboardCandidates.js`) listant
+    toutes les touches qui peuvent être mappées comme note-trigger
+    dans au moins un système, plus les ponctuations à risque
+    (Slash, Quote, Backquote, …). Les listeners notes Designer
+    (`WaveformEditor.jsx`) et Composer (`App.jsx`) appellent
+    `preventDefault()` dès que `e.code ∈ NOTE_GUARD_KEYS` et qu'on
+    est en mode note (hors form-field, sans Ctrl/Alt/Meta), avant
+    le check Shift et le lookup keyboardMap. Ctrl/Alt/Meta restent
+    exemptés (Ctrl+F navigateur, raccourcis a11y screen reader) ;
+    Shift n'est exempté que du dispatch métier (réservé aux durées
+    Composer, listener séparé non touché). Single commit ~30 lignes
+    effectives.
 0000000000000000000. **Iter F — Phase 7** (2026-04-26) : Tier 2 shrutis
     indiens, deux frameworks théoriques sur les mêmes 22 cents
     canoniques 5-limit (Path B). **Bhatkhande** (V.N. Bhatkhande,
