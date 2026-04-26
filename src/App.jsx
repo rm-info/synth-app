@@ -30,6 +30,7 @@ import {
 } from './reducer'
 import { canMergeClips } from './lib/timelineLayout'
 import { getTuningSystem } from './lib/tuningSystems'
+import { NOTE_GUARD_KEYS } from './lib/keyboardCandidates'
 import {
   DURATION_BASES, DURATION_COEFS,
   deriveBaseAndCoef, effectiveDuration, isValidCoef,
@@ -292,17 +293,22 @@ function App() {
     const onKeyDown = (e) => {
       if (activeTab !== 'composer') return
       if (isFormField(e.target)) return
-      // Guard modificateurs : Shift réservé aux durées (F.3.4), Ctrl/Alt/Meta
-      // aux raccourcis métier ou navigateur. Une note pure n'a aucun modif.
-      if (e.shiftKey || e.ctrlKey || e.altKey || e.metaKey) return
+      // Modificateurs OS / a11y laissés passer : Ctrl+F, Cmd+W, Alt-shortcuts
+      // screen reader. Shift est traité plus bas après le guard navigateur :
+      // il est réservé aux durées (F.3.4) et n'a pas de sémantique note ici,
+      // mais le preventDefault doit déjà avoir bloqué un éventuel raccourci.
+      if (e.ctrlKey || e.altKey || e.metaKey) return
+      // Posture mode note (F.7.5) : preventDefault SYSTÉMATIQUEMENT sur les
+      // touches candidates, indépendamment du système courant. Bloque
+      // Firefox QuickFind sur ' (Digit4 AZERTY) en 12-TET, et autres
+      // raccourcis surprise sur ponctuations. F.3.6 conditionnait ce
+      // preventDefault au lookup keyboardMap — fix incomplet.
+      if (NOTE_GUARD_KEYS.has(e.code)) e.preventDefault()
+      if (e.shiftKey) return
       const keyboardMap = getTuningSystem(editor.testTuningSystem).keyboardMap
       if (!keyboardMap) return
       const idx = keyboardMap[e.code]
       if (idx === undefined) return
-      // Touche de note pure → preventDefault pour bloquer les raccourcis
-      // navigateur (F = Find, etc.), même en drag et même si on n'enregistre
-      // finalement rien (repeat).
-      e.preventDefault()
       if (e.repeat) return
       pressedNoteKeyRef.current = idx
       setPressedNoteKey(idx)

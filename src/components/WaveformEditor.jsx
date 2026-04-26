@@ -4,6 +4,7 @@ import FreqInput from './FreqInput'
 import NumberInput from './NumberInput'
 import { PianoKeyboard, OctaveSelector } from './PianoKeyboard'
 import { getTuningSystem, TUNING_SYSTEMS } from '../lib/tuningSystems'
+import { NOTE_GUARD_KEYS } from '../lib/keyboardCandidates'
 import {
   VISUAL_CUE_PATTERNS,
   cuedNoteIndices,
@@ -679,17 +680,25 @@ function WaveformEditor({
         return
       }
 
-      // Guard modificateurs sur le handler note (cf. F.3) : pas de Shift
-      // (réservé aux durées), Ctrl/Alt/Meta (raccourcis métier/navigateur).
-      if (e.shiftKey || e.ctrlKey || e.altKey || e.metaKey) return
+      // Modificateurs OS / a11y : laisser passer (Ctrl+F, Cmd+W, Alt-shortcuts
+      // screen reader). Shift n'est pas exempté ici : il est réservé aux
+      // durées dans le Composer, sans usage dans le Designer — son guard
+      // métier vient plus bas, après le preventDefault navigateur.
+      if (e.ctrlKey || e.altKey || e.metaKey) return
+
+      // Posture mode note (F.7.5) : preventDefault SYSTÉMATIQUEMENT sur les
+      // touches candidates au mode note, même si elles ne sont pas mappées
+      // par le système courant. Sinon Firefox QuickFind happe ' (Digit4
+      // AZERTY) en 12-TET, où Digit4 n'est pas mappé. F.3.6 conditionnait
+      // le preventDefault au lookup keyboardMap — fix incomplet.
+      if (NOTE_GUARD_KEYS.has(e.code)) e.preventDefault()
+
+      // Shift réservé aux durées Composer ; on n'enregistre pas de note ici.
+      if (e.shiftKey) return
       const keyboardMap = getTuningSystem(testTuningSystem).keyboardMap
       if (!keyboardMap) return
       const idx = keyboardMap[e.code]
       if (idx === undefined) return
-      // preventDefault AVANT le check repeat : Firefox déclenche son
-      // QuickFind sur ' (AZERTY Digit4) à chaque keydown répété, on doit
-      // bloquer toute la séquence — pas seulement la première frappe.
-      e.preventDefault()
       if (e.repeat) return
       const bridge = instrumentBridgeRef.current
       if (!bridge) return
