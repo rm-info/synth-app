@@ -239,6 +239,7 @@ function WaveformEditor({
   editorActions,
   a4Ref,
   xEdoN = DEFAULT_X_EDO_N,
+  onConvertXEdoTo,
   activeTab,
   onSavePatch,
   onUpdatePatch,
@@ -1335,6 +1336,21 @@ function WaveformEditor({
                       </select>
                     </label>
                   )}
+                </div>
+              )}
+              {testTuningSystem === 'x-edo' && (xEdoN === 12 || xEdoN === 24) && onConvertXEdoTo && (
+                <div className="x-edo-banner" role="status">
+                  <span className="x-edo-banner-text">
+                    Correspond à {xEdoN === 12 ? '12-TET' : '24-TET équipartite'}.
+                  </span>
+                  {' '}
+                  <button
+                    type="button"
+                    className="x-edo-banner-link"
+                    onClick={() => onConvertXEdoTo(xEdoN === 12 ? '12-TET' : '24-tet-equal')}
+                  >
+                    Utiliser le layout dédié.
+                  </button>
                 </div>
               )}
               <PianoKeyboard

@@ -730,6 +730,23 @@ function App() {
     dispatch({ type: 'UPDATE_CLIPS_PITCH', payload: updates })
   }, [])
 
+  // F.8.3.3 : bascule X-EDO N=12/N=24 → 12-TET / 24-tet-equal. Convertit
+  // tous les clips actuellement en 'x-edo' vers le système cible (le reducer
+  // UPDATE_CLIPS_PITCH dérive frequency/noteIndex/octave cohérents) ET
+  // change l'éditeur. Deux entrées undo séparées (clips + éditeur) — undo
+  // doit être fait deux fois pour annuler complètement, ce qui reflète bien
+  // la double nature de la bascule.
+  const handleConvertXEdoTo = useCallback((targetSystemId) => {
+    const xEdoClips = clips.filter((c) => c.tuningSystem === 'x-edo')
+    if (xEdoClips.length > 0) {
+      dispatch({
+        type: 'UPDATE_CLIPS_PITCH',
+        payload: xEdoClips.map((c) => ({ id: c.id, tuningSystem: targetSystemId })),
+      })
+    }
+    dispatch({ type: 'SET_EDITOR_TEST_TUNING_SYSTEM', payload: targetSystemId })
+  }, [clips])
+
   const handleDeleteSelected = useCallback(() => {
     dispatch({ type: 'DELETE_SELECTED_CLIPS' })
   }, [])
@@ -1318,6 +1335,7 @@ function App() {
         editorActions={editorActions}
         a4Ref={a4Ref}
         xEdoN={xEdoN}
+        onConvertXEdoTo={handleConvertXEdoTo}
         activeTab={activeTab}
         onSavePatch={handleSavePatch}
         onUpdatePatch={handleUpdatePatch}

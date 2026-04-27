@@ -310,6 +310,47 @@
   border-color: #00d4ff;
 }
 
+/* F.8.3.3 : bannière de bascule X-EDO N=12/24 → 12-TET / 24-tet-equal.
+ * Discrète (couleur info bleue tamisée, pas alarme), persistante tant
+ * que la condition est vraie (pas dismissible — la suggestion redevient
+ * pertinente si l'utilisateur retourne sur N=12/24). Le clic sur le
+ * lien convertit les clips x-edo et l'éditeur en une seule action
+ * utilisateur (deux entrées undo internes — voir App.handleConvertXEdoTo). */
+.x-edo-banner {
+  margin-bottom: 6px;
+  padding: 6px 10px;
+  background: rgba(0, 212, 255, 0.08);
+  border: 1px solid rgba(0, 212, 255, 0.3);
+  border-radius: 4px;
+  color: #c0d8e8;
+  font-size: 0.78rem;
+  line-height: 1.4;
+}
+
+.x-edo-banner-text {
+  color: #c0d8e8;
+}
+
+.x-edo-banner-link {
+  background: none;
+  border: none;
+  padding: 0;
+  color: #00d4ff;
+  font: inherit;
+  cursor: pointer;
+  text-decoration: underline;
+}
+
+.x-edo-banner-link:hover {
+  color: #5ce8ff;
+}
+
+.x-edo-banner-link:focus-visible {
+  outline: 2px solid #00d4ff;
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+
 /* Barre repères visuels (F.4.4) — flex row au-dessus du clavier, deux
  * selects côte à côte (Repère + Tonique). Visible quand le système courant
  * supporte les visual cues (12-TET, Pythag-12, juste-majeure, 24-TET égal,
