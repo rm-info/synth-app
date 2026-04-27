@@ -544,19 +544,26 @@ const SARNGADEVA_KEY_MAP = {
 
 // === X-EDO paramétrique (F.8) ===
 //
-// Système d'équipartition à N degrés où N est choisi par l'utilisateur
-// (1..53 — borne UI fixée par la table de layouts physiques QWERTY de
-// `xEdoLayouts.js`). Une seule entrée registre, dont les champs `noteNames`,
-// `keyboardMap` et `notesPerOctave` deviennent des **factories** prenant
-// `xEdoN` en argument. La résolution est centralisée par les helpers
-// `getNoteNames` / `getKeyboardMap` / `getNotesPerOctave` (voir plus bas) :
-// les call-sites reçoivent toujours des valeurs concrètes.
+// Système d'équipartition à N degrés où N est choisi par l'utilisateur.
+// Cible long-terme : 1..53 (cf. `archi/layouts_x-edo.txt`). En F.8.1.2 la
+// table physique QWERTY est livrée jusqu'à N=43 ; les layouts 44..53
+// nécessitent la logique Shift implémentée en F.8.2 (chaque touche-position
+// porte deux degrés via la modification Shift). En attendant, X_EDO_MAX
+// est borné à 43.
 //
-// Bornes par défaut : `DEFAULT_X_EDO_N = 31` (cohérent avec l'ancien
-// 31-EDO supprimé en F.8.1.4 — premier hydratation post-migration retombe
-// sur ce N si rien n'est persisté).
+// Une seule entrée registre, dont les champs `noteNames`, `keyboardMap` et
+// `notesPerOctave` deviennent des **factories** prenant `xEdoN` en
+// argument. La résolution est centralisée par les helpers `getNoteNames` /
+// `getKeyboardMap` / `getNotesPerOctave` (voir plus bas) : les call-sites
+// reçoivent toujours des valeurs concrètes.
+//
+// `DEFAULT_X_EDO_N = 31` : cohérent avec l'ancien 31-EDO supprimé en
+// F.8.1.4 — première hydratation post-migration retombe sur ce N si rien
+// n'est persisté.
+import { xEdoKeyboardMapForN, X_EDO_MAX_LAYOUT } from './xEdoLayouts'
+
 export const X_EDO_MIN = 1
-export const X_EDO_MAX = 53
+export const X_EDO_MAX = X_EDO_MAX_LAYOUT
 export const DEFAULT_X_EDO_N = 31
 
 // Suffixe "." aligné sur l'ancien THIRTYONE_EDO_NOTE_NAMES : sert de
@@ -575,13 +582,9 @@ function xEdoFreq(noteIndex, octave, a4Ref, xEdoN) {
   return a4Ref * Math.pow(2, noteIndex / xEdoN + (octave - 4))
 }
 
-// Bouchon en F.8.1.1 : remplacé en F.8.1.2 par la table des 53 layouts
-// physiques (`xEdoLayouts.js`). Renvoyer `{}` ici garantit que tant que
-// la table n'est pas branchée, aucune touche ne déclenche de note en
-// X-EDO — fail-safe plutôt que mapping erroné.
-function xEdoKeyboardMap() {
-  return {}
-}
+// Délégation à `xEdoLayouts.js` (F.8.1.2). La table physique QWERTY est
+// livrée pour N=1..43 ; les layouts 44..53 (logique Shift) viennent en F.8.2.
+const xEdoKeyboardMap = xEdoKeyboardMapForN
 
 // === Helpers de résolution (xEdoN) ===
 //
