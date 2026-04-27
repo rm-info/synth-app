@@ -151,6 +151,35 @@ même chose, on lit deux grammaires. Registre à 14 entrées.
 Reste 22-EDO Erlich (distinct des shrutis indiens) et 53-EDO
 en backlog. Dette UI dropdown (14 entrées) devient urgente —
 à traiter en phase dédiée.
+Phase 8.1 (2026-04-27) : **X-EDO paramétrique — infrastructure
+backend**. Une seule entrée registre `'x-edo'` paramétrée par un N
+choisi par l'utilisateur (défaut 31, borne livrée 1..43 — 44..53
+attendent la logique Shift de F.8.2). Champs `notesPerOctave`,
+`noteNames` et `keyboardMap` deviennent des **factories** prenant
+`xEdoN` ; helpers `getNotesPerOctave / getNoteNames /
+getKeyboardMap` cachent ce polymorphisme aux call-sites.
+`xEdoLayouts.js` génère le mapping QWERTY de chaque N en
+serpentin-colonne ascendant selon la spec `archi/layouts_x-edo.txt`
+(escalier +1 col par rangée, AZERTY-FR : '!' = Slash, '^' =
+BracketLeft, etc.). Champ d'état global `state.xEdoN` (composer-
+undoable, persisté), action `SET_X_EDO_N` qui resnap les clips
+'x-edo' vers la nouvelle grille (cohérence acoustique > conservation
+noteIndex). Migration localStorage : les clips '5-tet' et '31-edo'
+sont convertis à l'hydratation vers 'x-edo' avec snap (formules
+inline `legacyEqualFreq`, indépendantes du registre). Suppressions
+en F.8.1.4 : entrées '5-tet' et '31-edo' du registre, composants
+Grid5Layout / Grid7Layout / Grid31Layout ; Slendro et Pelog
+basculent sur `layout: 'grid-x-edo'` avec keyboardMap statique
+précalculé `xEdoKeyboardMapForN(5/7)`. **Régression
+inter-phase** : Slendro / Pelog / X-EDO n'ont temporairement pas
+de clavier visible (le composant GridXEdoLayout vient en F.8.2)
+— interaction au clic indisponible, lecture audio préservée.
+`window.__store` exposé en mode dev pour modifier xEdoN via
+console (UI input N à venir en F.8.3). Registre passe de 14 à
+13 entrées (-5-tet -31-edo +x-edo).
+**Interpellation archi** : l'exemple N=12 du prompt diverge du
+schéma N=12 du fichier (KeyL/KeyK absents du schéma). Implémentation
+suit le fichier (source de vérité déclarée).
 
 ## Objectif
 
@@ -1536,8 +1565,66 @@ Phases listées ci-dessous dans l'ordre chronologique d'implémentation.
     comme 3e framework potentiel si demande explicite, modes
     indiens (ragas/pathets) comme sous-ensembles surlignés —
     feature pédagogique future.
+- 🚧 **Phase 8** (en cours) — X-EDO paramétrique. Sous-phase 8.1
+  livrée (2026-04-27) : infrastructure backend (registre, layouts
+  QWERTY 1..43, state global xEdoN, migration localStorage,
+  suppression de '5-tet' et '31-edo'). Reste 8.2 (composant
+  GridXEdoLayout — claviers Slendro / Pelog / X-EDO redeviendront
+  visibles ; logique Shift pour layouts 44..53) et 8.3 (UI input N
+  dans la toolbar Composer + bannière de bascule 12/24 si applicable).
+  Détail des 4 sous-commits dans Roadmap & Backlog. Registre à 13
+  entrées (-5-tet -31-edo +x-edo).
 
 ## Historique (chronologie inverse)
+
+0000000000000000000000. **Iter F — Phase 8.1** (2026-04-27) : X-EDO
+    paramétrique — infrastructure backend (4 sous-commits).
+    F.8.1.1 : entrée `'x-edo'` au registre, factory polymorphe
+    pour `noteNames` / `keyboardMap` / `notesPerOctave` (helpers
+    `getNoteNames` / `getKeyboardMap` / `getNotesPerOctave`),
+    `freq(noteIndex, octave, a4Ref, xEdoN)` ; `frequencyToNearestIn`
+    accepte xEdoN comme 4ᵉ argument. Constantes
+    `X_EDO_MIN/MAX/DEFAULT_X_EDO_N`. F.8.1.2 :
+    `xEdoLayouts.js` génère les mappings QWERTY 1..43 selon la spec
+    `archi/layouts_x-edo.txt` (escalier +1 col par rangée,
+    serpentin-colonne ascendant, AZERTY-FR). 44..53 : table laissée
+    vide en attendant la logique Shift de F.8.2 — X_EDO_MAX bridé à
+    43 dans cette phase. F.8.1.3 : `state.xEdoN` (composer-undoable,
+    persisté), action `SET_X_EDO_N` (clamp + snap des clips 'x-edo'
+    vers la nouvelle grille + resnap éditeur si testTuningSystem
+    matche), migration localStorage des clips '5-tet' et '31-edo'
+    vers 'x-edo' (formules inline `legacyEqualFreq`, indépendantes
+    du registre). Propagation de `xEdoN` aux call-sites :
+    `clipFrequency`, `UPDATE_CLIPS_PITCH`,
+    `SET_EDITOR_TEST_TUNING_SYSTEM`, `loadPersistedState` (clamp
+    testNoteIndex), `usePlayback` (scheduler + WAV export),
+    `PianoKeyboard`, `WaveformEditor` (preview, keyboardMap,
+    cueTonicMax, affichage), `PropertiesPanel` (NoteEditor),
+    `Timeline` (formatClipNote), `clipNote.formatClipNote`,
+    `visualCues.cuedNoteIndices`. `window.__store` exposé en mode
+    dev pour modifier xEdoN via console (UI input à venir en F.8.3).
+    F.8.1.4 : suppression des entrées '5-tet' et '31-edo' du
+    registre, des constantes associées (FIVE_KEY_MAP,
+    THIRTYONE_KEY_MAP, fiveTetFreq, thirtyOneEdoFreq) et des
+    composants Grid5Layout / Grid7Layout / Grid31Layout (~233
+    lignes CSS retirées). Slendro / Pelog basculent sur `layout:
+    'grid-x-edo'` avec keyboardMap statique précalculé via
+    `xEdoKeyboardMapForN(5)` / `xEdoKeyboardMapForN(7)` (partage la
+    grammaire serpentin avec X-EDO). VISUAL_CUE_SUPPORTED_SYSTEMS :
+    '31-edo' → 'x-edo'. **Régression assumée le temps du
+    hiatus inter-phase** : les claviers Slendro / Pelog / X-EDO
+    rendent `null` (composant GridXEdoLayout livré en F.8.2) —
+    interaction au clic indisponible, lecture audio préservée.
+    Tests numériques (a4Ref=440) : 5-tet deg 2 oct 4 (580.583 Hz)
+    snappe vers x-edo N=12 deg 5 oct 4 (587.330 Hz, +20¢) ; vers
+    x-edo N=31 deg 12 oct 4 (575.414 Hz, -15.48¢). 31-edo deg 12
+    → x-edo N=31 = identité (delta 0¢). **Interpellation archi** :
+    l'exemple N=12 du prompt
+    (`[KeyS, KeyE, KeyD, KeyR, KeyF, KeyT, KeyG, KeyY, KeyH, KeyJ,
+    KeyK, KeyL]`) contient KeyK et KeyL absents du schéma N=12 du
+    fichier de spec. Implémentation suit le fichier (canonique) :
+    `[KeyS, KeyD, KeyE, KeyF, KeyR, KeyG, KeyT, KeyH, KeyY, KeyJ,
+    KeyU, KeyI]`.
 
 000000000000000000000. **Iter F — Phase 7.6** (2026-04-26) : libellés
     Cairo 1932 clarifiés. L'entrée `'24-tet-cairo-1932'` portait un
@@ -2613,16 +2700,131 @@ Phases listées ci-dessous dans l'ordre chronologique d'implémentation.
     EDO Tier 2, refonte UI dropdown.
 - **Reste en backlog Tier 2** : **22-EDO Erlich**
   (xenharmonique — distinct des frameworks shrutis indiens
-  authentiques livrés en F.7 ; layout possiblement réutilisable
-  depuis grid-31), **53-EDO** (approximation fine de la juste
-  intonation — sous question de valeur ajoutée pédagogique vs
-  31-EDO déjà disponible).
-- **Dette UI dropdown tempéraments** (14 entrées) — devient
-  urgente, prochaine phase F candidate. Pistes : optgroup HTML
-  ("Égaux occidentaux", "Justes", "Historiques européens",
-  "Maqâmât", "Gamelan", "Shrutis indiens", "Micro-tonaux", "Libre")
-  ou modal catégorisé. Bénéfice pédagogique direct : la
-  catégorisation explicite la structure du domaine.
+  authentiques livrés en F.7 ; couvert par X-EDO N=22 depuis F.8.1),
+  **53-EDO** (approximation fine de la juste intonation —
+  potentiellement couvert par X-EDO N=53 quand la logique Shift
+  de F.8.2 sera livrée).
+- **Dette UI dropdown tempéraments** (13 entrées avec X-EDO) —
+  devient urgente, prochaine phase F candidate après F.8. Pistes :
+  optgroup HTML ("Égaux occidentaux", "Justes", "Historiques
+  européens", "Maqâmât", "Gamelan", "Shrutis indiens",
+  "Expérimental paramétrique", "Libre") ou modal catégorisé.
+  Bénéfice pédagogique direct : la catégorisation explicite la
+  structure du domaine.
+
+- 🚧 **Phase 8** (en cours) — X-EDO paramétrique (1..53 cible).
+  Une seule entrée registre paramétrée par un N choisi par
+  l'utilisateur ; `'5-tet'` et `'31-edo'` redeviennent des cas
+  particuliers. Sous-phase 8.1 livrée (2026-04-27, infrastructure
+  backend) ; 8.2 (composant GridXEdoLayout + logique Shift 44..53)
+  et 8.3 (UI input N + bannière de bascule 12/24) à venir.
+  - ✅ **Sous-phase 8.1** (2026-04-27) — Infrastructure backend.
+    4 sous-commits :
+    - **8.1.1** Entrée `'x-edo'` au registre. `freq(noteIndex,
+      octave, a4Ref, xEdoN) = a4Ref·2^(noteIndex/xEdoN +
+      (octave−4))` (généralisation de l'ancien 31-EDO). Champs
+      `notesPerOctave` / `noteNames` / `keyboardMap` deviennent
+      des **factories** prenant `xEdoN` ; helpers
+      `getNotesPerOctave / getNoteNames / getKeyboardMap` cachent
+      ce polymorphisme — les call-sites ne se contaminent pas
+      avec un cas spécial 'x-edo'. `frequencyToNearestIn(hz, sysId,
+      a4Ref, xEdoN)` accepte le 4ᵉ argument (ignoré sauf 'x-edo').
+      Constantes `X_EDO_MIN = 1`, `X_EDO_MAX` (importé de
+      xEdoLayouts), `DEFAULT_X_EDO_N = 31`. Layout `'grid-x-edo'`
+      (composant GridXEdoLayout livré en F.8.2). Smoke tests inline
+      (Node) : `freq(0,4,440,N) = 440` pour tout N (degré 0 = A4
+      par convention) ; snap 660 Hz → x-edo(12) = noteIndex 7 oct 4
+      (= G4 ≈ 659.26 Hz).
+    - **8.1.2** Table de layouts QWERTY 1..43. Nouveau fichier
+      `src/lib/xEdoLayouts.js` exporte `xEdoKeyboardMapForN(N)`
+      qui génère le mapping `event.code → noteIndex` selon la spec
+      `archi/layouts_x-edo.txt`. Algorithme : décalage +1 col par
+      rangée (escalier physique du clavier), lecture
+      serpentin-colonne ascendant (deg 0 = bas-gauche, on monte la
+      colonne, puis colonne suivante en bas). Distribution des
+      rangées validée case-par-case contre les schémas du fichier :
+        N ∈ [1..8]   home seule (KeyS, KeyD, KeyF, KeyG, KeyH,
+                     KeyJ, KeyK, KeyL)
+        N ∈ [9..16]  home + alpha (ajout KeyE..KeyP)
+        N ∈ [17..24] home + alpha + digit (ajout Digit4..Minus)
+        N ∈ [25..43] bottom + home + alpha + digit (ajout
+                     IntlBackslash..Slash, KeyA..Quote, KeyW..
+                     BracketRight, Digit3..Equal)
+      Conventions AZERTY-FR documentées : `!` = Slash, `^` =
+      BracketLeft, `$` = BracketRight, `'` = Digit4, `m` =
+      Semicolon, `ù` = Quote, `<` = IntlBackslash. Pour N=44..53
+      (logique Shift hors scope F.8.1), `xEdoKeyboardMapForN`
+      retourne `{}` — fail-safe : aucune touche ne déclenche en
+      attendant F.8.2. **X_EDO_MAX bridé à 43** dans cette phase.
+      **Interpellation archi** : l'exemple N=12 du prompt
+      `[KeyS, KeyE, KeyD, KeyR, KeyF, KeyT, KeyG, KeyY, KeyH, KeyJ,
+      KeyK, KeyL]` (12 entrées dont KeyK/KeyL) diverge du schéma
+      N=12 du fichier (qui montre 6 cellules en bas + 6 en haut
+      décalées, pas de KeyK ni KeyL). Implémentation suit le
+      fichier (source de vérité déclarée), mapping résultant
+      pour N=12 : `[KeyS, KeyD, KeyE, KeyF, KeyR, KeyG, KeyT,
+      KeyH, KeyY, KeyJ, KeyU, KeyI]`.
+    - **8.1.3** State global `xEdoN` + migration localStorage.
+      Champ `state.xEdoN` (composer-undoable, persisté), validateur
+      `sanitizeXEdoN` qui clamp à `[X_EDO_MIN, X_EDO_MAX]` sinon
+      retombe sur `DEFAULT_X_EDO_N`. Action `SET_X_EDO_N` :
+      met à jour xEdoN, snap chaque clip 'x-edo' vers la nouvelle
+      grille (cohérence acoustique > conservation noteIndex),
+      resnap aussi l'éditeur si `testTuningSystem === 'x-edo'`,
+      borne `visualCueTonic` à la nouvelle grille. Migration à
+      l'hydratation : pour chaque clip avec
+      `tuningSystem === '5-tet'` ou `'31-edo'`, recalcule la
+      fréquence selon l'ancien système (formule inline
+      `legacyEqualFreq(noteIndex, octave, a4Ref, npo)`,
+      indépendante du registre — fonctionnera après 8.1.4) puis
+      snap vers la grille `xEdoN` cible (lue depuis localStorage,
+      sinon défaut 31). `tuningSystem` ← 'x-edo'. Si plusieurs
+      clips étaient dans des systèmes différents, ils convergent
+      tous vers le même xEdoN (pas d'inférence par clip).
+      Propagation de `xEdoN` aux call-sites :
+      `clipFrequency(clip, a4Ref, xEdoN)`, `UPDATE_CLIPS_PITCH`,
+      `SET_EDITOR_TEST_TUNING_SYSTEM`, `loadPersistedState` (clamp
+      testNoteIndex via `getNotesPerOctave(sys, xEdoN)`),
+      `usePlayback` (scheduler + WAV export, ref miroir
+      `xEdoNRef` aligné sur le pattern `a4RefRef`),
+      `PianoKeyboard` (prop `xEdoN`, `getNoteNames(sys, xEdoN)`),
+      `WaveformEditor` (preview, lookup keyboardMap, cueTonicMax,
+      affichage noteNames), `PropertiesPanel.NoteEditor`
+      (`sys.freq` + `formatClipNote` + PianoKeyboard),
+      `Timeline.formatClipNote(clip, xEdoN)`,
+      `clipNote.formatClipNote(clip, xEdoN)`,
+      `visualCues.cuedNoteIndices(..., xEdoN)`.
+      `window.__store = { state, dispatch }` exposé en `import.meta
+      .env.DEV` pour permettre les tests manuels via console
+      (ex. `window.__store.dispatch({type:'SET_X_EDO_N',
+      payload: 24})`) — UI input N à venir en F.8.3. Validation
+      numérique (a4Ref=440) : 5-tet deg 2 oct 4 (580.583 Hz)
+      snappe vers x-edo N=12 deg 5 oct 4 (587.330 Hz, +20¢) ;
+      vers x-edo N=31 deg 12 (575.414 Hz, −15.48¢). 31-edo deg 12
+      → x-edo N=31 = identité (delta 0¢, propriété attendue).
+    - **8.1.4** Suppression de '5-tet' et '31-edo' du registre.
+      Entrées et helpers obsolètes retirés
+      (`FIVE_TET_NOTE_NAMES`, `FIVE_KEY_MAP`, `fiveTetFreq`,
+      `THIRTYONE_EDO_NOTE_NAMES`, `THIRTYONE_KEY_MAP`,
+      `thirtyOneEdoFreq`, `PELOG_KEY_MAP`). Slendro et Pelog
+      gardent leur `tuningSystem` et leur table de cents propres
+      (SLENDRO_SURAKARTA_CENTS, PELOG_SURAKARTA_CENTS) mais
+      basculent sur `layout: 'grid-x-edo'` avec keyboardMap
+      statique précalculé via `xEdoKeyboardMapForN(5)` / (7) —
+      partage la grammaire serpentin-colonne avec X-EDO. Slendro
+      et Pelog partagent désormais `ROMAN_NOTE_NAMES_7`
+      (nomenclature romaine I..V / I..VII). Composants
+      `Grid5Layout`, `Grid7Layout`, `Grid31Layout` retirés
+      (~240 lignes JSX) ; entrées correspondantes purgées de
+      `LAYOUT_COMPONENTS`. CSS associés également retirés
+      (~233 lignes — règles `.grid5-key`, `.grid7-key`,
+      `.grid31-key` et leurs combinaisons `is-cued`).
+      `VISUAL_CUE_SUPPORTED_SYSTEMS` : `'31-edo'` → `'x-edo'`.
+      **Régression inter-phase assumée** : Slendro / Pelog /
+      X-EDO rendent `null` dans le dispatcher PianoKeyboard
+      (composant GridXEdoLayout livré en F.8.2) — interaction
+      au clic indisponible, lecture audio préservée. Registre
+      passe de 14 à 13 entrées.
 
 ### Backlog général (à caser quand pertinent)
 
