@@ -1609,6 +1609,23 @@ Phases listées ci-dessous dans l'ordre chronologique d'implémentation.
 
 ## Historique (chronologie inverse)
 
+000000000000000000000000000. **Iter F — Phase 9.1** (2026-04-27) :
+    micro-affinement éditorial (F ré-ouverte ponctuellement). Ajout
+    de `'shrutis-bhatkhande'` et `'shrutis-sarngadeva'` à
+    `VISUAL_CUE_SUPPORTED_SYSTEMS`. Justification : les 22 shrutis
+    canoniques sont en 5-limit pur, donc la triade majeure (0c,
+    386.314c, 701.955c depuis sa) snappe à 0¢ près sur les degrés
+    `{0, 7, 13}` (= sa, tivra-ga = IIIc Bhatkhande / IIIa Sarngadeva,
+    pa = V Bhatkhande / Va Sarngadeva). Pédagogiquement : révèle la
+    commensurabilité acoustique entre théorie indienne et harmonie
+    classique 5-limit — précisément l'intérêt de la feature visual
+    cues. Décision F.7 (cues désactivés) revue : la justification
+    "patterns 5-limit harmoniques inappliquables au modal-mélodique
+    indien" tenait pour l'usage **mélodique** des shrutis, mais pas
+    pour la lecture **acoustique** (le substrat reste 5-limit
+    occidental). Slendro/Pelog restent désactivés (déviations gamelan
+    au-delà de 90¢ sur la triade majeure → patterns sans sens).
+
 00000000000000000000000000. **Iter F — Phase 8.5** (2026-04-27) :
     hotfix CSS — visual cues invisibles sur grid-x-edo. Bug F.8.2.1 :
     `overflow: hidden` sur `.gridx-cell` (posé pour faire respecter le

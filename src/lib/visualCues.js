@@ -31,16 +31,23 @@ export const VISUAL_CUE_PATTERNS = {
   'whole-tone':       { label: 'Gamme par tons',          intervals: [0, 200, 400, 600, 800, 1000] },
 }
 
-// Systèmes pour lesquels les visual cues sont activés. Les pentatoniques
-// (Slendro, anciennement 5-TET) produisent des approximations trop
-// éloignées (errs > 90¢ sur la triade majeure) pour que les patterns
-// harmoniques classiques aient un sens pédagogique. Libre n'a pas de
-// degrés. X-EDO est éligible : les approximations dépendent de N choisi
-// par l'utilisateur — laisser l'expérimentation visible.
+// Systèmes pour lesquels les visual cues sont activés.
+//   - Slendro / Pelog : pentatoniques avec déviations gamelan, errs > 90¢
+//     sur la triade majeure → patterns harmoniques classiques sans sens
+//     pédagogique. Désactivés.
+//   - Shrutis (Bhatkhande, Sarngadeva, F.9.1) : substrat 5-limit pur
+//     partagé avec la juste intonation occidentale → triade majeure snappe
+//     à 0¢ sur (sa, tivra-ga, pa). Activés volontairement pour montrer
+//     la commensurabilité acoustique entre théorie indienne et harmonie
+//     classique — pédagogiquement révélateur.
+//   - Libre : pas de degrés. Désactivé.
+//   - X-EDO : éligible — les approximations dépendent de N choisi par
+//     l'utilisateur, laisser l'expérimentation visible.
 export const VISUAL_CUE_SUPPORTED_SYSTEMS = new Set([
   '12-TET', 'pythagorean-12', 'just-major-c',
   'meantone-quarter-comma', 'werckmeister-iii',
   '24-tet-equal', '24-tet-cairo-1932', 'x-edo',
+  'shrutis-bhatkhande', 'shrutis-sarngadeva',
 ])
 
 export function systemSupportsVisualCues(sysId) {
