@@ -196,6 +196,20 @@ shifted ; Shift reste guard pour les durées Composer ailleurs.
 Au passage : bug latent F.8.1.3 corrigé (App.jsx composer
 accédait directement à `.keyboardMap` qui retournait la factory
 pour 'x-edo'). Régression UX inter-phase de F.8.1.4 résolue.
+Phase 8.3 (2026-04-27) : **UI X-EDO complète** — exposition
+utilisateur. Composant `XEdoInput.jsx` (calqué sur A4Input,
+validation différée, bornes [X_EDO_MIN, X_EDO_MAX]) intégré dans
+trois sites quand `tuningSystem === 'x-edo'` : Toolbar Composer
+(à côté de A4), Designer (sous le sélecteur de système),
+PropertiesPanel mono + multi (sous le TuningSystemSelect, tooltip
+rappelle que la valeur est globale). Bannière info au-dessus du
+clavier Designer quand `xEdoN === 12 || xEdoN === 24` :
+"Correspond à 12-TET / 24-TET équipartite. Utiliser le layout
+dédié." — clic dispatch UPDATE_CLIPS_PITCH (snap des clips x-edo
+vers la cible) + SET_EDITOR_TEST_TUNING_SYSTEM. Le `tuning-select`
+de la Toolbar passé à max-width 220px pour aérer les 13 entrées.
+Itération F (multi-tempérament) **clôturée** ; reste en backlog
+le redesign optgroup catégorisé du dropdown (B.dropdown-tuning).
 
 ## Objectif
 
@@ -1581,16 +1595,51 @@ Phases listées ci-dessous dans l'ordre chronologique d'implémentation.
     comme 3e framework potentiel si demande explicite, modes
     indiens (ragas/pathets) comme sous-ensembles surlignés —
     feature pédagogique future.
-- 🚧 **Phase 8** (en cours) — X-EDO paramétrique. Sous-phases 8.1
-  (2026-04-27, infrastructure backend) et 8.2 (2026-04-27, composant
-  GridXEdoLayout + captation Shift) livrées. Reste 8.3 (UI input N
-  dans la toolbar Composer + bannière de bascule 12/24 si applicable).
-  Slendro / Pelog / X-EDO sont à nouveau jouables au clic souris
-  (F.8.2.1) et X-EDO 44..53 le sont au clavier via Shift (F.8.2.2).
-  Détail des sous-commits dans Roadmap & Backlog. Registre à 13
-  entrées (-5-tet -31-edo +x-edo).
+- ✅ **Phase 8** (2026-04-27) — X-EDO paramétrique livrée.
+  Sous-phases 8.1 (infrastructure backend), 8.2 (composant
+  GridXEdoLayout + captation Shift) et 8.3 (UI XEdoInput +
+  bannière de bascule 12/24) toutes livrées. Slendro / Pelog /
+  X-EDO sont entièrement jouables (clavier physique + souris),
+  X-EDO 44..53 via Shift en mode SHIFT_ANCHOR. Détail dans
+  Roadmap & Backlog. Registre à 13 entrées
+  (-5-tet -31-edo +x-edo). **Itération F (multi-tempérament)
+  clôturée** — reste en backlog le redesign optgroup catégorisé
+  du dropdown (B.dropdown-tuning, dette UI marquée comme
+  prochaine candidate).
 
 ## Historique (chronologie inverse)
+
+000000000000000000000000. **Iter F — Phase 8.3** (2026-04-27) :
+    UI X-EDO complète — exposition utilisateur (3 sous-commits).
+    F.8.3.1 : `tuning-select` de la Toolbar passé de max-width 180px
+    à 220px pour aérer les 13 entrées du registre (avec X-EDO).
+    Refonte complète (optgroup catégorisé par tradition) reste en
+    backlog (B.dropdown-tuning).
+    F.8.3.2 : nouveau composant `src/components/XEdoInput.jsx` —
+    input numérique avec validation différée, bornes
+    [X_EDO_MIN, X_EDO_MAX]. Pattern identique à A4Input et BpmInput
+    — candidat à extraction en `ValidatedIntegerInput` partagé
+    maintenant qu'on a trois inputs identiques (refactor à part,
+    hors scope F.8.3). Intégré dans trois sites quand
+    `tuningSystem === 'x-edo'` : Toolbar Composer (à côté de A4),
+    Designer (sous le sélecteur de système), PropertiesPanel mono +
+    multi (sous le TuningSystemSelect, tooltip rappelle que la
+    valeur est globale et snappe tous les clips x-edo).
+    `editorActions.setXEdoN` ajouté pour le Designer ; `setXEdoN`
+    callback global pour Toolbar et PropertiesPanel.
+    F.8.3.3 : bannière info au-dessus du clavier Designer quand
+    `testTuningSystem === 'x-edo' && (xEdoN === 12 || xEdoN === 24)` :
+    "Correspond à 12-TET / 24-TET équipartite. Utiliser le layout
+    dédié." Style discret (rgba bleu info, pas alarme), persistant
+    tant que la condition est vraie (non dismissible — la
+    suggestion redevient pertinente si l'utilisateur retourne sur
+    N=12/24). Au clic, `App.handleConvertXEdoTo(targetSystem)`
+    dispatch UPDATE_CLIPS_PITCH (snap des clips x-edo vers
+    '12-TET' / '24-tet-equal') + SET_EDITOR_TEST_TUNING_SYSTEM
+    (éditeur). Deux entrées undo séparées — reflète la double
+    nature de la bascule. Pas de bannière inverse (12-TET → x-edo) :
+    décision design assumée — c'est la version mathématique qui
+    invite à la version musicale, pas l'inverse.
 
 00000000000000000000000. **Iter F — Phase 8.2** (2026-04-27) :
     composant GridXEdoLayout + cellules splittées Shift pour N≥44
@@ -2764,12 +2813,12 @@ Phases listées ci-dessous dans l'ordre chronologique d'implémentation.
   Bénéfice pédagogique direct : la catégorisation explicite la
   structure du domaine.
 
-- 🚧 **Phase 8** (en cours) — X-EDO paramétrique (1..53 cible).
+- ✅ **Phase 8** (2026-04-27) — X-EDO paramétrique (1..53 cible).
   Une seule entrée registre paramétrée par un N choisi par
   l'utilisateur ; `'5-tet'` et `'31-edo'` redeviennent des cas
-  particuliers. Sous-phases 8.1 (infrastructure backend) et 8.2
-  (composant + logique Shift) livrées le 2026-04-27 ; 8.3 (UI
-  input N + bannière de bascule 12/24) à venir.
+  particuliers. Sous-phases 8.1 (infrastructure backend), 8.2
+  (composant + logique Shift) et 8.3 (UI XEdoInput + bannière de
+  bascule 12/24) livrées le 2026-04-27. **Itération F clôturée.**
   - ✅ **Sous-phase 8.1** (2026-04-27) — Infrastructure backend.
     4 sous-commits :
     - **8.1.1** Entrée `'x-edo'` au registre. `freq(noteIndex,
@@ -2927,6 +2976,39 @@ Phases listées ci-dessous dans l'ordre chronologique d'implémentation.
       sombre comme séparateur visuel — la cellule garde sa couleur
       HSL unifiée (hue=col, lightness=row), seule la frontière
       interne marque la séparation entre les deux degrés.
+  - ✅ **Sous-phase 8.3** (2026-04-27) — UI X-EDO complète. 3 sous-commits :
+    - **8.3.1** `tuning-select` de la Toolbar passé de max-width 180px
+      à 220px pour aérer les 13 entrées (avec X-EDO). Refonte
+      complète (optgroup catégorisé) reste en backlog
+      (B.dropdown-tuning).
+    - **8.3.2** Composant `src/components/XEdoInput.jsx` — input
+      numérique avec validation différée (parse au blur ou Enter,
+      Échap restaure, ArrowUp/Down ±1 / ±5 avec Shift). Bornes
+      [X_EDO_MIN, X_EDO_MAX] via clamp. Pattern identique à
+      A4Input et BpmInput — candidat à extraction en
+      `ValidatedIntegerInput` partagé maintenant qu'on a trois
+      inputs identiques (refactor à part, hors scope F.8.3).
+      Intégré quand `tuningSystem === 'x-edo'` dans 3 sites :
+      Toolbar Composer (à côté de A4), Designer (sous le sélecteur
+      de système), PropertiesPanel mono + multi (sous le
+      TuningSystemSelect, tooltip rappelle que la valeur est
+      globale et snappe TOUS les clips x-edo).
+      `editorActions.setXEdoN` ajouté pour le Designer ;
+      `setXEdoN` callback global pour Toolbar/PropertiesPanel.
+    - **8.3.3** Bannière info au-dessus du clavier Designer quand
+      `testTuningSystem === 'x-edo' && (xEdoN === 12 || xEdoN === 24)` :
+      "Correspond à 12-TET / 24-TET équipartite. Utiliser le layout
+      dédié." Style discret (rgba(0, 212, 255, 0.08), pas alarme),
+      persistant (non dismissible). `App.handleConvertXEdoTo(targetSystem)`
+      au clic : dispatch UPDATE_CLIPS_PITCH pour tous les clips
+      x-edo (snap vers '12-TET' / '24-tet-equal' via reducer) +
+      SET_EDITOR_TEST_TUNING_SYSTEM (éditeur). Deux entrées undo
+      séparées — reflète la double nature de la bascule.
+      Pas de bannière inverse (12-TET → x-edo) : décision design —
+      la version mathématique invite à la version musicale, pas
+      l'inverse.
+
+  **Itération F (multi-tempérament) clôturée le 2026-04-27.**
 
 ### Backlog général (à caser quand pertinent)
 
