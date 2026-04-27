@@ -332,8 +332,22 @@
   display: flex;
   flex-direction: row;
   border-radius: 3px;
-  overflow: hidden;
   border: 1px solid hsl(var(--hue), 30%, 22%);
+  /* F.8.5.1 : `overflow: hidden` retiré — il clippait les box-shadow
+   * externes des enfants .gridx-key (.is-cued halo magenta de F.4.4,
+   * .is-playing glow jaune de F.3.10). Le border-radius est maintenant
+   * porté par chaque .gridx-key first/last-child pour préserver le rendu
+   * arrondi des fonds HSL. */
+}
+
+.gridx-cell .gridx-key:first-child {
+  border-top-left-radius: 2px;
+  border-bottom-left-radius: 2px;
+}
+
+.gridx-cell .gridx-key:last-child {
+  border-top-right-radius: 2px;
+  border-bottom-right-radius: 2px;
 }
 
 .gridx-key {
