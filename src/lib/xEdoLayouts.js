@@ -30,12 +30,17 @@
 // Semicolon, 'ù' = Quote, '<' = IntlBackslash, '!' = Slash, '^' =
 // BracketLeft, '$' = BracketRight, etc. (testé Linux/Windows AZERTY-FR).
 
+// F.8.4.1 : OFFSET_*_ANCHOR supprimés. La col logique d'une cellule = i+1
+// (1-based dans sa rangée), peu importe la rangée. L'effet "escalier" du
+// clavier physique est reproduit côté CSS (subdivisions + offset par
+// visualRow), pas dans la numérotation logique. Conséquence : pour N=9
+// (home=5, alpha=4), KeyS et KeyE sont tous deux en col logique 1 et
+// reçoivent les degrés consécutifs 0 et 1.
 const KEYS_HOME_ANCHOR = {
   home:  ['KeyS', 'KeyD', 'KeyF', 'KeyG', 'KeyH', 'KeyJ', 'KeyK', 'KeyL'],
   alpha: ['KeyE', 'KeyR', 'KeyT', 'KeyY', 'KeyU', 'KeyI', 'KeyO', 'KeyP'],
   digit: ['Digit4', 'Digit5', 'Digit6', 'Digit7', 'Digit8', 'Digit9', 'Digit0', 'Minus'],
 }
-const OFFSET_HOME_ANCHOR = { home: 1, alpha: 2, digit: 3 }
 
 const KEYS_BOTTOM_ANCHOR = {
   bottom: ['IntlBackslash', 'KeyZ', 'KeyX', 'KeyC', 'KeyV', 'KeyB', 'KeyN', 'KeyM', 'Comma', 'Period', 'Slash'],
@@ -43,7 +48,6 @@ const KEYS_BOTTOM_ANCHOR = {
   alpha:  ['KeyW', 'KeyE', 'KeyR', 'KeyT', 'KeyY', 'KeyU', 'KeyI', 'KeyO', 'KeyP', 'BracketLeft', 'BracketRight'],
   digit:  ['Digit3', 'Digit4', 'Digit5', 'Digit6', 'Digit7', 'Digit8', 'Digit9', 'Digit0', 'Minus', 'Equal'],
 }
-const OFFSET_BOTTOM_ANCHOR = { bottom: 1, home: 2, alpha: 3, digit: 4 }
 
 // Distribution [bottom, home, alpha, digit] pour chaque N ∈ [1..43].
 // Validée case-par-case contre les schémas du fichier de spec.
@@ -152,15 +156,15 @@ export function xEdoLayoutForN(N) {
 }
 
 // Layouts N ∈ [1..43] : 1 cellule = 1 degré (pas de Shift). Numérotation en
-// serpentin-colonne ascendant (deg 0 = bas-gauche, on monte la colonne, puis
-// colonne suivante en repartant du bas).
+// serpentin-colonne ascendant strict (deg 0 = bas-gauche, on monte la
+// colonne, puis colonne suivante en repartant du bas). F.8.4.1 : la col
+// logique = i+1 (1-based dans la rangée), sans offset par rangée — l'effet
+// escalier est reproduit côté CSS via subdivisions + visualRow.
 function buildClassicLayout(N) {
   const dist = ROW_DIST[N - 1]
   const useBottom = dist[0] > 0
   const KEYS = useBottom ? KEYS_BOTTOM_ANCHOR : KEYS_HOME_ANCHOR
-  const OFFSET = useBottom ? OFFSET_BOTTOM_ANCHOR : OFFSET_HOME_ANCHOR
 
-  // colMap : col(int) → array of { rowIndex, code }
   const colMap = new Map()
   let minRowIndex = Infinity
   let maxRowIndex = -Infinity
@@ -168,12 +172,11 @@ function buildClassicLayout(N) {
     const rowName = ROWS_BOTTOM_FIRST[r]
     const count = dist[r]
     if (count === 0) continue
-    const offset = OFFSET[rowName]
-    if (offset === undefined) continue
+    if (!KEYS[rowName]) continue
     minRowIndex = Math.min(minRowIndex, r)
     maxRowIndex = Math.max(maxRowIndex, r)
     for (let i = 0; i < count; i++) {
-      const col = offset + i
+      const col = i + 1 // 1-based, peu importe la rangée
       const code = KEYS[rowName][i]
       if (!colMap.has(col)) colMap.set(col, [])
       colMap.get(col).push({ rowIndex: r, code })
@@ -181,8 +184,7 @@ function buildClassicLayout(N) {
   }
 
   const sortedCols = [...colMap.keys()].sort((a, b) => a - b)
-  const minCol = sortedCols[0]
-  const numCols = sortedCols[sortedCols.length - 1] - minCol + 1
+  const numCols = sortedCols[sortedCols.length - 1]
   const numRows = maxRowIndex - minRowIndex + 1
 
   const cells = []
@@ -191,7 +193,7 @@ function buildClassicLayout(N) {
     const cellsInCol = colMap.get(col).sort((a, b) => a.rowIndex - b.rowIndex)
     for (const { rowIndex, code } of cellsInCol) {
       cells.push({
-        col: col - minCol + 1,
+        col,
         visualRow: rowIndex - minRowIndex,
         code,
         halves: [{ degree: degree++, shift: false }],
