@@ -1609,6 +1609,21 @@ Phases listées ci-dessous dans l'ordre chronologique d'implémentation.
 
 ## Historique (chronologie inverse)
 
+00000000000000000000000000. **Iter F — Phase 8.5** (2026-04-27) :
+    hotfix CSS — visual cues invisibles sur grid-x-edo. Bug F.8.2.1 :
+    `overflow: hidden` sur `.gridx-cell` (posé pour faire respecter le
+    border-radius aux fonds des enfants) clippait les `box-shadow`
+    externes des `.gridx-key`. Conséquence : les classes `.is-cued`
+    (halo magenta de F.4.4) et `.is-playing` (glow jaune de F.3.10)
+    étaient invisibles en X-EDO / Slendro / Pelog. Fix option A :
+    `overflow: hidden` retiré, `border-radius` déplacé sur les
+    `.gridx-key:first-child` / `:last-child`. Cas N≤43 : un seul
+    `.gridx-key` qui est first ET last → 4 coins arrondis. Cas N≥44 :
+    deux `.gridx-key` côte à côte → premier reçoit les coins gauches,
+    second les coins droits ; le séparateur central reste posé via la
+    `border-left` interne de `.gridx-key-shifted` (indépendant de
+    l'overflow). Pas de changement JS.
+
 0000000000000000000000000. **Iter F — Phase 8.4** (2026-04-27) :
     hotfix layouts X-EDO (3 sous-commits + doc). Diagnostic : la
     numérotation des layouts N≥9 était fausse — le calcul utilisait
