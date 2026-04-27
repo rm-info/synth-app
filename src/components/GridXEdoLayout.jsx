@@ -33,6 +33,13 @@ const COMPACT_HEIGHT_BY_ROWCOUNT = { 1: 56, 2: 80, 3: 96, 4: 80 }
 // Les états `is-active` / `is-playing` / `is-cued` s'appliquent à la
 // cellule (1 half) en mode classique, et à la half spécifique en mode
 // Shift (vient en F.8.2.2).
+//
+// F.8.4.3 : effet "escalier" reproduit en CSS Grid via subdivisions.
+// Chaque cellule occupe `cellWidth = numRows` sub-cols et est décalée de
+// `visualRow` sub-cols vers la droite (rangée 0 = bas, sans décalage ;
+// rangée du haut = décalée de numRows-1 sub-cols). Total sub-cols =
+// numCols * cellWidth + (numRows - 1). Pattern hérité de l'ancien grid-31
+// (4 rangées × 8 cols × 4 sub-cols + 3 escalier = 35 sub-cols) et grid-24.
 function GridXEdoLayout({
   noteIndex,
   active,
@@ -50,6 +57,12 @@ function GridXEdoLayout({
   const heightMap = compact ? COMPACT_HEIGHT_BY_ROWCOUNT : HEIGHT_BY_ROWCOUNT
   const height = heightMap[numRows] ?? heightMap[4]
 
+  // Subdivision : chaque cellule fait `cellWidth` sub-cols, escalier d'1
+  // sub-col par rangée (rangée 0 sans décalage, rangée numRows-1 décalée
+  // de numRows-1 sub-cols). Pour numRows=1 : pas d'escalier (cellWidth=1).
+  const cellWidth = numRows
+  const subColsTotal = numCols * cellWidth + (numRows - 1)
+
   const containerClasses = [
     'piano-keyboard',
     'piano-keyboard-grid-x-edo',
@@ -63,7 +76,7 @@ function GridXEdoLayout({
       aria-label={`Clavier ${gridSize} degrés`}
       data-rows={numRows}
       style={{
-        gridTemplateColumns: `repeat(${numCols}, 1fr)`,
+        gridTemplateColumns: `repeat(${subColsTotal}, 1fr)`,
         gridTemplateRows: `repeat(${numRows}, 1fr)`,
         height: `${height}px`,
       }}
@@ -73,12 +86,17 @@ function GridXEdoLayout({
         const lightness = lightnesses[cell.visualRow] ?? lightnesses[lightnesses.length - 1]
         // CSS Grid : ligne 1 en haut. visualRow 0 = bas → gridRow = numRows.
         const gridRow = numRows - cell.visualRow
+        // F.8.4.3 : sub-cols [start, end[ avec start = (col-1)*cellWidth +
+        // visualRow + 1. La rangée la plus haute (visualRow = numRows-1)
+        // est décalée de numRows-1 sub-cols vers la droite — escalier.
+        const startSubCol = (cell.col - 1) * cellWidth + cell.visualRow + 1
+        const endSubCol = startSubCol + cellWidth
         return (
           <div
             key={cell.code}
             className="gridx-cell"
             style={{
-              gridColumn: cell.col,
+              gridColumn: `${startSubCol} / ${endSubCol}`,
               gridRow,
               '--hue': hue,
               '--lightness': `${lightness}%`,
