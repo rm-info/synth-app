@@ -351,6 +351,15 @@
   transition: background 0.1s, transform 0.05s;
 }
 
+/* F.8.2.2 : la moitié droite (shifted) d'une cellule splittée porte un
+ * séparateur visuel — trait sombre pour signifier "modificateur Shift". Le
+ * fond reste à la même couleur HSL que la moitié gauche : la cellule
+ * conserve son identité chromatique unifiée (hue=col, lightness=row), seule
+ * la frontière interne marque la séparation entre les deux degrés. */
+.gridx-cell .gridx-key-shifted {
+  border-left: 2px solid hsl(var(--hue), 30%, 22%);
+}
+
 /* Texte clair sur fond sombre quand lightness < 50% — heuristique : on
  * applique la règle aux rangées les plus hautes des layouts 3-4 rangées.
  * Suffisant pour rester lisible sans calcul JS conditionnel. */

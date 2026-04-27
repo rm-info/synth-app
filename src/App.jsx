@@ -29,7 +29,8 @@ import {
   editorTestNoteFields,
 } from './reducer'
 import { canMergeClips } from './lib/timelineLayout'
-import { getNoteNames, getTuningSystem } from './lib/tuningSystems'
+import { getKeyboardMap, getNoteNames, getTuningSystem } from './lib/tuningSystems'
+import { xEdoShiftedKeyboardMapForN } from './lib/xEdoLayouts'
 import { NOTE_GUARD_KEYS } from './lib/keyboardCandidates'
 import {
   DURATION_BASES, DURATION_COEFS,
@@ -304,8 +305,15 @@ function App() {
       // raccourcis surprise sur ponctuations. F.3.6 conditionnait ce
       // preventDefault au lookup keyboardMap — fix incomplet.
       if (NOTE_GUARD_KEYS.has(e.code)) e.preventDefault()
-      if (e.shiftKey) return
-      const keyboardMap = getTuningSystem(editor.testTuningSystem).keyboardMap
+      // F.8.2.2 : en mode SHIFT_ANCHOR (X-EDO N≥44), Shift+touche désigne
+      // le degré "shifted" pour le placement contigu ; sinon Shift est
+      // réservé aux durées Composer (F.3.4). Pas de collision : les
+      // layouts SHIFT_ANCHOR n'utilisent pas la rangée digit.
+      const sys = getTuningSystem(editor.testTuningSystem)
+      const useShiftMode = editor.testTuningSystem === 'x-edo' && xEdoN >= 44
+      const keyboardMap = e.shiftKey
+        ? (useShiftMode ? xEdoShiftedKeyboardMapForN(xEdoN) : null)
+        : getKeyboardMap(sys, xEdoN)
       if (!keyboardMap) return
       const idx = keyboardMap[e.code]
       if (idx === undefined) return
@@ -318,9 +326,13 @@ function App() {
       // Pas de check activeTab côté keyup : on veut que le clean s'applique
       // même si l'utilisateur a changé d'onglet entre-temps.
       if (isFormField(e.target)) return
-      const keyboardMap = getTuningSystem(editor.testTuningSystem).keyboardMap
-      if (!keyboardMap) return
-      const idx = keyboardMap[e.code]
+      // F.8.2.2 : on tente le mapping base ET shifted pour rattraper les
+      // cas où Shift a été relâché entre keydown et keyup.
+      const sys = getTuningSystem(editor.testTuningSystem)
+      const baseMap = getKeyboardMap(sys, xEdoN)
+      const useShiftMode = editor.testTuningSystem === 'x-edo' && xEdoN >= 44
+      const shiftedMap = useShiftMode ? xEdoShiftedKeyboardMapForN(xEdoN) : null
+      const idx = baseMap?.[e.code] ?? shiftedMap?.[e.code]
       if (idx === undefined) return
 
       const wasActive = pressedNoteKeyRef.current === idx
@@ -387,7 +399,7 @@ function App() {
       window.removeEventListener('dragstart', onDragStart, true)
       window.removeEventListener('dragend', onDragEnd, true)
     }
-  }, [activeTab, clips, lastAnchorClipId, defaultClipDuration, numMeasures, editor.testOctave, editor.testTuningSystem])
+  }, [activeTab, clips, lastAnchorClipId, defaultClipDuration, numMeasures, editor.testOctave, editor.testTuningSystem, xEdoN])
 
   // Raccourcis durée (Composer) :
   //   NumPad1..7         → bases (Carrée .. Triple croche).

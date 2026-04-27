@@ -11,6 +11,7 @@ import {
   getTuningSystem,
   TUNING_SYSTEMS,
 } from '../lib/tuningSystems'
+import { xEdoShiftedKeyboardMapForN } from '../lib/xEdoLayouts'
 import { NOTE_GUARD_KEYS } from '../lib/keyboardCandidates'
 import {
   VISUAL_CUE_PATTERNS,
@@ -701,9 +702,16 @@ function WaveformEditor({
       // le preventDefault au lookup keyboardMap — fix incomplet.
       if (NOTE_GUARD_KEYS.has(e.code)) e.preventDefault()
 
-      // Shift réservé aux durées Composer ; on n'enregistre pas de note ici.
-      if (e.shiftKey) return
-      const keyboardMap = getKeyboardMap(getTuningSystem(testTuningSystem), xEdoN)
+      // F.8.2.2 : en mode SHIFT_ANCHOR (X-EDO N≥44), Shift+touche désigne
+      // le degré "shifted" (moitié droite de la cellule) ; sinon Shift est
+      // réservé aux durées Composer (F.3.4). Les layouts SHIFT_ANCHOR
+      // n'utilisent pas la rangée digit, donc pas de collision avec
+      // Shift+Digit (durées).
+      const sys = getTuningSystem(testTuningSystem)
+      const useShiftMode = testTuningSystem === 'x-edo' && xEdoN >= 44
+      const keyboardMap = e.shiftKey
+        ? (useShiftMode ? xEdoShiftedKeyboardMapForN(xEdoN) : null)
+        : getKeyboardMap(sys, xEdoN)
       if (!keyboardMap) return
       const idx = keyboardMap[e.code]
       if (idx === undefined) return
@@ -723,13 +731,21 @@ function WaveformEditor({
         return
       }
 
-      const keyboardMap = getKeyboardMap(getTuningSystem(testTuningSystem), xEdoN)
-      if (!keyboardMap) return
-      const idx = keyboardMap[e.code]
-      if (idx === undefined) return
+      // F.8.2.2 : on relâche AUSSI BIEN le degré base que le degré shifted
+      // pour la touche en question, parce que l'état de Shift au keyup peut
+      // différer de celui au keydown (utilisateur relâche Shift en premier
+      // ou en dernier). `bridge.release(idx)` est no-op pour un degré non
+      // actif, donc relâcher les deux est sûr.
+      const sys = getTuningSystem(testTuningSystem)
+      const baseMap = getKeyboardMap(sys, xEdoN)
+      const useShiftMode = testTuningSystem === 'x-edo' && xEdoN >= 44
+      const shiftedMap = useShiftMode ? xEdoShiftedKeyboardMapForN(xEdoN) : null
+      const baseIdx = baseMap?.[e.code]
+      const shiftedIdx = shiftedMap?.[e.code]
       const bridge = instrumentBridgeRef.current
       if (!bridge) return
-      bridge.release(idx)
+      if (baseIdx !== undefined) bridge.release(baseIdx)
+      if (shiftedIdx !== undefined) bridge.release(shiftedIdx)
     }
 
     window.addEventListener('keydown', onKeyDown)
