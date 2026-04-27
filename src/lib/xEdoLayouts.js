@@ -73,49 +73,60 @@ const ROWS_BOTTOM_FIRST = ['bottom', 'home', 'alpha', 'digit']
 
 // === Mode SHIFT (N ∈ [44..53]) ===
 //
-// Liste maître des cellules N=53 (max), construites en row-major
-// (bottom→home→alpha) pour la **base N=44** puis par insertions ordonnées
-// pour les N croissants (KeyL en 45, KeyP en 47, Period en 49, Semicolon
-// en 51, BracketLeft en 53). L'invariant : la dernière cellule de la liste
-// `SHIFT_BASE_CELLS.slice(0, K)` correspond toujours à la "touche
+// Liste maître des cellules N=53 (max), construites en **col-major** depuis
+// F.8.4.2 (col 1 = bottom+home+alpha, col 2 = idem, …) suivie des extensions
+// progressives par palier impair de N (KeyL en 45, KeyP en 47, Period en 49,
+// Semicolon en 51, BracketLeft en 53). L'invariant : la dernière cellule de
+// la liste `SHIFT_BASE_CELLS.slice(0, K)` correspond toujours à la "touche
 // nouvellement ajoutée" pour le N courant — celle qui devient "sans Shift"
 // quand N est impair (cf. spec `archi/layouts_x-edo.txt` "+ Shift sauf X").
 //
-// `row` ∈ {0=bottom, 1=home, 2=alpha} (digit absent du mode Shift). `col` est
-// 1-based dans le repère du layout.
+// `row` ∈ {0=bottom, 1=home, 2=alpha} (digit absent du mode Shift). `col`
+// est 1-based dans le repère du layout. F.8.4.2 corrige aussi deux bugs :
+//   - bottom commençait par `KeyW` (= AZERTY `z`, rangée alpha) au lieu de
+//     `KeyZ` (= AZERTY `w`, rangée bottom). Conséquence : la touche
+//     physique `w` AZERTY ne déclenchait pas le degré 0 (bug F.8.1.2).
+//   - extension N=49 utilisait `Slash` (= `!` AZERTY) au lieu de `Period`
+//     (= `:` AZERTY). La 9ᵉ position de la rangée bottom AZERTY-FR est `:`,
+//     pas `!`. event.code Period sur AZERTY-FR Linux/Windows.
 const SHIFT_BASE_CELLS = [
-  // Base N=44 : bottom (8) + home (7) + alpha (7) = 22 cellules.
-  // bottom — offset col 1, KeyW..Comma
-  { col: 1, row: 0, code: 'KeyW' },
-  { col: 2, row: 0, code: 'KeyX' },
+  // === Base N=44 : 22 cellules en col-major ===
+  // col 1
+  { col: 1, row: 0, code: 'KeyZ' },        // bottom: AZERTY `w`
+  { col: 1, row: 1, code: 'KeyS' },        // home:   AZERTY `s`
+  { col: 1, row: 2, code: 'KeyE' },        // alpha:  AZERTY `e`
+  // col 2
+  { col: 2, row: 0, code: 'KeyX' },        // `x`
+  { col: 2, row: 1, code: 'KeyD' },        // `d`
+  { col: 2, row: 2, code: 'KeyR' },        // `r`
+  // col 3
   { col: 3, row: 0, code: 'KeyC' },
+  { col: 3, row: 1, code: 'KeyF' },
+  { col: 3, row: 2, code: 'KeyT' },
+  // col 4
   { col: 4, row: 0, code: 'KeyV' },
+  { col: 4, row: 1, code: 'KeyG' },
+  { col: 4, row: 2, code: 'KeyY' },
+  // col 5
   { col: 5, row: 0, code: 'KeyB' },
+  { col: 5, row: 1, code: 'KeyH' },
+  { col: 5, row: 2, code: 'KeyU' },
+  // col 6
   { col: 6, row: 0, code: 'KeyN' },
-  { col: 7, row: 0, code: 'KeyM' },
-  { col: 8, row: 0, code: 'Comma' },
-  // home — offset col 2, KeyS..KeyK
-  { col: 2, row: 1, code: 'KeyS' },
-  { col: 3, row: 1, code: 'KeyD' },
-  { col: 4, row: 1, code: 'KeyF' },
-  { col: 5, row: 1, code: 'KeyG' },
-  { col: 6, row: 1, code: 'KeyH' },
-  { col: 7, row: 1, code: 'KeyJ' },
-  { col: 8, row: 1, code: 'KeyK' },
-  // alpha — offset col 3, KeyE..KeyO
-  { col: 3, row: 2, code: 'KeyE' },
-  { col: 4, row: 2, code: 'KeyR' },
-  { col: 5, row: 2, code: 'KeyT' },
-  { col: 6, row: 2, code: 'KeyY' },
-  { col: 7, row: 2, code: 'KeyU' },
-  { col: 8, row: 2, code: 'KeyI' },
-  { col: 9, row: 2, code: 'KeyO' },
-  // Extensions progressives (1 cellule ajoutée par palier impair de N) :
-  { col:  9, row: 1, code: 'KeyL' },        // N=45 (rendue "sans Shift")
-  { col: 10, row: 2, code: 'KeyP' },        // N=47
-  { col:  9, row: 0, code: 'Period' },      // N=49
-  { col: 10, row: 1, code: 'Semicolon' },   // N=51
-  { col: 11, row: 2, code: 'BracketLeft' }, // N=53
+  { col: 6, row: 1, code: 'KeyJ' },
+  { col: 6, row: 2, code: 'KeyI' },
+  // col 7
+  { col: 7, row: 0, code: 'KeyM' },        // bottom: AZERTY `,`
+  { col: 7, row: 1, code: 'KeyK' },
+  { col: 7, row: 2, code: 'KeyO' },
+  // col 8 : bottom seul (extension naturelle de la bottom row plus longue)
+  { col: 8, row: 0, code: 'Comma' },       // bottom: AZERTY `;`
+  // === Extensions progressives (1 cellule ajoutée par palier impair) ===
+  { col: 8, row: 1, code: 'KeyL' },        // N=45 : home col 8 (`l`)
+  { col: 8, row: 2, code: 'KeyP' },        // N=47 : alpha col 8 (`p`)
+  { col: 9, row: 0, code: 'Period' },      // N=49 : bottom col 9 (`:` AZERTY = Period)
+  { col: 9, row: 1, code: 'Semicolon' },   // N=51 : home col 9 (`m` AZERTY = Semicolon)
+  { col: 9, row: 2, code: 'BracketLeft' }, // N=53 : alpha col 9 (`^` AZERTY = BracketLeft)
 ]
 
 // Nombre de cellules actives selon N (44..53). Pour N pair, K cellules
