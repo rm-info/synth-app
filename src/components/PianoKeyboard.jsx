@@ -1,6 +1,6 @@
 import { useRef } from 'react'
 import { NOTE_NAMES } from '../lib/clipNote'
-import { getTuningSystem } from '../lib/tuningSystems'
+import { DEFAULT_X_EDO_N, getNoteNames, getTuningSystem } from '../lib/tuningSystems'
 import './PianoKeyboard.css'
 
 export { NOTE_NAMES }
@@ -525,6 +525,7 @@ const LAYOUT_COMPONENTS = {
 // `compact` : variante plus petite pour Properties.
 export function PianoKeyboard({
   tuningSystem = '12-TET',
+  xEdoN = DEFAULT_X_EDO_N,
   noteIndex,
   activeNotes,
   cuedNotes,
@@ -539,7 +540,7 @@ export function PianoKeyboard({
   if (!Layout) return null
   const active = activeNotes ?? new Set()
   const cued = cuedNotes ?? new Set()
-  const names = sys.noteNames ?? NOTE_NAMES
+  const names = getNoteNames(sys, xEdoN) ?? NOTE_NAMES
   return (
     <Layout
       noteIndex={noteIndex}

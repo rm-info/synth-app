@@ -6,7 +6,7 @@ import {
   MIN_CLIP_DURATION,
 } from '../lib/timelineLayout'
 import { formatClipNote } from '../lib/clipNote'
-import { getTuningSystem, TUNING_SYSTEMS } from '../lib/tuningSystems'
+import { DEFAULT_X_EDO_N, getTuningSystem, TUNING_SYSTEMS } from '../lib/tuningSystems'
 import { durationName } from '../lib/durations'
 import { PianoKeyboard, OctaveSelector } from './PianoKeyboard'
 import FreqInput from './FreqInput'
@@ -38,6 +38,7 @@ function PropertiesPanel({
   numMeasures,
   durationMode,
   a4Ref,
+  xEdoN = DEFAULT_X_EDO_N,
   onUpdateClip,
   onRemoveClip,
   onUpdateClipsPatch,
@@ -92,6 +93,7 @@ function PropertiesPanel({
               numMeasures={numMeasures}
               durationMode={durationMode}
               a4Ref={a4Ref}
+              xEdoN={xEdoN}
               onUpdateClipsPatch={onUpdateClipsPatch}
               onUpdateClipsDuration={onUpdateClipsDuration}
               onUpdateClipsPitch={onUpdateClipsPitch}
@@ -110,6 +112,7 @@ function PropertiesPanel({
               tracks={tracks}
               durationMode={durationMode}
               a4Ref={a4Ref}
+              xEdoN={xEdoN}
               onUpdateClip={onUpdateClip}
               onUpdateClipsPitch={onUpdateClipsPitch}
               onRemoveClip={onRemoveClip}
@@ -147,7 +150,7 @@ function TuningSystemSelect({ value, onChange }) {
 // pour les systèmes basés sur noteIndex/octave, FreqInput pour 'free'.
 // `clipIds` est un tableau — utilisé aussi bien pour mono (1 élément) que
 // pour multi homogène (N éléments) afin que l'action propage à tous les clips.
-function NoteEditor({ clipIds, tuningSystem, noteIndex, octave, frequency, a4Ref, onUpdateClipsPitch }) {
+function NoteEditor({ clipIds, tuningSystem, noteIndex, octave, frequency, a4Ref, xEdoN, onUpdateClipsPitch }) {
   const isFree = tuningSystem === 'free'
 
   const applyNote = (newNoteIndex) => {
@@ -178,21 +181,21 @@ function NoteEditor({ clipIds, tuningSystem, noteIndex, octave, frequency, a4Ref
   }
 
   const sys = getTuningSystem(tuningSystem)
-  const displayFreq = sys.freq ? sys.freq(noteIndex, octave, a4Ref) : 0
+  const displayFreq = sys.freq ? sys.freq(noteIndex, octave, a4Ref, xEdoN) : 0
 
   return (
     <div className="note-editor">
-      <PianoKeyboard compact tuningSystem={tuningSystem} noteIndex={noteIndex} onSelectNote={applyNote} />
+      <PianoKeyboard compact tuningSystem={tuningSystem} xEdoN={xEdoN} noteIndex={noteIndex} onSelectNote={applyNote} />
       <OctaveSelector compact octave={octave} onSelectOctave={applyOctave} />
       <div className="note-editor-display">
-        <strong>{formatClipNote({ tuningSystem, noteIndex, octave })}</strong>
+        <strong>{formatClipNote({ tuningSystem, noteIndex, octave }, xEdoN)}</strong>
         <span className="note-editor-hz"> — {displayFreq.toFixed(1)} Hz</span>
       </div>
     </div>
   )
 }
 
-function ClipEditor({ clip, patches, tracks, durationMode, a4Ref, onUpdateClip, onUpdateClipsPitch, onRemoveClip, canSplit2, canSplit3, onSplitClips }) {
+function ClipEditor({ clip, patches, tracks, durationMode, a4Ref, xEdoN, onUpdateClip, onUpdateClipsPitch, onRemoveClip, canSplit2, canSplit3, onSplitClips }) {
   const currentPatch = patches.find((p) => p.id === clip.patchId)
   const clipTrack = tracks?.find(t => t.id === clip.trackId)
 
@@ -235,6 +238,7 @@ function ClipEditor({ clip, patches, tracks, durationMode, a4Ref, onUpdateClip, 
           octave={clip.octave}
           frequency={clip.frequency}
           a4Ref={a4Ref}
+          xEdoN={xEdoN}
           onUpdateClipsPitch={onUpdateClipsPitch}
         />
       </div>
@@ -302,6 +306,7 @@ function MultiClipEditor({
   numMeasures,
   durationMode,
   a4Ref,
+  xEdoN,
   onUpdateClipsPatch,
   onUpdateClipsDuration,
   onUpdateClipsPitch,
@@ -408,6 +413,7 @@ function MultiClipEditor({
                 octave={first.octave}
                 frequency={first.frequency}
                 a4Ref={a4Ref}
+                xEdoN={xEdoN}
                 onUpdateClipsPitch={onUpdateClipsPitch}
               />
             ) : (

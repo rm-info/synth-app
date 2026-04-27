@@ -3,7 +3,14 @@ import { pointsToPeriodicWave, MIN_ATTACK } from '../audio'
 import FreqInput from './FreqInput'
 import NumberInput from './NumberInput'
 import { PianoKeyboard, OctaveSelector } from './PianoKeyboard'
-import { getTuningSystem, TUNING_SYSTEMS } from '../lib/tuningSystems'
+import {
+  DEFAULT_X_EDO_N,
+  getKeyboardMap,
+  getNoteNames,
+  getNotesPerOctave,
+  getTuningSystem,
+  TUNING_SYSTEMS,
+} from '../lib/tuningSystems'
 import { NOTE_GUARD_KEYS } from '../lib/keyboardCandidates'
 import {
   VISUAL_CUE_PATTERNS,
@@ -24,10 +31,10 @@ const RETRIGGER_FADE = 0.008
 // Preview du Designer : passe par le registre des tempéraments pour que toute
 // divergence avec le moteur de lecture (live/WAV) soit impossible par
 // construction.
-function previewNoteFrequency(tuningSystemId, noteIndex, octave, a4Ref) {
+function previewNoteFrequency(tuningSystemId, noteIndex, octave, a4Ref, xEdoN) {
   const sys = getTuningSystem(tuningSystemId)
   if (!sys.freq) return null
-  return sys.freq(noteIndex, octave, a4Ref)
+  return sys.freq(noteIndex, octave, a4Ref, xEdoN)
 }
 
 
@@ -227,6 +234,7 @@ function WaveformEditor({
   editor,
   editorActions,
   a4Ref,
+  xEdoN = DEFAULT_X_EDO_N,
   activeTab,
   onSavePatch,
   onUpdatePatch,
@@ -271,15 +279,15 @@ function WaveformEditor({
   const cuedNotes = useMemo(() => {
     if (!visualCuePattern || visualCuePattern === 'none') return new Set()
     if (!systemSupportsVisualCues(testTuningSystem)) return new Set()
-    return cuedNoteIndices(visualCuePattern, visualCueTonic, testTuningSystem, a4Ref)
-  }, [visualCuePattern, visualCueTonic, testTuningSystem, a4Ref])
+    return cuedNoteIndices(visualCuePattern, visualCueTonic, testTuningSystem, a4Ref, xEdoN)
+  }, [visualCuePattern, visualCueTonic, testTuningSystem, a4Ref, xEdoN])
 
   const showCuesBar = systemSupportsVisualCues(testTuningSystem)
-  const cueTonicMax = getTuningSystem(testTuningSystem).notesPerOctave ?? 0
+  const cueTonicMax = getNotesPerOctave(getTuningSystem(testTuningSystem), xEdoN) ?? 0
 
   const frequency = freeMode
     ? testFrequency
-    : previewNoteFrequency(testTuningSystem, testNoteIndex, testOctave, a4Ref)
+    : previewNoteFrequency(testTuningSystem, testNoteIndex, testOctave, a4Ref, xEdoN)
   const defaultName = nextPatchName
 
   const canvasRef = useRef(null)
@@ -317,7 +325,7 @@ function WaveformEditor({
   const instrumentParamsRef = useRef(null)
   instrumentParamsRef.current = {
     attack, hold, decay, sustain, release, amplitude,
-    testOctave, testTuningSystem, testFrequency, a4Ref,
+    testOctave, testTuningSystem, testFrequency, a4Ref, xEdoN,
   }
 
   const referenceRef = useRef(snapshotPatchFields(editor))
@@ -532,7 +540,7 @@ function WaveformEditor({
     const gain = ctx.createGain()
     osc.setPeriodicWave(pointsToPeriodicWave(pointsRef.current, ctx))
 
-    const freq = previewNoteFrequency(params.testTuningSystem, idx, oct, params.a4Ref)
+    const freq = previewNoteFrequency(params.testTuningSystem, idx, oct, params.a4Ref, params.xEdoN)
     const now = ctx.currentTime
     osc.frequency.setValueAtTime(freq, now)
 
@@ -695,7 +703,7 @@ function WaveformEditor({
 
       // Shift réservé aux durées Composer ; on n'enregistre pas de note ici.
       if (e.shiftKey) return
-      const keyboardMap = getTuningSystem(testTuningSystem).keyboardMap
+      const keyboardMap = getKeyboardMap(getTuningSystem(testTuningSystem), xEdoN)
       if (!keyboardMap) return
       const idx = keyboardMap[e.code]
       if (idx === undefined) return
@@ -715,7 +723,7 @@ function WaveformEditor({
         return
       }
 
-      const keyboardMap = getTuningSystem(testTuningSystem).keyboardMap
+      const keyboardMap = getKeyboardMap(getTuningSystem(testTuningSystem), xEdoN)
       if (!keyboardMap) return
       const idx = keyboardMap[e.code]
       if (idx === undefined) return
@@ -730,7 +738,7 @@ function WaveformEditor({
       window.removeEventListener('keydown', onKeyDown)
       window.removeEventListener('keyup', onKeyUp)
     }
-  }, [activeTab, testTuningSystem])
+  }, [activeTab, testTuningSystem, xEdoN])
 
   const clearCanvas = () => {
     editorActions.setPoints(blankPointsArray())
@@ -1306,6 +1314,7 @@ function WaveformEditor({
               )}
               <PianoKeyboard
                 tuningSystem={testTuningSystem}
+                xEdoN={xEdoN}
                 noteIndex={testNoteIndex}
                 activeNotes={activeNoteIndices}
                 cuedNotes={cuedNotes}
@@ -1320,7 +1329,7 @@ function WaveformEditor({
               <div className="freq-label">
                 Note : <strong>{formatFreq(frequency)}</strong>
                 <span className="note-display">
-                  {' '}— {getTuningSystem(testTuningSystem).noteNames?.[testNoteIndex] ?? ''}{testOctave}
+                  {' '}— {getNoteNames(getTuningSystem(testTuningSystem), xEdoN)?.[testNoteIndex] ?? ''}{testOctave}
                 </span>
                 {sustainActive && (
                   <span className="sustain-badge" title="Sustain actif (Espace)">

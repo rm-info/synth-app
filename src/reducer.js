@@ -1,7 +1,11 @@
 import { SOUND_COLORS } from './audio'
 import {
   DEFAULT_A4,
+  DEFAULT_X_EDO_N,
+  X_EDO_MIN,
+  X_EDO_MAX,
   getTuningSystem,
+  getNotesPerOctave,
   frequencyToNearestIn,
   TUNING_SYSTEMS,
 } from './lib/tuningSystems'
@@ -74,10 +78,14 @@ export const FREE_FREQ_MAX = 32768
 // noteIndex/octave + a4Ref, un système `free` (freq === null) lit la fréquence
 // brute du clip. Point d'extension unique pour les futurs tempéraments
 // (24-TET, Pythagoricien, Just Intonation, maqâmât, etc.).
-export function clipFrequency(clip, a4Ref = DEFAULT_A4) {
+//
+// `xEdoN` est utilisé uniquement quand `clip.tuningSystem === 'x-edo'` ;
+// les autres systèmes l'ignorent. Défaut DEFAULT_X_EDO_N pour rester
+// déterministe quand le call-site ne l'a pas encore propagé.
+export function clipFrequency(clip, a4Ref = DEFAULT_A4, xEdoN = DEFAULT_X_EDO_N) {
   const sys = getTuningSystem(clip.tuningSystem)
   if (sys.freq === null) return clip.frequency ?? DEFAULT_A4
-  return sys.freq(clip.noteIndex ?? 9, clip.octave ?? 4, a4Ref)
+  return sys.freq(clip.noteIndex ?? 9, clip.octave ?? 4, a4Ref, xEdoN)
 }
 
 export function makeDefaultTrack() {
@@ -108,6 +116,48 @@ function isLegacyFormat(parsed) {
   )
 }
 
+// F.8.1.3 : formules inline pour les anciens systèmes équipartiques '5-tet'
+// et '31-edo' supprimés en F.8.1.4. Inlining volontaire : la migration des
+// clips à l'hydratation doit fonctionner même quand le registre n'expose
+// plus ces entrées. Tonique (deg 0) ancrée à `a4Ref` à oct 4, cohérent
+// avec les anciennes implémentations.
+function legacyEqualFreq(noteIndex, octave, a4Ref, npo) {
+  return a4Ref * Math.pow(2, noteIndex / npo + (octave - 4))
+}
+
+// F.8.1.3 : valide & clamp xEdoN à [X_EDO_MIN, X_EDO_MAX]. Tout entrée
+// invalide ou hors borne retombe sur DEFAULT_X_EDO_N.
+function sanitizeXEdoN(raw) {
+  if (!Number.isInteger(raw)) return DEFAULT_X_EDO_N
+  if (raw < X_EDO_MIN || raw > X_EDO_MAX) return DEFAULT_X_EDO_N
+  return raw
+}
+
+// F.8.1.3 : migration des clips '5-tet' / '31-edo' vers 'x-edo'. Pour chaque
+// clip concerné, on calcule la fréquence selon l'ancien système (formule
+// inline), puis on snap à la grille `xEdoN` cible. tuningSystem devient
+// 'x-edo' ; noteIndex/octave sont remplacés par le snap. Si plusieurs clips
+// étaient dans des systèmes différents, ils convergent tous vers le même
+// xEdoN (la valeur hydratée du state global) — pas d'inférence par clip,
+// volonté de simplicité.
+function migrateLegacyClips(clips, a4Ref, xEdoN) {
+  return clips.map((c) => {
+    const npo = c.tuningSystem === '5-tet' ? 5
+              : c.tuningSystem === '31-edo' ? 31
+              : null
+    if (npo === null) return c
+    const oldFreq = legacyEqualFreq(c.noteIndex ?? 0, c.octave ?? 4, a4Ref, npo)
+    const snapped = frequencyToNearestIn(oldFreq, 'x-edo', a4Ref, xEdoN)
+    return {
+      ...c,
+      tuningSystem: 'x-edo',
+      noteIndex: snapped.noteIndex,
+      octave: snapped.octave,
+      frequency: null,
+    }
+  })
+}
+
 export function loadPersistedState() {
   try {
     const raw = localStorage.getItem(STORAGE_KEY)
@@ -119,7 +169,7 @@ export function loadPersistedState() {
     }
 
     const patches = Array.isArray(parsed.patches) ? parsed.patches : []
-    const clips = Array.isArray(parsed.clips) ? parsed.clips : []
+    const rawClips = Array.isArray(parsed.clips) ? parsed.clips : []
     const tracks = (Array.isArray(parsed.tracks) && parsed.tracks.length > 0
       ? parsed.tracks
       : [makeDefaultTrack()]
@@ -129,17 +179,23 @@ export function loadPersistedState() {
     }))
     const soundFolders = Array.isArray(parsed.soundFolders) ? parsed.soundFolders : []
 
+    const a4RefRaw = parsed.a4Ref
+    const a4Ref = typeof a4RefRaw === 'number' && Number.isFinite(a4RefRaw) && a4RefRaw > 0
+      ? a4RefRaw
+      : DEFAULT_A4
+
+    // F.8.1.3 : xEdoN est lu (ou défaut), puis utilisé pour migrer les
+    // clips '5-tet' / '31-edo' du localStorage vers 'x-edo' avec snap.
+    // Les clips déjà en 'x-edo' (futur) sont préservés tels quels.
+    const xEdoN = sanitizeXEdoN(parsed.xEdoN)
+    const clips = migrateLegacyClips(rawClips, a4Ref, xEdoN)
+
     const maxClipMeasure = clips.reduce((m, c) => Math.max(m, c.measure || 0), 0)
     const numMeasures = Math.max(
       parsed.numMeasures ?? DEFAULT_NUM_MEASURES,
       maxClipMeasure,
       1,
     )
-
-    const a4RefRaw = parsed.a4Ref
-    const a4Ref = typeof a4RefRaw === 'number' && Number.isFinite(a4RefRaw) && a4RefRaw > 0
-      ? a4RefRaw
-      : DEFAULT_A4
 
     return {
       patches,
@@ -149,6 +205,7 @@ export function loadPersistedState() {
       numMeasures,
       bpm: parsed.bpm ?? DEFAULT_BPM,
       a4Ref,
+      xEdoN,
       patchCounter: parsed.patchCounter ?? 0,
       clipCounter: parsed.clipCounter ?? 0,
       folderCounter: parsed.folderCounter ?? 0,
@@ -192,8 +249,10 @@ export function loadPersistedState() {
         // Pour résoudre `npo`, on doit avoir un système. Si testTuningSystem
         // est absent du storage, on prend le défaut '12-TET' uniquement pour
         // décider du clamp, sans pour autant fixer `editorTestTuningSystem`.
+        // F.8.1.3 : pour 'x-edo', `notesPerOctave` est une factory(xEdoN) ;
+        // `getNotesPerOctave` cache ce polymorphisme.
         const sys = getTuningSystem(editorTestTuningSystem ?? '12-TET')
-        const npo = sys.notesPerOctave
+        const npo = getNotesPerOctave(sys, xEdoN)
 
         const clampInt = (v, max) => Math.max(0, Math.min(max, v))
         const validateClampedInt = (v, max) =>
@@ -253,6 +312,12 @@ export function buildInitialState() {
     // Hauteur de référence pour tous les systèmes-based (iter F). Configurable
     // mais sans UI exposée en F.1 — défaut 440 Hz = comportement pré-F.1.
     a4Ref: persisted?.a4Ref ?? DEFAULT_A4,
+    // F.8.1.3 : nombre de degrés du système X-EDO courant. Utilisé seulement
+    // quand un clip ou l'éditeur est en `tuningSystem === 'x-edo'`. UI
+    // d'édition à venir en F.8.3 ; en F.8.1 la valeur se modifie via
+    // `dispatch({ type: 'SET_X_EDO_N', payload: N })` (exposé sur
+    // `window.__store` en mode dev).
+    xEdoN: persisted?.xEdoN ?? DEFAULT_X_EDO_N,
 
     // Designer (champ undoable)
     patches: persisted?.patches ?? [],
@@ -506,6 +571,7 @@ export function reducer(state, action) {
       const updates = new Map(action.payload.map((u) => [u.id, u]))
       if (updates.size === 0) return state
       const a4Ref = state.a4Ref ?? DEFAULT_A4
+      const xEdoN = state.xEdoN ?? DEFAULT_X_EDO_N
       return {
         ...state,
         clips: state.clips.map((c) => {
@@ -522,15 +588,17 @@ export function reducer(state, action) {
 
           const prevSys = getTuningSystem(c.tuningSystem)
           const nextSys = getTuningSystem(next.tuningSystem)
+          const prevNpo = getNotesPerOctave(prevSys, xEdoN)
+          const nextNpo = getNotesPerOctave(nextSys, xEdoN)
           if (nextSys.freq === null) {
             // Vers libre : si la fréquence n'est pas fournie explicitement,
             // on conserve la hauteur courante rendue dans l'ancien système.
             if (!('frequency' in u)) {
-              next.frequency = Math.round(clipFrequency(c, a4Ref) * 10) / 10
+              next.frequency = Math.round(clipFrequency(c, a4Ref, xEdoN) * 10) / 10
             }
             if (!('noteIndex' in u)) next.noteIndex = null
             if (!('octave' in u)) next.octave = null
-          } else if (prevSys.freq !== null && prevSys.notesPerOctave === nextSys.notesPerOctave) {
+          } else if (prevSys.freq !== null && prevNpo === nextNpo) {
             // Entre systèmes de même grille (ex. 12-TET ↔ Pythagoricien en
             // F.2) : noteIndex/octave gardés tels quels ; seule la fréquence
             // de rendu diffère.
@@ -542,9 +610,9 @@ export function reducer(state, action) {
             // dans l'ancien système.
             if (!('noteIndex' in u) || !('octave' in u)) {
               const srcFreq = prevSys.freq
-                ? prevSys.freq(c.noteIndex ?? 9, c.octave ?? 4, a4Ref)
+                ? prevSys.freq(c.noteIndex ?? 9, c.octave ?? 4, a4Ref, xEdoN)
                 : (c.frequency ?? a4Ref)
-              const nearest = frequencyToNearestIn(srcFreq, next.tuningSystem, a4Ref)
+              const nearest = frequencyToNearestIn(srcFreq, next.tuningSystem, a4Ref, xEdoN)
               if (!('noteIndex' in u)) next.noteIndex = nearest.noteIndex
               if (!('octave' in u)) next.octave = nearest.octave
             }
@@ -1115,14 +1183,17 @@ export function reducer(state, action) {
       const next = action.payload
       if (state.editor.testTuningSystem === next) return state
       const a4Ref = state.a4Ref ?? DEFAULT_A4
+      const xEdoN = state.xEdoN ?? DEFAULT_X_EDO_N
       const prevSys = getTuningSystem(state.editor.testTuningSystem)
       const nextSys = getTuningSystem(next)
+      const prevNpo = getNotesPerOctave(prevSys, xEdoN)
+      const nextNpo = getNotesPerOctave(nextSys, xEdoN)
 
       // F.4.4 : si le tonique des visual cues dépasse la grille du nouveau
       // système (ex. 31-EDO tonic 25 → 12-TET dont la grille s'arrête à
       // 11), snap à 0. Le pattern lui-même est préservé pour qu'un retour
       // dans un système qui supporte les cues le retrouve.
-      const tonicMax = nextSys.notesPerOctave ?? null
+      const tonicMax = nextNpo ?? null
       const cueTonic = (tonicMax !== null && state.editor.visualCueTonic >= tonicMax)
         ? 0
         : state.editor.visualCueTonic
@@ -1132,7 +1203,7 @@ export function reducer(state, action) {
         // système. testNoteIndex/testOctave sont préservés (via ...editor)
         // pour qu'un retour au système-based restaure la note précédente.
         const curFreq = prevSys.freq
-          ? prevSys.freq(state.editor.testNoteIndex, state.editor.testOctave, a4Ref)
+          ? prevSys.freq(state.editor.testNoteIndex, state.editor.testOctave, a4Ref, xEdoN)
           : state.editor.testFrequency
         return {
           ...state,
@@ -1145,7 +1216,7 @@ export function reducer(state, action) {
         }
       }
 
-      if (prevSys.freq !== null && prevSys.notesPerOctave === nextSys.notesPerOctave) {
+      if (prevSys.freq !== null && prevNpo === nextNpo) {
         // Entre systèmes de même grille : note/octave gardés, seul le rendu
         // change (ex. 12-TET ↔ Pythagoricien).
         return {
@@ -1158,9 +1229,9 @@ export function reducer(state, action) {
       // Source = fréquence courante rendue dans l'ancien système (ou
       // testFrequency si l'ancien était free).
       const srcFreq = prevSys.freq
-        ? prevSys.freq(state.editor.testNoteIndex, state.editor.testOctave, a4Ref)
+        ? prevSys.freq(state.editor.testNoteIndex, state.editor.testOctave, a4Ref, xEdoN)
         : state.editor.testFrequency
-      const { noteIndex, octave } = frequencyToNearestIn(srcFreq, next, a4Ref)
+      const { noteIndex, octave } = frequencyToNearestIn(srcFreq, next, a4Ref, xEdoN)
       return {
         ...state,
         editor: {
@@ -1171,6 +1242,39 @@ export function reducer(state, action) {
           visualCueTonic: cueTonic,
         },
       }
+    }
+    case 'SET_X_EDO_N': {
+      // F.8.1.3 : changement du nombre de degrés du système X-EDO. On clamp
+      // à [X_EDO_MIN, X_EDO_MAX], puis pour chaque clip 'x-edo' on snap sa
+      // fréquence vers la nouvelle grille (la cohérence acoustique l'emporte
+      // sur la conservation de noteIndex). Les autres clips et l'éditeur ne
+      // sont pas affectés. Composer-undoable.
+      const nextN = sanitizeXEdoN(action.payload)
+      if (nextN === state.xEdoN) return state
+      const a4Ref = state.a4Ref ?? DEFAULT_A4
+      const prevN = state.xEdoN ?? DEFAULT_X_EDO_N
+      const clips = state.clips.map((c) => {
+        if (c.tuningSystem !== 'x-edo') return c
+        const oldFreq = clipFrequency(c, a4Ref, prevN)
+        const snapped = frequencyToNearestIn(oldFreq, 'x-edo', a4Ref, nextN)
+        return { ...c, noteIndex: snapped.noteIndex, octave: snapped.octave }
+      })
+      // Rééchantillonne aussi l'éditeur si testTuningSystem === 'x-edo' :
+      // sinon le test resterait sur un noteIndex potentiellement hors grille.
+      let editor = state.editor
+      if (editor.testTuningSystem === 'x-edo') {
+        const oldEditorFreq = getTuningSystem('x-edo').freq(
+          editor.testNoteIndex, editor.testOctave, a4Ref, prevN,
+        )
+        const snap = frequencyToNearestIn(oldEditorFreq, 'x-edo', a4Ref, nextN)
+        editor = { ...editor, testNoteIndex: snap.noteIndex, testOctave: snap.octave }
+      }
+      // visualCueTonic borné à la nouvelle grille (équivalent du traitement
+      // dans SET_EDITOR_TEST_TUNING_SYSTEM).
+      if (editor.visualCueTonic >= nextN) {
+        editor = { ...editor, visualCueTonic: 0 }
+      }
+      return { ...state, xEdoN: nextN, clips, editor }
     }
     case 'SET_EDITOR_VISUAL_CUE_PATTERN': {
       return { ...state, editor: { ...state.editor, visualCuePattern: action.payload } }
@@ -1316,7 +1420,8 @@ const COMPOSER_UNDOABLE = new Set([
   'ADD_CLIP', 'REMOVE_CLIP', 'UPDATE_CLIP', 'MOVE_CLIPS', 'RESIZE_CLIPS',
   'DUPLICATE_CLIPS', 'PASTE_CLIPS', 'SPLIT_CLIPS', 'MERGE_CLIPS', 'DELETE_SELECTED_CLIPS',
   'UPDATE_CLIPS_PATCH', 'UPDATE_CLIPS_DURATION', 'UPDATE_CLIPS_PITCH',
-  'CLEAR_TIMELINE', 'SET_BPM', 'SET_A4_REF', 'ADD_MEASURES', 'REMOVE_LAST_MEASURE',
+  'CLEAR_TIMELINE', 'SET_BPM', 'SET_A4_REF', 'SET_X_EDO_N',
+  'ADD_MEASURES', 'REMOVE_LAST_MEASURE',
   'DELETE_MEASURE', 'INSERT_MEASURES_AT', 'CUT_MEASURE', 'PASTE_MEASURES',
   'CREATE_TRACK', 'RENAME_TRACK', 'DELETE_TRACK', 'REORDER_TRACKS', 'UPDATE_TRACK',
 ])
@@ -1331,7 +1436,7 @@ const DESIGNER_UNDOABLE = new Set([
   'SET_EDITOR_VISUAL_CUE_PATTERN', 'SET_EDITOR_VISUAL_CUE_TONIC',
 ])
 
-const COMPOSER_FIELDS = ['clips', 'numMeasures', 'bpm', 'a4Ref', 'selectedClipIds', 'tracks']
+const COMPOSER_FIELDS = ['clips', 'numMeasures', 'bpm', 'a4Ref', 'xEdoN', 'selectedClipIds', 'tracks']
 const DESIGNER_FIELDS = ['patches', 'soundFolders', 'editor']
 
 function pickFields(state, fields) {

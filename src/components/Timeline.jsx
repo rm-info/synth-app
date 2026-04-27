@@ -7,6 +7,7 @@ import {
 } from '../lib/timelineLayout'
 import { BEATS_PER_MEASURE, TRACK_COLORS } from '../reducer'
 import { formatClipNote } from '../lib/clipNote'
+import { DEFAULT_X_EDO_N } from '../lib/tuningSystems'
 import './Timeline.css'
 
 const DRAG_THRESHOLD_PX = 5
@@ -127,6 +128,7 @@ function Timeline({
   patches,
   clips,
   tracks,
+  xEdoN = DEFAULT_X_EDO_N,
   maxTracks,
   onCreateTrack,
   onRenameTrack,
@@ -1432,7 +1434,7 @@ function Timeline({
                       backgroundColor: patch.color + '33',
                       borderColor: patch.color,
                     }}
-                    title={`${formatClipNote(clip)} — ${patch.name} — mesure ${clip.measure}, beat ${clip.beat} — Clic droit pour retirer`}
+                    title={`${formatClipNote(clip, xEdoN)} — ${patch.name} — mesure ${clip.measure}, beat ${clip.beat} — Clic droit pour retirer`}
                     onMouseDown={(e) => {
                       if (e.button !== 0) return
                       // Ctrl/Cmd+mousedown démarre une session : devient
@@ -1454,7 +1456,7 @@ function Timeline({
                     />
                     <span className="placed-dot" style={{ backgroundColor: patch.color }} />
                     <span className="placed-name">
-                      <span className="placed-note">{formatClipNote(clip)}</span>
+                      <span className="placed-note">{formatClipNote(clip, xEdoN)}</span>
                       <span className="placed-patch-name"> · {patch.name}</span>
                     </span>
                     <div
@@ -1501,7 +1503,7 @@ function Timeline({
                     >
                       <span className="placed-dot" style={{ backgroundColor: patch.color }} />
                       <span className="placed-name">
-                        <span className="placed-note">{formatClipNote(clip)}</span>
+                        <span className="placed-note">{formatClipNote(clip, xEdoN)}</span>
                         <span className="placed-patch-name"> · {patch.name}</span>
                       </span>
                     </div>

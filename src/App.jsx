@@ -29,7 +29,7 @@ import {
   editorTestNoteFields,
 } from './reducer'
 import { canMergeClips } from './lib/timelineLayout'
-import { getTuningSystem } from './lib/tuningSystems'
+import { getNoteNames, getTuningSystem } from './lib/tuningSystems'
 import { NOTE_GUARD_KEYS } from './lib/keyboardCandidates'
 import {
   DURATION_BASES, DURATION_COEFS,
@@ -44,7 +44,7 @@ const wrappedReducer = withUndo(reducer)
 function App() {
   const [state, dispatch] = useReducer(wrappedReducer, undefined, buildInitialState)
   const {
-    clips, patches, soundFolders, tracks, bpm, numMeasures, a4Ref,
+    clips, patches, soundFolders, tracks, bpm, numMeasures, a4Ref, xEdoN,
     editor, activeTab, currentPatchId, zoomH, defaultClipDuration,
     spectrogramVisible, durationMode, selectedClipIds, composerFlash, lastAnchorClipId,
     composerBankWidth, composerAsideWidth, composerBankCollapsed, composerAsideCollapsed,
@@ -73,7 +73,7 @@ function App() {
   const totalBeats = numMeasures * BEATS_PER_MEASURE
   const totalDurationSec = (totalBeats * 60) / bpm
 
-  const playback = usePlayback({ clips, patches, tracks, bpm, a4Ref, totalDurationSec })
+  const playback = usePlayback({ clips, patches, tracks, bpm, a4Ref, xEdoN, totalDurationSec })
 
   const currentPatch = useMemo(
     () => (currentPatchId ? patches.find((p) => p.id === currentPatchId) ?? null : null),
@@ -83,14 +83,14 @@ function App() {
   const editorFrequency = (() => {
     if (editor.testTuningSystem === 'free') return editor.testFrequency
     const sys = getTuningSystem(editor.testTuningSystem)
-    return sys.freq ? sys.freq(editor.testNoteIndex, editor.testOctave, a4Ref) : editor.testFrequency
+    return sys.freq ? sys.freq(editor.testNoteIndex, editor.testOctave, a4Ref, xEdoN) : editor.testFrequency
   })()
 
   // Label affiché dans la toolbar Composer quand une touche de note est
   // maintenue (E.4.1). Lit les noms du système courant pour gérer les
-  // tempéraments à plus de 12 notes (ex. 24-TET en F.3).
+  // tempéraments à plus de 12 notes (ex. 24-TET en F.3, X-EDO en F.8).
   const pressedNoteLabel = pressedNoteKey !== null
-    ? `${getTuningSystem(editor.testTuningSystem).noteNames?.[pressedNoteKey] ?? ''}${editor.testOctave}`
+    ? `${getNoteNames(getTuningSystem(editor.testTuningSystem), xEdoN)?.[pressedNoteKey] ?? ''}${editor.testOctave}`
     : null
 
   // === Effets de bord ===
@@ -472,6 +472,7 @@ function App() {
           bpm,
           numMeasures,
           a4Ref,
+          xEdoN,
           spectrogramVisible,
           durationMode,
           activeTab,
@@ -499,12 +500,22 @@ function App() {
       // storage unavailable
     }
   }, [
-    patches, soundFolders, tracks, clips, bpm, numMeasures, a4Ref,
+    patches, soundFolders, tracks, clips, bpm, numMeasures, a4Ref, xEdoN,
     spectrogramVisible, durationMode, activeTab, patchCounter, clipCounter, folderCounter, trackCounter,
     composerBankWidth, composerAsideWidth, composerBankCollapsed, composerAsideCollapsed,
     editor.testTuningSystem, editor.testNoteIndex, editor.testOctave, editor.testFrequency,
     editor.visualCuePattern, editor.visualCueTonic,
   ])
+
+  // F.8.1.3 : exposition du store sur window en dev pour permettre les tests
+  // manuels via la console (ex. `window.__store.dispatch({type:'SET_X_EDO_N',
+  // payload: 24})`). UI d'édition à venir en F.8.3 — d'ici là c'est le seul
+  // moyen de modifier xEdoN. Pas exposé en build production.
+  useEffect(() => {
+    if (!import.meta.env.DEV) return
+    window.__store = { state, dispatch }
+    return () => { delete window.__store }
+  }, [state])
 
   // Hydratation de l'éditeur quand currentPatchId change. Non-undoable.
   const hydratedFromIdRef = useRef(null)
@@ -1292,6 +1303,7 @@ function App() {
         editor={editor}
         editorActions={editorActions}
         a4Ref={a4Ref}
+        xEdoN={xEdoN}
         activeTab={activeTab}
         onSavePatch={handleSavePatch}
         onUpdatePatch={handleUpdatePatch}
@@ -1470,6 +1482,7 @@ function App() {
                   patches={patches}
                   clips={clips}
                   tracks={tracks}
+                  xEdoN={xEdoN}
                   maxTracks={MAX_TRACKS}
                   onCreateTrack={handleCreateTrack}
                   onRenameTrack={handleRenameTrack}
@@ -1539,6 +1552,7 @@ function App() {
                       numMeasures={numMeasures}
                       durationMode={durationMode}
                       a4Ref={a4Ref}
+                      xEdoN={xEdoN}
                       onUpdateClip={handleUpdateClip}
                       onRemoveClip={handleRemoveClip}
                       onUpdateClipsPatch={handleUpdateClipsPatch}

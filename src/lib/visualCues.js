@@ -14,7 +14,7 @@
 // La "gamme par tons" est un cas particulier — strictement 12-TET (200¢
 // par pas) — pour montrer comment 31-EDO ne la "ferme" pas.
 
-import { getTuningSystem, frequencyToNearestIn } from './tuningSystems'
+import { DEFAULT_X_EDO_N, getTuningSystem, frequencyToNearestIn } from './tuningSystems'
 
 export const VISUAL_CUE_PATTERNS = {
   none: { label: 'Aucun', intervals: [] },
@@ -56,18 +56,19 @@ export function systemSupportsVisualCues(sysId) {
 // mais le Set évite tout doublon par construction).
 //
 // Renvoie un Set vide pour pattern 'none', système libre, ou pattern
-// inconnu — appelable sans guard côté UI.
-export function cuedNoteIndices(patternId, tonicDegree, sysId, a4Ref) {
+// inconnu — appelable sans guard côté UI. `xEdoN` n'est consulté que pour
+// le système 'x-edo' (F.8) ; ignoré silencieusement par les autres.
+export function cuedNoteIndices(patternId, tonicDegree, sysId, a4Ref, xEdoN = DEFAULT_X_EDO_N) {
   const pattern = VISUAL_CUE_PATTERNS[patternId]
   if (!pattern || pattern.intervals.length === 0) return new Set()
   const sys = getTuningSystem(sysId)
   if (sys.freq === null) return new Set()
 
-  const tonicFreq = sys.freq(tonicDegree, 4, a4Ref)
+  const tonicFreq = sys.freq(tonicDegree, 4, a4Ref, xEdoN)
   const result = new Set()
   for (const cents of pattern.intervals) {
     const targetFreq = tonicFreq * Math.pow(2, cents / 1200)
-    const { noteIndex } = frequencyToNearestIn(targetFreq, sysId, a4Ref)
+    const { noteIndex } = frequencyToNearestIn(targetFreq, sysId, a4Ref, xEdoN)
     result.add(noteIndex)
   }
   return result
