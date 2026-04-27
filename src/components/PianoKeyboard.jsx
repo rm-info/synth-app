@@ -179,143 +179,6 @@ function Grid24Layout({ noteIndex, active, cued, compact, names, handleMouseDown
   )
 }
 
-// Clavier pentatonique égal (5-TET) : 5 rectangles en ligne, largeur égale,
-// labels I..V. Palette : 5 hues répartis sur le cercle chromatique (72° de
-// pas), lightness et saturation uniformes — 5-TET n'a pas de sous-catégorie
-// de "kind" (pas d'altération), un seul niveau suffit. `is-active` (inset
-// cyan) et `is-playing` (outline jaune) réutilisent les patterns grid-24
-// qui préservent la couleur de fond par-degré.
-const HUE_PER_DEGREE = [0, 72, 144, 216, 288]
-
-function Grid5Layout({ noteIndex, active, cued, compact, names, handleMouseDown }) {
-  return (
-    <div className={`piano-keyboard piano-keyboard-grid5${compact ? ' piano-keyboard-compact' : ''}`} role="group" aria-label="Clavier 5-TET">
-      {HUE_PER_DEGREE.map((hue, idx) => {
-        const classes = ['grid5-key']
-        if (noteIndex === idx) classes.push('is-active')
-        if (active.has(idx)) classes.push('is-playing')
-        if (cued.has(idx)) classes.push('is-cued')
-        const label = names?.[idx] ?? ''
-        return (
-          <button
-            key={idx}
-            type="button"
-            className={classes.join(' ')}
-            style={{ '--hue': hue }}
-            onMouseDown={handleMouseDown(idx)}
-            aria-label={label}
-            aria-pressed={noteIndex === idx}
-            title={compact ? label : undefined}
-          >
-            {!compact && <span className="grid5-key-label">{label}</span>}
-          </button>
-        )
-      })}
-    </div>
-  )
-}
-
-// Clavier gamelan Pelog (grid-7) : 7 rectangles en ligne, largeur égale,
-// labels I..VII. Strictement calqué sur Grid5Layout — cellules équidistantes
-// alors que les pitchs ne le sont pas (deux grands trous Pelog), même
-// convention que piano-12 et tous les autres layouts. Palette : 7 hues à
-// 360°/7 ≈ 51° de pas, lightness uniforme alignée sur grid-5 — pas de
-// hiérarchie d'altération à représenter dans un système gamelan.
-const HUE_PER_PELOG_DEGREE = [0, 51, 103, 154, 206, 257, 309]
-
-function Grid7Layout({ noteIndex, active, cued, compact, names, handleMouseDown }) {
-  return (
-    <div className={`piano-keyboard piano-keyboard-grid7${compact ? ' piano-keyboard-compact' : ''}`} role="group" aria-label="Clavier 7 degrés">
-      {HUE_PER_PELOG_DEGREE.map((hue, idx) => {
-        const classes = ['grid7-key']
-        if (noteIndex === idx) classes.push('is-active')
-        if (active.has(idx)) classes.push('is-playing')
-        if (cued.has(idx)) classes.push('is-cued')
-        const label = names?.[idx] ?? ''
-        return (
-          <button
-            key={idx}
-            type="button"
-            className={classes.join(' ')}
-            style={{ '--hue': hue }}
-            onMouseDown={handleMouseDown(idx)}
-            aria-label={label}
-            aria-pressed={noteIndex === idx}
-            title={compact ? label : undefined}
-          >
-            {!compact && <span className="grid7-key-label">{label}</span>}
-          </button>
-        )
-      })}
-    </div>
-  )
-}
-
-// Clavier 31-EDO en grille 4 rangées × 8 colonnes moins la case haut-droite
-// (degré 31 = octave, non représenté → 31 cellules). Chaque cellule occupe
-// 4 sub-cols, et chaque rangée est décalée d'+1 sub-col par rapport à la
-// rangée du dessous (escalier 1/4 d'unité — extension du pattern grid-24).
-// Conséquence : l'axe horizontal encode linéairement la hauteur — le degré
-// k commence à `1 + k` en sub-col (relation monotone, vrai aussi bien pour
-// une montée intra-colonne que pour un saut de colonne). 35 sub-cols au
-// total (k=30 → start_subCol=31, end_subCol=35).
-//
-// Mapping rangée physique du clavier QWERTY ↔ visualRow :
-//   r1 (visualRow 1, en haut)    = rangée chiffres (Digit4..Digit0)
-//   r2 (visualRow 2)              = Q-row (KeyE..KeyP)
-//   r3 (visualRow 3)              = A-row (KeyS..KeyL)
-//   r4 (visualRow 4, en bas)      = Z-row (KeyZ..Comma)
-// Au clavier physique : rangée chiffres en haut, rangée Z en bas — le layout
-// reflète directement la position des doigts. Le serpentin-colonne (k=0
-// bas-gauche, k=3 haut col 1, k=4 bas col 2…) découle de THIRTYONE_KEY_MAP.
-//
-// Palette : hue par colonne (8 zones de hauteur), lightness par rangée
-// (4 crans modulant la "phase" au sein de la zone) — alignée sur la
-// grammaire de Grid24Layout (hue = naturelle, lightness = altération).
-// 8 hues étendant le pattern HUE_PER_NATURAL de grid-24 à 8 entrées.
-// Lightness reprend la progression grid-24 ↓→♮→↑→♯ (75%, 60%, 45%, 30%) :
-// rangée 4 (bas) la plus claire, rangée 1 (haut) la plus sombre. is-active
-// et is-playing hérités du pattern grid-24/grid-5 (inset cyan + outline
-// jaune, fond HSL préservé).
-const GRID31_HUE_PER_COL = [0, 38, 76, 130, 180, 220, 280, 320]
-
-function Grid31Layout({ noteIndex, active, cued, compact, handleMouseDown }) {
-  return (
-    <div className={`piano-keyboard piano-keyboard-grid31${compact ? ' piano-keyboard-compact' : ''}`} role="group" aria-label="Clavier 31-EDO">
-      {Array.from({ length: 31 }, (_, k) => {
-        const rangeIndex = k % 4
-        const visualRow = 4 - rangeIndex
-        const col = 1 + Math.floor(k / 4)
-        const startSubCol = 1 + (col - 1) * 4 + rangeIndex
-        const endSubCol = startSubCol + 4
-        const classes = ['grid31-key', `grid31-key-r${rangeIndex}`]
-        if (noteIndex === k) classes.push('is-active')
-        if (active.has(k)) classes.push('is-playing')
-        if (cued.has(k)) classes.push('is-cued')
-        const label = String(k + 1)
-        return (
-          <button
-            key={k}
-            type="button"
-            className={classes.join(' ')}
-            style={{
-              gridRow: visualRow,
-              gridColumn: `${startSubCol} / ${endSubCol}`,
-              '--hue': GRID31_HUE_PER_COL[col - 1],
-            }}
-            onMouseDown={handleMouseDown(k)}
-            aria-label={label}
-            aria-pressed={noteIndex === k}
-            title={compact ? label : undefined}
-          >
-            {!compact && <span className="grid31-key-label">{label}</span>}
-          </button>
-        )
-      })}
-    </div>
-  )
-}
-
 // Clavier Bhatkhande (grid-22-bhatkhande) : 22 shrutis indiens regroupés
 // en 7 svaras avec distribution 1-4-4-4-1-4-4. Sa (col 1) et pa (col 5)
 // sont des "piliers" : 1 cellule en bas seulement. Re/ga/ma/dha/ni
@@ -492,14 +355,15 @@ function Grid22SarngadevaLayout({ noteIndex, active, cued, compact, names, handl
 }
 
 // Dispatcher : chaque tempérament déclare son `layout`, on cherche le composant
-// correspondant ici. Pour ajouter un grid-N (31-EDO, …) : déclarer
-// l'entrée registre + ajouter le composant ci-dessous, rien d'autre.
+// correspondant ici. Pour ajouter un nouveau layout : déclarer l'entrée
+// registre + ajouter le composant ci-dessous, rien d'autre. F.8.1.4 : les
+// grilles fixes grid-5 / grid-7 / grid-31 ont été retirées au profit du
+// layout générique 'grid-x-edo' (composant GridXEdoLayout livré en F.8.2).
+// En attendant, Slendro / Pelog / X-EDO rendent `null` ici (clavier non
+// affiché — interaction au clic indisponible, lecture audio préservée).
 const LAYOUT_COMPONENTS = {
   'piano-12': PianoLayout12,
   'grid-24': Grid24Layout,
-  'grid-5': Grid5Layout,
-  'grid-7': Grid7Layout,
-  'grid-31': Grid31Layout,
   'grid-22-bhatkhande': Grid22BhatkhandeLayout,
   'grid-22-sarngadeva': Grid22SarngadevaLayout,
 }

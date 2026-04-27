@@ -268,77 +268,13 @@ function twentyFourTetCairo1932Freq(noteIndex, octave, a4Ref) {
   return CAIRO_1932_HZ_OCT4[noteIndex] * (a4Ref / 440) * Math.pow(2, octave - 4)
 }
 
-// Degrés pentatoniques égaux : nomenclature ratifiée I..V (chiffres
-// romains) — pas de noms empruntés à la nomenclature 12-TET, puisque
-// 5-TET n'est pas un sous-ensemble du chromatique. Pédagogiquement :
-// terrain neutre pour explorer l'équipartition à autre nombre de
-// degrés que 12 ou 24.
-const FIVE_TET_NOTE_NAMES = ['I', 'II', 'III', 'IV', 'V']
-
-// Sous-ensemble strict du TWELVE_KEY_MAP (mêmes event.code S/D/F/G/H que
-// les naturelles C/D/E/F/G en 12-TET) mais sémantique différente —
-// l'utilisateur qui connaît les positions physiques garde sa mémoire
-// motrice, seule la hauteur produite change.
-const FIVE_KEY_MAP = {
-  KeyS: 0, // I
-  KeyD: 1, // II
-  KeyF: 2, // III
-  KeyG: 3, // IV
-  KeyH: 4, // V
-}
-
-// 5 divisions égales de l'octave, ratio de pas = 2^(1/5) ≈ 240 cents.
-// La tonique (degré I) est ancrée à `a4Ref` à l'octave 4 : en l'absence
-// de A en 5-TET, la "fréquence de référence" glisse du A vers le I.
-// Cette interprétation unifie `a4Ref` comme "fréquence du degré 0 à
-// oct 4" pour tous les systèmes sauf Cairo 1932 (ancré 'Oshairan=A4).
-function fiveTetFreq(noteIndex, octave, a4Ref) {
-  return a4Ref * Math.pow(2, noteIndex / 5 + (octave - 4))
-}
-
-// 31-EDO : 31 divisions égales de l'octave, step = 1200/31 ≈ 38.71 cents.
-// Interprétation abstraite — degrés numérotés 1..31, pas de notion
-// "naturelle vs altération" ni de noms méantone (C♯/D♭, double-dièses).
-// Cohérence avec 5-TET : pas d'emprunt chromatique forcé. Tonique
-// (degré 0) ancrée à `a4Ref` à l'octave 4, comme 5-TET. Le suffixe
-// "." dans les noms (`"1."`, `"23."`, …) sert de séparateur visuel
-// quand `formatClipNote` concatène `noteNames[i] + octave` : "23." + "4"
-// → "23.4" (degré 23 oct 4) au lieu de "234" ambigu. Sur les touches
-// du clavier le point est masqué (Grid31Layout affiche `String(i+1)`).
-const THIRTYONE_EDO_NOTE_NAMES = Array.from(
-  { length: 31 },
-  (_, i) => `${i + 1}.`
-)
-
-// Mapping QWERTY → noteIndex pour 31-EDO. Les 4 rangées physiques du
-// clavier sont parcourues bas-gauche → haut-droite en serpentin-colonne :
-// dans chaque colonne on monte depuis la rangée Z (bas) jusqu'à la rangée
-// chiffres (haut), puis on passe à la colonne suivante. 8 colonnes × 4
-// rangées = 32 positions, moins la case haut-droite (degré 31 = octave,
-// non représentée) = 31 touches. event.code est position-based : même
-// mapping physique sur QWERTY / AZERTY / DVORAK.
-const THIRTYONE_KEY_MAP = {
-  // Col 1 (degs 0-3) : Z-row, A-row, Q-row, digit
-  KeyZ: 0,   KeyS: 1,   KeyE: 2,   Digit4: 3,
-  // Col 2 (degs 4-7)
-  KeyX: 4,   KeyD: 5,   KeyR: 6,   Digit5: 7,
-  // Col 3 (degs 8-11)
-  KeyC: 8,   KeyF: 9,   KeyT: 10,  Digit6: 11,
-  // Col 4 (degs 12-15)
-  KeyV: 12,  KeyG: 13,  KeyY: 14,  Digit7: 15,
-  // Col 5 (degs 16-19)
-  KeyB: 16,  KeyH: 17,  KeyU: 18,  Digit8: 19,
-  // Col 6 (degs 20-23)
-  KeyN: 20,  KeyJ: 21,  KeyI: 22,  Digit9: 23,
-  // Col 7 (degs 24-27)
-  KeyM: 24,  KeyK: 25,  KeyO: 26,  Digit0: 27,
-  // Col 8 (degs 28-30) : pas de Digit pour la case manquante
-  Comma: 28, KeyL: 29,  KeyP: 30,
-}
-
-function thirtyOneEdoFreq(noteIndex, octave, a4Ref) {
-  return a4Ref * Math.pow(2, noteIndex / 31 + (octave - 4))
-}
+// Slendro / Pelog : nomenclature romaine I..V / I..VII partagée. Pas de
+// noms javanais (barang/gulu/dada/lima/nem) — décision de scope F.6 pour
+// limiter la friction terminologique en classe. Pelog tronque à 7
+// éléments, Slendro à 5.
+const ROMAN_NOTE_NAMES_7 = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII']
+const SLENDRO_NOTE_NAMES = ROMAN_NOTE_NAMES_7.slice(0, 5)
+const PELOG_NOTE_NAMES = ROMAN_NOTE_NAMES_7
 
 // Slendro javanais, accordage Surakarta moyen mesuré par Surjodiningrat,
 // Sudarjana & Susanto, "Tone Measurements of Outstanding Javanese
@@ -347,10 +283,6 @@ function thirtyOneEdoFreq(noteIndex, octave, a4Ref) {
 // vs 5-EDO mathématique. Cents arrondis à l'entier ; la précision réelle
 // des mesures ne dépasse pas ±5¢ et varie d'un ensemble à l'autre.
 const SLENDRO_SURAKARTA_CENTS = [0, 241, 481, 719, 958]
-
-// Reuse FIVE_TET_NOTE_NAMES (I..V) — décision de scope F.6 : pas
-// d'import de la nomenclature javanaise (barang/gulu/dada/lima/nem)
-// pour limiter la friction terminologique en classe.
 
 function slendroFreq(noteIndex, octave, a4Ref) {
   return a4Ref * Math.pow(2, SLENDRO_SURAKARTA_CENTS[noteIndex] / 1200 + (octave - 4))
@@ -364,22 +296,6 @@ function slendroFreq(noteIndex, octave, a4Ref) {
 // VII) ne sont PAS modélisés ici — le clavier expose les 7 notes,
 // l'utilisateur choisit le sous-ensemble joué.
 const PELOG_SURAKARTA_CENTS = [0, 119, 258, 539, 678, 794, 1058]
-
-const PELOG_NOTE_NAMES = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII']
-
-// Mapping QWERTY home row (SDFGHJK), sous-ensemble strict de
-// TWELVE_KEY_MAP : mêmes positions physiques que les naturelles
-// C/D/E/F/G/A/B en 12-TET, sémantique gamelan. Préserve la mémoire
-// motrice pour qui passe de l'occidental au gamelan.
-const PELOG_KEY_MAP = {
-  KeyS: 0, // I
-  KeyD: 1, // II
-  KeyF: 2, // III
-  KeyG: 3, // IV
-  KeyH: 4, // V
-  KeyJ: 5, // VI
-  KeyK: 6, // VII
-}
 
 function pelogFreq(noteIndex, octave, a4Ref) {
   return a4Ref * Math.pow(2, PELOG_SURAKARTA_CENTS[noteIndex] / 1200 + (octave - 4))
@@ -671,32 +587,18 @@ export const TUNING_SYSTEMS = {
     layout: 'grid-24',
     keyboardMap: TWENTYFOUR_KEY_MAP,
   },
-  '5-tet': {
-    id: '5-tet',
-    label: '5-TET (pentatonique égale)',
-    notesPerOctave: 5,
-    noteNames: FIVE_TET_NOTE_NAMES,
-    freq: fiveTetFreq,
-    layout: 'grid-5',
-    keyboardMap: FIVE_KEY_MAP,
-  },
-  '31-edo': {
-    id: '31-edo',
-    label: '31-EDO (explorateur micro-tonal)',
-    notesPerOctave: 31,
-    noteNames: THIRTYONE_EDO_NOTE_NAMES,
-    freq: thirtyOneEdoFreq,
-    layout: 'grid-31',
-    keyboardMap: THIRTYONE_KEY_MAP,
-  },
   slendro: {
     id: 'slendro',
     label: 'Slendro (gamelan javanais, Surakarta)',
     notesPerOctave: 5,
-    noteNames: FIVE_TET_NOTE_NAMES,
+    noteNames: SLENDRO_NOTE_NAMES,
     freq: slendroFreq,
-    layout: 'grid-5',
-    keyboardMap: FIVE_KEY_MAP,
+    // F.8.1.4 : Slendro adopte le layout générique X-EDO N=5 (le composant
+    // GridXEdoLayout de F.8.2 lit `notesPerOctave`). keyboardMap précalculé
+    // depuis la même fonction de génération paramétrée — partage la
+    // grammaire serpentin avec X-EDO.
+    layout: 'grid-x-edo',
+    keyboardMap: xEdoKeyboardMapForN(5),
   },
   pelog: {
     id: 'pelog',
@@ -704,8 +606,8 @@ export const TUNING_SYSTEMS = {
     notesPerOctave: 7,
     noteNames: PELOG_NOTE_NAMES,
     freq: pelogFreq,
-    layout: 'grid-7',
-    keyboardMap: PELOG_KEY_MAP,
+    layout: 'grid-x-edo',
+    keyboardMap: xEdoKeyboardMapForN(7),
   },
   'shrutis-bhatkhande': {
     id: 'shrutis-bhatkhande',

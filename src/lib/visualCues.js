@@ -31,14 +31,16 @@ export const VISUAL_CUE_PATTERNS = {
   'whole-tone':       { label: 'Gamme par tons',          intervals: [0, 200, 400, 600, 800, 1000] },
 }
 
-// Systèmes pour lesquels les visual cues sont activés. 5-TET produit des
-// approximations trop éloignées (errs > 90¢ sur la triade majeure) pour que
-// les patterns harmoniques classiques aient un sens pédagogique. Libre n'a
-// pas de degrés. Tout autre système non-libre du registre est éligible.
+// Systèmes pour lesquels les visual cues sont activés. Les pentatoniques
+// (Slendro, anciennement 5-TET) produisent des approximations trop
+// éloignées (errs > 90¢ sur la triade majeure) pour que les patterns
+// harmoniques classiques aient un sens pédagogique. Libre n'a pas de
+// degrés. X-EDO est éligible : les approximations dépendent de N choisi
+// par l'utilisateur — laisser l'expérimentation visible.
 export const VISUAL_CUE_SUPPORTED_SYSTEMS = new Set([
   '12-TET', 'pythagorean-12', 'just-major-c',
   'meantone-quarter-comma', 'werckmeister-iii',
-  '24-tet-equal', '24-tet-cairo-1932', '31-edo',
+  '24-tet-equal', '24-tet-cairo-1932', 'x-edo',
 ])
 
 export function systemSupportsVisualCues(sysId) {
