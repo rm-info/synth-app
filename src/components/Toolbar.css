@@ -162,7 +162,10 @@
 }
 
 .tuning-select {
-  max-width: 180px;
+  /* F.8.3.1 : registre passé à 13 entrées (avec X-EDO). Élargi à 220px
+   * pour aérer le sélecteur fermé. Refonte complète (optgroup catégorisé)
+   * reste en backlog. */
+  max-width: 220px;
   padding: 4px 6px;
   border: 1px solid #3a3a5a;
   border-radius: 4px;
