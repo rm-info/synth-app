@@ -1609,6 +1609,44 @@ Phases listées ci-dessous dans l'ordre chronologique d'implémentation.
 
 ## Historique (chronologie inverse)
 
+0000000000000000000000000. **Iter F — Phase 8.4** (2026-04-27) :
+    hotfix layouts X-EDO (3 sous-commits + doc). Diagnostic : la
+    numérotation des layouts N≥9 était fausse — le calcul utilisait
+    un offset par rangée (`OFFSET_HOME_ANCHOR.alpha = 2` etc.) qui
+    décalait artificiellement la col logique des touches alpha vers
+    la droite. Conséquence pour N=9 : KeyS en col 1 mais KeyE en
+    col 2 (au lieu de col 1) → numérotation `KeyS=1, KeyD=2, KeyE=3,
+    KeyR=4, …` (incorrect) au lieu de `KeyS=1, KeyE=2, KeyD=3,
+    KeyR=4, …` (spec).
+    F.8.4.1 : suppression d'OFFSET_HOME_ANCHOR / OFFSET_BOTTOM_ANCHOR
+    dans buildClassicLayout. La col logique d'une cellule = i+1
+    (1-based dans la rangée), peu importe la rangée. L'effet
+    "escalier" du clavier physique est désormais reproduit côté CSS
+    (cf. F.8.4.3), pas dans la numérotation logique.
+    F.8.4.2 : SHIFT_BASE_CELLS réécrite en col-major (col 1 =
+    bottom+home+alpha, col 2 = idem, …) ; les extensions
+    progressives (KeyL, KeyP, Period, Semicolon, BracketLeft) sont
+    ajoutées en fin pour préserver l'invariant "+ Shift sauf X" en
+    N impair. **Deux bugs additionnels corrigés au passage** :
+    (a) bottom commençait par `KeyW` (= AZERTY `z`, rangée alpha)
+    au lieu de `KeyZ` (= AZERTY `w`, rangée bottom) — bug F.8.1.2
+    issu d'une confusion event.code (position-based depuis QWERTY)
+    vs label AZERTY ; (b) extension N=49 utilisait `Slash` (= `!`
+    AZERTY) au lieu de `Period` (= `:` AZERTY) — bug du correctif
+    archi 8.4 lui-même, contredisant le patch 3 de F.8.1 qui
+    assignait `! = Slash`.
+    F.8.4.3 : effet escalier reproduit en CSS Grid via subdivisions.
+    Chaque cellule occupe `cellWidth = numRows` sub-cols et est
+    décalée de `visualRow` sub-cols vers la droite. Total sub-cols
+    = numCols × cellWidth + (numRows − 1). Pattern hérité des
+    anciens grid-24 (7×4+3=31) et grid-31 (8×4+3=35), désormais
+    généralisé. Hue indexé sur cell.col (col logique), pas sur
+    sub-col — cohérent avec la spec "1 col logique = 1 hue".
+    Vérifications post-fix : N=9 → KeyS=1 KeyE=2 KeyD=3 KeyR=4 …
+    KeyH=9 ; N=17 → col 1 {S, E, 4} = 1, 2, 3 ; N=25 → col 1
+    {IntlBackslash, A, W, 3} = 1, 2, 3, 4, col 7 {N seul} = 25 ;
+    N=44 → col 1 {KeyZ, KeyS, KeyE} avec degrés (1,2)/(3,4)/(5,6).
+
 000000000000000000000000. **Iter F — Phase 8.3** (2026-04-27) :
     UI X-EDO complète — exposition utilisateur (3 sous-commits).
     F.8.3.1 : `tuning-select` de la Toolbar passé de max-width 180px
