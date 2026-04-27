@@ -180,6 +180,22 @@ console (UI input N à venir en F.8.3). Registre passe de 14 à
 **Interpellation archi** : l'exemple N=12 du prompt diverge du
 schéma N=12 du fichier (KeyL/KeyK absents du schéma). Implémentation
 suit le fichier (source de vérité déclarée).
+Phase 8.2 (2026-04-27) : **composant GridXEdoLayout + cellules
+splittées Shift**. `xEdoLayouts.js` étendu à N=53 (mode
+SHIFT_ANCHOR pour 44..53, `SHIFT_BASE_CELLS` ordonnée
+progressivement pour que la "touche sans Shift" en N impair soit
+toujours la dernière). Nouveau composant React `GridXEdoLayout.jsx`
+générique, palette HSL dynamique (hue par col, lightness par row,
+héritage 75/60/45/30% du grid-31 historique). Architecture
+`.gridx-cell` > `.gridx-key` (1 ou 2 halves selon le mode Shift).
+Slendro / Pelog (basculés en grid-x-edo en F.8.1.4) retrouvent
+leur clavier visible (gridSize=5/7), X-EDO l'utilise via
+state.xEdoN. Captation Shift en mode SHIFT_ANCHOR :
+WaveformEditor + App.jsx routent `e.shiftKey` vers les degrés
+shifted ; Shift reste guard pour les durées Composer ailleurs.
+Au passage : bug latent F.8.1.3 corrigé (App.jsx composer
+accédait directement à `.keyboardMap` qui retournait la factory
+pour 'x-edo'). Régression UX inter-phase de F.8.1.4 résolue.
 
 ## Objectif
 
@@ -1565,17 +1581,53 @@ Phases listées ci-dessous dans l'ordre chronologique d'implémentation.
     comme 3e framework potentiel si demande explicite, modes
     indiens (ragas/pathets) comme sous-ensembles surlignés —
     feature pédagogique future.
-- 🚧 **Phase 8** (en cours) — X-EDO paramétrique. Sous-phase 8.1
-  livrée (2026-04-27) : infrastructure backend (registre, layouts
-  QWERTY 1..43, state global xEdoN, migration localStorage,
-  suppression de '5-tet' et '31-edo'). Reste 8.2 (composant
-  GridXEdoLayout — claviers Slendro / Pelog / X-EDO redeviendront
-  visibles ; logique Shift pour layouts 44..53) et 8.3 (UI input N
+- 🚧 **Phase 8** (en cours) — X-EDO paramétrique. Sous-phases 8.1
+  (2026-04-27, infrastructure backend) et 8.2 (2026-04-27, composant
+  GridXEdoLayout + captation Shift) livrées. Reste 8.3 (UI input N
   dans la toolbar Composer + bannière de bascule 12/24 si applicable).
-  Détail des 4 sous-commits dans Roadmap & Backlog. Registre à 13
+  Slendro / Pelog / X-EDO sont à nouveau jouables au clic souris
+  (F.8.2.1) et X-EDO 44..53 le sont au clavier via Shift (F.8.2.2).
+  Détail des sous-commits dans Roadmap & Backlog. Registre à 13
   entrées (-5-tet -31-edo +x-edo).
 
 ## Historique (chronologie inverse)
+
+00000000000000000000000. **Iter F — Phase 8.2** (2026-04-27) :
+    composant GridXEdoLayout + cellules splittées Shift pour N≥44
+    (2 sous-commits).
+    F.8.2.1 : `xEdoLayouts.xEdoLayoutForN(N)` retourne désormais une
+    description complète du layout (cells avec col/visualRow/code/
+    halves, numCols/numRows, useShift) — `xEdoKeyboardMapForN`
+    consomme cette structure et reste rétro-compatible. Tables
+    étendues à N=53 (mode SHIFT_ANCHOR, cf. xEdoLayouts.js).
+    Nouveau composant `src/components/GridXEdoLayout.jsx` :
+    générique, lit la description via xEdoLayoutForN(gridSize),
+    construit la palette HSL dynamique (hue par col, lightness par
+    row, héritage 75/60/45/30% du grid-31 historique), rend les
+    cellules en CSS Grid avec containers `.gridx-cell` et halves
+    `.gridx-key`. Architecture déjà prête pour Shift (1 ou 2 halves
+    par cellule, états is-active/is-playing/is-cued portés par la
+    half). Hauteur fixée inline selon numRows (90/120/140/160px).
+    `'grid-x-edo'` ajouté à LAYOUT_COMPONENTS de PianoKeyboard.jsx
+    avec calcul de `gridSize = getNotesPerOctave(sys, xEdoN)` —
+    Slendro et Pelog (basculés en grid-x-edo en F.8.1.4) retrouvent
+    leur clavier visible (gridSize=5/7), X-EDO l'utilise via
+    state.xEdoN.
+    F.8.2.2 : captation Shift en mode SHIFT_ANCHOR. WaveformEditor
+    (Designer) et App.jsx (Composer placement contigu) routent
+    `e.shiftKey + e.code` vers `xEdoShiftedKeyboardMapForN(xEdoN)`
+    quand testTuningSystem === 'x-edo' && xEdoN >= 44 ; sinon Shift
+    reste guard pour les durées Composer (F.3.4). Pas de collision :
+    les layouts SHIFT_ANCHOR n'utilisent pas la rangée digit. Au
+    keyup, on relâche AUSSI BIEN la voix base que la voix shifted
+    pour la touche (l'état Shift peut différer entre keydown et
+    keyup). **Bug latent corrigé** : depuis F.8.1.3, App.jsx
+    composer keydown accédait directement à
+    `getTuningSystem(...).keyboardMap` qui retournait la **factory**
+    pour 'x-edo' au lieu d'un mapping → remplacé par
+    `getKeyboardMap(sys, xEdoN)`. CSS : `.gridx-key-shifted` reçoit
+    un border-left sombre comme séparateur visuel (la cellule garde
+    sa couleur HSL unifiée — hue=col, lightness=row).
 
 0000000000000000000000. **Iter F — Phase 8.1** (2026-04-27) : X-EDO
     paramétrique — infrastructure backend (4 sous-commits).
@@ -2715,9 +2767,9 @@ Phases listées ci-dessous dans l'ordre chronologique d'implémentation.
 - 🚧 **Phase 8** (en cours) — X-EDO paramétrique (1..53 cible).
   Une seule entrée registre paramétrée par un N choisi par
   l'utilisateur ; `'5-tet'` et `'31-edo'` redeviennent des cas
-  particuliers. Sous-phase 8.1 livrée (2026-04-27, infrastructure
-  backend) ; 8.2 (composant GridXEdoLayout + logique Shift 44..53)
-  et 8.3 (UI input N + bannière de bascule 12/24) à venir.
+  particuliers. Sous-phases 8.1 (infrastructure backend) et 8.2
+  (composant + logique Shift) livrées le 2026-04-27 ; 8.3 (UI
+  input N + bannière de bascule 12/24) à venir.
   - ✅ **Sous-phase 8.1** (2026-04-27) — Infrastructure backend.
     4 sous-commits :
     - **8.1.1** Entrée `'x-edo'` au registre. `freq(noteIndex,
@@ -2825,6 +2877,56 @@ Phases listées ci-dessous dans l'ordre chronologique d'implémentation.
       (composant GridXEdoLayout livré en F.8.2) — interaction
       au clic indisponible, lecture audio préservée. Registre
       passe de 14 à 13 entrées.
+  - ✅ **Sous-phase 8.2** (2026-04-27) — Composant GridXEdoLayout +
+    cellules splittées Shift. 2 sous-commits :
+    - **8.2.1** Composant React `GridXEdoLayout.jsx` + palette
+      dynamique. `xEdoLayouts.js` étendu : nouveau export
+      `xEdoLayoutForN(N)` qui retourne `{ totalDegrees, useShift,
+      numCols, numRows, cells: [{ col, visualRow, code, halves: [{
+      degree, shift }] }] }`. Tables étendues à N=53 avec mode
+      `SHIFT_ANCHOR` (offsets décalés d'+1, exclut IntlBackslash/
+      KeyA/KeyW/KeyQ, pas de digit row), `SHIFT_BASE_CELLS` ordonnée
+      progressivement pour que la "touche sans Shift" en N impair
+      soit toujours la dernière (KeyL en 45, KeyP en 47, Period en
+      49, Semicolon en 51, BracketLeft en 53). `xEdoKeyboardMapForN`
+      consomme la nouvelle structure (rétro-compatible). Nouveau
+      `xEdoShiftedKeyboardMapForN(N)` pour les degrés shifted.
+      Composant `GridXEdoLayout.jsx` : générique, palette HSL
+      dynamique (hue = (col-1)·360/numCols, lightness selon
+      numRows : 1=[55%], 2=[62/42%], 3=[70/50/30%], 4=[75/60/45/30%]
+      — héritage grid-31). Hauteur fixée inline selon numRows
+      (90/120/140/160px ; compact 56/80/96/80px). Architecture
+      `.gridx-cell` (container) > `.gridx-key` (1 ou 2 halves) — déjà
+      prête pour Shift. États is-active/is-playing/is-cued portés
+      par la half. CSS dans PianoKeyboard.css. PianoKeyboard.jsx
+      ajoute `'grid-x-edo'` à LAYOUT_COMPONENTS et calcule
+      `gridSize = getNotesPerOctave(sys, xEdoN)` — Slendro/Pelog
+      (basculés en grid-x-edo en F.8.1.4) ont leur clavier visible
+      avec gridSize=5/7, X-EDO l'utilise via state.xEdoN.
+      Vérifs visuelles : N=5 → 5 cells en 1 rangée (grid-5
+      historique répliqué), N=12 → 12 cells en 2 rangées avec
+      escalier, N=31 → 31 cells en 4 rangées (grid-31 historique
+      reconstitué), N=43 → 43 cells en 4 rangées × 13 cols max.
+    - **8.2.2** Captation Shift pour layouts N≥44. WaveformEditor
+      (Designer) et App.jsx (Composer placement contigu) :
+      `e.shiftKey` route vers `xEdoShiftedKeyboardMapForN(xEdoN)`
+      quand `testTuningSystem === 'x-edo' && xEdoN >= 44` ; sinon
+      Shift reste guard pour les durées Composer (F.3.4). Pas de
+      collision : les layouts SHIFT_ANCHOR n'utilisent pas la
+      rangée digit, donc Shift+Digit (durées) reste libre. Au
+      keyup, on relâche AUSSI BIEN la voix base que la voix
+      shifted pour la touche, parce que l'état Shift peut différer
+      entre keydown et keyup (utilisateur relâche Shift en premier
+      ou en dernier). `bridge.release(idx)` est no-op pour un
+      degré non-actif → safe. **Bug latent corrigé** : depuis
+      F.8.1.3, App.jsx composer keydown accédait directement à
+      `getTuningSystem(editor.testTuningSystem).keyboardMap` —
+      pour 'x-edo' (factory), ça retournait la fonction au lieu
+      d'un mapping. Remplacé par `getKeyboardMap(sys, xEdoN)`. CSS
+      `.gridx-cell .gridx-key-shifted` reçoit un border-left 2px
+      sombre comme séparateur visuel — la cellule garde sa couleur
+      HSL unifiée (hue=col, lightness=row), seule la frontière
+      interne marque la séparation entre les deux degrés.
 
 ### Backlog général (à caser quand pertinent)
 
