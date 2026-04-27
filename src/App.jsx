@@ -545,6 +545,7 @@ function App() {
   // action que le dropdown du Designer — la pile undo reste DESIGNER_UNDOABLE
   // (la nature de l'action prime sur l'onglet d'origine).
   const setTestTuningSystem = useCallback((id) => dispatch({ type: 'SET_EDITOR_TEST_TUNING_SYSTEM', payload: id }), [])
+  const setXEdoN = useCallback((n) => dispatch({ type: 'SET_X_EDO_N', payload: n }), [])
 
   const setZoomH = useCallback((next) => {
     dispatch({ type: 'SET_ZOOM_H', payload: next })
@@ -1304,6 +1305,7 @@ function App() {
       dispatch({ type: 'APPLY_EDITOR_PRESET', payload: { preset, points } }),
     setVisualCuePattern: (id) => dispatch({ type: 'SET_EDITOR_VISUAL_CUE_PATTERN', payload: id }),
     setVisualCueTonic: (deg) => dispatch({ type: 'SET_EDITOR_VISUAL_CUE_TONIC', payload: deg }),
+    setXEdoN: (n) => dispatch({ type: 'SET_X_EDO_N', payload: n }),
   }), [])
 
   return (
@@ -1400,6 +1402,8 @@ function App() {
                   onSetA4Ref={setA4Ref}
                   testTuningSystem={editor.testTuningSystem}
                   onSetTestTuningSystem={setTestTuningSystem}
+                  xEdoN={xEdoN}
+                  onSetXEdoN={setXEdoN}
                   hasSelection={selectedClipIds.length > 0}
                   hasClipboard={!!clipboard && clipboard.clips.length > 0}
                   onCopy={handleCopy}
@@ -1565,6 +1569,7 @@ function App() {
                       durationMode={durationMode}
                       a4Ref={a4Ref}
                       xEdoN={xEdoN}
+                      onSetXEdoN={setXEdoN}
                       onUpdateClip={handleUpdateClip}
                       onRemoveClip={handleRemoveClip}
                       onUpdateClipsPatch={handleUpdateClipsPatch}

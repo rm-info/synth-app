@@ -1,7 +1,8 @@
 import BpmInput from './BpmInput'
 import A4Input from './A4Input'
+import XEdoInput from './XEdoInput'
 import DurationButtons from './DurationButtons'
-import { TUNING_SYSTEMS } from '../lib/tuningSystems'
+import { TUNING_SYSTEMS, X_EDO_MAX, X_EDO_MIN } from '../lib/tuningSystems'
 import './Toolbar.css'
 
 /**
@@ -16,6 +17,8 @@ function Toolbar({
   onSetA4Ref,
   testTuningSystem,
   onSetTestTuningSystem,
+  xEdoN,
+  onSetXEdoN,
   hasSelection,
   hasClipboard,
   onCopy,
@@ -92,6 +95,12 @@ function Toolbar({
                 <option key={sys.id} value={sys.id}>{sys.label}</option>
               ))}
             </select>
+          </label>
+        )}
+        {testTuningSystem === 'x-edo' && typeof xEdoN === 'number' && (
+          <label className="xedo-control" title={`Nombre de degrés du système X-EDO — flèches haut/bas pour ±1, +Shift pour ±5. Fourchette ${X_EDO_MIN}-${X_EDO_MAX}.`}>
+            X
+            <XEdoInput value={xEdoN} onChange={onSetXEdoN} className="xedo-input" />
           </label>
         )}
       </div>

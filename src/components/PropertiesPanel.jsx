@@ -6,10 +6,17 @@ import {
   MIN_CLIP_DURATION,
 } from '../lib/timelineLayout'
 import { formatClipNote } from '../lib/clipNote'
-import { DEFAULT_X_EDO_N, getTuningSystem, TUNING_SYSTEMS } from '../lib/tuningSystems'
+import {
+  DEFAULT_X_EDO_N,
+  X_EDO_MAX,
+  X_EDO_MIN,
+  getTuningSystem,
+  TUNING_SYSTEMS,
+} from '../lib/tuningSystems'
 import { durationName } from '../lib/durations'
 import { PianoKeyboard, OctaveSelector } from './PianoKeyboard'
 import FreqInput from './FreqInput'
+import XEdoInput from './XEdoInput'
 import DurationButtons from './DurationButtons'
 import './PropertiesPanel.css'
 
@@ -39,6 +46,7 @@ function PropertiesPanel({
   durationMode,
   a4Ref,
   xEdoN = DEFAULT_X_EDO_N,
+  onSetXEdoN,
   onUpdateClip,
   onRemoveClip,
   onUpdateClipsPatch,
@@ -94,6 +102,7 @@ function PropertiesPanel({
               durationMode={durationMode}
               a4Ref={a4Ref}
               xEdoN={xEdoN}
+              onSetXEdoN={onSetXEdoN}
               onUpdateClipsPatch={onUpdateClipsPatch}
               onUpdateClipsDuration={onUpdateClipsDuration}
               onUpdateClipsPitch={onUpdateClipsPitch}
@@ -113,6 +122,7 @@ function PropertiesPanel({
               durationMode={durationMode}
               a4Ref={a4Ref}
               xEdoN={xEdoN}
+              onSetXEdoN={onSetXEdoN}
               onUpdateClip={onUpdateClip}
               onUpdateClipsPitch={onUpdateClipsPitch}
               onRemoveClip={onRemoveClip}
@@ -195,7 +205,7 @@ function NoteEditor({ clipIds, tuningSystem, noteIndex, octave, frequency, a4Ref
   )
 }
 
-function ClipEditor({ clip, patches, tracks, durationMode, a4Ref, xEdoN, onUpdateClip, onUpdateClipsPitch, onRemoveClip, canSplit2, canSplit3, onSplitClips }) {
+function ClipEditor({ clip, patches, tracks, durationMode, a4Ref, xEdoN, onSetXEdoN, onUpdateClip, onUpdateClipsPitch, onRemoveClip, canSplit2, canSplit3, onSplitClips }) {
   const currentPatch = patches.find((p) => p.id === clip.patchId)
   const clipTrack = tracks?.find(t => t.id === clip.trackId)
 
@@ -231,6 +241,12 @@ function ClipEditor({ clip, patches, tracks, durationMode, a4Ref, xEdoN, onUpdat
           value={clip.tuningSystem}
           onChange={(sys) => onUpdateClipsPitch?.([{ id: clip.id, tuningSystem: sys }])}
         />
+        {clip.tuningSystem === 'x-edo' && onSetXEdoN && (
+          <label className="xedo-control-properties" title={`Nombre de degrés du système X-EDO (global, snappe tous les clips x-edo) — flèches haut/bas pour ±1, +Shift pour ±5. Fourchette ${X_EDO_MIN}-${X_EDO_MAX}.`}>
+            X
+            <XEdoInput value={xEdoN} onChange={onSetXEdoN} className="xedo-input-properties" />
+          </label>
+        )}
         <NoteEditor
           clipIds={[clip.id]}
           tuningSystem={clip.tuningSystem}
@@ -307,6 +323,7 @@ function MultiClipEditor({
   durationMode,
   a4Ref,
   xEdoN,
+  onSetXEdoN,
   onUpdateClipsPatch,
   onUpdateClipsDuration,
   onUpdateClipsPitch,
@@ -405,6 +422,12 @@ function MultiClipEditor({
                 onUpdateClipsPitch?.(selectedClips.map((c) => ({ id: c.id, tuningSystem: sys })))
               }
             />
+            {first.tuningSystem === 'x-edo' && onSetXEdoN && (
+              <label className="xedo-control-properties" title={`Nombre de degrés du système X-EDO (global, snappe tous les clips x-edo) — flèches haut/bas pour ±1, +Shift pour ±5. Fourchette ${X_EDO_MIN}-${X_EDO_MAX}.`}>
+                X
+                <XEdoInput value={xEdoN} onChange={onSetXEdoN} className="xedo-input-properties" />
+              </label>
+            )}
             {allSamePitch ? (
               <NoteEditor
                 clipIds={selectedClips.map((c) => c.id)}

@@ -5,12 +5,15 @@ import NumberInput from './NumberInput'
 import { PianoKeyboard, OctaveSelector } from './PianoKeyboard'
 import {
   DEFAULT_X_EDO_N,
+  X_EDO_MAX,
+  X_EDO_MIN,
   getKeyboardMap,
   getNoteNames,
   getNotesPerOctave,
   getTuningSystem,
   TUNING_SYSTEMS,
 } from '../lib/tuningSystems'
+import XEdoInput from './XEdoInput'
 import { xEdoShiftedKeyboardMapForN } from '../lib/xEdoLayouts'
 import { NOTE_GUARD_KEYS } from '../lib/keyboardCandidates'
 import {
@@ -1267,6 +1270,12 @@ function WaveformEditor({
               <option key={sys.id} value={sys.id}>{sys.label}</option>
             ))}
           </select>
+          {testTuningSystem === 'x-edo' && (
+            <label className="xedo-control-designer" title={`Nombre de degrés du système X-EDO — flèches haut/bas pour ±1, +Shift pour ±5. Fourchette ${X_EDO_MIN}-${X_EDO_MAX}.`}>
+              X
+              <XEdoInput value={xEdoN} onChange={editorActions.setXEdoN} className="xedo-input-designer" />
+            </label>
+          )}
         </div>
 
         <div className="control-group">

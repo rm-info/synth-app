@@ -135,6 +135,37 @@
   font-family: monospace;
 }
 
+/* F.8.3.2 : input X-EDO côté Properties (visible quand tuningSystem ===
+ * 'x-edo'). Compact, aligné horizontalement avec le sélecteur de système.
+ * Le label "X" rappelle que la valeur est globale (modifie xEdoN du state,
+ * snappe tous les clips x-edo). */
+.xedo-control-properties {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 4px;
+  color: #9aa2b8;
+  font-size: 0.78rem;
+  font-weight: 600;
+}
+
+.xedo-input-properties {
+  width: 48px;
+  padding: 4px 6px;
+  border: 1px solid #4a4a6a;
+  border-radius: 4px;
+  background: #0f0f1a;
+  color: #e0e0ff;
+  font-family: monospace;
+  font-size: 0.82rem;
+  text-align: center;
+  outline: none;
+}
+
+.xedo-input-properties:focus {
+  border-color: #00d4ff;
+}
+
 /* --- Éditeur de note (mini-clavier compact + octave + affichage Hz) --- */
 .note-editor {
   display: flex;

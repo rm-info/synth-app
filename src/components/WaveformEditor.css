@@ -281,6 +281,35 @@
   border-color: #00d4ff;
 }
 
+/* F.8.3.2 : input X-EDO côté Designer (visible quand testTuningSystem ===
+ * 'x-edo'). Compact, posé juste sous le sélecteur de système. */
+.xedo-control-designer {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 6px;
+  color: #a0a0c0;
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+.xedo-input-designer {
+  width: 50px;
+  padding: 4px 6px;
+  border: 1px solid #4a4a6a;
+  border-radius: 6px;
+  background: #1a1a2e;
+  color: #d0d0e0;
+  font-family: monospace;
+  font-size: 0.85rem;
+  text-align: center;
+  outline: none;
+}
+
+.xedo-input-designer:focus {
+  border-color: #00d4ff;
+}
+
 /* Barre repères visuels (F.4.4) — flex row au-dessus du clavier, deux
  * selects côte à côte (Repère + Tonique). Visible quand le système courant
  * supporte les visual cues (12-TET, Pythag-12, juste-majeure, 24-TET égal,
