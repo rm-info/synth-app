@@ -308,6 +308,103 @@
   display: none;
 }
 
+/* --- Layout générique X-EDO (grid-x-edo, F.8.2) ---
+ * Grille variable selon N : nombre de colonnes / rangées passé en
+ * `grid-template-*` inline depuis le composant. Chaque cellule est un
+ * container `.gridx-cell` qui contient 1 ou 2 `.gridx-key` côte à côte
+ * (1 pour N≤43, 1 ou 2 pour N≥44 selon le mode Shift de F.8.2.2).
+ * Palette dynamique : hue par colonne (équidistantes 360°/numCols),
+ * lightness par rangée (gradiente bas→haut, héritée de l'ancien grid-31).
+ * Hauteur fixée inline selon numRows pour aligner sur les anciens
+ * grid-5 (90px) et grid-31 (160px). Patterns is-active/is-playing/is-cued
+ * appliqués à la `.gridx-key` (la moitié), pas au container — cohérent
+ * pour le mode Shift où chaque half a son propre état.
+ */
+.piano-keyboard-grid-x-edo {
+  display: grid;
+  gap: 2px;
+  width: 100%;
+  user-select: none;
+  flex-shrink: 0;
+}
+
+.gridx-cell {
+  display: flex;
+  flex-direction: row;
+  border-radius: 3px;
+  overflow: hidden;
+  border: 1px solid hsl(var(--hue), 30%, 22%);
+}
+
+.gridx-key {
+  flex: 1;
+  padding: 0;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 0.7rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  background: hsl(var(--hue), 60%, var(--lightness));
+  color: hsl(var(--hue), 30%, 15%);
+  transition: background 0.1s, transform 0.05s;
+}
+
+/* Texte clair sur fond sombre quand lightness < 50% — heuristique : on
+ * applique la règle aux rangées les plus hautes des layouts 3-4 rangées.
+ * Suffisant pour rester lisible sans calcul JS conditionnel. */
+.piano-keyboard-grid-x-edo[data-rows="3"] .gridx-cell[style*="--lightness:30%"] .gridx-key,
+.piano-keyboard-grid-x-edo[data-rows="4"] .gridx-cell[style*="--lightness:30%"] .gridx-key,
+.piano-keyboard-grid-x-edo[data-rows="4"] .gridx-cell[style*="--lightness:45%"] .gridx-key {
+  color: #f0f0f6;
+}
+
+.gridx-key:hover {
+  filter: brightness(1.1);
+}
+
+.gridx-key.is-active {
+  box-shadow: inset 0 0 0 3px #00d4ff;
+}
+
+.gridx-key.is-playing {
+  outline: 3px solid #ffc600;
+  outline-offset: -3px;
+  box-shadow: 0 0 10px rgba(255, 198, 0, 0.6);
+  z-index: 1;
+}
+
+.gridx-key.is-active.is-playing {
+  box-shadow: inset 0 0 0 3px #00d4ff, 0 0 10px rgba(255, 198, 0, 0.6);
+}
+
+.gridx-key.is-cued {
+  box-shadow: 0 0 0 2px #e832e2;
+}
+
+.gridx-key.is-active.is-cued {
+  box-shadow: inset 0 0 0 3px #00d4ff, 0 0 0 2px #e832e2;
+}
+
+.gridx-key.is-cued.is-playing {
+  box-shadow: 0 0 0 2px #e832e2, 0 0 10px rgba(255, 198, 0, 0.6);
+}
+
+.gridx-key.is-active.is-cued.is-playing {
+  box-shadow: inset 0 0 0 3px #00d4ff, 0 0 0 2px #e832e2, 0 0 10px rgba(255, 198, 0, 0.6);
+}
+
+.gridx-key-label {
+  font-family: monospace;
+  font-weight: 600;
+  pointer-events: none;
+}
+
+.piano-keyboard-grid-x-edo.piano-keyboard-compact .gridx-key-label {
+  display: none;
+}
+
 /* --- Repères visuels (gammes/accords) — classe .is-cued (F.4.4) ---
  * Halo magenta autour de la cellule, tracé en `box-shadow` externe (spread
  * positif) pour préserver le fill HSL de la palette de chaque layout.

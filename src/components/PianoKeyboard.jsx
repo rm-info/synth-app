@@ -1,6 +1,12 @@
 import { useRef } from 'react'
 import { NOTE_NAMES } from '../lib/clipNote'
-import { DEFAULT_X_EDO_N, getNoteNames, getTuningSystem } from '../lib/tuningSystems'
+import {
+  DEFAULT_X_EDO_N,
+  getNoteNames,
+  getNotesPerOctave,
+  getTuningSystem,
+} from '../lib/tuningSystems'
+import GridXEdoLayout from './GridXEdoLayout'
 import './PianoKeyboard.css'
 
 export { NOTE_NAMES }
@@ -366,6 +372,7 @@ const LAYOUT_COMPONENTS = {
   'grid-24': Grid24Layout,
   'grid-22-bhatkhande': Grid22BhatkhandeLayout,
   'grid-22-sarngadeva': Grid22SarngadevaLayout,
+  'grid-x-edo': GridXEdoLayout,
 }
 
 // Deux modes d'interaction :
@@ -405,6 +412,11 @@ export function PianoKeyboard({
   const active = activeNotes ?? new Set()
   const cued = cuedNotes ?? new Set()
   const names = getNoteNames(sys, xEdoN) ?? NOTE_NAMES
+  // F.8.2 : pour le layout `grid-x-edo`, le nombre de degrés à rendre n'est
+  // pas toujours `xEdoN` : Slendro le force à 5, Pelog à 7 (cf. F.8.1.4).
+  // `getNotesPerOctave(sys, xEdoN)` retourne la bonne valeur pour les deux
+  // cas (factory pour 'x-edo', constante statique pour les autres).
+  const gridSize = getNotesPerOctave(sys, xEdoN)
   return (
     <Layout
       noteIndex={noteIndex}
@@ -413,6 +425,7 @@ export function PianoKeyboard({
       compact={compact}
       names={names}
       handleMouseDown={handleMouseDown}
+      gridSize={gridSize}
     />
   )
 }
