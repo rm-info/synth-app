@@ -422,6 +422,8 @@ function WaveformEditor({
     const container = canvasContainerRef.current
     const canvas = canvasRef.current
     if (!container || !canvas || typeof ResizeObserver === 'undefined') return
+    let raf1 = 0
+    let raf2 = 0
     const ro = new ResizeObserver((entries) => {
       for (const entry of entries) {
         const w = Math.floor(entry.contentRect.width)
@@ -431,11 +433,20 @@ function WaveformEditor({
           canvas.width = w
           canvas.height = h
           drawCanvas(pointsRef.current)
+          cancelAnimationFrame(raf1)
+          cancelAnimationFrame(raf2)
+          raf1 = requestAnimationFrame(() => {
+            raf2 = requestAnimationFrame(() => drawCanvas(pointsRef.current))
+          })
         }
       }
     })
     ro.observe(container)
-    return () => ro.disconnect()
+    return () => {
+      cancelAnimationFrame(raf1)
+      cancelAnimationFrame(raf2)
+      ro.disconnect()
+    }
   }, [drawCanvas])
 
   const getCanvasPoint = (e) => {
@@ -935,14 +946,43 @@ function WaveformEditor({
     }
   }, [p1.x, p1.y, p1h.x, p1h.y, p2.x, p2.y, p3.x, p3.y, p4.x, p4.y, peakY])
 
+  // Sync canvas buffer ↔ container + draw. Sur Firefox, après `canvas.width = N`
+  // le backing store est invalidé et alloué seulement sur le paint suivant —
+  // les ops 2D entre les deux sont silencieusement avalées. Vérifié empiriquement :
+  // `getImageData` retourne (0,0,0,0) en sync post-fillRect, devient correct
+  // ~80ms plus tard. Single rAF tire AVANT le paint allocateur, donc insuffisant.
+  // Double rAF : 1er rAF laisse le paint allocateur passer, 2e rAF dessine
+  // sur un buffer alloué. Chromium n'a pas ce problème mais le double rAF
+  // y est inoffensif (~32ms de latence au mount, invisible).
   useEffect(() => {
+    const canvas = adsrCanvasRef.current
+    const container = adsrContainerRef.current
+    if (canvas && container) {
+      const rect = container.getBoundingClientRect()
+      const w = Math.floor(rect.width)
+      const h = Math.floor(rect.height)
+      if (w && h && (w !== canvas.width || h !== canvas.height)) {
+        canvas.width = w
+        canvas.height = h
+      }
+    }
     drawAdsr()
-  }, [drawAdsr])
+    let raf2 = 0
+    const raf1 = requestAnimationFrame(() => {
+      raf2 = requestAnimationFrame(() => drawAdsr())
+    })
+    return () => {
+      cancelAnimationFrame(raf1)
+      cancelAnimationFrame(raf2)
+    }
+  }, [drawAdsr, activeTab])
 
   useEffect(() => {
     const container = adsrContainerRef.current
     const canvas = adsrCanvasRef.current
     if (!container || !canvas || typeof ResizeObserver === 'undefined') return
+    let raf1 = 0
+    let raf2 = 0
     const ro = new ResizeObserver((entries) => {
       for (const entry of entries) {
         const w = Math.floor(entry.contentRect.width)
@@ -952,11 +992,20 @@ function WaveformEditor({
           canvas.width = w
           canvas.height = h
           drawAdsr()
+          cancelAnimationFrame(raf1)
+          cancelAnimationFrame(raf2)
+          raf1 = requestAnimationFrame(() => {
+            raf2 = requestAnimationFrame(() => drawAdsr())
+          })
         }
       }
     })
     ro.observe(container)
-    return () => ro.disconnect()
+    return () => {
+      cancelAnimationFrame(raf1)
+      cancelAnimationFrame(raf2)
+      ro.disconnect()
+    }
   }, [drawAdsr])
 
   const getAdsrPos = (e) => {

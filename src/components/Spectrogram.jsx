@@ -125,6 +125,8 @@ function Spectrogram({ points, frequency }) {
     const container = containerRef.current
     const canvas = canvasRef.current
     if (!container || !canvas || typeof ResizeObserver === 'undefined') return
+    let raf1 = 0
+    let raf2 = 0
     const ro = new ResizeObserver((entries) => {
       for (const entry of entries) {
         const w = Math.floor(entry.contentRect.width)
@@ -134,11 +136,22 @@ function Spectrogram({ points, frequency }) {
           canvas.width = w
           canvas.height = h
           draw()
+          // Firefox : ops 2D post-resize silencieusement avalées avant le
+          // paint allocateur du backing store. Double rAF rattrape.
+          cancelAnimationFrame(raf1)
+          cancelAnimationFrame(raf2)
+          raf1 = requestAnimationFrame(() => {
+            raf2 = requestAnimationFrame(() => draw())
+          })
         }
       }
     })
     ro.observe(container)
-    return () => ro.disconnect()
+    return () => {
+      cancelAnimationFrame(raf1)
+      cancelAnimationFrame(raf2)
+      ro.disconnect()
+    }
   }, [draw])
 
   return (
