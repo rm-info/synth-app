@@ -1609,6 +1609,32 @@ Phases listées ci-dessous dans l'ordre chronologique d'implémentation.
 
 ## Historique (chronologie inverse)
 
+0000000000000000000000000000. **Iter F — Phase 3.13.5** (2026-05-12) :
+    hotfix canvas vides au mount sur Firefox. Symptôme : ADSR /
+    waveform principal / Spectrogramme ne s'affichaient pas tant que
+    l'utilisateur n'avait pas interagi (slider, hover, etc.) — Edge
+    OK, donc Firefox-spécifique. Diagnostic empirique :
+    `getImageData` retourne `(0,0,0,0)` en sync juste après
+    `ctx.fillRect`, et redevient correct ~80ms plus tard. Cause :
+    après `canvas.width = N`, Firefox invalide le backing store et
+    ne le réalloue qu'au prochain paint cycle ; les ops 2D entre
+    les deux sont silencieusement avalées. Pattern existant
+    (`canvas.width = w; canvas.height = h; draw()` dans le
+    ResizeObserver) déclenchait le bug à chaque mount frais. Le bug
+    était latent depuis F.3 mais ne s'est révélé qu'avec une
+    configuration Firefox+GPU+Linux particulière (cf. reinstall
+    serveur 2026-05-11). Fix : après chaque resize, on conserve le
+    draw immédiat (canvas chaud — param tweaks) et on enchaîne un
+    **double** `requestAnimationFrame` qui redessine après le paint
+    allocateur. Single rAF est insuffisant : il tire au début de la
+    prochaine frame, AVANT le style→layout→paint de cette frame.
+    Double rAF garantit qu'un paint complet (donc l'allocation du
+    backing store) s'est intercalé. Appliqué aux 3 useEffect
+    ResizeObserver concernés (WaveformEditor: canvas waveform +
+    canvas ADSR ; Spectrogram) + à l'effet 1 du draw ADSR
+    (`[drawAdsr, activeTab]`). Coût : ~32ms invisibles au mount
+    sur Chromium, qui n'a pas le bug.
+
 000000000000000000000000000. **Iter F — Phase 9.1** (2026-04-27) :
     micro-affinement éditorial (F ré-ouverte ponctuellement). Ajout
     de `'shrutis-bhatkhande'` et `'shrutis-sarngadeva'` à
@@ -2625,7 +2651,20 @@ Phases listées ci-dessous dans l'ordre chronologique d'implémentation.
       augmenter d'abord le hold. Silhouette de l'enveloppe à
       nouveau strictement fidèle (plus de dérogation visuelle de
       la peak line).
-- ✅ **Phase 4.1** (2026-04-25) — Tempérament Juste intonation
+    - **3.13.5** (2026-05-12) Hotfix Firefox — canvas vides au
+      mount. Sur Firefox, `canvas.width = N` invalide le backing
+      store ; les ops 2D entre le set et le paint allocateur sont
+      silencieusement avalées (`getImageData` retourne `(0,0,0,0)`
+      en sync post-fillRect). Affecte les 3 canvases du Designer
+      (ADSR, waveform, Spectrogramme) qui partagent le pattern
+      `canvas.width = w; canvas.height = h; draw()` dans le
+      ResizeObserver. Fix : draw immédiat (cas canvas chaud — param
+      tweaks sans resize) **+** double `requestAnimationFrame` qui
+      redessine après le paint allocateur de FF. Single rAF
+      insuffisant car son callback tire AVANT le paint de la même
+      frame. Cleanup approprié (cancel des deux rAF). Chromium n'a
+      pas le bug mais le double rAF y est inoffensif (~32ms
+      invisibles au mount).
   majeure centrée sur C. 5e entrée du registre (`'just-major-c'`),
   3e position (entre `pythagorean-12` et `24-tet-equal`). Table
   d'Ellis 5-limit `JUST_MAJOR_RATIOS_FROM_C` en dur (valeurs
