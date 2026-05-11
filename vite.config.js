@@ -7,6 +7,7 @@ export default defineConfig({
   server: {
     host: '0.0.0.0',
     port: 5173,
-    allowedHosts: ['belzebold','belzebold.tail20ed67.ts.net']
+    strictPort: true,
+    allowedHosts: ['belzebold', 'belzebold.tail20ed67.ts.net', 'synth-dev.lab.rm-info.fr']
   }
 })
