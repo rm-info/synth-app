@@ -343,7 +343,10 @@
 }
 
 /* F.8.3.2 : input X-EDO côté Designer (visible quand testTuningSystem ===
- * 'x-edo'). Compact, posé juste sous le sélecteur de système. */
+ * 'x-edo'). Compact, posé juste sous le sélecteur de système.
+ * G.2.1 : padding vertical aligné sur .tuning-system-select (5px) pour
+ * que le champ X-EDO ait exactement la même hauteur que les dropdowns
+ * dans la ligne instrument-system-row. */
 .xedo-control-designer {
   display: inline-flex;
   align-items: center;
@@ -356,13 +359,13 @@
 
 .xedo-input-designer {
   width: 50px;
-  padding: 4px 6px;
+  padding: 5px 6px;
   border: 1px solid #4a4a6a;
   border-radius: 6px;
   background: #1a1a2e;
   color: #d0d0e0;
   font-family: monospace;
-  font-size: 0.85rem;
+  font-size: 0.8rem;
   text-align: center;
   outline: none;
 }
@@ -489,13 +492,14 @@
   width: 100%;
   text-align: center;
 }
-/* Mode réduit (sidebar collapsed) : ligne verticale d'icônes. */
+/* Mode réduit (sidebar collapsed) : ligne verticale d'icônes, compacte —
+   le spacer parent positionne le groupe au bas, juste au-dessus du
+   séparateur et du Play. */
 .designer-actions-icons {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 6px;
-  padding: 8px 0;
+  gap: 4px;
 }
 .actions-icon-btn {
   width: 28px;

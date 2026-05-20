@@ -1,4 +1,5 @@
 import { useReducer, useCallback, useRef, useState, useEffect, useMemo } from 'react'
+import { ChevronLeft, ChevronRight, Library, Play, Square, X } from 'lucide-react'
 import WaveformEditor from './components/WaveformEditor'
 import Timeline from './components/Timeline'
 import Tabs from './components/Tabs'
@@ -1409,6 +1410,7 @@ function App() {
               <aside className={`designer-sidebar${designerSidebarCollapsed ? ' is-collapsed' : ''}`}>
                 {designerSidebarCollapsed ? (
                   <>
+                    {/* Groupe haut : expand + Bibliothèque popover */}
                     <button
                       type="button"
                       className="sidebar-toggle sidebar-toggle-standalone"
@@ -1417,7 +1419,7 @@ function App() {
                       aria-label="Ouvrir le panneau latéral"
                       aria-expanded={false}
                     >
-                      <span className="sidebar-toggle-icon">▶</span>
+                      <ChevronRight size={14} strokeWidth={2.2} />
                     </button>
                     <button
                       type="button"
@@ -1427,8 +1429,13 @@ function App() {
                       title="Ouvrir la Bibliothèque (flottant)"
                       aria-label="Ouvrir la Bibliothèque"
                       aria-expanded={libraryPopoverOpen}
-                    >📚</button>
+                    ><Library size={16} strokeWidth={1.9} /></button>
+                    {/* Spacer flex:1 pour pousser Actions + Play vers le bas */}
+                    <div className="designer-collapsed-spacer" aria-hidden="true" />
+                    {/* Groupe Actions juste au-dessus du Play, séparé visuellement */}
                     {renderActions({ collapsed: true })}
+                    <hr className="designer-collapsed-divider" aria-hidden="true" />
+                    {/* Groupe bas : Play/Stop tout en bas */}
                     <button
                       type="button"
                       className={`designer-collapsed-section-btn mini-play-btn-collapsed${playback.isPlaying ? ' playing' : ''}`}
@@ -1436,7 +1443,11 @@ function App() {
                       disabled={clips.length === 0}
                       title={playback.isPlaying ? 'Arrêter la lecture' : 'Lire la composition'}
                       aria-label={playback.isPlaying ? 'Stop' : 'Play'}
-                    >{playback.isPlaying ? '■' : '▶'}</button>
+                    >
+                      {playback.isPlaying
+                        ? <Square size={14} strokeWidth={2.2} fill="currentColor" />
+                        : <Play size={14} strokeWidth={2.2} fill="currentColor" />}
+                    </button>
                     {libraryPopoverOpen && (
                       <div className="designer-library-popover" ref={libraryPopoverRef} role="dialog" aria-label="Bibliothèque">
                         <header className="designer-library-popover-header">
@@ -1447,7 +1458,7 @@ function App() {
                             onClick={() => setLibraryPopoverOpen(false)}
                             title="Fermer"
                             aria-label="Fermer"
-                          >×</button>
+                          ><X size={14} strokeWidth={2.2} /></button>
                         </header>
                         <div className="designer-library-popover-body">
                           <PatchBank
@@ -1492,7 +1503,7 @@ function App() {
                           aria-label="Réduire le panneau latéral"
                           aria-expanded={true}
                         >
-                          <span className="sidebar-toggle-icon">◀</span>
+                          <ChevronLeft size={14} strokeWidth={2.2} />
                         </button>
                       }
                     />
@@ -1598,11 +1609,11 @@ function App() {
                       type="button"
                       className="sidebar-toggle sidebar-toggle-standalone"
                       onClick={handleToggleBankCollapsed}
-                      title="Ouvrir la banque"
-                      aria-label="Ouvrir la banque"
+                      title="Ouvrir la bibliothèque"
+                      aria-label="Ouvrir la bibliothèque"
                       aria-expanded={false}
                     >
-                      <span className="sidebar-toggle-icon">▶</span>
+                      <ChevronRight size={14} strokeWidth={2.2} />
                     </button>
                     <span className="sidebar-collapsed-label">Bibliothèque</span>
                   </>
@@ -1626,11 +1637,11 @@ function App() {
                           type="button"
                           className="sidebar-toggle sidebar-toggle-inline"
                           onClick={handleToggleBankCollapsed}
-                          title="Réduire la banque"
-                          aria-label="Réduire la banque"
+                          title="Réduire la bibliothèque"
+                          aria-label="Réduire la bibliothèque"
                           aria-expanded={true}
                         >
-                          <span className="sidebar-toggle-icon">◀</span>
+                          <ChevronLeft size={14} strokeWidth={2.2} />
                         </button>
                       }
                     />
@@ -1639,7 +1650,7 @@ function App() {
                       width={composerBankWidth}
                       minWidth={COMPOSER_SIDEBAR_MIN_WIDTH}
                       onChange={handleResizeBank}
-                      ariaLabel="Redimensionner la banque"
+                      ariaLabel="Redimensionner la bibliothèque"
                     />
                   </>
                 )}
@@ -1698,7 +1709,7 @@ function App() {
                       aria-label="Ouvrir les propriétés"
                       aria-expanded={false}
                     >
-                      <span className="sidebar-toggle-icon">◀</span>
+                      <ChevronLeft size={14} strokeWidth={2.2} />
                     </button>
                     <span className="sidebar-collapsed-label">Propriétés</span>
                   </>
@@ -1741,7 +1752,7 @@ function App() {
                           aria-label="Réduire les propriétés"
                           aria-expanded={true}
                         >
-                          <span className="sidebar-toggle-icon">▶</span>
+                          <ChevronRight size={14} strokeWidth={2.2} />
                         </button>
                       }
                     />

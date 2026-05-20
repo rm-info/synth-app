@@ -1,4 +1,5 @@
 import { useRef, useState, useCallback, useEffect, useImperativeHandle, useMemo } from 'react'
+import { Plus, Save, SaveAll, Undo2, Redo2, Upload, Download } from 'lucide-react'
 import { pointsToPeriodicWave, MIN_ATTACK } from '../audio'
 import FreqInput from './FreqInput'
 import NumberInput from './NumberInput'
@@ -1601,7 +1602,7 @@ function WaveformEditor({
             onClick={handleNew}
             title="Nouveau patch (réinitialise l'éditeur)"
             aria-label="Nouveau"
-          >＋</button>
+          ><Plus size={16} strokeWidth={2} /></button>
           {currentPatch && (
             <button
               type="button"
@@ -1609,15 +1610,15 @@ function WaveformEditor({
               onClick={handleUpdate}
               title="Mettre à jour le patch courant"
               aria-label="Mettre à jour"
-            >✓</button>
+            ><Save size={15} strokeWidth={2} /></button>
           )}
           <button
             type="button"
             className="actions-icon-btn save-btn-icon"
             onClick={handleSaveAsNew}
             title={currentPatch ? 'Enregistrer comme nouveau patch' : 'Sauvegarder le patch'}
-            aria-label="Enregistrer"
-          >💾</button>
+            aria-label="Enregistrer comme nouveau"
+          ><SaveAll size={15} strokeWidth={2} /></button>
         </div>
       )
     }

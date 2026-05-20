@@ -42,13 +42,25 @@
   overflow: hidden;
   position: relative; /* pour la SidebarResizer enfant */
 }
-/* Mode réduit : verticale d'icônes empilées (expand / Bibliothèque / Actions
-   icons / Play-Stop) ; pas de SidebarResizer ; même fond/bordure. */
+/* Mode réduit : verticale d'icônes empilées en 3 groupes —
+   haut (expand + Bibliothèque) / spacer flex:1 / bas (Actions icons +
+   séparateur + Play-Stop). Pas de SidebarResizer ; même fond/bordure. */
 .designer-sidebar.is-collapsed {
   align-items: center;
   padding: 10px 0;
-  gap: 8px;
+  gap: 6px;
   overflow: visible; /* le popover Bibliothèque déborde à droite */
+}
+.designer-collapsed-spacer {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+.designer-collapsed-divider {
+  width: 22px;
+  height: 1px;
+  margin: 4px 0;
+  border: none;
+  background: #3a3a5a;
 }
 .designer-collapsed-section-btn {
   width: 28px;

@@ -1,3 +1,4 @@
+import { Play, Square } from 'lucide-react'
 import './MiniPlayer.css'
 
 /**
@@ -28,7 +29,9 @@ function MiniPlayer({
         title={isPlaying ? 'Arrêter' : 'Lire la composition'}
         aria-label={isPlaying ? 'Stop' : 'Play'}
       >
-        {isPlaying ? '■' : '▶'}
+        {isPlaying
+          ? <Square size={14} strokeWidth={2.2} fill="currentColor" />
+          : <Play size={14} strokeWidth={2.2} fill="currentColor" />}
       </button>
       <div
         className="mini-progress-bar"
