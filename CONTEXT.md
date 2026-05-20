@@ -210,22 +210,38 @@ vers la cible) + SET_EDITOR_TEST_TUNING_SYSTEM. Le `tuning-select`
 de la Toolbar passé à max-width 220px pour aérer les 13 entrées.
 Itération F (multi-tempérament) **clôturée** ; reste en backlog
 le redesign optgroup catégorisé du dropdown (B.dropdown-tuning).
-Itération G (Designer UX) **clôturée le 2026-05-20** : refonte
-ciblée suite à saturation du quart bas-gauche. Phase 1.1 :
-extraction des boutons Nouveau/Mettre à jour/Enregistrer vers un
-panneau Actions dans la sidebar gauche, intercalé entre Bibliothèque
-(ex-Banque) et MiniPlayer ; renommages "Paramètres" → "Instrument"
-et "Banque" → "Bibliothèque" (Designer + Composer). Phase 1.2 :
+Itération G (Designer UX) phases 1 + 2 **clôturées le 2026-05-20**.
+Phase 1 (refonte ciblée saturation bas-gauche) :
+1.1 extraction Nouveau/Update/Save vers un panneau Actions dans la
+sidebar gauche entre Bibliothèque et MiniPlayer ; renommages
+"Paramètres" → "Instrument" et "Banque" → "Bibliothèque". 1.2
 sidebar Designer redimensionnable + réductible (calqué Composer),
-mode collapsed avec popover flottant Bibliothèque, volée d'icônes
-Actions, et Play/Stop. Phase 1.3 : zone Instrument refondue —
-sélecteur éclaté en deux dropdowns Catégorie (Actuel/Moderne,
-Historique, Théorique) + Système musical filtré, dette technique
-Libre fermée (bouton Test + raccourci 's', `playFreeNote` qui
-lit `testFrequency` directement). Phase 1.4 : `ResolutionGate`
-au mount — placeholder pleine page si &lt; 924×668, modale soft
-dismissible si &lt; 1740×900. Backlog : adaptation UI pour
-résolutions intermédiaires [924×668..1740×900].
+mode collapsed avec popover flottant Bibliothèque. 1.3 zone
+Instrument refondue (Catégorie + Système musical filtré, Libre
+testable via bouton + raccourci 's'). 1.4 `ResolutionGate` au
+mount.
+Phase 2 (raffinements UX) :
+2.1 Lucide-react ajouté ; tous les glyphes remplacés par icônes ;
+mode collapsed restructuré en 3 groupes (haut Bibliothèque /
+spacer / Actions + séparateur + Play). 2.2 panneau Actions inline
+d'icônes groupées en mode ouvert (patch / historique / import-export
+placeholders) ; Undo/Redo migrés du header Waveform vers Actions.
+2.3 nouveau composant `ShortLabelSelect` (libellé court trigger,
+complet menu) ; les 4 contrôles Catégorie / Système / Repère /
+Tonique unifiés sur une seule ligne flex-wrap, avec X-EDO N inline ;
+rename "Actuel / Moderne" → "Moderne". 2.4 patch porte un
+`defaultTuningSystem` (capturé au save) ; propagation au drop :
+clé maintenue → editor.testTuningSystem ; drop simple → patch.default
+(fallback editor) ; placement contigu → anchor.tuningSystem.
+2.5 OctaveSelector au-dessus du clavier avec libellé "Octaves" ;
+clavier en `flex:1` qui s'étire verticalement selon espace ; ligne
+Note ancrée tout en bas. 2.6 ResolutionGate réactif au resize +
+overlay (app jamais unmount, localStorage et mémoire React
+préservés) ; wording explicite "taille de fenêtre" vs
+"résolution d'écran" + nominaux 1024×768 / 1920×1080 cités.
+Backlog : adaptation UI pour résolutions intermédiaires
+[924×668..1740×900] ; implémentation effective Import/Export
+bibliothèque (boutons placeholders dans Actions).
 
 ## Objectif
 
@@ -283,7 +299,8 @@ synth-app/
         ├── Toolbar.jsx + .css                 # toolbar (Composer)
         ├── Timeline.jsx + .css                # grille + clips + curseur (Composer)
         ├── PropertiesPanel.jsx + .css         # édition du clip sélectionné (Composer)
-        └── ResolutionGate.jsx + .css          # gate résolution au mount (G.1.4)
+        ├── ResolutionGate.jsx + .css          # gate résolution mount + resize (G.1.4 + G.2.6)
+        └── ShortLabelSelect.jsx + .css        # dropdown custom libellé court trigger / complet menu (G.2.3)
 ```
 
 ### Layout
@@ -1144,15 +1161,27 @@ Phases listées ci-dessous dans l'ordre chronologique d'implémentation.
 - Visualiseur oscilloscope temps réel
 - Sidebars Composer resizables et collapsibles (E.7.4-7.5)
 - Sidebar Designer resizable et collapsible avec popover Bibliothèque
-  flottant en mode réduit (G.1.2)
-- Panneau **Actions** dans la sidebar Designer (Nouveau / Mettre à jour /
-  Enregistrer) — extrait de l'ex-zone Paramètres (G.1.1)
+  flottant en mode réduit (G.1.2) — mode réduit organisé en 3 groupes
+  (haut Bibliothèque / spacer / Actions + Play en bas, G.2.1)
+- Panneau **Actions** dans la sidebar Designer en barre d'icônes
+  inline groupées (patch / historique Undo/Redo / Import-Export
+  placeholders) — G.1.1 + G.2.2. Icônes Lucide-react partout (G.2.1).
 - Sélecteur de système musical à deux étages dans le Designer :
-  Catégorie (Moderne / Historique / Théorique) + Système filtré (G.1.3)
+  Catégorie (Moderne / Historique / Théorique) + Système filtré.
+  Composant **ShortLabelSelect** (libellé court trigger / complet menu)
+  appliqué uniformément à Catégorie / Système / Repère / Tonique sur
+  une même ligne flex-wrap (G.1.3 + G.2.3).
 - Système Libre testable (bouton Test + raccourci `s`, dette technique
   fermée en G.1.3)
-- `ResolutionGate` : placeholder pleine page &lt; 924×668, modale soft
-  dismissible &lt; 1740×900 (G.1.4)
+- Patches portent un **defaultTuningSystem** capturé au save —
+  propagation cohérente au drop : key-held → editor, drop simple →
+  patch default, placement contigu → clip référent (G.2.4)
+- Zone clavier : OctaveSelector au-dessus avec libellé "Octaves",
+  clavier en `flex:1` qui s'étire verticalement selon espace, ligne
+  Note ancrée tout en bas (G.2.5)
+- `ResolutionGate` réactif au resize : placeholder pleine page (overlay,
+  app reste montée) &lt; 924×668, modale soft dismissible &lt; 1740×900
+  (G.1.4 + G.2.6)
 - Export WAV PCM 16-bit stéréo
 - Persistance localStorage (pas de migration vers nouveau format en E.1 :
   reset si ancien format détecté)
@@ -1646,6 +1675,48 @@ Phases listées ci-dessous dans l'ordre chronologique d'implémentation.
   prochaine candidate).
 
 ## Historique (chronologie inverse)
+
+000000000000000000000000000000. **Iter G — Phase 2** (2026-05-20) :
+    Raffinements UX en 6 sous-phases livrées le même jour, suite
+    aux retours utilisateur sur la livraison de la phase 1.
+    - **2.1** : ajout dépendance `lucide-react` (validation explicite,
+      tree-shakeable). Tous les glyphes émoji/Unicode remplacés par
+      Lucide (chevrons, Library, Plus/Save/SaveAll, Play/Square, X).
+      Mode collapsed restructuré en 3 groupes verticaux (haut /
+      spacer / Actions+Play). Fix vertical XEdoInput aligné sur
+      .tuning-system-select (padding 5px).
+    - **2.2** : Actions inline d'icônes groupées en mode ouvert
+      (patch / historique / import-export disabled). Undo/Redo migrés
+      du header Waveform vers Actions. Préparation Import/Export
+      placeholders.
+    - **2.3** : nouveau composant `ShortLabelSelect` (trigger
+      libellé court / menu libellé complet) — pourquoi pas
+      `<select>` natif : impossible d'afficher deux textes. Tous
+      les registres enrichis d'un champ `shortLabel`
+      (TUNING_CATEGORIES, TUNING_SYSTEMS, VISUAL_CUE_PATTERNS).
+      4 contrôles Catégorie / Système / Repère / Tonique unifiés
+      sur une ligne flex-wrap. Suppression `.visual-cues-bar`
+      séparée. Rename "Actuel / Moderne" → "Moderne".
+    - **2.4** : `patch.defaultTuningSystem` (capturé au save).
+      Propagation au drop : (1) key-held → editor.system ; (2) drop
+      simple patch sys ≠ editor sys → patch's default avec note
+      degré 0 oct 4 ; (3) drop simple même sys ou patch sans default
+      → editor (rétro-compat). Placement contigu (E.4.2) revisité :
+      utilise `anchor.tuningSystem` + son keyboardMap pour résoudre
+      e.code → idx. Touche non mappée dans le système référent →
+      no-op silencieux.
+    - **2.5** : OctaveSelector au-dessus du clavier (avec libellé
+      "Octaves"). Zone clavier `flex:1` qui s'étire verticalement
+      (override `height: 100% !important` ciblé sur les 5 layouts).
+      Ligne "Note : X Hz — Y" + badge SUSTAIN ancrée tout en bas
+      via `margin-top:auto`. Chaîne flex propre du panneau au
+      clavier (we-params-fields + control-group passés en flex:1).
+    - **2.6** : `ResolutionGate` réactif au `window.resize` en plus
+      de la lecture au mount. App **toujours montée** (transition
+      placeholder devient un overlay z-index 10000) → localStorage
+      jamais effacé + état mémoire React préservé. Wording revu
+      avec mention explicite "Taille de fenêtre" vs "résolution
+      d'écran" + nominaux 1024×768 / 1920×1080 cités.
 
 00000000000000000000000000000. **Iter G — Phase 1** (2026-05-20) :
     Refonte UX du Designer en 4 sous-phases livrées en un jour.
@@ -3313,7 +3384,97 @@ clavier 22 cases, octave selector, boutons save, message slot).
     (screenshot fullsize). En attendant, `onError` cache
     silencieusement `<figure>`.
 
-  **Itération G (Designer UX) clôturée le 2026-05-20.**
+  **Itération G phase 1 (refonte ciblée) clôturée le 2026-05-20.**
+
+- ✅ **Phase 2.1** (2026-05-20) — Icônes Lucide + polish sidebar
+  réduite. Ajout dépendance `lucide-react` (validation utilisateur,
+  tree-shakeable). Tous les glyphes émoji/Unicode du Designer +
+  Composer remplacés par des icônes Lucide (chevrons sidebar,
+  Library popover, Plus/Save/SaveAll Actions, Play/Square MiniPlayer,
+  X popover close). Mode collapsed sidebar Designer restructuré en
+  3 groupes verticaux (haut expand+Library / spacer flex:1 / Actions
+  icons compacts + séparateur hr + Play/Stop tout en bas). Fix
+  vertical : padding XEdoInput aligné sur .tuning-system-select
+  (même hauteur dans instrument-system-row).
+
+- ✅ **Phase 2.2** (2026-05-20) — Actions panel inline + Undo/Redo
+  migration + prep Import/Export. Mode normal du panneau Actions
+  refondu en barre horizontale d'icônes groupées (flex-wrap si
+  étroit) : groupe **patch** (Plus / Save / SaveAll) — groupe
+  **historique** (Undo2 / Redo2, migrés depuis le header Waveform —
+  le header ne porte plus que le toggle Spectro) — groupe
+  **bibliothèque** (Upload / Download, placeholders disabled pour
+  itération future). Style `:disabled` ajouté à `.actions-icon-btn`.
+
+- ✅ **Phase 2.3** (2026-05-20) — ShortLabelSelect + 4 contrôles
+  unifiés + Moderne. Nouveau composant `ShortLabelSelect` (button
+  trigger + ul listbox, fermeture clic-extérieur / Escape / sélection,
+  tooltip = label complet). Pourquoi : un `<select>` natif ne peut
+  pas afficher deux textes distincts dans le trigger vs les options.
+  Tous les registres enrichis d'un champ `shortLabel` —
+  `TUNING_CATEGORIES`, `TUNING_SYSTEMS`, `VISUAL_CUE_PATTERNS`.
+  Zone Instrument refondue : Catégorie / Système musical / Repère /
+  Tonique unifiés sur une seule ligne flex-wrap (largeur min 80 px
+  par champ pour favoriser le 1-ligne sur sidebar large). X-EDO N
+  inline. Suppression de l'ancien `.visual-cues-bar` (Repère + Tonique
+  en ligne séparée). Rename "Actuel / Moderne" → **"Moderne"** —
+  justification : 12-TET est seul dans la catégorie, aucun autre
+  système courant à intégrer aujourd'hui (Bohlen-Pierce et autres
+  xenharmoniques modernes restent classés Théorique).
+
+- ✅ **Phase 2.4** (2026-05-20) — `patch.defaultTuningSystem` +
+  propagation. Un patch capture désormais le `testTuningSystem` du
+  Designer au moment du save (`buildPayload` + reducer SAVE_PATCH /
+  UPDATE_PATCH). `App.handleAddClip` propage avec une priorité à
+  3 cas : (1) touche maintenue (E.4.1) → editor.testTuningSystem ;
+  (2) drop simple, patch.default ≠ editor.system → patch's default
+  (note degré 0 oct 4 ou testFrequency si Libre) ; (3) drop simple,
+  patch sans default ou même système → editor (rétro-compat patches
+  < G.2.4). Placement contigu au clavier (E.4.2) reprend
+  `anchor.tuningSystem` (et son keyboardMap pour résoudre e.code →
+  idx). Touche non mappée dans le système du référent → no-op
+  silencieux. Pas de migration localStorage nécessaire — l'absence
+  de `defaultTuningSystem` est gérée par fallback.
+
+- ✅ **Phase 2.5** (2026-05-20) — Layout vertical Instrument :
+  Octaves au-dessus, clavier flex stretchy, Note en bas.
+  - `we-octave-row` au-dessus du clavier avec libellé "Octaves"
+    devant le `OctaveSelector`. Plus d'octaves planqués en fond de
+    panneau.
+  - `we-keyboard-area` (flex:1) absorbe l'espace vertical restant.
+    Override `height: 100% !important` ciblé sur tous les layouts
+    internes (piano-12, grid-24, grid-x-edo, grid-22-bhatkhande,
+    grid-22-sarngadeva) — leur hauteur intrinsèque fixe (90 à 160 px,
+    inline pour grid-x-edo) est annulée pour permettre l'étirement.
+    Sur grand écran (≥ 1080p), le clavier remplit visuellement la
+    zone, plus d'espace vide.
+  - `we-note-row` (`margin-top: auto`) ancre "Note : 155.6 Hz —
+    D♯3" + badge SUSTAIN tout en bas de l'encadré, peu importe la
+    hauteur du clavier.
+  - `we-params-fields` passe en `flex:1` + `control-group` aussi —
+    chaîne flex propre du panneau au clavier.
+
+- ✅ **Phase 2.6** (2026-05-20) — ResolutionGate réactif au resize.
+  Listener `window.resize` ajouté en plus de la capture au mount,
+  l'état du gate suit dynamiquement la taille de fenêtre. App reste
+  **toujours montée** : transition vers le placeholder est purement
+  visuelle via overlay `z-index:10000` — plus d'unmount/remount.
+  Conséquences :
+    - **localStorage jamais effacé** (manip temporaire de réduction
+      de fenêtre = perte zéro).
+    - **état mémoire React préservé** (drafts ADSR/slider en cours,
+      dirty check, etc.).
+  Wording revu :
+    - "Taille de fenêtre actuelle" pour les dimensions détectées
+      (au lieu de "votre écran" ambigu — l'écran physique peut
+      différer).
+    - Mention explicite des résolutions d'écran standard cibles
+      `NOMINAL_MIN_*` (1024×768) et `NOMINAL_RECOMMENDED_*`
+      (1920×1080), avec explication de la marge ~100/180 px réservée
+      aux barres navigateur + OS qui donne les seuils `MIN_USABLE_*`
+      (924×668) et `RECOMMENDED_*` (1740×900).
+
+  **Itération G phase 2 (raffinements UX) clôturée le 2026-05-20.**
 
 ### Backlog général (à caser quand pertinent)
 
@@ -3326,6 +3487,11 @@ clavier 22 cases, octave selector, boutons save, message slot).
   supérieures (mode "expanded canvas" en plein écran, etc.).
   Cohérence avec les constantes `MIN_USABLE_*` / `RECOMMENDED_*`
   de `ResolutionGate.jsx`.
+- **Import / export bibliothèque** : implémenter les actions des
+  boutons placeholders Upload / Download ajoutés dans le panneau
+  Actions (G.2.2). Probablement export JSON du sous-arbre folder +
+  patches (vs export complet), import avec collision detection
+  + namespacing.
 - Catégorisation optgroup ou cat+système split pour les dropdowns
   Composer (Toolbar + PropertiesPanel) — alignement sur G.1.3
   côté Designer. Hérité de l'ancien backlog F "B.dropdown-tuning".
