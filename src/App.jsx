@@ -1489,32 +1489,34 @@ function App() {
                     </button>
                     {libraryPopoverOpen && (
                       <div className="designer-library-popover" ref={libraryPopoverRef} role="dialog" aria-label="Bibliothèque">
-                        <header className="designer-library-popover-header">
-                          <span>Bibliothèque</span>
-                          <button
-                            type="button"
-                            className="popover-close-btn"
-                            onClick={() => setLibraryPopoverOpen(false)}
-                            title="Fermer"
-                            aria-label="Fermer"
-                          ><X size={14} strokeWidth={2.2} /></button>
-                        </header>
-                        <div className="designer-library-popover-body">
-                          <PatchBank
-                            patches={patches}
-                            soundFolders={soundFolders}
-                            currentPatchId={currentPatchId}
-                            activeTab="designer"
-                            onLoadPatch={(id) => { handleLoadPatch(id); setLibraryPopoverOpen(false) }}
-                            onRenamePatch={handleRenamePatch}
-                            onDeletePatch={handleDeletePatch}
-                            onCreateFolder={handleCreateFolder}
-                            onRenameFolder={handleRenameFolder}
-                            onDeleteFolder={handleDeleteFolder}
-                            onMovePatchToFolder={handleMovePatchToFolder}
-                            onMoveFolder={handleMoveFolder}
-                          />
-                        </div>
+                        {/* G.2.7 : le titre "Bibliothèque" est porté par
+                            PatchBank lui-même (h3 du sound-bank-header).
+                            Le bouton close est passé via headerExtra pour
+                            apparaître à côté de "+ Dossier" — un seul
+                            header, alignement cohérent. */}
+                        <PatchBank
+                          patches={patches}
+                          soundFolders={soundFolders}
+                          currentPatchId={currentPatchId}
+                          activeTab="designer"
+                          onLoadPatch={(id) => { handleLoadPatch(id); setLibraryPopoverOpen(false) }}
+                          onRenamePatch={handleRenamePatch}
+                          onDeletePatch={handleDeletePatch}
+                          onCreateFolder={handleCreateFolder}
+                          onRenameFolder={handleRenameFolder}
+                          onDeleteFolder={handleDeleteFolder}
+                          onMovePatchToFolder={handleMovePatchToFolder}
+                          onMoveFolder={handleMoveFolder}
+                          headerExtra={
+                            <button
+                              type="button"
+                              className="popover-close-btn"
+                              onClick={() => setLibraryPopoverOpen(false)}
+                              title="Fermer la bibliothèque"
+                              aria-label="Fermer"
+                            ><X size={14} strokeWidth={2.2} /></button>
+                          }
+                        />
                       </div>
                     )}
                   </>

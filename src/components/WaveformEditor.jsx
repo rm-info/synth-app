@@ -1597,13 +1597,14 @@ function WaveformEditor({
     if (collapsed) {
       return (
         <div className="designer-actions-icons">
+          {/* Groupe 1 : patch actions */}
           <button
             type="button"
             className="actions-icon-btn new-btn-icon"
             onClick={handleNew}
             title="Nouveau patch (réinitialise l'éditeur)"
             aria-label="Nouveau"
-          ><Plus size={16} strokeWidth={2} /></button>
+          ><Plus size={17} strokeWidth={2} /></button>
           {currentPatch && (
             <button
               type="button"
@@ -1611,7 +1612,7 @@ function WaveformEditor({
               onClick={handleUpdate}
               title="Mettre à jour le patch courant"
               aria-label="Mettre à jour"
-            ><Save size={15} strokeWidth={2} /></button>
+            ><Save size={16} strokeWidth={2} /></button>
           )}
           <button
             type="button"
@@ -1619,7 +1620,45 @@ function WaveformEditor({
             onClick={handleSaveAsNew}
             title={currentPatch ? 'Enregistrer comme nouveau patch' : 'Sauvegarder le patch'}
             aria-label="Enregistrer comme nouveau"
-          ><SaveAll size={15} strokeWidth={2} /></button>
+          ><SaveAll size={16} strokeWidth={2} /></button>
+          {/* Mini-séparateur entre les 3 sous-groupes (cohérent avec le mode
+              ouvert qui sépare patch / historique / import-export). */}
+          {(onUndo || onRedo) && (
+            <>
+              <div className="actions-mini-divider" aria-hidden="true" />
+              <button
+                type="button"
+                className="actions-icon-btn"
+                onClick={onUndo}
+                disabled={!canUndo}
+                title="Annuler (Ctrl+Z)"
+                aria-label="Annuler"
+              ><Undo2 size={16} strokeWidth={2} /></button>
+              <button
+                type="button"
+                className="actions-icon-btn"
+                onClick={onRedo}
+                disabled={!canRedo}
+                title="Rétablir (Ctrl+Shift+Z)"
+                aria-label="Rétablir"
+              ><Redo2 size={16} strokeWidth={2} /></button>
+            </>
+          )}
+          <div className="actions-mini-divider" aria-hidden="true" />
+          <button
+            type="button"
+            className="actions-icon-btn"
+            disabled
+            title="Importer une bibliothèque (à venir)"
+            aria-label="Importer une bibliothèque (à venir)"
+          ><Upload size={16} strokeWidth={2} /></button>
+          <button
+            type="button"
+            className="actions-icon-btn"
+            disabled
+            title="Exporter la bibliothèque (à venir)"
+            aria-label="Exporter la bibliothèque (à venir)"
+          ><Download size={16} strokeWidth={2} /></button>
         </div>
       )
     }

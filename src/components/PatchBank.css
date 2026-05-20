@@ -16,7 +16,10 @@
 
 .sound-bank-header {
   display: flex;
-  align-items: baseline;
+  /* G.2.7 : align-items: center (au lieu de baseline) pour que le bouton
+     close (SVG sans baseline texte) s'aligne proprement avec h3 et
+     +Dossier. */
+  align-items: center;
   justify-content: space-between;
   margin-bottom: 10px;
   padding-bottom: 8px;
@@ -35,7 +38,7 @@
 
 .sound-bank-header-right {
   display: flex;
-  align-items: baseline;
+  align-items: center;
   gap: 8px;
 }
 

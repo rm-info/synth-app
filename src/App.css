@@ -44,18 +44,30 @@
 }
 /* Mode réduit : verticale d'icônes empilées en 3 groupes —
    haut (expand + Bibliothèque) / spacer flex:1 / bas (Actions icons +
-   séparateur + Play-Stop). Pas de SidebarResizer ; même fond/bordure. */
+   séparateur + Play-Stop). Pas de SidebarResizer ; même fond/bordure.
+   G.2.7 : tous les boutons unifiés à 30×30 pour cohérence visuelle. */
 .designer-sidebar.is-collapsed {
   align-items: center;
   padding: 10px 0;
   gap: 6px;
   overflow: visible; /* le popover Bibliothèque déborde à droite */
 }
+/* Unification : tous les boutons icônes en collapsed font 30×30 (au lieu
+   du mix 22 sidebar-toggle / 28 actions-icon-btn / 28 designer-collapsed-
+   section-btn). Scopé à `.designer-sidebar.is-collapsed` pour ne pas
+   toucher le Composer collapsed ni le mode ouvert. */
+.designer-sidebar.is-collapsed .sidebar-toggle,
+.designer-sidebar.is-collapsed .designer-collapsed-section-btn,
+.designer-sidebar.is-collapsed .actions-icon-btn {
+  width: 30px;
+  height: 30px;
+}
 .designer-collapsed-spacer {
   flex: 1 1 auto;
   min-height: 0;
 }
-.designer-collapsed-divider {
+.designer-collapsed-divider,
+.actions-mini-divider {
   width: 22px;
   height: 1px;
   margin: 4px 0;
@@ -116,14 +128,14 @@
 
 /* Popover Bibliothèque : panneau flottant ancré à droite du collapsed
    sidebar. position:absolute par rapport à .designer-sidebar.is-collapsed
-   (position:relative). Largeur 320px ; hauteur bornée pour rester
-   dans le viewport (les très petites résolutions seront filtrées par la
-   modale/placeholder de phase 4). */
+   (position:relative). G.2.7 : largeur portée à 480px (étalé librement
+   au-dessus du reste), un seul titre via PatchBank.headerExtra. Hauteur
+   bornée pour rester dans le viewport. */
 .designer-library-popover {
   position: absolute;
   top: 0;
   left: calc(100% + 6px);
-  width: 320px;
+  width: 480px;
   max-height: min(80vh, 600px);
   background: #1a1a2e;
   border: 1px solid #3a3a5a;
@@ -132,26 +144,9 @@
   display: flex;
   flex-direction: column;
   z-index: 50;
-}
-.designer-library-popover-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 8px 12px;
-  border-bottom: 1px solid #3a3a5a;
-  font-size: 0.8rem;
-  color: #a0a0c0;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  font-weight: 600;
-}
-.designer-library-popover-body {
-  flex: 1;
-  min-height: 0;
-  display: flex;
   overflow: hidden;
 }
-.designer-library-popover-body > .sound-bank-panel {
+.designer-library-popover > .sound-bank-panel {
   flex: 1;
   min-height: 0;
   border: none;

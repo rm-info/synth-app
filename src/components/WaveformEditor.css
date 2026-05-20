@@ -235,12 +235,17 @@
 }
 
 /* Ligne Octaves au-dessus du clavier. Libellé "Octaves" suivi du
-   selector — display flex inline pour aligner verticalement. */
+   selector — display flex inline pour aligner verticalement.
+   G.2.7 : marge inférieure ajoutée (espace visuel avec le clavier),
+   line-height fixe sur le label (centrage vertical robuste), et
+   OctaveSelector étendu en flex:1 — chaque bouton remplit sa part
+   de largeur. */
 .we-octave-row {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
   flex-shrink: 0;
+  margin-bottom: 8px;
 }
 .we-octave-label {
   font-size: 0.72rem;
@@ -248,6 +253,24 @@
   letter-spacing: 0.06em;
   color: #8a8fa8;
   font-weight: 600;
+  line-height: 1;
+  flex-shrink: 0;
+}
+.we-octave-row .octave-selector {
+  flex: 1;
+  /* Override : la règle globale ajoute un margin-top:8px hérité de
+     l'ancien placement sous-clavier. Plus pertinent ici. */
+  margin-top: 0;
+  flex-wrap: nowrap;
+  gap: 3px;
+}
+.we-octave-row .octave-selector .octave-btn {
+  flex: 1;
+  /* Lever les caps : min-width:28px et max-width:40px de la règle
+     globale. Ici on veut une vraie répartition full-width des 11
+     boutons d'octave. */
+  min-width: 0;
+  max-width: none;
 }
 
 /* Ligne Note (sous le clavier) — ancrée tout en bas du control-group.
@@ -423,6 +446,11 @@
 
 .xedo-input-designer {
   width: 50px;
+  /* G.2.7 : box-sizing + min-height explicites pour matcher exactement la
+     hauteur du .short-select-trigger (input HTML calcule sa hauteur
+     différemment des boutons par défaut). */
+  box-sizing: border-box;
+  min-height: 28px;
   padding: 5px 6px;
   border: 1px solid #4a4a6a;
   border-radius: 6px;
@@ -430,6 +458,7 @@
   color: #d0d0e0;
   font-family: monospace;
   font-size: 0.8rem;
+  line-height: 1;
   text-align: center;
   outline: none;
 }

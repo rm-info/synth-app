@@ -587,7 +587,7 @@ export const TUNING_SYSTEMS = {
   '24-tet-cairo-1932': {
     id: '24-tet-cairo-1932',
     label: 'Maqâmât Le Caire 1932 (24 hauteurs mesurées, aly-abbara.com)',
-    shortLabel: 'Caire 32',
+    shortLabel: 'Maqâmât',
     notesPerOctave: 24,
     noteNames: TWENTYFOUR_NOTE_NAMES,
     freq: twentyFourTetCairo1932Freq,
