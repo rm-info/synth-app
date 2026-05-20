@@ -9,19 +9,19 @@
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  /* G.2.8 : min-height 30px + line-height 1.2 + padding restauré à 5px
-     pour libérer la place des descenders (j, g, p, y) tronqués en
-     line-height:1. Mêmes valeurs sur .xedo-input-designer →
-     hauteurs strictement identiques. */
+  /* G.2.9 : min-height 32 + line-height 1.4 — donne assez d'espace
+     vertical pour que les descenders (j, g, p, q, y) ne soient pas
+     coupés. Mêmes valeurs sur .xedo-input-designer → hauteurs
+     strictement identiques. */
   box-sizing: border-box;
-  min-height: 30px;
+  min-height: 32px;
   padding: 5px 6px 5px 8px;
   border: 1px solid #4a4a6a;
   border-radius: 6px;
   background: #1a1a2e;
   color: #d0d0e0;
   font-size: 0.8rem;
-  line-height: 1.2;
+  line-height: 1.4;
   font-family: inherit;
   cursor: pointer;
   width: 100%;
@@ -74,6 +74,7 @@
 .short-select-option {
   padding: 6px 10px;
   font-size: 0.82rem;
+  line-height: 1.4;
   color: #d0d0e0;
   cursor: pointer;
   white-space: nowrap;

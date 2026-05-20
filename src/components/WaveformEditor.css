@@ -376,9 +376,23 @@
 }
 /* Le ShortLabelSelect prend 100% de son champ (cohérent avec le
    <select> qu'il remplace) ; tonique étant numérique court, on borne
-   son trigger à une largeur minuscule pour densité maximale. */
-.instrument-system-field .short-select {
+   son trigger à une largeur minuscule pour densité maximale.
+   G.2.9 : margin-top:auto sur le trigger / xedo input pour les coller
+   au bas de leur champ. Sans ça, quand un libellé wrappe à 2 lignes
+   (sidebar étroite, ex. "SYSTÈME MUSICAL"), le champ devient plus
+   haut, les autres champs étirent à la même hauteur mais leur trigger
+   reste collé au haut → décalage visuel de ~8-14px sous les
+   dropdowns courts. Avec margin-top:auto, tous les triggers
+   s'alignent au bas du champ, garantissant un alignement horizontal
+   indépendant des longueurs de label. */
+.instrument-system-field .short-select,
+.instrument-system-field .xedo-input-designer {
   width: 100%;
+  margin-top: auto;
+}
+.instrument-system-field.instrument-xedo-field .xedo-input-designer {
+  /* Le champ X est compact (width auto, pas 100%). Override. */
+  width: 50px;
 }
 .instrument-system-field.instrument-tonic-field .short-select-trigger {
   min-width: 52px;
@@ -450,11 +464,10 @@
 
 .xedo-input-designer {
   width: 50px;
-  /* G.2.8 : alignées sur .short-select-trigger — min-height 30px,
-     padding 5px, line-height 1.2 (les descenders n'ont rien à voir ici
-     mais on garde la cohérence). */
+  /* G.2.9 : alignées sur .short-select-trigger — min-height 32px,
+     padding 5px, line-height 1.4 (cohérence des hauteurs visuelles). */
   box-sizing: border-box;
-  min-height: 30px;
+  min-height: 32px;
   padding: 5px 6px;
   border: 1px solid #4a4a6a;
   border-radius: 6px;
@@ -462,7 +475,7 @@
   color: #d0d0e0;
   font-family: monospace;
   font-size: 0.8rem;
-  line-height: 1.2;
+  line-height: 1.4;
   text-align: center;
   outline: none;
 }
