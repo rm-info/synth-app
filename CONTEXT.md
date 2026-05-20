@@ -210,6 +210,22 @@ vers la cible) + SET_EDITOR_TEST_TUNING_SYSTEM. Le `tuning-select`
 de la Toolbar passé à max-width 220px pour aérer les 13 entrées.
 Itération F (multi-tempérament) **clôturée** ; reste en backlog
 le redesign optgroup catégorisé du dropdown (B.dropdown-tuning).
+Itération G (Designer UX) **clôturée le 2026-05-20** : refonte
+ciblée suite à saturation du quart bas-gauche. Phase 1.1 :
+extraction des boutons Nouveau/Mettre à jour/Enregistrer vers un
+panneau Actions dans la sidebar gauche, intercalé entre Bibliothèque
+(ex-Banque) et MiniPlayer ; renommages "Paramètres" → "Instrument"
+et "Banque" → "Bibliothèque" (Designer + Composer). Phase 1.2 :
+sidebar Designer redimensionnable + réductible (calqué Composer),
+mode collapsed avec popover flottant Bibliothèque, volée d'icônes
+Actions, et Play/Stop. Phase 1.3 : zone Instrument refondue —
+sélecteur éclaté en deux dropdowns Catégorie (Actuel/Moderne,
+Historique, Théorique) + Système musical filtré, dette technique
+Libre fermée (bouton Test + raccourci 's', `playFreeNote` qui
+lit `testFrequency` directement). Phase 1.4 : `ResolutionGate`
+au mount — placeholder pleine page si &lt; 924×668, modale soft
+dismissible si &lt; 1740×900. Backlog : adaptation UI pour
+résolutions intermédiaires [924×668..1740×900].
 
 ## Objectif
 
@@ -266,7 +282,8 @@ synth-app/
         ├── Toast.jsx + .css                   # toast d'erreur (undo cross-onglet)
         ├── Toolbar.jsx + .css                 # toolbar (Composer)
         ├── Timeline.jsx + .css                # grille + clips + curseur (Composer)
-        └── PropertiesPanel.jsx + .css         # édition du clip sélectionné (Composer)
+        ├── PropertiesPanel.jsx + .css         # édition du clip sélectionné (Composer)
+        └── ResolutionGate.jsx + .css          # gate résolution au mount (G.1.4)
 ```
 
 ### Layout
@@ -408,10 +425,21 @@ Seuls les **placements timeline** s'appellent "clips".
   **uniquement la preview** (champs `testTuningSystem`, `testNoteIndex`,
   `testOctave`, `testFrequency` de `state.editor`). Ils ne sont pas copiés
   dans le patch sauvegardé — c'est le clip qui portera la hauteur au drop.
-  Dropdown "Système de test" (12-TET / Libre) bascule entre les deux UIs :
-  - 12-TET : clavier piano 12 notes + 11 boutons d'octave, affichage
-    "Note : X Hz — A4".
-  - Libre : slider log 2^4-2^15 Hz + FreqInput éditable.
+  Sélecteur "Système musical" (G.1.3) éclaté en deux dropdowns —
+  Catégorie (Moderne / Historique / Théorique) + Système filtré.
+  Bascule entre deux UIs selon le système choisi :
+  - Système-based (12-TET, pythag, juste, etc.) : clavier piano /
+    grid 24 / grid-x-edo / grid-22 + 11 boutons d'octave + affichage
+    "Note : X Hz — N4".
+  - Libre : slider log 2^4-2^15 Hz + FreqInput éditable + bouton
+    **Test** (canal mono via `playFreeNote()` lisant `testFrequency`
+    direct, raccourci `s`).
+- Children-API (4 slots) : `renderCanvasArea`, `renderParamsArea` (≡
+  zone "Instrument" depuis G.1.1), `renderAdsrArea`, `renderActions`
+  ({collapsed}). Le panneau Actions (Nouveau / Mettre à jour /
+  Enregistrer + saveMessage) est placé par App.jsx dans la sidebar
+  gauche entre la Bibliothèque et le MiniPlayer, séparé de la zone
+  Instrument (G.1.1).
 - Éditeur AHDSR **visuel** 380×120 : 4 poignées draggables — P1
   (attack+amplitude en 2D), P1h (hold seul en 1D depuis F.3.13.1),
   P2 (decay+sustain en 2D), P4 (release seul en 1D). Courbe cyan +
@@ -1115,6 +1143,16 @@ Phases listées ci-dessous dans l'ordre chronologique d'implémentation.
 - Zoom horizontal + vertical (hauteur de piste modifiable)
 - Visualiseur oscilloscope temps réel
 - Sidebars Composer resizables et collapsibles (E.7.4-7.5)
+- Sidebar Designer resizable et collapsible avec popover Bibliothèque
+  flottant en mode réduit (G.1.2)
+- Panneau **Actions** dans la sidebar Designer (Nouveau / Mettre à jour /
+  Enregistrer) — extrait de l'ex-zone Paramètres (G.1.1)
+- Sélecteur de système musical à deux étages dans le Designer :
+  Catégorie (Moderne / Historique / Théorique) + Système filtré (G.1.3)
+- Système Libre testable (bouton Test + raccourci `s`, dette technique
+  fermée en G.1.3)
+- `ResolutionGate` : placeholder pleine page &lt; 924×668, modale soft
+  dismissible &lt; 1740×900 (G.1.4)
 - Export WAV PCM 16-bit stéréo
 - Persistance localStorage (pas de migration vers nouveau format en E.1 :
   reset si ancien format détecté)
@@ -1608,6 +1646,52 @@ Phases listées ci-dessous dans l'ordre chronologique d'implémentation.
   prochaine candidate).
 
 ## Historique (chronologie inverse)
+
+00000000000000000000000000000. **Iter G — Phase 1** (2026-05-20) :
+    Refonte UX du Designer en 4 sous-phases livrées en un jour.
+    Déclencheur : saturation du quart bas-gauche (zone Paramètres
+    cumulant dropdown 14 entrées, clavier 22 cases, boutons save,
+    visual cues bar, X-EDO banner, save-message-slot).
+    - **1.1** : extraction du groupe Nouveau/Mettre à jour/
+      Enregistrer + saveMessage dans un panneau Actions ajouté à
+      la sidebar gauche entre Bibliothèque (ex-Banque) et MiniPlayer.
+      Children-API `WaveformEditor` étendu d'un slot `renderActions
+      ({collapsed})` — le panneau Actions n'est plus mélangé avec
+      les paramètres de test. Renommages "Paramètres" → "Instrument"
+      et "Banque" → "Bibliothèque" (Designer + Composer).
+    - **1.2** : sidebar Designer redimensionnable (SidebarResizer
+      à droite) + réductible (toggle ◀/▶ calqué Composer). Mode
+      collapsed (36px) avec verticale d'icônes — expand, Bibliothèque
+      (📚, ouvre un **popover flottant** à droite ancré sur
+      `position:absolute`, fermable par clic en dehors / Escape /
+      bouton ×), Actions icons (＋ ✓ 💾 via `renderActions(
+      {collapsed:true})`), Play/Stop. Nouveau state reducer
+      `designerSidebarWidth` (clamp min 200, défaut 220) +
+      `designerSidebarCollapsed`. Suppression du
+      `grid-template-columns: 200px 1fr` hard-codé dans le
+      `@media (max-width: 1100px)` (incompatible avec la CSS var
+      `--designer-sidebar-width`).
+    - **1.3** : zone Instrument refondue. Sélecteur de système
+      éclaté en deux dropdowns Catégorie / Système musical filtré.
+      Catégorisation des 13 systèmes du registre via
+      `TUNING_CATEGORIES` + `getCategoryOfSystem(systemId)` dans
+      `tuningSystems.js` : Moderne (12-TET) / Historique (9 systèmes
+      ancrés culturellement) / Théorique (24-TET équipartite,
+      X-EDO, Libre). Dette technique Libre fermée : nouveau
+      `playFreeNote()` / `releaseFreeNote()` qui lisent
+      `testFrequency` directement (canal mono `freeVoiceRef`),
+      bouton **Test** sous le slider Libre + raccourci **`s`**
+      (capté avant le lookup keyboardMap pour ne pas être happé
+      par 12-TET=C).
+    - **1.4** : `ResolutionGate` au mount (`useState(init)` une
+      seule fois, **pas réactif au resize**). < 924×668 →
+      placeholder pleine page (titre, message, `<img
+      src="/preview-1920x1080.png">` avec `onError` qui masque la
+      figure tant que l'image n'est pas fournie). < 1740×900 →
+      modale soft dismissible (session-only). Sinon passe-plat.
+      Constantes `MIN_USABLE_{WIDTH,HEIGHT}` /
+      `RECOMMENDED_{WIDTH,HEIGHT}` exportées pour la phase
+      d'adaptation intermédiaire en backlog.
 
 0000000000000000000000000000. **Iter F — Phase 3.13.5** (2026-05-12) :
     hotfix canvas vides au mount sur Firefox. Symptôme : ADSR /
@@ -3119,7 +3203,132 @@ Phases listées ci-dessous dans l'ordre chronologique d'implémentation.
 
   **Itération F (multi-tempérament) clôturée le 2026-04-27.**
 
+### Itération G (Designer UX) — clôturée 2026-05-20
+
+Refonte ciblée de l'UI du Designer suite à saturation visuelle du
+quart bas-gauche (zone Paramètres trop chargée : 14 entrées dropdown,
+clavier 22 cases, octave selector, boutons save, message slot).
+
+- ✅ **Phase 1.1** (2026-05-20) — Sidebar Designer réorganisée.
+  - Extraction du groupe `Nouveau / Mettre à jour / Enregistrer`
+    + slot message du bas de la zone Paramètres vers un nouveau
+    panneau **Actions** dans la sidebar gauche, intercalé entre
+    PatchBank et MiniPlayer (séparateurs `border-top`, bord unifié
+    autour des trois enfants).
+  - Le children-API de `WaveformEditor` expose un 4ᵉ slot
+    `renderActions({ collapsed })` — App.jsx place `renderActions()`
+    entre la Bibliothèque et le MiniPlayer ; `handleNew /
+    handleUpdate / handleSaveAsNew` + `saveMessage` restent
+    encapsulés dans le composant. Mode `collapsed` (anticipation
+    1.2) renvoie une volée d'icônes ＋ ✓ 💾 au lieu des libellés.
+  - Renommages :
+    - "Paramètres" → **"Instrument"** (we-area-title)
+    - "Banque" → **"Bibliothèque"** (`PatchBank.jsx` ×2 +
+      collapsed-label Composer dans `App.jsx`)
+  - Cohérent Designer + Composer (les renames dans la Composer
+    portent uniquement sur l'affichage "Bibliothèque" — pas de
+    rename "Paramètres" côté Composer, le terme n'y existe pas).
+
+- ✅ **Phase 1.2** (2026-05-20) — Sidebar Designer redimensionnable
+  et réductible (calqué Composer).
+  - Drag-resize via `SidebarResizer side="right"` ; toggle ◀/▶
+    dans le `headerExtra` de PatchBank en mode ouvert, standalone
+    en mode fermé.
+  - État persisté : `designerSidebarWidth` (clamp min 200,
+    défaut 220) et `designerSidebarCollapsed` (bool). Actions
+    reducer `SET_DESIGNER_SIDEBAR_WIDTH` / `SET_DESIGNER_SIDEBAR_COLLAPSED`,
+    constantes `DESIGNER_SIDEBAR_{MIN,DEFAULT,COLLAPSED}_WIDTH`
+    (200 / 220 / 36).
+  - Mode collapsed (36 px) : verticale d'icônes empilées —
+    expand (▶), Bibliothèque (📚, ouvre un popover flottant),
+    Actions icons (via `renderActions({collapsed:true})`),
+    Play/Stop (▶/■). Couleurs Play/Stop empruntées au MiniPlayer
+    (vert/rouge actif).
+  - **Popover Bibliothèque** (mode collapsed) : panneau
+    `position:absolute` ancré à droite de la sidebar
+    (`left: calc(100% + 6px)`, width 320 px), fermé par clic en
+    dehors (`document.mousedown` avec exception sur le trigger
+    et le panneau), Escape, ou bouton ×. État `libraryPopoverOpen`
+    local React (UI éphémère, pas dans le reducer). Charge un
+    patch fait fermer le popover automatiquement.
+  - App.css : suppression du `grid-template-columns: 200px 1fr`
+    hard-codé dans `@media (max-width: 1100px)` — incompatible
+    avec la CSS var `--designer-sidebar-width`. Le clamp min
+    reste assuré par le reducer.
+
+- ✅ **Phase 1.3** (2026-05-20) — Refonte zone Instrument.
+  - Renommage "Système de test" → **"Système musical"**.
+  - Sélecteur de système éclaté en **deux dropdowns** :
+    - "Catégorie" (Actuel/Moderne, Historique, Théorique)
+    - "Système musical" filtré dynamiquement par la catégorie
+  - Ligne `instrument-system-row` en flex-wrap : sur sidebar
+    large les deux dropdowns sont côte à côte, sinon empilés.
+    Input X-EDO N reste inline dans la même ligne quand
+    `'x-edo'` est sélectionné (label `X` compact).
+  - Catégorisation des 13 systèmes (`TUNING_CATEGORIES` +
+    `getCategoryOfSystem(systemId)` dans `tuningSystems.js`) :
+    - **Moderne** : 12-TET
+    - **Historique** : pythagoricien, juste-majeure, mésotonique
+      1/4 comma, Werckmeister III, Le Caire 1932, slendro, pelog,
+      shrutis Bhatkhande, shrutis Sarngadeva
+    - **Théorique** : 24-TET équipartite, X-EDO, Libre
+  - **Système Libre testable** (dette technique de longue date
+    fermée) : `playFreeNote()` / `releaseFreeNote()` nouveaux,
+    mêmes mécanismes que `playInstrumentNote` (ADSR, retrigger
+    fade, périodique), mais lisant directement `testFrequency`
+    au lieu de `sys.freq()`. Canal mono unique stocké dans
+    `freeVoiceRef` (un seul Test à la fois suffit). Bouton **Test**
+    inséré sous le slider Libre, raccourci clavier **`s`**
+    (capté avant le lookup keyboardMap dans le handler, sinon
+    KeyS=C en 12-TET interfère). `mouseDown/Up/Leave` gèrent
+    le release même si la souris quitte le bouton.
+  - **Backlog inscrit** : appliquer la même catégorisation aux
+    dropdowns Composer (Toolbar + PropertiesPanel) — restent
+    flat pour l'instant. Cohérent avec l'ancien backlog F
+    "B.dropdown-tuning".
+
+- ✅ **Phase 1.4** (2026-05-20) — `ResolutionGate` (gate de
+  résolution au chargement).
+  - Nouveau composant `src/components/ResolutionGate.jsx`,
+    wrap `<App />` dans `main.jsx`.
+  - Détection au mount (lecture une fois de
+    `window.innerWidth/Height` via `useState(init)`), **pas
+    réactif au resize** — décision délibérée pour ne pas
+    interrompre une session en cours.
+  - Trois branches :
+    - `w < 924 || h < 668` → placeholder pleine page (titre,
+      message, figure `<img src="/preview-1920x1080.png">`
+      avec `onError` qui masque la figure si l'image n'est pas
+      encore fournie). App non chargée.
+    - `w < 1740 || h < 900` (mais ≥ minimum) → modale soft
+      dismissible ("Compris, continuer"). App utilisable
+      derrière. Dismiss session-only (pas persisté — re-shows
+      au reload).
+    - Sinon → passe-plat.
+  - Constantes exportées : `MIN_USABLE_WIDTH=924`,
+    `MIN_USABLE_HEIGHT=668`, `RECOMMENDED_WIDTH=1740`,
+    `RECOMMENDED_HEIGHT=900` — réutilisables par la phase
+    d'adaptation intermédiaire en backlog.
+  - Image preview `public/preview-1920x1080.png` à fournir
+    (screenshot fullsize). En attendant, `onError` cache
+    silencieusement `<figure>`.
+
+  **Itération G (Designer UX) clôturée le 2026-05-20.**
+
 ### Backlog général (à caser quand pertinent)
+
+- **Adaptation UI résolutions intermédiaires [924×668..1740×900]**
+  (G.1.4 ouvre la voie) : layout repensé pour viewports plus
+  étroits — dropdowns compactés, clavier scrollable horizontal,
+  sidebars repliables au seuil viewport, étirement intelligent
+  des zones Designer/Composer. Les mêmes mécanismes (resize,
+  collapse, popovers) pourront aussi enrichir les résolutions
+  supérieures (mode "expanded canvas" en plein écran, etc.).
+  Cohérence avec les constantes `MIN_USABLE_*` / `RECOMMENDED_*`
+  de `ResolutionGate.jsx`.
+- Catégorisation optgroup ou cat+système split pour les dropdowns
+  Composer (Toolbar + PropertiesPanel) — alignement sur G.1.3
+  côté Designer. Hérité de l'ancien backlog F "B.dropdown-tuning".
 
 - Spectrogramme avancé : toggle dB / linéaire, zoom, FFT temps réel
   pendant la lecture, affichage post-ADSR
