@@ -899,6 +899,10 @@ function WaveformEditor({
     if (saveMsgTimerRef.current) clearTimeout(saveMsgTimerRef.current)
   }, [])
 
+  // iter G phase 2.4 : un patch porte désormais son **système musical par
+  // défaut** (testTuningSystem courant de l'éditeur au moment de l'enreg).
+  // Utilisé par App.handleAddClip pour proposer ce système par défaut quand
+  // on tire le patch depuis la bibliothèque. Écrasable via Propriétés.
   const buildPayload = (name) => ({
     name,
     preset: activePreset,
@@ -909,6 +913,7 @@ function WaveformEditor({
     decay,
     sustain,
     release,
+    defaultTuningSystem: testTuningSystem,
   })
 
   const handleSaveAsNew = () => {

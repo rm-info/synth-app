@@ -1064,6 +1064,8 @@ export function reducer(state, action) {
     // ----- Designer (undoable) -----
     case 'SAVE_PATCH': {
       // payload: { patchData (sans id/color) }
+      // iter G phase 2.4 : patchData porte aussi defaultTuningSystem
+      // (système musical actif au moment de l'enregistrement).
       const { patchData } = action.payload
       const newCounter = state.patchCounter + 1
       const id = `patch-${newCounter}`
@@ -1085,6 +1087,7 @@ export function reducer(state, action) {
             decay: patchData.decay ?? DEFAULT_ADSR.decay,
             sustain: patchData.sustain ?? DEFAULT_ADSR.sustain,
             release: patchData.release ?? DEFAULT_ADSR.release,
+            defaultTuningSystem: patchData.defaultTuningSystem ?? '12-TET',
             folderId: null,
           },
         ],
@@ -1107,6 +1110,10 @@ export function reducer(state, action) {
                 decay: patchData.decay,
                 sustain: patchData.sustain,
                 release: patchData.release,
+                // iter G phase 2.4 : on capture aussi le système courant.
+                // Si patchData.defaultTuningSystem absent (rétro-compat
+                // call site oublié), on préserve la valeur existante.
+                defaultTuningSystem: patchData.defaultTuningSystem ?? p.defaultTuningSystem ?? '12-TET',
               }
             : p,
         ),

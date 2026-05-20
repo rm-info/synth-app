@@ -360,6 +360,18 @@ function App() {
         : null
       if (!anchor) return // silent : pas d'ancre → rien à placer
 
+      // iter G phase 2.4 : le placement contigu reprend le **système du
+      // clip référent** (pas celui de l'éditeur). On ré-résout e.code via
+      // le keyboardMap du système de l'anchor : si la touche n'y est pas
+      // mappée, no-op silencieux. Cas Libre : la touche 's' déclenche
+      // un test côté Designer mais ne produit pas de clip contigu (les
+      // clips Libre se placent à la souris).
+      if (anchor.tuningSystem === 'free') return
+      const anchorSys = getTuningSystem(anchor.tuningSystem)
+      const anchorMap = getKeyboardMap(anchorSys, xEdoN)
+      const anchorIdx = anchorMap?.[e.code]
+      if (anchorIdx === undefined) return
+
       const endBeat = (anchor.measure - 1) * BEATS_PER_MEASURE + anchor.beat + anchor.duration
       const snapped = Math.round(endBeat / 0.125) * 0.125
       const duration = defaultClipDuration
@@ -377,8 +389,8 @@ function App() {
           measure,
           beat,
           duration,
-          tuningSystem: editor.testTuningSystem,
-          noteIndex: idx,
+          tuningSystem: anchor.tuningSystem,
+          noteIndex: anchorIdx,
           octave: editor.testOctave,
           frequency: null,
           extraMeasures,
@@ -709,21 +721,48 @@ function App() {
   }, [])
 
   // Drop d'un patch sur la timeline. Priorité des hauteurs :
-  //   1. Touche de note physique maintenue (E.4.1) → 12-TET à cette note +
-  //      octave courante. La touche surpasse le système courant de l'éditeur
-  //      (explicite user intent).
-  //   2. Sinon, fallback sur la note du clavier de test de l'éditeur (E.1).
+  //   1. Touche de note physique maintenue (E.4.1) → système courant de
+  //      l'éditeur à cette note + octave courante. La touche surpasse le
+  //      système par défaut du patch (explicite user intent).
+  //   2. Sinon (drop simple depuis la bibliothèque) :
+  //      - si le patch a un \`defaultTuningSystem\` (iter G phase 2.4),
+  //        on l'utilise. Pour la note : si même système que l'éditeur,
+  //        on prend la note de test (continuité de geste designer→drag) ;
+  //        sinon on prend la note de test par défaut (degré 0, octave 4)
+  //        ou la fréquence par défaut si Libre.
+  //      - rétro-compat patches < G.2.4 sans defaultTuningSystem :
+  //        fallback ancien comportement (editor's test fields).
   const handleAddClip = useCallback(
     (patchId, measure, beat, duration, trackId = DEFAULT_TRACK_ID) => {
       const keyHeld = pressedNoteKeyRef.current !== null
-      const note = keyHeld
-        ? {
-            tuningSystem: editor.testTuningSystem,
-            noteIndex: pressedNoteKeyRef.current,
-            octave: editor.testOctave,
-            frequency: null,
+      let note
+      if (keyHeld) {
+        note = {
+          tuningSystem: editor.testTuningSystem,
+          noteIndex: pressedNoteKeyRef.current,
+          octave: editor.testOctave,
+          frequency: null,
+        }
+      } else {
+        const patch = patches.find((p) => p.id === patchId)
+        const patchSys = patch?.defaultTuningSystem
+        if (patchSys && patchSys !== editor.testTuningSystem) {
+          // Patch dans un système différent de l'éditeur : on respecte
+          // le système du patch. Note par défaut : degré 0 octave 4
+          // (cohérent avec DEFAULT_EDITOR.testNoteIndex / testOctave),
+          // ou freq de référence si Libre (testFrequency par défaut).
+          if (patchSys === 'free') {
+            note = { tuningSystem: 'free', noteIndex: null, octave: null, frequency: editor.testFrequency }
+          } else {
+            note = { tuningSystem: patchSys, noteIndex: 0, octave: 4, frequency: null }
           }
-        : editorTestNoteFields(editor)
+        } else {
+          // Patch sans defaultTuningSystem (rétro-compat) OU patch dans
+          // le même système que l'éditeur : on prend la note de test
+          // courante (continuité Designer → Composer).
+          note = editorTestNoteFields(editor)
+        }
+      }
       dispatch({
         type: 'ADD_CLIP',
         payload: { patchId, measure, beat, duration, trackId, ...note },
@@ -735,7 +774,7 @@ function App() {
         setPressedNoteKey(null)
       }
     },
-    [editor],
+    [editor, patches],
   )
 
   const handleRemoveClip = useCallback((clipId) => {
