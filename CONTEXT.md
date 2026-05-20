@@ -3474,6 +3474,17 @@ clavier 22 cases, octave selector, boutons save, message slot).
       aux barres navigateur + OS qui donne les seuils `MIN_USABLE_*`
       (924×668) et `RECOMMENDED_*` (1740×900).
 
+- ✅ **Phase 2.10** (2026-05-20) — Fix 16px persistant.
+  La cause réelle du 16px entre dropdowns et octaves : un
+  `margin-bottom: 8px` resté sur `.instrument-system-row` depuis
+  G.2.3, qui s'ajoutait au `gap: 8px` du parent `.we-params-fields`
+  unifié en G.2.8 → 8 + 8 = **16 px** visible. Vestige non nettoyé
+  lors du passage au gap unifié. Suppression de la marge — le parent
+  flex dicte tous les espacements verticaux comme prévu. Le
+  `margin-top: auto` de G.2.9 reste utile comme défense quand un
+  label wrappe sur sidebar étroite mais n'était pas la cause de
+  l'écart constant observé.
+
 - ✅ **Phase 2.9** (2026-05-20) — Fix gap octaves 16px + descenders
   tronqués (suite).
   - **Cause du 16px** entre octaves et dropdowns (alors que tout le
