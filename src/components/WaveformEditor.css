@@ -264,6 +264,67 @@
   font-size: 0.85rem;
 }
 
+/* iter G phase 1.3 : ligne Catégorie + Système musical (+ X-EDO N si
+   applicable). Flex-wrap pour passer à 2 lignes quand l'espace manque
+   (≤ ~520 px utile). Chaque champ occupe ~180 px min, l'élément X-EDO
+   est compact. */
+.instrument-system-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+.instrument-system-field {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  flex: 1 1 180px;
+  min-width: 140px;
+}
+.instrument-system-field.instrument-xedo-field {
+  flex: 0 0 auto;
+  min-width: 0;
+}
+.instrument-system-field-label {
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #8a8fa8;
+  font-weight: 600;
+}
+
+/* Bouton Test (mode Libre) — calé sur la fréquence courante. Style
+   d'évidence (gradient bleu doux), feedback `is-active` pendant le
+   maintien. Largeur 100% pour rester repérable sous le slider. */
+.free-test-btn {
+  margin-top: 8px;
+  width: 100%;
+  padding: 10px 14px;
+  border: 1px solid #00d4ff;
+  border-radius: 8px;
+  background: rgba(0, 212, 255, 0.08);
+  color: #00d4ff;
+  font-size: 0.95rem;
+  font-weight: 600;
+  cursor: pointer;
+  user-select: none;
+  transition: background 0.15s, transform 0.05s;
+}
+.free-test-btn:hover {
+  background: rgba(0, 212, 255, 0.18);
+}
+.free-test-btn:active,
+.free-test-btn.is-active {
+  background: rgba(0, 212, 255, 0.35);
+  transform: scale(0.98);
+}
+.free-test-shortcut {
+  color: #8a8fa8;
+  font-weight: 400;
+  font-size: 0.8em;
+  margin-left: 4px;
+}
+
 .tuning-system-select {
   padding: 5px 8px;
   border: 1px solid #4a4a6a;

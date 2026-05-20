@@ -654,6 +654,58 @@ export function getTuningSystem(id) {
   return TUNING_SYSTEMS['12-TET']
 }
 
+// === Catégories (iter G phase 1.3) ===
+//
+// Regroupement pédagogique des systèmes pour décongestionner le dropdown.
+// Trois catégories :
+//  - 'moderne' : ce qu'on entend aujourd'hui dans la musique courante
+//    (12-TET, dominant occidental).
+//  - 'historique' : systèmes ancrés culturellement ou temporellement
+//    (pythagoricien, juste intonation, mésotonique, Werckmeister, Caire 1932,
+//    gamelan, shrutis).
+//  - 'theorique' : grilles abstraites/paramétriques sans usage culturel
+//    spécifique (24-TET équipartite, X-EDO, Libre).
+//
+// L'ordre des entrées dans chaque `systems[]` détermine l'ordre d'apparition
+// dans le dropdown filtré. La liste est exhaustive : chaque système du
+// registre doit appartenir à exactement une catégorie.
+export const TUNING_CATEGORIES = {
+  moderne: {
+    id: 'moderne',
+    label: 'Actuel / Moderne',
+    systems: ['12-TET'],
+  },
+  historique: {
+    id: 'historique',
+    label: 'Historique',
+    systems: [
+      'pythagorean-12',
+      'just-major-c',
+      'meantone-quarter-comma',
+      'werckmeister-iii',
+      '24-tet-cairo-1932',
+      'slendro',
+      'pelog',
+      'shrutis-bhatkhande',
+      'shrutis-sarngadeva',
+    ],
+  },
+  theorique: {
+    id: 'theorique',
+    label: 'Théorique',
+    systems: ['24-tet-equal', 'x-edo', 'free'],
+  },
+}
+
+// Retourne l'id de catégorie d'un système. Fallback 'moderne' (12-TET) si
+// le système n'est pas catalogué — défensif, ne devrait pas arriver.
+export function getCategoryOfSystem(systemId) {
+  for (const cat of Object.values(TUNING_CATEGORIES)) {
+    if (cat.systems.includes(systemId)) return cat.id
+  }
+  return 'moderne'
+}
+
 // Bornes d'octave compatibles avec OctaveSelector (0..10).
 const MIN_OCTAVE = 0
 const MAX_OCTAVE = 10

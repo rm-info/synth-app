@@ -12,6 +12,8 @@ import {
   getNotesPerOctave,
   getTuningSystem,
   TUNING_SYSTEMS,
+  TUNING_CATEGORIES,
+  getCategoryOfSystem,
 } from '../lib/tuningSystems'
 import XEdoInput from './XEdoInput'
 import { xEdoShiftedKeyboardMapForN } from '../lib/xEdoLayouts'
@@ -643,6 +645,94 @@ function WaveformEditor({
     sustainActiveRef.current = false
     setActiveNoteIndices(new Set())
     setSustainActive(false)
+    // Voix Libre éventuelle (iter G phase 1.3) : même traitement sans fade.
+    stopFreeVoiceImmediate()
+  }
+
+  // === Mode Libre : test de la fréquence courante (iter G phase 1.3) ===
+  //
+  // Dette technique de longue date : depuis E.3 le Designer est un instrument
+  // polyphonique, mais playInstrumentNote prend un noteIndex et délègue
+  // à sys.freq — ce qui exclut le système Libre (sys.freq === null). Un seul
+  // canal mono suffit : on stocke la voix active dans freeVoiceRef, et le
+  // bouton Test / la touche 's' déclenchent play+release.
+  const freeVoiceRef = useRef(null) // { osc, gain } | null
+  const [freeNoteActive, setFreeNoteActive] = useState(false)
+
+  const stopFreeVoiceImmediate = () => {
+    const v = freeVoiceRef.current
+    if (!v) return
+    try { v.osc.stop() } catch { /* already */ }
+    try { v.osc.disconnect() } catch { /* already */ }
+    try { v.gain.disconnect() } catch { /* already */ }
+    freeVoiceRef.current = null
+    setFreeNoteActive(false)
+  }
+
+  const playFreeNote = () => {
+    const params = instrumentParamsRef.current
+    if (params.testTuningSystem !== 'free') return
+    // Retrigger : même fade que pour les notes-grille.
+    if (freeVoiceRef.current) {
+      const existing = freeVoiceRef.current
+      const prevCtx = audioCtxRef.current
+      const prevNow = prevCtx.currentTime
+      const currentGain = existing.gain.gain.value
+      existing.gain.gain.cancelScheduledValues(prevNow)
+      existing.gain.gain.setValueAtTime(currentGain, prevNow)
+      existing.gain.gain.linearRampToValueAtTime(0, prevNow + RETRIGGER_FADE)
+      try { existing.osc.stop(prevNow + RETRIGGER_FADE + 0.02) } catch { /* already */ }
+      existing.osc.onended = () => {
+        try { existing.osc.disconnect() } catch { /* already */ }
+        try { existing.gain.disconnect() } catch { /* already */ }
+      }
+      freeVoiceRef.current = null
+    }
+    const ctx = ensureAudioCtx()
+    const osc = ctx.createOscillator()
+    const gain = ctx.createGain()
+    osc.setPeriodicWave(pointsToPeriodicWave(pointsRef.current, ctx))
+    const freq = params.testFrequency
+    const now = ctx.currentTime
+    osc.frequency.setValueAtTime(freq, now)
+
+    const a = Math.max(params.attack / 1000, MIN_ATTACK)
+    const h = (params.hold ?? 0) / 1000
+    const d = params.decay / 1000
+    const sustainLevel = params.sustain * params.amplitude
+
+    gain.gain.setValueAtTime(0, now)
+    gain.gain.linearRampToValueAtTime(params.amplitude, now + a)
+    gain.gain.linearRampToValueAtTime(params.amplitude, now + a + h)
+    gain.gain.linearRampToValueAtTime(sustainLevel, now + a + h + d)
+
+    osc.connect(gain)
+    gain.connect(ctx.destination)
+    osc.start(now)
+
+    freeVoiceRef.current = { osc, gain }
+    setFreeNoteActive(true)
+  }
+
+  const releaseFreeNote = () => {
+    const node = freeVoiceRef.current
+    if (!node) return
+    const ctx = audioCtxRef.current
+    if (!ctx) return
+    const params = instrumentParamsRef.current
+    const now = ctx.currentTime
+    const r = params.release / 1000
+    const currentGain = node.gain.gain.value
+    node.gain.gain.cancelScheduledValues(now)
+    node.gain.gain.setValueAtTime(currentGain, now)
+    node.gain.gain.linearRampToValueAtTime(0, now + r)
+    try { node.osc.stop(now + r + 0.02) } catch { /* already */ }
+    node.osc.onended = () => {
+      try { node.osc.disconnect() } catch { /* already */ }
+      try { node.gain.disconnect() } catch { /* already */ }
+    }
+    freeVoiceRef.current = null
+    setFreeNoteActive(false)
   }
 
   useEffect(() => {
@@ -672,6 +762,8 @@ function WaveformEditor({
     setTestNoteIndex: editorActions.setTestNoteIndex,
     activateSustain,
     deactivateSustain,
+    playFree: playFreeNote,
+    releaseFree: releaseFreeNote,
   }
 
   // Raccourcis QWERTY (event.code) pour jouer les notes au clavier physique
@@ -710,6 +802,14 @@ function WaveformEditor({
       // métier vient plus bas, après le preventDefault navigateur.
       if (e.ctrlKey || e.altKey || e.metaKey) return
 
+      // Mode Libre (iter G phase 1.3) : 's' déclenche playFree (un seul
+      // canal mono, retrigger géré). Pas de noteIndex à fixer.
+      if (testTuningSystem === 'free' && e.code === 'KeyS') {
+        e.preventDefault()
+        if (!e.repeat) instrumentBridgeRef.current?.playFree()
+        return
+      }
+
       // Posture mode note (F.7.5) : preventDefault SYSTÉMATIQUEMENT sur les
       // touches candidates au mode note, même si elles ne sont pas mappées
       // par le système courant. Sinon Firefox QuickFind happe ' (Digit4
@@ -743,6 +843,13 @@ function WaveformEditor({
       if (e.code === 'Space') {
         e.preventDefault()
         instrumentBridgeRef.current?.deactivateSustain()
+        return
+      }
+
+      // Mode Libre : 's' relâche la voix Libre. Idempotent si pas active.
+      if (testTuningSystem === 'free' && e.code === 'KeyS') {
+        e.preventDefault()
+        instrumentBridgeRef.current?.releaseFree()
         return
       }
 
@@ -1308,21 +1415,47 @@ function WaveformEditor({
       </header>
 
       <div className="we-params-fields">
-        <div className="control-group">
-          <label className="system-label" htmlFor="tuning-system">Système de test</label>
-          <select
-            id="tuning-system"
-            className="tuning-system-select"
-            value={testTuningSystem}
-            onChange={(e) => editorActions.setTestTuningSystem(e.target.value)}
-          >
-            {Object.values(TUNING_SYSTEMS).map((sys) => (
-              <option key={sys.id} value={sys.id}>{sys.label}</option>
-            ))}
-          </select>
+        <div className="instrument-system-row">
+          <label className="instrument-system-field">
+            <span className="instrument-system-field-label">Catégorie</span>
+            <select
+              className="tuning-system-select"
+              value={getCategoryOfSystem(testTuningSystem)}
+              onChange={(e) => {
+                const catId = e.target.value
+                const cat = TUNING_CATEGORIES[catId]
+                if (!cat) return
+                // Changement de catégorie : on bascule vers le premier système de
+                // la nouvelle catégorie. Si le système courant en fait déjà partie
+                // (cas no-op), `value` du <select> reflète déjà ; le onChange
+                // n'est même pas tiré.
+                editorActions.setTestTuningSystem(cat.systems[0])
+              }}
+            >
+              {Object.values(TUNING_CATEGORIES).map((cat) => (
+                <option key={cat.id} value={cat.id}>{cat.label}</option>
+              ))}
+            </select>
+          </label>
+          <label className="instrument-system-field" htmlFor="tuning-system">
+            <span className="instrument-system-field-label">Système musical</span>
+            <select
+              id="tuning-system"
+              className="tuning-system-select"
+              value={testTuningSystem}
+              onChange={(e) => editorActions.setTestTuningSystem(e.target.value)}
+            >
+              {TUNING_CATEGORIES[getCategoryOfSystem(testTuningSystem)].systems.map((sysId) => (
+                <option key={sysId} value={sysId}>{TUNING_SYSTEMS[sysId].label}</option>
+              ))}
+            </select>
+          </label>
           {testTuningSystem === 'x-edo' && (
-            <label className="xedo-control-designer" title={`Nombre de degrés du système X-EDO — flèches haut/bas pour ±1, +Shift pour ±5. Fourchette ${X_EDO_MIN}-${X_EDO_MAX}.`}>
-              X
+            <label
+              className="instrument-system-field instrument-xedo-field"
+              title={`Nombre de degrés du système X-EDO — flèches haut/bas pour ±1, +Shift pour ±5. Fourchette ${X_EDO_MIN}-${X_EDO_MAX}.`}
+            >
+              <span className="instrument-system-field-label">X</span>
               <XEdoInput value={xEdoN} onChange={editorActions.setXEdoN} className="xedo-input-designer" />
             </label>
           )}
@@ -1354,6 +1487,23 @@ function WaveformEditor({
                 }}
                 {...sliderCommitter(commitDraftFreq)}
               />
+              {/* iter G phase 1.3 : bouton Test (mode Libre uniquement).
+                  Calé sur testFrequency, raccourci 's'. mouseUp + mouseLeave
+                  garantissent le release même si la souris quitte le bouton
+                  avant le relâchement. onContextMenu désactivé pour éviter
+                  un menu contextuel qui mange le mouseup. */}
+              <button
+                type="button"
+                className={`free-test-btn${freeNoteActive ? ' is-active' : ''}`}
+                onMouseDown={(e) => { e.preventDefault(); playFreeNote() }}
+                onMouseUp={releaseFreeNote}
+                onMouseLeave={() => { if (freeNoteActive) releaseFreeNote() }}
+                onContextMenu={(e) => e.preventDefault()}
+                title="Tester le son à la fréquence courante (touche s)"
+                aria-pressed={freeNoteActive}
+              >
+                Test <span className="free-test-shortcut">(s)</span>
+              </button>
             </>
           ) : (
             <>
