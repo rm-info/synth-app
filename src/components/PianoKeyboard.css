@@ -117,7 +117,10 @@
   grid-template-rows: repeat(4, 1fr);
   gap: 2px;
   width: 100%;
-  min-width: 480px;
+  /* v1.2.3 : suppression du min-width 480 — débordait des conteneurs
+     étroits (sidebar mobile, mode accordéon). Comme X-EDO, on laisse
+     la base .piano-keyboard min-width 210 servir de plancher ; en
+     dessous le clavier devient peu cliquable mais ne déborde pas. */
   height: 160px;
   user-select: none;
   flex-shrink: 0;
@@ -125,7 +128,7 @@
 
 .piano-keyboard-grid24.piano-keyboard-compact {
   height: 80px;
-  min-width: 320px;
+  /* v1.2.3 : suppression du min-width 320 (idem). */
   gap: 1px;
 }
 
@@ -234,7 +237,7 @@
   grid-template-rows: repeat(4, 1fr);
   gap: 2px;
   width: 100%;
-  min-width: 480px;
+  /* v1.2.3 : min-width supprimé pour cohérence avec X-EDO (cf. grid24). */
   height: 160px;
   user-select: none;
   flex-shrink: 0;
@@ -242,7 +245,6 @@
 
 .piano-keyboard-grid22.piano-keyboard-compact {
   height: 80px;
-  min-width: 320px;
   gap: 1px;
 }
 

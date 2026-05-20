@@ -459,7 +459,8 @@
 .instrument-modal {
   width: 100%;
   max-width: 480px;
-  max-height: calc(100vh - 40px);
+  /* v1.2.3 : 100vh → 100dvh (cf. App.css). */
+  max-height: calc(100dvh - 40px);
   background: #1a1a2e;
   border: 1px solid #3a3a5a;
   border-radius: 10px;

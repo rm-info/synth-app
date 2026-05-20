@@ -1,5 +1,10 @@
 .app {
-  height: 100vh;
+  /* v1.2.3 : 100vh → 100dvh pour suivre la hauteur dynamique du
+     viewport sur mobile (l'apparition/disparition de la barre d'URL
+     fait varier la hauteur utile ; dvh = dynamic viewport height
+     s'adapte automatiquement, vh restait fixé sur le max et
+     produisait un débordement sous l'urlbar). */
+  height: 100dvh;
   display: flex;
   flex-direction: column;
   background: #0f0f1a;
@@ -136,7 +141,12 @@
   top: 0;
   left: calc(100% + 6px);
   width: 480px;
-  max-height: min(80vh, 600px);
+  /* v1.2.3 : cap dynamique pour éviter le débordement sur petit écran.
+     max-height passe en `dvh` pour suivre l'urlbar mobile. max-width
+     borne par la largeur viewport disponible (sidebar collapsed ~36px
+     + margin ~12px). */
+  max-width: calc(100vw - 60px);
+  max-height: min(80dvh, 600px);
   background: #1a1a2e;
   border: 1px solid #3a3a5a;
   border-radius: 8px;
@@ -145,6 +155,20 @@
   flex-direction: column;
   z-index: 50;
   overflow: hidden;
+}
+/* v1.2.3 : sur petit écran (< 700 px), le popover bascule en modale
+   plein écran centrée (position:fixed) — l'ancrage à droite du
+   sidebar collapsed ne tient pas sur smartphone. */
+@media (max-width: 700px) {
+  .designer-library-popover {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: calc(100vw - 30px);
+    max-width: 480px;
+    max-height: calc(100dvh - 60px);
+  }
 }
 .designer-library-popover > .sound-bank-panel {
   flex: 1;
