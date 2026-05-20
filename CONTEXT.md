@@ -3474,6 +3474,34 @@ clavier 22 cases, octave selector, boutons save, message slot).
       aux barres navigateur + OS qui donne les seuils `MIN_USABLE_*`
       (924×668) et `RECOMMENDED_*` (1740×900).
 
+- ✅ **Phase 2.7** (2026-05-20) — Polish suite aux retours utilisateur
+  sur G.2.x. Purement visuel, aucun changement fonctionnel.
+  - shortLabel `'Caire 32'` → **`'Maqâmât'`** (`32` ambigu — prêtait
+    à croire à une subdivision EDO).
+  - Mode réduit sidebar **complet** : ajout des 4 boutons manquants
+    (Undo / Redo / Upload / Download) avec mini-séparateurs entre
+    les 3 sous-groupes (patch / historique / import-export).
+    Boutons unifiés à **30×30** (au lieu du mix 22 / 28 / 28) —
+    scopé à `.designer-sidebar.is-collapsed` pour ne pas affecter
+    Composer ni le mode ouvert.
+  - Champ X-EDO aligné en hauteur sur les dropdowns : `box-sizing:
+    border-box` + `min-height: 28px` + `line-height: 1` appliqués
+    aux deux (input HTML et button SVG calculent leur hauteur
+    différemment par défaut — forcer ces 3 props rend la mesure
+    prévisible et identique).
+  - Header `PatchBank` : `align-items: baseline` → `align-items:
+    center`. Robuste à toutes les futures icônes (les SVG n'ont pas
+    de baseline texte).
+  - Popover Bibliothèque : **un seul titre** (`<header>` wrapper
+    retiré, le bouton close passe via `PatchBank.headerExtra` à côté
+    de "+ Dossier"). PatchBank reste agnostique de son contexte.
+    Largeur **320 → 480 px**.
+  - `.we-octave-row` : `margin-bottom: 8px` (espace avec le clavier),
+    `line-height: 1` sur le label (centrage vertical robuste),
+    `flex: 1` sur OctaveSelector + override des caps `min-width: 28` /
+    `max-width: 40` des boutons globaux — les 11 boutons d'octave
+    remplissent toute la largeur disponible.
+
   **Itération G phase 2 (raffinements UX) clôturée le 2026-05-20.**
 
 ### Backlog général (à caser quand pertinent)
