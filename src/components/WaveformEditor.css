@@ -353,7 +353,10 @@
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
-  margin-bottom: 8px;
+  /* G.2.10 : suppression du margin-bottom 8px vestige de G.2.3 — s'ajoutait
+     au gap:8px de we-params-fields → 16px visible entre system-row et
+     control-group (au lieu des 8px attendus). Maintenant c'est le parent
+     flex qui dicte tous les espacements verticaux. */
 }
 .instrument-system-field {
   display: flex;
