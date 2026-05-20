@@ -21,6 +21,12 @@
      +Dossier. */
   align-items: center;
   justify-content: space-between;
+  /* v1.0.1 : flex-wrap au cas où la largeur de la sidebar par défaut
+     (220 px → ~196 px utiles après padding) ne suffit pas à loger
+     "BIBLIOTHÈQUE NN + Dossier [<]" sur une ligne. Le gap sert aussi
+     de spacing vertical quand le wrap se déclenche. */
+  flex-wrap: wrap;
+  gap: 6px 8px;
   margin-bottom: 10px;
   padding-bottom: 8px;
   border-bottom: 1px solid #3a3a5a;
