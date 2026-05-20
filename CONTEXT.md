@@ -243,7 +243,19 @@ Backlog : adaptation UI pour résolutions intermédiaires
 [924×668..1740×900] ; implémentation effective Import/Export
 bibliothèque (boutons placeholders dans Actions).
 
-**Release v1.0.0** (2026-05-20) — Premier déploiement prod. Sortie
+**Release v1.1.0** (2026-05-20) — Premier responsive intermédiaire :
+deux breakpoints sur la zone Instrument. Sous 1170 px, le mot
+"musical" du label "Système musical" est masqué par CSS @media
+(wrappé dans un span dédié). Sous 950 px, la row de contrôles
+(Catégorie / Système / X-EDO / Repère / Tonique) est remplacée par
+un bouton "Paramètres du système musical" qui ouvre une modale
+centrée plein écran (backdrop blur, max-width 480 px) avec les
+mêmes contrôles arrangés verticalement. Fermeture via clic
+backdrop / Escape / bouton ×. Nouveau hook `useWindowWidth`,
+sous-fonction `renderInstrumentControls()` extraite pour
+réutilisation entre la row directe et la modale.
+
+**Release v1.0.0-1.0.4** (2026-05-20) — Premier déploiement prod. Sortie
 du 0.x exploratoire après 7 itérations majeures (A→G) stables.
 Branding : titre commercial **On_Synth_App** (jeu de mots « on s'en
 tape ») dans la barre des onglets à gauche, tampon de version
