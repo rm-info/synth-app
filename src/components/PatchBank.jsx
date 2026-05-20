@@ -328,13 +328,15 @@ function PatchBank({
     return (
       <aside className="sound-bank-panel">
         <header className="sound-bank-header">
-          <h3>Bibliothèque</h3>
-          <div className="sound-bank-header-right">
-            <button type="button" className="folder-add-btn" onClick={handleCreateFolder} title="Nouveau dossier">
-              + Dossier
-            </button>
-            {headerExtra}
+          <div className="sound-bank-header-main">
+            <h3>Bibliothèque</h3>
+            <div className="sound-bank-header-right">
+              <button type="button" className="folder-add-btn" onClick={handleCreateFolder} title="Nouveau dossier">
+                + Dossier
+              </button>
+            </div>
           </div>
+          {headerExtra && <div className="sound-bank-header-toggle">{headerExtra}</div>}
         </header>
         <p className="sound-bank-empty">
           Aucun patch. Dessinez-en un dans l'onglet Designer.
@@ -346,14 +348,16 @@ function PatchBank({
   return (
     <aside className="sound-bank-panel">
       <header className="sound-bank-header">
-        <h3>Bibliothèque</h3>
-        <div className="sound-bank-header-right">
-          <span className="sound-bank-count">{totalCount}</span>
-          <button type="button" className="folder-add-btn" onClick={handleCreateFolder} title="Nouveau dossier">
-            + Dossier
-          </button>
-          {headerExtra}
+        <div className="sound-bank-header-main">
+          <h3>Bibliothèque</h3>
+          <div className="sound-bank-header-right">
+            <span className="sound-bank-count">{totalCount}</span>
+            <button type="button" className="folder-add-btn" onClick={handleCreateFolder} title="Nouveau dossier">
+              + Dossier
+            </button>
+          </div>
         </div>
+        {headerExtra && <div className="sound-bank-header-toggle">{headerExtra}</div>}
       </header>
       <ul
         className="sound-bank-list"

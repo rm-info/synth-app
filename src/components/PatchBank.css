@@ -16,20 +16,37 @@
 
 .sound-bank-header {
   display: flex;
-  /* G.2.7 : align-items: center (au lieu de baseline) pour que le bouton
-     close (SVG sans baseline texte) s'aligne proprement avec h3 et
-     +Dossier. */
-  align-items: center;
-  justify-content: space-between;
-  /* v1.0.1 : flex-wrap au cas où la largeur de la sidebar par défaut
-     (220 px → ~196 px utiles après padding) ne suffit pas à loger
-     "BIBLIOTHÈQUE NN + Dossier [<]" sur une ligne. Le gap sert aussi
-     de spacing vertical quand le wrap se déclenche. */
-  flex-wrap: wrap;
-  gap: 6px 8px;
+  /* v1.0.2 : structure en deux niveaux pour que le bouton de réduction
+     (`headerExtra`) reste pinné top-right quoi qu'il arrive — même
+     quand le contenu principal (titre + count + Dossier) wrappe à
+     plusieurs lignes par manque de largeur. */
+  align-items: flex-start;
+  gap: 8px;
   margin-bottom: 10px;
   padding-bottom: 8px;
   border-bottom: 1px solid #3a3a5a;
+  flex-shrink: 0;
+}
+
+/* Bloc principal wrappable : titre + actions (count + Dossier). Quand
+   la sidebar est étroite, ce bloc passe à 2 lignes ; le headerExtra
+   reste à l'extérieur de ce wrap. */
+.sound-bank-header-main {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex: 1;
+  min-width: 0;
+  flex-wrap: wrap;
+  gap: 6px 8px;
+}
+
+/* Slot du bouton de réduction (chevron / X) — fixé en haut à droite
+   du header. flex-shrink:0 + align-items:flex-start du parent → reste
+   en haut quand le main wrappe. */
+.sound-bank-header-toggle {
+  display: flex;
+  align-items: center;
   flex-shrink: 0;
 }
 
