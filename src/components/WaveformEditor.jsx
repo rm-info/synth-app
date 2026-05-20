@@ -1,7 +1,7 @@
 import { useRef, useState, useCallback, useEffect, useImperativeHandle, useMemo } from 'react'
 import { Plus, Save, SaveAll, Undo2, Redo2, Upload, Download, Sliders, X } from 'lucide-react'
 import { pointsToPeriodicWave, MIN_ATTACK } from '../audio'
-import useWindowWidth from '../hooks/useWindowWidth'
+import useWindowSize from '../hooks/useWindowSize'
 import FreqInput from './FreqInput'
 import NumberInput from './NumberInput'
 import { PianoKeyboard, OctaveSelector } from './PianoKeyboard'
@@ -341,7 +341,7 @@ function WaveformEditor({
   // v1.1.0 : largeur de fenêtre → bascule responsive de la zone
   // Instrument. < 950 px : row de contrôles remplacée par un bouton
   // qui ouvre une modale centrée.
-  const windowWidth = useWindowWidth()
+  const { w: windowWidth } = useWindowSize()
   const instrumentCollapsed = windowWidth < INSTRUMENT_COLLAPSE_WIDTH
   const [systemModalOpen, setSystemModalOpen] = useState(false)
   // Si la fenêtre grandit pendant que la modale est ouverte, on la

@@ -1,5 +1,6 @@
 import { useReducer, useCallback, useRef, useState, useEffect, useMemo } from 'react'
-import { ChevronLeft, ChevronRight, Library, Play, Square, X } from 'lucide-react'
+import { ChevronLeft, ChevronRight, ChevronDown, Library, Play, Square, X } from 'lucide-react'
+import useWindowSize from './hooks/useWindowSize'
 import WaveformEditor from './components/WaveformEditor'
 import Timeline from './components/Timeline'
 import Tabs from './components/Tabs'
@@ -683,6 +684,26 @@ function App() {
     setLibraryPopoverOpen(false)
     dispatch({ type: 'SET_DESIGNER_SIDEBAR_COLLAPSED', payload: !designerSidebarCollapsed })
   }, [designerSidebarCollapsed])
+
+  // v1.2.0 : détection mobile (≤ 924 × 668). En mobile :
+  // - le panneau latéral gauche du Designer est forcé en mode réduit
+  //   (la préférence utilisateur designerSidebarCollapsed reste en
+  //   state pour quand on revient à une grande résolution)
+  // - le main du Designer (4 zones canvas/spectro/params/adsr) passe
+  //   d'une grille 2×2 à un accordéon vertical 1 colonne, une seule
+  //   zone dépliée à la fois.
+  // Le toggle manuel de la sidebar reste désactivé en mobile (la
+  // sidebar est gérée automatiquement).
+  const { w: winWidth, h: winHeight } = useWindowSize()
+  const isMobile = winWidth < 924 || winHeight < 668
+  const designerSidebarCollapsedEffective = isMobile || designerSidebarCollapsed
+  // Mode accordéon : zone dépliée par défaut = 'canvas' (waveform).
+  // null serait possible aussi (tout fermé) mais on choisit d'avoir
+  // un état initial utile.
+  const [mobileExpandedZone, setMobileExpandedZone] = useState('canvas')
+  const toggleMobileZone = useCallback((zoneId) => {
+    setMobileExpandedZone((cur) => (cur === zoneId ? null : zoneId))
+  }, [])
 
   // Reclampe les largeurs quand la fenêtre rétrécit : on préserve l'invariant
   // "main ≥ COMPOSER_MAIN_MIN_WIDTH" sans perdre les préférences de l'utilisateur
@@ -1437,17 +1458,17 @@ function App() {
         {({ renderCanvasArea, renderParamsArea, renderAdsrArea, renderActions }) => (
           <>
             <main
-              className="designer-layout"
+              className={`designer-layout${isMobile ? ' designer-layout-mobile' : ''}`}
               hidden={activeTab !== 'designer'}
               aria-hidden={activeTab !== 'designer'}
               style={{
-                '--designer-sidebar-width': designerSidebarCollapsed
+                '--designer-sidebar-width': designerSidebarCollapsedEffective
                   ? `${DESIGNER_SIDEBAR_COLLAPSED_WIDTH}px`
                   : `${designerSidebarWidth}px`,
               }}
             >
-              <aside className={`designer-sidebar${designerSidebarCollapsed ? ' is-collapsed' : ''}`}>
-                {designerSidebarCollapsed ? (
+              <aside className={`designer-sidebar${designerSidebarCollapsedEffective ? ' is-collapsed' : ''}`}>
+                {designerSidebarCollapsedEffective ? (
                   <>
                     {/* Groupe haut : expand + Bibliothèque popover */}
                     <button
@@ -1568,20 +1589,63 @@ function App() {
                   </>
                 )}
               </aside>
-              <div className="designer-main">
-                <div className="designer-row">
-                  <div className="designer-cell">{renderCanvasArea()}</div>
-                  {spectrogramVisible && (
-                    <div className="designer-cell">
-                      <Spectrogram points={editor.points} frequency={editorFrequency} />
-                    </div>
-                  )}
+              {isMobile ? (
+                /* v1.2.0 : mode accordéon mobile. Les 4 zones (Waveform /
+                   Spectrogramme / Instrument / Enveloppe AHDSR) s'organisent
+                   en 1 colonne ; chacune est repliable. Une seule dépliée à
+                   la fois ; cliquer sur celle ouverte la ferme. Les headers
+                   originaux (.we-area-header) sont masqués par CSS dans
+                   .designer-mobile-body — l'accordéon-header App-rendu
+                   porte le titre. Spectrogram toujours rendu en mobile
+                   (ignore spectrogramVisible — c'est l'accordéon qui sert
+                   de toggle). Body non-rendu si fermé → pas de cost de
+                   draw inutile. */
+                <div className="designer-main designer-main-mobile">
+                  {[
+                    { id: 'canvas', title: 'Waveform', body: renderCanvasArea() },
+                    { id: 'spectrogram', title: 'Spectrogramme', body: <Spectrogram points={editor.points} frequency={editorFrequency} /> },
+                    { id: 'params', title: 'Instrument', body: renderParamsArea() },
+                    { id: 'adsr', title: 'Enveloppe AHDSR', body: renderAdsrArea() },
+                  ].map((zone) => {
+                    const expanded = mobileExpandedZone === zone.id
+                    return (
+                      <div key={zone.id} className={`designer-mobile-item${expanded ? ' is-expanded' : ''}`}>
+                        <button
+                          type="button"
+                          className="designer-mobile-header"
+                          onClick={() => toggleMobileZone(zone.id)}
+                          aria-expanded={expanded}
+                        >
+                          <span className="designer-mobile-title">{zone.title}</span>
+                          <ChevronDown
+                            className="designer-mobile-chevron"
+                            size={16}
+                            strokeWidth={2.2}
+                          />
+                        </button>
+                        {expanded && (
+                          <div className="designer-mobile-body">{zone.body}</div>
+                        )}
+                      </div>
+                    )
+                  })}
                 </div>
-                <div className="designer-row">
-                  <div className="designer-cell">{renderParamsArea()}</div>
-                  <div className="designer-cell">{renderAdsrArea()}</div>
+              ) : (
+                <div className="designer-main">
+                  <div className="designer-row">
+                    <div className="designer-cell">{renderCanvasArea()}</div>
+                    {spectrogramVisible && (
+                      <div className="designer-cell">
+                        <Spectrogram points={editor.points} frequency={editorFrequency} />
+                      </div>
+                    )}
+                  </div>
+                  <div className="designer-row">
+                    <div className="designer-cell">{renderParamsArea()}</div>
+                    <div className="designer-cell">{renderAdsrArea()}</div>
+                  </div>
                 </div>
-              </div>
+              )}
             </main>
 
             <main
