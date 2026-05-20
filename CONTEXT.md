@@ -243,6 +243,19 @@ Backlog : adaptation UI pour résolutions intermédiaires
 [924×668..1740×900] ; implémentation effective Import/Export
 bibliothèque (boutons placeholders dans Actions).
 
+**Release v1.2.0** (2026-05-21) — Mode mobile complet + suppression
+de ResolutionGate. En dessous de 924 × 668 px : (1) la sidebar Designer
+est forcée en mode réduit (preference utilisateur préservée en state) ;
+(2) le main du Designer passe d'une grille 2×2 à un accordéon vertical
+1 colonne (Waveform / Spectrogramme / Instrument / Enveloppe AHDSR) ;
+une seule zone dépliée à la fois, toggle classique au clic sur le
+header. Le `ResolutionGate` (modale soft + placeholder bloquant) est
+entièrement retiré — les breakpoints UI (v1.1.0 + cette release)
+couvrent tout le spectre, l'app n'a plus de gate. UX mobile
+volontairement dégradée (controls header internes masqués), mais
+accessible. Renommage `useWindowWidth` → `useWindowSize` (besoin de
+la hauteur aussi).
+
 **Release v1.1.0** (2026-05-20) — Premier responsive intermédiaire :
 deux breakpoints sur la zone Instrument. Sous 1170 px, le mot
 "musical" du label "Système musical" est masqué par CSS @media
