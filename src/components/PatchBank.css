@@ -72,12 +72,22 @@
 }
 
 .folder-add-btn {
+  /* v1.0.3 : hauteur explicite 22px (alignée sur .sidebar-toggle 22×22)
+     pour que les deux boutons aient des bounding-boxes strictement
+     identiques en hauteur. Sans ça, padding+border+font-line-height
+     donnait ~22.8px → ~1px de décalage visible côte à côte avec le
+     bouton de réduction. box-sizing:border-box pour que la hauteur
+     inclue la bordure. */
+  box-sizing: border-box;
+  height: 22px;
+  display: inline-flex;
+  align-items: center;
   background: rgba(100, 100, 160, 0.2);
   border: 1px solid #4a4a6a;
   border-radius: 4px;
   color: #a0a0c0;
   font-size: 0.7rem;
-  padding: 2px 8px;
+  padding: 0 8px;
   cursor: pointer;
   white-space: nowrap;
   transition: background 0.12s, border-color 0.12s;
