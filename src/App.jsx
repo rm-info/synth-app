@@ -1590,22 +1590,22 @@ function App() {
                 )}
               </aside>
               {isMobile ? (
-                /* v1.2.0 : mode accordéon mobile. Les 4 zones (Waveform /
-                   Spectrogramme / Instrument / Enveloppe AHDSR) s'organisent
-                   en 1 colonne ; chacune est repliable. Une seule dépliée à
-                   la fois ; cliquer sur celle ouverte la ferme. Les headers
-                   originaux (.we-area-header) sont masqués par CSS dans
-                   .designer-mobile-body — l'accordéon-header App-rendu
-                   porte le titre. Spectrogram toujours rendu en mobile
-                   (ignore spectrogramVisible — c'est l'accordéon qui sert
-                   de toggle). Body non-rendu si fermé → pas de cost de
-                   draw inutile. */
+                /* v1.2.0 / v1.2.1 : mode accordéon mobile. Les 4 zones
+                   s'organisent en 1 colonne. Une seule dépliée à la fois.
+                   Ordre v1.2.1 : Waveform / Spectrogramme / Enveloppe /
+                   Instrument (Instrument en dernier — plus accessible
+                   au scroll de bas de page). Bodies TOUJOURS rendus
+                   (juste hide/show via CSS) — garantit que les
+                   ResizeObserver des canvas waveform/ADSR détectent le
+                   retour à des dimensions non-nulles à l'expand et
+                   redéclenchent le draw. Sinon les canvas restaient
+                   vides après réouverture (cf. ce commit). */
                 <div className="designer-main designer-main-mobile">
                   {[
                     { id: 'canvas', title: 'Waveform', body: renderCanvasArea() },
                     { id: 'spectrogram', title: 'Spectrogramme', body: <Spectrogram points={editor.points} frequency={editorFrequency} /> },
-                    { id: 'params', title: 'Instrument', body: renderParamsArea() },
                     { id: 'adsr', title: 'Enveloppe AHDSR', body: renderAdsrArea() },
+                    { id: 'params', title: 'Instrument', body: renderParamsArea() },
                   ].map((zone) => {
                     const expanded = mobileExpandedZone === zone.id
                     return (
@@ -1623,9 +1623,7 @@ function App() {
                             strokeWidth={2.2}
                           />
                         </button>
-                        {expanded && (
-                          <div className="designer-mobile-body">{zone.body}</div>
-                        )}
+                        <div className="designer-mobile-body">{zone.body}</div>
                       </div>
                     )
                   })}
