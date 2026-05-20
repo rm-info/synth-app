@@ -464,9 +464,8 @@
 }
 
 /* Phase 1 (iter G) : panneau Actions dans la sidebar gauche du Designer.
-   Empile verticalement le titre, les boutons, et le slot message. Les
-   boutons reprennent les styles .new-btn / .update-btn / .save-btn — la
-   ligne d'icônes en mode réduit utilise .designer-actions-icons. */
+   G.2.2 : ligne horizontale d'icônes groupées (patch / historique /
+   import-export) avec flex-wrap, plus dense que les boutons texte. */
 .designer-actions-panel {
   padding: 10px 12px;
   display: flex;
@@ -481,16 +480,18 @@
   letter-spacing: 0.08em;
   font-weight: 600;
 }
-.designer-actions-buttons {
+/* Ligne d'icônes en 3 groupes (patch / undo-redo / import-export) avec
+   gap large entre groupes pour structure visuelle, gap réduit dedans
+   pour densité. flex-wrap : si la sidebar est trop étroite, les groupes
+   passent à la ligne sans casser un groupe. */
+.designer-actions-row {
   display: flex;
-  flex-direction: column;
-  gap: 6px;
+  flex-wrap: wrap;
+  gap: 12px;
 }
-.designer-actions-buttons .new-btn,
-.designer-actions-buttons .update-btn,
-.designer-actions-buttons .save-btn {
-  width: 100%;
-  text-align: center;
+.designer-actions-group {
+  display: flex;
+  gap: 4px;
 }
 /* Mode réduit (sidebar collapsed) : ligne verticale d'icônes, compacte —
    le spacer parent positionne le groupe au bas, juste au-dessus du
@@ -536,6 +537,15 @@
 .actions-icon-btn.save-btn-icon:hover {
   background: rgba(192, 132, 252, 0.18);
   color: #c084fc;
+}
+.actions-icon-btn:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+.actions-icon-btn:disabled:hover {
+  background: #1a1a2e;
+  color: #a0a0c0;
+  border-color: #3a3a5a;
 }
 
 .new-btn {

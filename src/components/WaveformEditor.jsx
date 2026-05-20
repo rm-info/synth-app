@@ -1355,26 +1355,9 @@ function WaveformEditor({
           </span>
         </div>
         <div className="we-header-right">
-          {(onUndo || onRedo) && (
-            <div className="we-history">
-              <button
-                type="button"
-                className="we-history-btn"
-                onClick={onUndo}
-                disabled={!canUndo}
-                aria-label="Annuler"
-                title="Annuler (Ctrl+Z)"
-              >⟲</button>
-              <button
-                type="button"
-                className="we-history-btn"
-                onClick={onRedo}
-                disabled={!canRedo}
-                aria-label="Rétablir"
-                title="Rétablir (Ctrl+Shift+Z)"
-              >⟳</button>
-            </div>
-          )}
+          {/* iter G phase 2.2 : Undo/Redo migrés vers le panneau Actions de
+              la sidebar gauche pour cohérence. Le header Waveform ne porte
+              plus que le toggle Spectro. */}
           {onToggleSpectrogram && (
             <label className="spectro-toggle" title="Afficher le spectrogramme à côté">
               <input
@@ -1625,18 +1608,71 @@ function WaveformEditor({
     return (
       <div className="designer-actions-panel">
         <div className="designer-actions-header">Actions</div>
-        <div className="designer-actions-buttons">
-          <button type="button" className="new-btn" onClick={handleNew} title="Nouveau patch (réinitialise l'éditeur)">
-            Nouveau
-          </button>
-          {currentPatch && (
-            <button className="update-btn" onClick={handleUpdate}>
-              Mettre à jour
-            </button>
+        <div className="designer-actions-row">
+          {/* Groupe 1 : patch actions */}
+          <div className="designer-actions-group">
+            <button
+              type="button"
+              className="actions-icon-btn new-btn-icon"
+              onClick={handleNew}
+              title="Nouveau patch (réinitialise l'éditeur)"
+              aria-label="Nouveau patch"
+            ><Plus size={16} strokeWidth={2} /></button>
+            {currentPatch && (
+              <button
+                type="button"
+                className="actions-icon-btn update-btn-icon"
+                onClick={handleUpdate}
+                title="Mettre à jour le patch courant"
+                aria-label="Mettre à jour"
+              ><Save size={15} strokeWidth={2} /></button>
+            )}
+            <button
+              type="button"
+              className="actions-icon-btn save-btn-icon"
+              onClick={handleSaveAsNew}
+              title={currentPatch ? 'Enregistrer comme nouveau patch' : 'Sauvegarder le patch'}
+              aria-label="Enregistrer comme nouveau"
+            ><SaveAll size={15} strokeWidth={2} /></button>
+          </div>
+          {/* Groupe 2 : historique Designer */}
+          {(onUndo || onRedo) && (
+            <div className="designer-actions-group">
+              <button
+                type="button"
+                className="actions-icon-btn"
+                onClick={onUndo}
+                disabled={!canUndo}
+                title="Annuler (Ctrl+Z)"
+                aria-label="Annuler"
+              ><Undo2 size={15} strokeWidth={2} /></button>
+              <button
+                type="button"
+                className="actions-icon-btn"
+                onClick={onRedo}
+                disabled={!canRedo}
+                title="Rétablir (Ctrl+Shift+Z)"
+                aria-label="Rétablir"
+              ><Redo2 size={15} strokeWidth={2} /></button>
+            </div>
           )}
-          <button className="save-btn" onClick={handleSaveAsNew}>
-            {currentPatch ? 'Enregistrer comme nouveau' : 'Sauvegarder le patch'}
-          </button>
+          {/* Groupe 3 : import / export bibliothèque (placeholders G.2.2) */}
+          <div className="designer-actions-group">
+            <button
+              type="button"
+              className="actions-icon-btn"
+              disabled
+              title="Importer une bibliothèque (à venir)"
+              aria-label="Importer une bibliothèque (à venir)"
+            ><Upload size={15} strokeWidth={2} /></button>
+            <button
+              type="button"
+              className="actions-icon-btn"
+              disabled
+              title="Exporter la bibliothèque (à venir)"
+              aria-label="Exporter la bibliothèque (à venir)"
+            ><Download size={15} strokeWidth={2} /></button>
+          </div>
         </div>
         <div className="save-message-slot">
           {saveMessage && <span className="save-message">{saveMessage}</span>}
