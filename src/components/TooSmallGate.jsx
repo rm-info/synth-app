@@ -1,16 +1,19 @@
 import useWindowSize from '../hooks/useWindowSize'
 import './TooSmallGate.css'
 
-// v1.2.2 : dernier rempart responsive. En dessous de 350 × 500 px,
-// l'app est vraiment inutilisable même en mode accordéon — on bloque
-// avec un message simple. Au-dessus, l'app reste accessible via les
-// adaptations v1.1.0 (modale Instrument <950) et v1.2.0 (accordéon
-// Designer <924×668).
+// v1.2.4 : seuil remonté à 700 × 500 (était 350 × 500). Les bugs
+// d'affichage purs en dessous de 700 px sont corrigés (claviers,
+// popover library), mais l'**interaction tactile** sur smartphone
+// (canvas dessin au doigt, handles ADSR draggables, sliders fins)
+// reste inadaptée. Plutôt que livrer une UX cassée, on bloque ce
+// que les smartphones standard portrait atteignent (~360-414 px de
+// largeur). Backlog : adapter pointer events / agrandir les
+// surfaces tactiles pour réouvrir aux smartphones.
 //
 // Overlay z-index 10000 — l'App reste montée en arrière-plan, donc
 // pas de perte de state ni de localStorage si l'utilisateur redimensionne
 // la fenêtre brièvement. Réactif au resize via useWindowSize.
-export const MIN_USABLE_WIDTH = 350
+export const MIN_USABLE_WIDTH = 700
 export const MIN_USABLE_HEIGHT = 500
 
 export default function TooSmallGate({ children }) {
