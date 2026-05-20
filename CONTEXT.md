@@ -3474,6 +3474,29 @@ clavier 22 cases, octave selector, boutons save, message slot).
       aux barres navigateur + OS qui donne les seuils `MIN_USABLE_*`
       (924×668) et `RECOMMENDED_*` (1740×900).
 
+- ✅ **Phase 2.9** (2026-05-20) — Fix gap octaves 16px + descenders
+  tronqués (suite).
+  - **Cause du 16px** entre octaves et dropdowns (alors que tout le
+    reste est à 8px) : alignement intra-row. Quand un libellé wrappe
+    à 2 lignes sur sidebar étroite (typ. "SYSTÈME MUSICAL", 16 chars),
+    le champ devient plus haut, et les autres champs (libellés courts)
+    étirent à la même hauteur via `align-items: stretch` — mais leurs
+    triggers restent packés au haut (flex-column default) →
+    espace vide en bas de ~8-14px sous les dropdowns courts. Plus le
+    gap de 8px = 16-22px visibles.
+  - **Fix** : `margin-top: auto` sur `.short-select` et
+    `.xedo-input-designer` à l'intérieur de
+    `.instrument-system-field`. Les triggers se collent au bas du
+    champ, alignement horizontal garanti indépendamment des longueurs
+    de label. L'écart effectif revient à 8px (le seul gap du parent
+    flex).
+  - **Descenders (q, j, g, y) encore tronqués** : `min-height: 32px`
+    (au lieu de 30) + `line-height: 1.4` (au lieu de 1.2) sur
+    `.short-select-trigger` ET `.xedo-input-designer` ET
+    `.short-select-option` (menu). Donne ~18px de line-box pour
+    ~12.8px de glyph + ascender + descender — confortable, aucune
+    coupure visible.
+
 - ✅ **Phase 2.8** (2026-05-20) — Polish round 2.
   - Troncature des descenders (j, g, p, y) sur dropdowns + XEdoInput :
     `min-height: 30px` + `line-height: 1.2` + padding restauré à 5px
