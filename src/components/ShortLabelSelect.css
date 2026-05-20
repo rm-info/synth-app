@@ -9,18 +9,19 @@
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  /* G.2.7 : box-sizing + min-height pour matcher exactement la hauteur
-     du XEdoInput. Sans ça, le bouton et l'input HTML divergent
-     légèrement (calculs de hauteur différents selon l'élément). */
+  /* G.2.8 : min-height 30px + line-height 1.2 + padding restauré à 5px
+     pour libérer la place des descenders (j, g, p, y) tronqués en
+     line-height:1. Mêmes valeurs sur .xedo-input-designer →
+     hauteurs strictement identiques. */
   box-sizing: border-box;
-  min-height: 28px;
-  padding: 4px 6px 4px 8px;
+  min-height: 30px;
+  padding: 5px 6px 5px 8px;
   border: 1px solid #4a4a6a;
   border-radius: 6px;
   background: #1a1a2e;
   color: #d0d0e0;
   font-size: 0.8rem;
-  line-height: 1;
+  line-height: 1.2;
   font-family: inherit;
   cursor: pointer;
   width: 100%;
@@ -78,7 +79,8 @@
   white-space: nowrap;
   transition: background 0.12s, color 0.12s;
 }
-.short-select-option:hover {
+.short-select-option:hover,
+.short-select-option.is-highlighted {
   background: rgba(0, 212, 255, 0.12);
   color: #00d4ff;
 }
@@ -86,4 +88,7 @@
   background: rgba(0, 212, 255, 0.18);
   color: #00d4ff;
   font-weight: 600;
+}
+.short-select-option.is-selected.is-highlighted {
+  background: rgba(0, 212, 255, 0.28);
 }

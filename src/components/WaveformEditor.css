@@ -190,7 +190,10 @@
 .we-params-fields {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  /* G.2.8 : gap unifié 8px (cohérent avec instrument-system-row et
+     control-group). Toute la zone Instrument respire avec le même
+     intervalle. */
+  gap: 8px;
   /* iter G phase 2.5 : occupe l'espace vertical disponible pour permettre
      au clavier (we-keyboard-area) de s'étirer. */
   flex: 1;
@@ -205,7 +208,10 @@
 .control-group {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  /* G.2.8 : gap unifié 8px (aligné avec we-params-fields et la ligne
+     system-row). Plus de margin-bottom ad-hoc sur we-octave-row : c'est
+     le parent flex qui dicte l'espacement entre toutes les bandes. */
+  gap: 8px;
   /* iter G phase 2.5 : pour stretch du clavier — le control-group hérite
      l'espace de we-params-fields, et we-keyboard-area se développe dedans. */
   flex: 1;
@@ -236,16 +242,14 @@
 
 /* Ligne Octaves au-dessus du clavier. Libellé "Octaves" suivi du
    selector — display flex inline pour aligner verticalement.
-   G.2.7 : marge inférieure ajoutée (espace visuel avec le clavier),
-   line-height fixe sur le label (centrage vertical robuste), et
-   OctaveSelector étendu en flex:1 — chaque bouton remplit sa part
-   de largeur. */
+   G.2.8 : plus de margin-bottom ad-hoc (le parent control-group gère
+   l'espacement vertical via gap:8px). gap interne unifié à 8px entre
+   les boutons d'octave eux-mêmes. */
 .we-octave-row {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
   flex-shrink: 0;
-  margin-bottom: 8px;
 }
 .we-octave-label {
   font-size: 0.72rem;
@@ -262,7 +266,7 @@
      l'ancien placement sous-clavier. Plus pertinent ici. */
   margin-top: 0;
   flex-wrap: nowrap;
-  gap: 3px;
+  gap: 8px;
 }
 .we-octave-row .octave-selector .octave-btn {
   flex: 1;
@@ -446,11 +450,11 @@
 
 .xedo-input-designer {
   width: 50px;
-  /* G.2.7 : box-sizing + min-height explicites pour matcher exactement la
-     hauteur du .short-select-trigger (input HTML calcule sa hauteur
-     différemment des boutons par défaut). */
+  /* G.2.8 : alignées sur .short-select-trigger — min-height 30px,
+     padding 5px, line-height 1.2 (les descenders n'ont rien à voir ici
+     mais on garde la cohérence). */
   box-sizing: border-box;
-  min-height: 28px;
+  min-height: 30px;
   padding: 5px 6px;
   border: 1px solid #4a4a6a;
   border-radius: 6px;
@@ -458,7 +462,7 @@
   color: #d0d0e0;
   font-family: monospace;
   font-size: 0.8rem;
-  line-height: 1;
+  line-height: 1.2;
   text-align: center;
   outline: none;
 }
@@ -596,8 +600,13 @@
   gap: 4px;
 }
 .actions-icon-btn {
-  width: 28px;
-  height: 28px;
+  /* G.2.8 : taille de base du mode ouvert portée à 34×34 (les icônes ont
+     plus de présence visuelle, cohérent avec l'importance des actions
+     patch/historique). La règle scopée
+     `.designer-sidebar.is-collapsed .actions-icon-btn` (cf. App.css)
+     ramène à 30×30 en mode réduit pour rester compact. */
+  width: 34px;
+  height: 34px;
   padding: 0;
   border: 1px solid #3a3a5a;
   border-radius: 6px;

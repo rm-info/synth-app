@@ -1666,7 +1666,8 @@ function WaveformEditor({
       <div className="designer-actions-panel">
         <div className="designer-actions-header">Actions</div>
         <div className="designer-actions-row">
-          {/* Groupe 1 : patch actions */}
+          {/* Groupe 1 : patch actions (G.2.8 : icônes 18-19 pour matcher
+              les boutons 34×34). */}
           <div className="designer-actions-group">
             <button
               type="button"
@@ -1674,7 +1675,7 @@ function WaveformEditor({
               onClick={handleNew}
               title="Nouveau patch (réinitialise l'éditeur)"
               aria-label="Nouveau patch"
-            ><Plus size={16} strokeWidth={2} /></button>
+            ><Plus size={19} strokeWidth={2} /></button>
             {currentPatch && (
               <button
                 type="button"
@@ -1682,7 +1683,7 @@ function WaveformEditor({
                 onClick={handleUpdate}
                 title="Mettre à jour le patch courant"
                 aria-label="Mettre à jour"
-              ><Save size={15} strokeWidth={2} /></button>
+              ><Save size={18} strokeWidth={2} /></button>
             )}
             <button
               type="button"
@@ -1690,7 +1691,7 @@ function WaveformEditor({
               onClick={handleSaveAsNew}
               title={currentPatch ? 'Enregistrer comme nouveau patch' : 'Sauvegarder le patch'}
               aria-label="Enregistrer comme nouveau"
-            ><SaveAll size={15} strokeWidth={2} /></button>
+            ><SaveAll size={18} strokeWidth={2} /></button>
           </div>
           {/* Groupe 2 : historique Designer */}
           {(onUndo || onRedo) && (
@@ -1702,7 +1703,7 @@ function WaveformEditor({
                 disabled={!canUndo}
                 title="Annuler (Ctrl+Z)"
                 aria-label="Annuler"
-              ><Undo2 size={15} strokeWidth={2} /></button>
+              ><Undo2 size={18} strokeWidth={2} /></button>
               <button
                 type="button"
                 className="actions-icon-btn"
@@ -1710,7 +1711,7 @@ function WaveformEditor({
                 disabled={!canRedo}
                 title="Rétablir (Ctrl+Shift+Z)"
                 aria-label="Rétablir"
-              ><Redo2 size={15} strokeWidth={2} /></button>
+              ><Redo2 size={18} strokeWidth={2} /></button>
             </div>
           )}
           {/* Groupe 3 : import / export bibliothèque (placeholders G.2.2) */}
@@ -1721,14 +1722,14 @@ function WaveformEditor({
               disabled
               title="Importer une bibliothèque (à venir)"
               aria-label="Importer une bibliothèque (à venir)"
-            ><Upload size={15} strokeWidth={2} /></button>
+            ><Upload size={18} strokeWidth={2} /></button>
             <button
               type="button"
               className="actions-icon-btn"
               disabled
               title="Exporter la bibliothèque (à venir)"
               aria-label="Exporter la bibliothèque (à venir)"
-            ><Download size={15} strokeWidth={2} /></button>
+            ><Download size={18} strokeWidth={2} /></button>
           </div>
         </div>
         <div className="save-message-slot">
