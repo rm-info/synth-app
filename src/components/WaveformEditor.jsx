@@ -1,6 +1,7 @@
 import { useRef, useState, useCallback, useEffect, useImperativeHandle, useMemo } from 'react'
-import { Plus, Save, SaveAll, Undo2, Redo2, Upload, Download } from 'lucide-react'
+import { Plus, Save, SaveAll, Undo2, Redo2, Upload, Download, Sliders, X } from 'lucide-react'
 import { pointsToPeriodicWave, MIN_ATTACK } from '../audio'
+import useWindowWidth from '../hooks/useWindowWidth'
 import FreqInput from './FreqInput'
 import NumberInput from './NumberInput'
 import { PianoKeyboard, OctaveSelector } from './PianoKeyboard'
@@ -63,6 +64,14 @@ function formatFreq(hz) {
   if (Number.isInteger(r)) return `${r} Hz`
   return `${r.toFixed(1)} Hz`
 }
+
+// v1.1.0 : breakpoint en dessous duquel la row de contrôles Instrument
+// (Catégorie / Système musical / X-EDO / Repère / Tonique) est remplacée
+// par un bouton qui ouvre une modale centrée avec les mêmes contrôles.
+// Calibré à 950 px : la row ne tient plus sur une ligne en dessous, et
+// la zone Instrument peut alors déborder verticalement quand la hauteur
+// de fenêtre est aussi serrée.
+const INSTRUMENT_COLLAPSE_WIDTH = 950
 
 const ADSR_H = 120
 // F.3.11 : range A/D/R étendu à 1000 ms. À max-range, ADSR_SEGMENT_PX
@@ -328,6 +337,33 @@ function WaveformEditor({
   const [hover, setHover] = useState(null) // { idx, px, py } | null
   const [saveMessage, setSaveMessage] = useState('')
   const saveMsgTimerRef = useRef(null)
+
+  // v1.1.0 : largeur de fenêtre → bascule responsive de la zone
+  // Instrument. < 950 px : row de contrôles remplacée par un bouton
+  // qui ouvre une modale centrée.
+  const windowWidth = useWindowWidth()
+  const instrumentCollapsed = windowWidth < INSTRUMENT_COLLAPSE_WIDTH
+  const [systemModalOpen, setSystemModalOpen] = useState(false)
+  // Si la fenêtre grandit pendant que la modale est ouverte, on la
+  // ferme (le bouton qui l'a ouverte est désormais caché). State
+  // résiduel = wasteful mais inoffensif si on ne ferme pas — on ferme
+  // tout de même pour propreté.
+  if (!instrumentCollapsed && systemModalOpen) {
+    // Conditional setter dans le render — accepté ici car idempotent
+    // (passe à false uniquement si déjà true au render précédent).
+    // Pattern recommandé par la doc React pour cleanup state
+    // "dérivé" sans useEffect.
+    setSystemModalOpen(false)
+  }
+  // Escape ferme la modale.
+  useEffect(() => {
+    if (!systemModalOpen) return
+    const onEscape = (e) => {
+      if (e.key === 'Escape') setSystemModalOpen(false)
+    }
+    document.addEventListener('keydown', onEscape)
+    return () => document.removeEventListener('keydown', onEscape)
+  }, [systemModalOpen])
 
   // Refs miroir des valeurs courantes pour les handlers audio (évite les
   // closures périmées dans les listeners window/clavier).
@@ -1398,6 +1434,89 @@ function WaveformEditor({
     </div>
   )
 
+  // v1.1.0 : Row de contrôles Instrument (Catégorie / Système musical /
+  // X-EDO / Repère / Tonique). Extrait en sous-fonction pour réutilisation
+  // entre le rendu direct (>=950px) et le rendu dans la modale (<950px).
+  // Le mot "musical" du label "Système musical" est wrappé dans un span
+  // dédié pour pouvoir être masqué par CSS @media < 1170px (le label
+  // wrappait à 2 lignes sur sidebar étroite).
+  const renderInstrumentControls = () => (
+    <div className="instrument-system-row">
+      <div className="instrument-system-field">
+        <span className="instrument-system-field-label">Catégorie</span>
+        <ShortLabelSelect
+          ariaLabel="Catégorie de système musical"
+          value={getCategoryOfSystem(testTuningSystem)}
+          options={Object.values(TUNING_CATEGORIES).map((cat) => ({
+            id: cat.id,
+            label: cat.label,
+            shortLabel: cat.shortLabel,
+          }))}
+          onChange={(catId) => {
+            const cat = TUNING_CATEGORIES[catId]
+            if (!cat) return
+            // Bascule vers le premier système de la nouvelle catégorie.
+            editorActions.setTestTuningSystem(cat.systems[0])
+          }}
+        />
+      </div>
+      <div className="instrument-system-field">
+        <span className="instrument-system-field-label">
+          Système<span className="instrument-label-extension"> musical</span>
+        </span>
+        <ShortLabelSelect
+          ariaLabel="Système musical"
+          value={testTuningSystem}
+          options={TUNING_CATEGORIES[getCategoryOfSystem(testTuningSystem)].systems.map((sysId) => ({
+            id: sysId,
+            label: TUNING_SYSTEMS[sysId].label,
+            shortLabel: TUNING_SYSTEMS[sysId].shortLabel,
+          }))}
+          onChange={editorActions.setTestTuningSystem}
+        />
+      </div>
+      {testTuningSystem === 'x-edo' && (
+        <div
+          className="instrument-system-field instrument-xedo-field"
+          title={`Nombre de degrés du système X-EDO — flèches haut/bas pour ±1, +Shift pour ±5. Fourchette ${X_EDO_MIN}-${X_EDO_MAX}.`}
+        >
+          <span className="instrument-system-field-label">X</span>
+          <XEdoInput value={xEdoN} onChange={editorActions.setXEdoN} className="xedo-input-designer" />
+        </div>
+      )}
+      {showCuesBar && (
+        <div className="instrument-system-field">
+          <span className="instrument-system-field-label">Repère</span>
+          <ShortLabelSelect
+            ariaLabel="Repère pédagogique"
+            value={visualCuePattern}
+            options={Object.entries(VISUAL_CUE_PATTERNS).map(([id, pattern]) => ({
+              id,
+              label: pattern.label,
+              shortLabel: pattern.shortLabel,
+            }))}
+            onChange={editorActions.setVisualCuePattern}
+          />
+        </div>
+      )}
+      {showCuesBar && visualCuePattern !== 'none' && cueTonicMax > 0 && (
+        <div className="instrument-system-field instrument-tonic-field">
+          <span className="instrument-system-field-label">Tonique</span>
+          <ShortLabelSelect
+            ariaLabel="Degré tonique"
+            value={visualCueTonic}
+            options={Array.from({ length: cueTonicMax }, (_, i) => ({
+              id: i,
+              label: String(i + 1),
+              shortLabel: String(i + 1),
+            }))}
+            onChange={(deg) => editorActions.setVisualCueTonic(Number(deg))}
+          />
+        </div>
+      )}
+    </div>
+  )
+
   const renderParamsArea = () => (
     <div className="we-params-area">
       <header className="we-area-header">
@@ -1405,82 +1524,48 @@ function WaveformEditor({
       </header>
 
       <div className="we-params-fields">
-        {/* iter G phase 2.3 : 4 contrôles unifiés sur une ligne flex-wrap —
-            Catégorie / Système musical / Repère / Tonique. X-EDO N
-            s'insère après Système quand applicable. Tous utilisent le
-            ShortLabelSelect (trigger compact, menu lisible). */}
-        <div className="instrument-system-row">
-          <div className="instrument-system-field">
-            <span className="instrument-system-field-label">Catégorie</span>
-            <ShortLabelSelect
-              ariaLabel="Catégorie de système musical"
-              value={getCategoryOfSystem(testTuningSystem)}
-              options={Object.values(TUNING_CATEGORIES).map((cat) => ({
-                id: cat.id,
-                label: cat.label,
-                shortLabel: cat.shortLabel,
-              }))}
-              onChange={(catId) => {
-                const cat = TUNING_CATEGORIES[catId]
-                if (!cat) return
-                // Bascule vers le premier système de la nouvelle catégorie.
-                editorActions.setTestTuningSystem(cat.systems[0])
-              }}
-            />
+        {/* v1.1.0 : < 950 px, la row de contrôles est remplacée par un
+            bouton qui ouvre une modale centrée avec les mêmes contrôles.
+            La modale est dans le même arbre React (pas de portal) — son
+            backdrop fixed couvre toute la fenêtre via z-index élevé. */}
+        {instrumentCollapsed ? (
+          <button
+            type="button"
+            className="instrument-collapse-trigger"
+            onClick={() => setSystemModalOpen(true)}
+            title="Ouvrir les paramètres du système musical"
+          >
+            <Sliders size={16} strokeWidth={2} />
+            <span>Paramètres du système musical</span>
+          </button>
+        ) : (
+          renderInstrumentControls()
+        )}
+        {instrumentCollapsed && systemModalOpen && (
+          <div
+            className="instrument-modal-backdrop"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="instrument-modal-title"
+            onClick={() => setSystemModalOpen(false)}
+          >
+            <div className="instrument-modal" onClick={(e) => e.stopPropagation()}>
+              <header className="instrument-modal-header">
+                <h3 id="instrument-modal-title">Paramètres du système musical</h3>
+                <button
+                  type="button"
+                  className="instrument-modal-close"
+                  onClick={() => setSystemModalOpen(false)}
+                  title="Fermer"
+                  aria-label="Fermer"
+                ><X size={14} strokeWidth={2.2} /></button>
+              </header>
+              <div className="instrument-modal-body">
+                {renderInstrumentControls()}
+              </div>
+            </div>
           </div>
-          <div className="instrument-system-field">
-            <span className="instrument-system-field-label">Système musical</span>
-            <ShortLabelSelect
-              ariaLabel="Système musical"
-              value={testTuningSystem}
-              options={TUNING_CATEGORIES[getCategoryOfSystem(testTuningSystem)].systems.map((sysId) => ({
-                id: sysId,
-                label: TUNING_SYSTEMS[sysId].label,
-                shortLabel: TUNING_SYSTEMS[sysId].shortLabel,
-              }))}
-              onChange={editorActions.setTestTuningSystem}
-            />
-          </div>
-          {testTuningSystem === 'x-edo' && (
-            <div
-              className="instrument-system-field instrument-xedo-field"
-              title={`Nombre de degrés du système X-EDO — flèches haut/bas pour ±1, +Shift pour ±5. Fourchette ${X_EDO_MIN}-${X_EDO_MAX}.`}
-            >
-              <span className="instrument-system-field-label">X</span>
-              <XEdoInput value={xEdoN} onChange={editorActions.setXEdoN} className="xedo-input-designer" />
-            </div>
-          )}
-          {showCuesBar && (
-            <div className="instrument-system-field">
-              <span className="instrument-system-field-label">Repère</span>
-              <ShortLabelSelect
-                ariaLabel="Repère pédagogique"
-                value={visualCuePattern}
-                options={Object.entries(VISUAL_CUE_PATTERNS).map(([id, pattern]) => ({
-                  id,
-                  label: pattern.label,
-                  shortLabel: pattern.shortLabel,
-                }))}
-                onChange={editorActions.setVisualCuePattern}
-              />
-            </div>
-          )}
-          {showCuesBar && visualCuePattern !== 'none' && cueTonicMax > 0 && (
-            <div className="instrument-system-field instrument-tonic-field">
-              <span className="instrument-system-field-label">Tonique</span>
-              <ShortLabelSelect
-                ariaLabel="Degré tonique"
-                value={visualCueTonic}
-                options={Array.from({ length: cueTonicMax }, (_, i) => ({
-                  id: i,
-                  label: String(i + 1),
-                  shortLabel: String(i + 1),
-                }))}
-                onChange={(deg) => editorActions.setVisualCueTonic(Number(deg))}
-              />
-            </div>
-          )}
-        </div>
+        )}
 
         <div className="control-group">
           {freeMode ? (

@@ -401,6 +401,140 @@
   min-width: 52px;
 }
 
+/* v1.1.0 : "musical" du label "Système musical" caché en dessous de
+   1170 px (sinon le label wrappe à 2 lignes et casse l'alignement de
+   la row). Le mot reste affiché par défaut DANS LA MODALE car elle a
+   plus d'espace — override unconditionnel ci-dessous. */
+@media (max-width: 1169px) {
+  .instrument-label-extension {
+    display: none;
+  }
+}
+.instrument-modal-body .instrument-label-extension {
+  display: inline;
+}
+
+/* Bouton qui remplace la row de contrôles quand la fenêtre est trop
+   étroite (< 950 px). Style cohérent avec les autres boutons d'action
+   (cyan accent, hover plus prononcé). Pleine largeur pour signaler
+   son rôle de raccourci vers un panneau de paramètres. */
+.instrument-collapse-trigger {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  padding: 10px 14px;
+  border: 1px solid #4a4a6a;
+  border-radius: 6px;
+  background: rgba(0, 212, 255, 0.05);
+  color: #d0d0e0;
+  font-size: 0.85rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+}
+.instrument-collapse-trigger:hover {
+  background: rgba(0, 212, 255, 0.15);
+  border-color: #00d4ff;
+  color: #00d4ff;
+}
+
+/* Modale centrée des paramètres du système musical. Backdrop fixed
+   plein écran avec blur léger (cohérent avec ResolutionGate). La
+   modale elle-même est plafonnée en taille pour rester confortable
+   même sur petits écrans (>=924 — en dessous, ResolutionGate prend
+   le relais avec le placeholder mobile). */
+.instrument-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.55);
+  backdrop-filter: blur(2px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  z-index: 100;
+}
+.instrument-modal {
+  width: 100%;
+  max-width: 480px;
+  max-height: calc(100vh - 40px);
+  background: #1a1a2e;
+  border: 1px solid #3a3a5a;
+  border-radius: 10px;
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.5);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.instrument-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 18px;
+  border-bottom: 1px solid #3a3a5a;
+  flex-shrink: 0;
+}
+.instrument-modal-header h3 {
+  margin: 0;
+  font-size: 0.95rem;
+  color: #d0d0e0;
+  letter-spacing: 0.02em;
+  font-weight: 600;
+}
+.instrument-modal-close {
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: 1px solid #3a3a5a;
+  border-radius: 4px;
+  background: transparent;
+  color: #a0a0c0;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.instrument-modal-close:hover {
+  background: #2a2a4a;
+  color: #ff4466;
+  border-color: #ff4466;
+}
+.instrument-modal-body {
+  padding: 18px;
+  overflow-y: auto;
+}
+
+/* Layout des contrôles à l'intérieur de la modale : vertical, chaque
+   champ pleine largeur. Override du flex-wrap horizontal de la row
+   (qui est conçu pour la sidebar, peu adapté ici où on a la place). */
+.instrument-modal-body .instrument-system-row {
+  flex-direction: column;
+  flex-wrap: nowrap;
+  gap: 12px;
+}
+.instrument-modal-body .instrument-system-field {
+  flex: 0 0 auto;
+  min-width: 0;
+  width: 100%;
+}
+.instrument-modal-body .instrument-system-field.instrument-xedo-field,
+.instrument-modal-body .instrument-system-field.instrument-tonic-field {
+  width: 100%;
+}
+.instrument-modal-body .instrument-system-field .xedo-input-designer {
+  width: 100px;
+}
+.instrument-modal-body .instrument-system-field .short-select,
+.instrument-modal-body .instrument-system-field .xedo-input-designer {
+  /* Pas besoin du margin-top:auto bottom-anchored dans la modale —
+     les champs sont déjà vertical-stack, pas de divergence de
+     hauteur entre eux. */
+  margin-top: 0;
+}
+
 /* Bouton Test (mode Libre) — calé sur la fréquence courante. Style
    d'évidence (gradient bleu doux), feedback `is-active` pendant le
    maintien. Largeur 100% pour rester repérable sous le slider. */
