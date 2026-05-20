@@ -1304,7 +1304,7 @@ function WaveformEditor({
   const renderParamsArea = () => (
     <div className="we-params-area">
       <header className="we-area-header">
-        <h3 className="we-area-title">Paramètres</h3>
+        <h3 className="we-area-title">Instrument</h3>
       </header>
 
       <div className="we-params-fields">
@@ -1433,27 +1433,66 @@ function WaveformEditor({
 
       </div>
 
-      <div className="we-params-spacer" />
-
-      <div className="control-buttons">
-        <button type="button" className="new-btn" onClick={handleNew} title="Nouveau patch (réinitialise l'éditeur)">
-          Nouveau
-        </button>
-        {currentPatch && (
-          <button className="update-btn" onClick={handleUpdate}>
-            Mettre à jour
-          </button>
-        )}
-        <button className="save-btn" onClick={handleSaveAsNew}>
-          {currentPatch ? 'Enregistrer comme nouveau' : 'Sauvegarder le patch'}
-        </button>
-      </div>
-
-      <div className="save-message-slot">
-        {saveMessage && <span className="save-message">{saveMessage}</span>}
-      </div>
     </div>
   )
+
+  // Phase 1 (iter G) : panneau Actions extrait du bas de l'Instrument et
+  // déplacé dans la sidebar gauche. Le children-API expose `renderActions`
+  // pour qu'App.jsx le place entre la Bibliothèque et le MiniPlayer ; les
+  // handlers handleNew/handleUpdate/handleSaveAsNew + saveMessage restent
+  // encapsulés ici.
+  const renderActions = ({ collapsed = false } = {}) => {
+    if (collapsed) {
+      return (
+        <div className="designer-actions-icons">
+          <button
+            type="button"
+            className="actions-icon-btn new-btn-icon"
+            onClick={handleNew}
+            title="Nouveau patch (réinitialise l'éditeur)"
+            aria-label="Nouveau"
+          >＋</button>
+          {currentPatch && (
+            <button
+              type="button"
+              className="actions-icon-btn update-btn-icon"
+              onClick={handleUpdate}
+              title="Mettre à jour le patch courant"
+              aria-label="Mettre à jour"
+            >✓</button>
+          )}
+          <button
+            type="button"
+            className="actions-icon-btn save-btn-icon"
+            onClick={handleSaveAsNew}
+            title={currentPatch ? 'Enregistrer comme nouveau patch' : 'Sauvegarder le patch'}
+            aria-label="Enregistrer"
+          >💾</button>
+        </div>
+      )
+    }
+    return (
+      <div className="designer-actions-panel">
+        <div className="designer-actions-header">Actions</div>
+        <div className="designer-actions-buttons">
+          <button type="button" className="new-btn" onClick={handleNew} title="Nouveau patch (réinitialise l'éditeur)">
+            Nouveau
+          </button>
+          {currentPatch && (
+            <button className="update-btn" onClick={handleUpdate}>
+              Mettre à jour
+            </button>
+          )}
+          <button className="save-btn" onClick={handleSaveAsNew}>
+            {currentPatch ? 'Enregistrer comme nouveau' : 'Sauvegarder le patch'}
+          </button>
+        </div>
+        <div className="save-message-slot">
+          {saveMessage && <span className="save-message">{saveMessage}</span>}
+        </div>
+      </div>
+    )
+  }
 
   const renderAdsrArea = () => {
     // Commit depuis l'input ADSR : applique la valeur, et nettoie cette clé
@@ -1607,7 +1646,7 @@ function WaveformEditor({
     )
   }
 
-  return children({ renderCanvasArea, renderParamsArea, renderAdsrArea })
+  return children({ renderCanvasArea, renderParamsArea, renderAdsrArea, renderActions })
 }
 
 export default WaveformEditor

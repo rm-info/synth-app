@@ -399,6 +399,80 @@
   flex-shrink: 0;
 }
 
+/* Phase 1 (iter G) : panneau Actions dans la sidebar gauche du Designer.
+   Empile verticalement le titre, les boutons, et le slot message. Les
+   boutons reprennent les styles .new-btn / .update-btn / .save-btn — la
+   ligne d'icônes en mode réduit utilise .designer-actions-icons. */
+.designer-actions-panel {
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  box-sizing: border-box;
+}
+.designer-actions-header {
+  font-size: 0.7rem;
+  color: #a0a0c0;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-weight: 600;
+}
+.designer-actions-buttons {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.designer-actions-buttons .new-btn,
+.designer-actions-buttons .update-btn,
+.designer-actions-buttons .save-btn {
+  width: 100%;
+  text-align: center;
+}
+/* Mode réduit (sidebar collapsed) : ligne verticale d'icônes. */
+.designer-actions-icons {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 0;
+}
+.actions-icon-btn {
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 1px solid #3a3a5a;
+  border-radius: 6px;
+  background: #1a1a2e;
+  color: #a0a0c0;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.85rem;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+.actions-icon-btn:hover {
+  background: #2a2a4a;
+  color: #00d4ff;
+  border-color: #00d4ff;
+}
+.actions-icon-btn.update-btn-icon {
+  color: #4ade80;
+  border-color: #4ade80;
+}
+.actions-icon-btn.update-btn-icon:hover {
+  background: rgba(74, 222, 128, 0.18);
+  color: #4ade80;
+}
+.actions-icon-btn.save-btn-icon {
+  color: #c084fc;
+  border-color: #c084fc;
+}
+.actions-icon-btn.save-btn-icon:hover {
+  background: rgba(192, 132, 252, 0.18);
+  color: #c084fc;
+}
+
 .new-btn {
   padding: 8px 14px;
   border: 1px solid #5a5a7a;

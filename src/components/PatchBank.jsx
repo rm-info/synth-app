@@ -328,7 +328,7 @@ function PatchBank({
     return (
       <aside className="sound-bank-panel">
         <header className="sound-bank-header">
-          <h3>Banque</h3>
+          <h3>Bibliothèque</h3>
           <div className="sound-bank-header-right">
             <button type="button" className="folder-add-btn" onClick={handleCreateFolder} title="Nouveau dossier">
               + Dossier

@@ -26,8 +26,9 @@
   min-height: 0;
 }
 
-/* Sidebar : banque (flex:1) + mini-player (flex:0). Bord unifié autour
-   des deux enfants. */
+/* Sidebar Designer : Bibliothèque (flex:1) → Actions (flex:0) → MiniPlayer
+   (flex:0). Bord unifié autour des trois enfants, séparateurs internes
+   en border-top. */
 .designer-sidebar {
   grid-area: sidebar;
   display: flex;
@@ -46,6 +47,10 @@
   max-width: none;
   min-width: 0;
   background: transparent;
+}
+.designer-sidebar > .designer-actions-panel {
+  flex: 0 0 auto;
+  border-top: 1px solid #2a2a4a;
 }
 .designer-sidebar > .mini-player {
   flex: 0 0 auto;

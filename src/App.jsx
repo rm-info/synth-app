@@ -1351,7 +1351,7 @@ function App() {
         onUndo={handleUndoDesigner}
         onRedo={handleRedoDesigner}
       >
-        {({ renderCanvasArea, renderParamsArea, renderAdsrArea }) => (
+        {({ renderCanvasArea, renderParamsArea, renderAdsrArea, renderActions }) => (
           <>
             <main
               className="designer-layout"
@@ -1373,6 +1373,7 @@ function App() {
                   onMovePatchToFolder={handleMovePatchToFolder}
                   onMoveFolder={handleMoveFolder}
                 />
+                {renderActions()}
                 <MiniPlayer
                   isPlaying={playback.isPlaying}
                   cursorPos={playback.cursorPos}
@@ -1471,7 +1472,7 @@ function App() {
                     >
                       <span className="sidebar-toggle-icon">▶</span>
                     </button>
-                    <span className="sidebar-collapsed-label">Banque</span>
+                    <span className="sidebar-collapsed-label">Bibliothèque</span>
                   </>
                 ) : (
                   <>
