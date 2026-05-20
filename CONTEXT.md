@@ -243,6 +243,14 @@ Backlog : adaptation UI pour résolutions intermédiaires
 [924×668..1740×900] ; implémentation effective Import/Export
 bibliothèque (boutons placeholders dans Actions).
 
+**Release v1.0.0** (2026-05-20) — Premier déploiement prod. Sortie
+du 0.x exploratoire après 7 itérations majeures (A→G) stables.
+Branding : titre commercial **On_Synth_App** (jeu de mots « on s'en
+tape ») dans la barre des onglets à gauche, tampon de version
+\`v1.0.0\` à droite (inliné au build via Vite `define` depuis
+`package.json`, source de vérité unique). Tag git `v1.0.0`. README
+remplacé (boilerplate Vite → vrai README projet).
+
 ## Objectif
 
 Synthétiseur web pédagogique / créatif : dessiner des formes d'onde à la souris,
