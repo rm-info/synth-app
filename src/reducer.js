@@ -37,6 +37,14 @@ export const COMPOSER_MAIN_MIN_WIDTH = 200
 // de restauration. Utilisée comme override de la CSS var depuis App.
 export const COMPOSER_SIDEBAR_COLLAPSED_WIDTH = 32
 
+// Sidebar gauche du Designer (iter G phase 1.2). Min calibré sur le
+// minimum lisible de la Bibliothèque + boutons Actions empilés ; défaut
+// 220 px = valeur historique. Collapsed = 36 px pour loger des icônes
+// 28 px + padding.
+export const DESIGNER_SIDEBAR_MIN_WIDTH = 200
+export const DESIGNER_SIDEBAR_DEFAULT_WIDTH = 220
+export const DESIGNER_SIDEBAR_COLLAPSED_WIDTH = 36
+
 // Enveloppe AHDSR (F.3.12) : `hold` est un plateau au peak inséré entre
 // l'attack et le decay (utile pour percussifs avec punch). Défaut 0 ms = pas
 // de plateau, comportement strictement identique à un ADSR classique.
@@ -221,6 +229,8 @@ export function loadPersistedState() {
       composerAsideWidth: typeof parsed.composerAsideWidth === 'number' ? parsed.composerAsideWidth : null,
       composerBankCollapsed: typeof parsed.composerBankCollapsed === 'boolean' ? parsed.composerBankCollapsed : null,
       composerAsideCollapsed: typeof parsed.composerAsideCollapsed === 'boolean' ? parsed.composerAsideCollapsed : null,
+      designerSidebarWidth: typeof parsed.designerSidebarWidth === 'number' ? parsed.designerSidebarWidth : null,
+      designerSidebarCollapsed: typeof parsed.designerSidebarCollapsed === 'boolean' ? parsed.designerSidebarCollapsed : null,
       // F.4.4.3 : état d'exploration Designer persisté de bout en bout.
       // Tous les champs `editor.test*` + `editor.visualCue*` survivent au
       // reload. Validation/clamp défensifs ici (point d'entrée unique) :
@@ -367,6 +377,10 @@ export function buildInitialState() {
     composerAsideWidth: Math.max(COMPOSER_SIDEBAR_MIN_WIDTH, persisted?.composerAsideWidth ?? COMPOSER_SIDEBAR_MIN_WIDTH),
     composerBankCollapsed: persisted?.composerBankCollapsed ?? false,
     composerAsideCollapsed: persisted?.composerAsideCollapsed ?? false,
+    // iter G phase 1.2 : sidebar Designer redimensionnable + réductible.
+    // Width clampée à [DESIGNER_SIDEBAR_MIN_WIDTH, ∞), persistée.
+    designerSidebarWidth: Math.max(DESIGNER_SIDEBAR_MIN_WIDTH, persisted?.designerSidebarWidth ?? DESIGNER_SIDEBAR_DEFAULT_WIDTH),
+    designerSidebarCollapsed: persisted?.designerSidebarCollapsed ?? false,
     composerFlash: null,
 
     history: {
@@ -1399,6 +1413,16 @@ export function reducer(state, action) {
         return { ...state, composerAsideCollapsed: value }
       }
       return state
+    }
+    case 'SET_DESIGNER_SIDEBAR_WIDTH': {
+      const clamped = Math.max(DESIGNER_SIDEBAR_MIN_WIDTH, Math.round(action.payload))
+      if (state.designerSidebarWidth === clamped) return state
+      return { ...state, designerSidebarWidth: clamped }
+    }
+    case 'SET_DESIGNER_SIDEBAR_COLLAPSED': {
+      const value = !!action.payload
+      if (state.designerSidebarCollapsed === value) return state
+      return { ...state, designerSidebarCollapsed: value }
     }
     case 'SET_COMPOSER_FLASH': {
       return { ...state, composerFlash: action.payload }

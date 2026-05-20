@@ -24,6 +24,8 @@ import {
   COMPOSER_LAYOUT_CHROME,
   COMPOSER_MAIN_MIN_WIDTH,
   COMPOSER_SIDEBAR_COLLAPSED_WIDTH,
+  DESIGNER_SIDEBAR_MIN_WIDTH,
+  DESIGNER_SIDEBAR_COLLAPSED_WIDTH,
   canSplitClip,
   getDescendantFolderIds,
   editorTestNoteFields,
@@ -49,6 +51,7 @@ function App() {
     editor, activeTab, currentPatchId, zoomH, defaultClipDuration,
     spectrogramVisible, durationMode, selectedClipIds, composerFlash, lastAnchorClipId,
     composerBankWidth, composerAsideWidth, composerBankCollapsed, composerAsideCollapsed,
+    designerSidebarWidth, designerSidebarCollapsed,
     patchCounter, clipCounter, folderCounter, trackCounter,
     clipboard, measureClipboard, history, notification,
   } = state
@@ -496,6 +499,8 @@ function App() {
           composerAsideWidth,
           composerBankCollapsed,
           composerAsideCollapsed,
+          designerSidebarWidth,
+          designerSidebarCollapsed,
           // F.4.4.3 : état d'exploration Designer persisté de bout en bout.
           // Chaque presse-touche dispatch un SET_EDITOR_TEST_NOTE qui re-tire
           // ce useEffect → setItem(localStorage). Coût acceptable :
@@ -515,6 +520,7 @@ function App() {
     patches, soundFolders, tracks, clips, bpm, numMeasures, a4Ref, xEdoN,
     spectrogramVisible, durationMode, activeTab, patchCounter, clipCounter, folderCounter, trackCounter,
     composerBankWidth, composerAsideWidth, composerBankCollapsed, composerAsideCollapsed,
+    designerSidebarWidth, designerSidebarCollapsed,
     editor.testTuningSystem, editor.testNoteIndex, editor.testOctave, editor.testFrequency,
     editor.visualCuePattern, editor.visualCueTonic,
   ])
@@ -627,6 +633,43 @@ function App() {
       payload: { side: 'aside', collapsed: !composerAsideCollapsed },
     })
   }, [composerAsideCollapsed])
+
+  // iter G phase 1.2 : sidebar gauche du Designer. Pas de contrainte de
+  // max comme dans Composer (la zone main est en flex), donc handleResize
+  // est trivial — un clamp min suffit, le reducer ré-applique.
+  const handleResizeDesignerSidebar = useCallback((width) => {
+    dispatch({ type: 'SET_DESIGNER_SIDEBAR_WIDTH', payload: width })
+  }, [])
+
+  // Popover Bibliothèque (mode réduit) : géré en local React, pas dans le
+  // reducer (UI éphémère, ne survit pas au reload).
+  const [libraryPopoverOpen, setLibraryPopoverOpen] = useState(false)
+  const libraryPopoverRef = useRef(null)
+  const libraryPopoverTriggerRef = useRef(null)
+  useEffect(() => {
+    if (!libraryPopoverOpen) return
+    const onDocClick = (e) => {
+      if (libraryPopoverRef.current?.contains(e.target)) return
+      if (libraryPopoverTriggerRef.current?.contains(e.target)) return
+      setLibraryPopoverOpen(false)
+    }
+    const onEscape = (e) => {
+      if (e.key === 'Escape') setLibraryPopoverOpen(false)
+    }
+    document.addEventListener('mousedown', onDocClick)
+    document.addEventListener('keydown', onEscape)
+    return () => {
+      document.removeEventListener('mousedown', onDocClick)
+      document.removeEventListener('keydown', onEscape)
+    }
+  }, [libraryPopoverOpen])
+
+  const handleToggleDesignerCollapsed = useCallback(() => {
+    // Fermer le popover Bibliothèque lors d'un toggle : l'état React résiduel
+    // reste sinon true entre deux collapsed.
+    setLibraryPopoverOpen(false)
+    dispatch({ type: 'SET_DESIGNER_SIDEBAR_COLLAPSED', payload: !designerSidebarCollapsed })
+  }, [designerSidebarCollapsed])
 
   // Reclampe les largeurs quand la fenêtre rétrécit : on préserve l'invariant
   // "main ≥ COMPOSER_MAIN_MIN_WIDTH" sans perdre les préférences de l'utilisateur
@@ -1357,32 +1400,121 @@ function App() {
               className="designer-layout"
               hidden={activeTab !== 'designer'}
               aria-hidden={activeTab !== 'designer'}
+              style={{
+                '--designer-sidebar-width': designerSidebarCollapsed
+                  ? `${DESIGNER_SIDEBAR_COLLAPSED_WIDTH}px`
+                  : `${designerSidebarWidth}px`,
+              }}
             >
-              <aside className="designer-sidebar">
-                <PatchBank
-                  patches={patches}
-                  soundFolders={soundFolders}
-                  currentPatchId={currentPatchId}
-                  activeTab="designer"
-                  onLoadPatch={handleLoadPatch}
-                  onRenamePatch={handleRenamePatch}
-                  onDeletePatch={handleDeletePatch}
-                  onCreateFolder={handleCreateFolder}
-                  onRenameFolder={handleRenameFolder}
-                  onDeleteFolder={handleDeleteFolder}
-                  onMovePatchToFolder={handleMovePatchToFolder}
-                  onMoveFolder={handleMoveFolder}
-                />
-                {renderActions()}
-                <MiniPlayer
-                  isPlaying={playback.isPlaying}
-                  cursorPos={playback.cursorPos}
-                  currentTime={playback.currentTime}
-                  totalDurationSec={totalDurationSec}
-                  hasClips={clips.length > 0}
-                  onPlay={playback.play}
-                  onStop={playback.stop}
-                />
+              <aside className={`designer-sidebar${designerSidebarCollapsed ? ' is-collapsed' : ''}`}>
+                {designerSidebarCollapsed ? (
+                  <>
+                    <button
+                      type="button"
+                      className="sidebar-toggle sidebar-toggle-standalone"
+                      onClick={handleToggleDesignerCollapsed}
+                      title="Ouvrir le panneau latéral"
+                      aria-label="Ouvrir le panneau latéral"
+                      aria-expanded={false}
+                    >
+                      <span className="sidebar-toggle-icon">▶</span>
+                    </button>
+                    <button
+                      type="button"
+                      ref={libraryPopoverTriggerRef}
+                      className={`designer-collapsed-section-btn${libraryPopoverOpen ? ' is-active' : ''}`}
+                      onClick={() => setLibraryPopoverOpen((v) => !v)}
+                      title="Ouvrir la Bibliothèque (flottant)"
+                      aria-label="Ouvrir la Bibliothèque"
+                      aria-expanded={libraryPopoverOpen}
+                    >📚</button>
+                    {renderActions({ collapsed: true })}
+                    <button
+                      type="button"
+                      className={`designer-collapsed-section-btn mini-play-btn-collapsed${playback.isPlaying ? ' playing' : ''}`}
+                      onClick={playback.isPlaying ? playback.stop : playback.play}
+                      disabled={clips.length === 0}
+                      title={playback.isPlaying ? 'Arrêter la lecture' : 'Lire la composition'}
+                      aria-label={playback.isPlaying ? 'Stop' : 'Play'}
+                    >{playback.isPlaying ? '■' : '▶'}</button>
+                    {libraryPopoverOpen && (
+                      <div className="designer-library-popover" ref={libraryPopoverRef} role="dialog" aria-label="Bibliothèque">
+                        <header className="designer-library-popover-header">
+                          <span>Bibliothèque</span>
+                          <button
+                            type="button"
+                            className="popover-close-btn"
+                            onClick={() => setLibraryPopoverOpen(false)}
+                            title="Fermer"
+                            aria-label="Fermer"
+                          >×</button>
+                        </header>
+                        <div className="designer-library-popover-body">
+                          <PatchBank
+                            patches={patches}
+                            soundFolders={soundFolders}
+                            currentPatchId={currentPatchId}
+                            activeTab="designer"
+                            onLoadPatch={(id) => { handleLoadPatch(id); setLibraryPopoverOpen(false) }}
+                            onRenamePatch={handleRenamePatch}
+                            onDeletePatch={handleDeletePatch}
+                            onCreateFolder={handleCreateFolder}
+                            onRenameFolder={handleRenameFolder}
+                            onDeleteFolder={handleDeleteFolder}
+                            onMovePatchToFolder={handleMovePatchToFolder}
+                            onMoveFolder={handleMoveFolder}
+                          />
+                        </div>
+                      </div>
+                    )}
+                  </>
+                ) : (
+                  <>
+                    <PatchBank
+                      patches={patches}
+                      soundFolders={soundFolders}
+                      currentPatchId={currentPatchId}
+                      activeTab="designer"
+                      onLoadPatch={handleLoadPatch}
+                      onRenamePatch={handleRenamePatch}
+                      onDeletePatch={handleDeletePatch}
+                      onCreateFolder={handleCreateFolder}
+                      onRenameFolder={handleRenameFolder}
+                      onDeleteFolder={handleDeleteFolder}
+                      onMovePatchToFolder={handleMovePatchToFolder}
+                      onMoveFolder={handleMoveFolder}
+                      headerExtra={
+                        <button
+                          type="button"
+                          className="sidebar-toggle sidebar-toggle-inline"
+                          onClick={handleToggleDesignerCollapsed}
+                          title="Réduire le panneau latéral"
+                          aria-label="Réduire le panneau latéral"
+                          aria-expanded={true}
+                        >
+                          <span className="sidebar-toggle-icon">◀</span>
+                        </button>
+                      }
+                    />
+                    {renderActions()}
+                    <MiniPlayer
+                      isPlaying={playback.isPlaying}
+                      cursorPos={playback.cursorPos}
+                      currentTime={playback.currentTime}
+                      totalDurationSec={totalDurationSec}
+                      hasClips={clips.length > 0}
+                      onPlay={playback.play}
+                      onStop={playback.stop}
+                    />
+                    <SidebarResizer
+                      side="right"
+                      width={designerSidebarWidth}
+                      minWidth={DESIGNER_SIDEBAR_MIN_WIDTH}
+                      onChange={handleResizeDesignerSidebar}
+                      ariaLabel="Redimensionner le panneau latéral du Designer"
+                    />
+                  </>
+                )}
               </aside>
               <div className="designer-main">
                 <div className="designer-row">
