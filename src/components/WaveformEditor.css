@@ -191,7 +191,10 @@
   display: flex;
   flex-direction: column;
   gap: 12px;
-  flex-shrink: 0;
+  /* iter G phase 2.5 : occupe l'espace vertical disponible pour permettre
+     au clavier (we-keyboard-area) de s'étirer. */
+  flex: 1;
+  min-height: 0;
 }
 
 .we-params-spacer {
@@ -203,6 +206,56 @@
   display: flex;
   flex-direction: column;
   gap: 4px;
+  /* iter G phase 2.5 : pour stretch du clavier — le control-group hérite
+     l'espace de we-params-fields, et we-keyboard-area se développe dedans. */
+  flex: 1;
+  min-height: 0;
+}
+
+/* iter G phase 2.5 : zone clavier — flex:1 absorbe l'espace vertical
+   restant. Force la hauteur 100% sur n'importe quel layout interne
+   (piano-12, grid-24, grid-x-edo, grid-22-*) via une règle ciblée. */
+.we-keyboard-area {
+  flex: 1 1 auto;
+  min-height: 90px;
+  display: flex;
+  align-items: stretch;
+  width: 100%;
+}
+.we-keyboard-area > .piano-keyboard,
+.we-keyboard-area > .piano-keyboard-grid24,
+.we-keyboard-area > .piano-keyboard-grid-22-bhatkhande,
+.we-keyboard-area > .piano-keyboard-grid-22-sarngadeva,
+.we-keyboard-area > .piano-keyboard-grid-x-edo {
+  /* Override de la hauteur fixe CSS/inline des layouts. !important
+     justifié : c'est un override délibéré côté parent (l'espace
+     disponible prime sur l'intrinsèque). */
+  height: 100% !important;
+  width: 100%;
+}
+
+/* Ligne Octaves au-dessus du clavier. Libellé "Octaves" suivi du
+   selector — display flex inline pour aligner verticalement. */
+.we-octave-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+.we-octave-label {
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #8a8fa8;
+  font-weight: 600;
+}
+
+/* Ligne Note (sous le clavier) — ancrée tout en bas du control-group.
+   margin-top:auto pousse le bloc contre le bord bas, peu importe la
+   hauteur du clavier. */
+.we-note-row {
+  margin-top: auto;
+  flex-shrink: 0;
 }
 
 .control-group label {

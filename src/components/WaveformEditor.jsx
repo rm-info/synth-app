@@ -1545,21 +1545,30 @@ function WaveformEditor({
                   </button>
                 </div>
               )}
-              <PianoKeyboard
-                tuningSystem={testTuningSystem}
-                xEdoN={xEdoN}
-                noteIndex={testNoteIndex}
-                activeNotes={activeNoteIndices}
-                cuedNotes={cuedNotes}
-                onSelectNote={editorActions.setTestNoteIndex}
-                onKeyPress={playInstrumentNote}
-                onKeyRelease={releaseInstrumentNote}
-              />
-              <OctaveSelector
-                octave={testOctave}
-                onSelectOctave={editorActions.setTestOctave}
-              />
-              <div className="freq-label">
+              {/* iter G phase 2.5 : OctaveSelector au-dessus du clavier, avec
+                  libellé "Octaves". Le clavier remplit ensuite l'espace
+                  vertical disponible (we-keyboard-area est flex:1). La ligne
+                  Note est ancrée en bas (margin-top:auto). */}
+              <div className="we-octave-row">
+                <span className="we-octave-label">Octaves</span>
+                <OctaveSelector
+                  octave={testOctave}
+                  onSelectOctave={editorActions.setTestOctave}
+                />
+              </div>
+              <div className="we-keyboard-area">
+                <PianoKeyboard
+                  tuningSystem={testTuningSystem}
+                  xEdoN={xEdoN}
+                  noteIndex={testNoteIndex}
+                  activeNotes={activeNoteIndices}
+                  cuedNotes={cuedNotes}
+                  onSelectNote={editorActions.setTestNoteIndex}
+                  onKeyPress={playInstrumentNote}
+                  onKeyRelease={releaseInstrumentNote}
+                />
+              </div>
+              <div className="freq-label we-note-row">
                 Note : <strong>{formatFreq(frequency)}</strong>
                 <span className="note-display">
                   {' '}— {getNoteNames(getTuningSystem(testTuningSystem), xEdoN)?.[testNoteIndex] ?? ''}{testOctave}
