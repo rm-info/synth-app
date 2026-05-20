@@ -3474,6 +3474,28 @@ clavier 22 cases, octave selector, boutons save, message slot).
       aux barres navigateur + OS qui donne les seuils `MIN_USABLE_*`
       (924×668) et `RECOMMENDED_*` (1740×900).
 
+- ✅ **Phase 2.8** (2026-05-20) — Polish round 2.
+  - Troncature des descenders (j, g, p, y) sur dropdowns + XEdoInput :
+    `min-height: 30px` + `line-height: 1.2` + padding restauré à 5px
+    sur `.short-select-trigger` ET `.xedo-input-designer` (mêmes
+    valeurs → hauteurs strictement identiques, plus de coupure).
+  - Gap unifié **8 px** partout dans la zone Instrument
+    (`we-params-fields`, `control-group`, `octave-selector` interne)
+    — plus de marge ad-hoc, c'est le parent flex qui dicte tous les
+    espacements.
+  - **Navigation clavier `ShortLabelSelect`** (a11y) : ArrowUp/Down
+    (cyclique), Home/End, Enter/Space (sélectionne et ferme),
+    Escape (ferme et restaure focus trigger), Tab (ferme et laisse
+    focus sortir). À l'état fermé, ArrowDown/Up/Enter/Space ouvrent.
+    `aria-activedescendant` + ids stables (`useId`) sur les options ;
+    auto-scroll de l'option highlightée. Surbrillance unifiée
+    `.is-highlighted` pour hover et clavier (distincte de
+    `.is-selected`).
+  - **Actions icon buttons mode ouvert : 28 → 34 px** + icônes 15-16
+    → 18-19. La règle scopée
+    `.designer-sidebar.is-collapsed .actions-icon-btn` (G.2.7) garde
+    le 30 en mode réduit — pas de régression.
+
 - ✅ **Phase 2.7** (2026-05-20) — Polish suite aux retours utilisateur
   sur G.2.x. Purement visuel, aucun changement fonctionnel.
   - shortLabel `'Caire 32'` → **`'Maqâmât'`** (`32` ambigu — prêtait
