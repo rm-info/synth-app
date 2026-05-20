@@ -1,0 +1,83 @@
+/* iter G phase 2.3 — Sélecteur custom : libellé court dans le trigger,
+   libellé complet dans la liste ouverte. */
+.short-select {
+  position: relative;
+  display: inline-block;
+}
+
+.short-select-trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 5px 6px 5px 8px;
+  border: 1px solid #4a4a6a;
+  border-radius: 6px;
+  background: #1a1a2e;
+  color: #d0d0e0;
+  font-size: 0.8rem;
+  font-family: inherit;
+  cursor: pointer;
+  width: 100%;
+  text-align: left;
+  transition: border-color 0.15s, background 0.15s;
+}
+.short-select-trigger:hover {
+  border-color: #6a6a8a;
+}
+.short-select-trigger:focus,
+.short-select-trigger.is-open {
+  outline: none;
+  border-color: #00d4ff;
+}
+
+.short-select-trigger-label {
+  flex: 1;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.short-select-chevron {
+  flex-shrink: 0;
+  color: #8a8fa8;
+}
+
+/* Menu déroulant : ancré sous le trigger, position absolue dans le
+   wrapper position:relative. z-index élevé pour passer au-dessus du
+   clavier et du spectrogramme. */
+.short-select-menu {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  min-width: 100%;
+  max-width: 320px;
+  max-height: 280px;
+  overflow-y: auto;
+  list-style: none;
+  margin: 0;
+  padding: 4px 0;
+  background: #1a1a2e;
+  border: 1px solid #4a4a6a;
+  border-radius: 6px;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.45);
+  z-index: 80;
+}
+
+.short-select-option {
+  padding: 6px 10px;
+  font-size: 0.82rem;
+  color: #d0d0e0;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.12s, color 0.12s;
+}
+.short-select-option:hover {
+  background: rgba(0, 212, 255, 0.12);
+  color: #00d4ff;
+}
+.short-select-option.is-selected {
+  background: rgba(0, 212, 255, 0.18);
+  color: #00d4ff;
+  font-weight: 600;
+}

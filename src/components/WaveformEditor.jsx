@@ -4,6 +4,7 @@ import { pointsToPeriodicWave, MIN_ATTACK } from '../audio'
 import FreqInput from './FreqInput'
 import NumberInput from './NumberInput'
 import { PianoKeyboard, OctaveSelector } from './PianoKeyboard'
+import ShortLabelSelect from './ShortLabelSelect'
 import {
   DEFAULT_X_EDO_N,
   X_EDO_MAX,
@@ -1399,49 +1400,80 @@ function WaveformEditor({
       </header>
 
       <div className="we-params-fields">
+        {/* iter G phase 2.3 : 4 contrôles unifiés sur une ligne flex-wrap —
+            Catégorie / Système musical / Repère / Tonique. X-EDO N
+            s'insère après Système quand applicable. Tous utilisent le
+            ShortLabelSelect (trigger compact, menu lisible). */}
         <div className="instrument-system-row">
-          <label className="instrument-system-field">
+          <div className="instrument-system-field">
             <span className="instrument-system-field-label">Catégorie</span>
-            <select
-              className="tuning-system-select"
+            <ShortLabelSelect
+              ariaLabel="Catégorie de système musical"
               value={getCategoryOfSystem(testTuningSystem)}
-              onChange={(e) => {
-                const catId = e.target.value
+              options={Object.values(TUNING_CATEGORIES).map((cat) => ({
+                id: cat.id,
+                label: cat.label,
+                shortLabel: cat.shortLabel,
+              }))}
+              onChange={(catId) => {
                 const cat = TUNING_CATEGORIES[catId]
                 if (!cat) return
-                // Changement de catégorie : on bascule vers le premier système de
-                // la nouvelle catégorie. Si le système courant en fait déjà partie
-                // (cas no-op), `value` du <select> reflète déjà ; le onChange
-                // n'est même pas tiré.
+                // Bascule vers le premier système de la nouvelle catégorie.
                 editorActions.setTestTuningSystem(cat.systems[0])
               }}
-            >
-              {Object.values(TUNING_CATEGORIES).map((cat) => (
-                <option key={cat.id} value={cat.id}>{cat.label}</option>
-              ))}
-            </select>
-          </label>
-          <label className="instrument-system-field" htmlFor="tuning-system">
+            />
+          </div>
+          <div className="instrument-system-field">
             <span className="instrument-system-field-label">Système musical</span>
-            <select
-              id="tuning-system"
-              className="tuning-system-select"
+            <ShortLabelSelect
+              ariaLabel="Système musical"
               value={testTuningSystem}
-              onChange={(e) => editorActions.setTestTuningSystem(e.target.value)}
-            >
-              {TUNING_CATEGORIES[getCategoryOfSystem(testTuningSystem)].systems.map((sysId) => (
-                <option key={sysId} value={sysId}>{TUNING_SYSTEMS[sysId].label}</option>
-              ))}
-            </select>
-          </label>
+              options={TUNING_CATEGORIES[getCategoryOfSystem(testTuningSystem)].systems.map((sysId) => ({
+                id: sysId,
+                label: TUNING_SYSTEMS[sysId].label,
+                shortLabel: TUNING_SYSTEMS[sysId].shortLabel,
+              }))}
+              onChange={editorActions.setTestTuningSystem}
+            />
+          </div>
           {testTuningSystem === 'x-edo' && (
-            <label
+            <div
               className="instrument-system-field instrument-xedo-field"
               title={`Nombre de degrés du système X-EDO — flèches haut/bas pour ±1, +Shift pour ±5. Fourchette ${X_EDO_MIN}-${X_EDO_MAX}.`}
             >
               <span className="instrument-system-field-label">X</span>
               <XEdoInput value={xEdoN} onChange={editorActions.setXEdoN} className="xedo-input-designer" />
-            </label>
+            </div>
+          )}
+          {showCuesBar && (
+            <div className="instrument-system-field">
+              <span className="instrument-system-field-label">Repère</span>
+              <ShortLabelSelect
+                ariaLabel="Repère pédagogique"
+                value={visualCuePattern}
+                options={Object.entries(VISUAL_CUE_PATTERNS).map(([id, pattern]) => ({
+                  id,
+                  label: pattern.label,
+                  shortLabel: pattern.shortLabel,
+                }))}
+                onChange={editorActions.setVisualCuePattern}
+              />
+            </div>
+          )}
+          {showCuesBar && visualCuePattern !== 'none' && cueTonicMax > 0 && (
+            <div className="instrument-system-field instrument-tonic-field">
+              <span className="instrument-system-field-label">Tonique</span>
+              <ShortLabelSelect
+                ariaLabel="Degré tonique"
+                value={visualCueTonic}
+                options={Array.from({ length: cueTonicMax }, (_, i) => ({
+                  id: i,
+                  label: String(i + 1),
+                  shortLabel: String(i + 1),
+                }))}
+                onChange={(deg) => editorActions.setVisualCueTonic(Number(deg))}
+              />
+            </div>
           )}
         </div>
 
@@ -1491,36 +1523,8 @@ function WaveformEditor({
             </>
           ) : (
             <>
-              {showCuesBar && (
-                <div className="visual-cues-bar">
-                  <label className="visual-cues-label">
-                    Repère :
-                    <select
-                      className="tuning-system-select visual-cues-select"
-                      value={visualCuePattern}
-                      onChange={(e) => editorActions.setVisualCuePattern(e.target.value)}
-                    >
-                      {Object.entries(VISUAL_CUE_PATTERNS).map(([id, pattern]) => (
-                        <option key={id} value={id}>{pattern.label}</option>
-                      ))}
-                    </select>
-                  </label>
-                  {visualCuePattern !== 'none' && cueTonicMax > 0 && (
-                    <label className="visual-cues-label">
-                      Tonique :
-                      <select
-                        className="tuning-system-select visual-cues-select"
-                        value={visualCueTonic}
-                        onChange={(e) => editorActions.setVisualCueTonic(Number(e.target.value))}
-                      >
-                        {Array.from({ length: cueTonicMax }, (_, i) => (
-                          <option key={i} value={i}>{i + 1}</option>
-                        ))}
-                      </select>
-                    </label>
-                  )}
-                </div>
-              )}
+              {/* iter G phase 2.3 : Repère + Tonique migrés dans
+                  instrument-system-row au-dessus (ligne unifiée). */}
               {testTuningSystem === 'x-edo' && (xEdoN === 12 || xEdoN === 24) && onConvertXEdoTo && (
                 <div className="x-edo-banner" role="status">
                   <span className="x-edo-banner-text">

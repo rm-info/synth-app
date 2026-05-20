@@ -527,6 +527,7 @@ export const TUNING_SYSTEMS = {
   '12-TET': {
     id: '12-TET',
     label: '12-TET (Tempérament égal occidental)',
+    shortLabel: '12-TET',
     notesPerOctave: 12,
     noteNames: TWELVE_TET_NOTE_NAMES,
     freq: twelveTetFreq,
@@ -536,6 +537,7 @@ export const TUNING_SYSTEMS = {
   'pythagorean-12': {
     id: 'pythagorean-12',
     label: 'Pythagoricien 12 (quintes pures, centré sur C)',
+    shortLabel: 'Pythag.',
     notesPerOctave: 12,
     noteNames: TWELVE_TET_NOTE_NAMES,
     freq: pythagoreanFreq,
@@ -545,6 +547,7 @@ export const TUNING_SYSTEMS = {
   'just-major-c': {
     id: 'just-major-c',
     label: 'Juste intonation majeure (centrée sur C)',
+    shortLabel: 'Juste-C',
     notesPerOctave: 12,
     noteNames: TWELVE_TET_NOTE_NAMES,
     freq: justMajorCFreq,
@@ -554,6 +557,7 @@ export const TUNING_SYSTEMS = {
   'meantone-quarter-comma': {
     id: 'meantone-quarter-comma',
     label: 'Mésotonique 1/4 de comma (centré sur C)',
+    shortLabel: 'Méso 1/4',
     notesPerOctave: 12,
     noteNames: TWELVE_TET_NOTE_NAMES,
     freq: meantoneQuarterCommaFreq,
@@ -563,6 +567,7 @@ export const TUNING_SYSTEMS = {
   'werckmeister-iii': {
     id: 'werckmeister-iii',
     label: 'Werckmeister III (bien tempéré, 1691)',
+    shortLabel: 'Werck. III',
     notesPerOctave: 12,
     noteNames: TWELVE_TET_NOTE_NAMES,
     freq: werckmeisterIIIFreq,
@@ -572,6 +577,7 @@ export const TUNING_SYSTEMS = {
   '24-tet-equal': {
     id: '24-tet-equal',
     label: '24-TET équipartite (Cairo 1932 théorique)',
+    shortLabel: '24-TET',
     notesPerOctave: 24,
     noteNames: TWENTYFOUR_NOTE_NAMES,
     freq: twentyFourTetEqualFreq,
@@ -581,6 +587,7 @@ export const TUNING_SYSTEMS = {
   '24-tet-cairo-1932': {
     id: '24-tet-cairo-1932',
     label: 'Maqâmât Le Caire 1932 (24 hauteurs mesurées, aly-abbara.com)',
+    shortLabel: 'Caire 32',
     notesPerOctave: 24,
     noteNames: TWENTYFOUR_NOTE_NAMES,
     freq: twentyFourTetCairo1932Freq,
@@ -590,6 +597,7 @@ export const TUNING_SYSTEMS = {
   slendro: {
     id: 'slendro',
     label: 'Slendro (gamelan javanais, Surakarta)',
+    shortLabel: 'Slendro',
     notesPerOctave: 5,
     noteNames: SLENDRO_NOTE_NAMES,
     freq: slendroFreq,
@@ -603,6 +611,7 @@ export const TUNING_SYSTEMS = {
   pelog: {
     id: 'pelog',
     label: 'Pelog (gamelan javanais, Surakarta)',
+    shortLabel: 'Pelog',
     notesPerOctave: 7,
     noteNames: PELOG_NOTE_NAMES,
     freq: pelogFreq,
@@ -612,6 +621,7 @@ export const TUNING_SYSTEMS = {
   'shrutis-bhatkhande': {
     id: 'shrutis-bhatkhande',
     label: '22 shrutis (Bhatkhande, modernisation indienne)',
+    shortLabel: 'Shrutis B.',
     notesPerOctave: 22,
     noteNames: SHRUTI_BHATKHANDE_NAMES,
     freq: shrutiFreq,
@@ -621,6 +631,7 @@ export const TUNING_SYSTEMS = {
   'shrutis-sarngadeva': {
     id: 'shrutis-sarngadeva',
     label: '22 shrutis (Sarngadeva XIIIe, distribution Bharata classique)',
+    shortLabel: 'Shrutis S.',
     notesPerOctave: 22,
     noteNames: SHRUTI_SARNGADEVA_NAMES,
     freq: shrutiFreq,
@@ -630,6 +641,7 @@ export const TUNING_SYSTEMS = {
   'x-edo': {
     id: 'x-edo',
     label: 'X-EDO (équipartition à X degrés)',
+    shortLabel: 'X-EDO',
     notesPerOctave: xEdoN => xEdoN,
     noteNames: xEdoNoteNames,
     freq: xEdoFreq,
@@ -639,6 +651,7 @@ export const TUNING_SYSTEMS = {
   free: {
     id: 'free',
     label: 'Libre (Hz)',
+    shortLabel: 'Libre',
     notesPerOctave: null,
     noteNames: null,
     freq: null,
@@ -672,12 +685,14 @@ export function getTuningSystem(id) {
 export const TUNING_CATEGORIES = {
   moderne: {
     id: 'moderne',
-    label: 'Actuel / Moderne',
+    label: 'Moderne',
+    shortLabel: 'Moderne',
     systems: ['12-TET'],
   },
   historique: {
     id: 'historique',
     label: 'Historique',
+    shortLabel: 'Historique',
     systems: [
       'pythagorean-12',
       'just-major-c',
@@ -693,6 +708,7 @@ export const TUNING_CATEGORIES = {
   theorique: {
     id: 'theorique',
     label: 'Théorique',
+    shortLabel: 'Théorique',
     systems: ['24-tet-equal', 'x-edo', 'free'],
   },
 }

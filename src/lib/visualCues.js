@@ -16,19 +16,21 @@
 
 import { DEFAULT_X_EDO_N, getTuningSystem, frequencyToNearestIn } from './tuningSystems'
 
+// shortLabel ajouté en G.2.3 — affiché dans le trigger du ShortLabelSelect,
+// label affiché dans la liste déroulante ouverte.
 export const VISUAL_CUE_PATTERNS = {
-  none: { label: 'Aucun', intervals: [] },
+  none: { label: 'Aucun', shortLabel: '—', intervals: [] },
 
   // Accords
-  'major-triad': { label: 'Triade majeure', intervals: [0, 386.314, 701.955] },
-  'minor-triad': { label: 'Triade mineure', intervals: [0, 315.641, 701.955] },
-  'dom7':        { label: 'Septième de dominante', intervals: [0, 386.314, 701.955, 968.826] },
+  'major-triad': { label: 'Triade majeure', shortLabel: 'Maj△', intervals: [0, 386.314, 701.955] },
+  'minor-triad': { label: 'Triade mineure', shortLabel: 'min△', intervals: [0, 315.641, 701.955] },
+  'dom7':        { label: 'Septième de dominante', shortLabel: 'Dom7', intervals: [0, 386.314, 701.955, 968.826] },
 
   // Gammes
-  'major-scale':      { label: 'Gamme majeure',           intervals: [0, 203.910, 386.314, 498.045, 701.955, 884.359, 1088.269] },
-  'minor-scale':      { label: 'Gamme mineure naturelle', intervals: [0, 203.910, 315.641, 498.045, 701.955, 813.687, 1017.596] },
-  'pentatonic-major': { label: 'Pentatonique majeure',    intervals: [0, 203.910, 386.314, 701.955, 884.359] },
-  'whole-tone':       { label: 'Gamme par tons',          intervals: [0, 200, 400, 600, 800, 1000] },
+  'major-scale':      { label: 'Gamme majeure',           shortLabel: 'Gamme M', intervals: [0, 203.910, 386.314, 498.045, 701.955, 884.359, 1088.269] },
+  'minor-scale':      { label: 'Gamme mineure naturelle', shortLabel: 'Gamme m', intervals: [0, 203.910, 315.641, 498.045, 701.955, 813.687, 1017.596] },
+  'pentatonic-major': { label: 'Pentatonique majeure',    shortLabel: 'Penta',   intervals: [0, 203.910, 386.314, 701.955, 884.359] },
+  'whole-tone':       { label: 'Gamme par tons',          shortLabel: 'Tons',    intervals: [0, 200, 400, 600, 800, 1000] },
 }
 
 // Systèmes pour lesquels les visual cues sont activés.

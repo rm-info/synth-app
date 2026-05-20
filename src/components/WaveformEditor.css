@@ -264,10 +264,11 @@
   font-size: 0.85rem;
 }
 
-/* iter G phase 1.3 : ligne Catégorie + Système musical (+ X-EDO N si
-   applicable). Flex-wrap pour passer à 2 lignes quand l'espace manque
-   (≤ ~520 px utile). Chaque champ occupe ~180 px min, l'élément X-EDO
-   est compact. */
+/* iter G phase 2.3 : 4 contrôles unifiés sur une ligne flex-wrap —
+   Catégorie / Système musical / Repère / Tonique. Largeur minimale
+   réduite pour tenter de tout caser sur une ligne quand la sidebar
+   est large. X-EDO compact (input numérique 3 chiffres), Tonique
+   compact (numérique 1-2 chiffres). */
 .instrument-system-row {
   display: flex;
   flex-wrap: wrap;
@@ -278,10 +279,11 @@
   display: flex;
   flex-direction: column;
   gap: 3px;
-  flex: 1 1 180px;
-  min-width: 140px;
+  flex: 1 1 90px;
+  min-width: 80px;
 }
-.instrument-system-field.instrument-xedo-field {
+.instrument-system-field.instrument-xedo-field,
+.instrument-system-field.instrument-tonic-field {
   flex: 0 0 auto;
   min-width: 0;
 }
@@ -291,6 +293,15 @@
   letter-spacing: 0.06em;
   color: #8a8fa8;
   font-weight: 600;
+}
+/* Le ShortLabelSelect prend 100% de son champ (cohérent avec le
+   <select> qu'il remplace) ; tonique étant numérique court, on borne
+   son trigger à une largeur minuscule pour densité maximale. */
+.instrument-system-field .short-select {
+  width: 100%;
+}
+.instrument-system-field.instrument-tonic-field .short-select-trigger {
+  min-width: 52px;
 }
 
 /* Bouton Test (mode Libre) — calé sur la fréquence courante. Style
