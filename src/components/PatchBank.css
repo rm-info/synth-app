@@ -22,6 +22,14 @@
      plusieurs lignes par manque de largeur. */
   align-items: flex-start;
   gap: 8px;
+  /* v1.0.4 : override de l'héritage `line-height: 145%` venu de
+     :root (index.css) qui se propage comme valeur calculée fixe
+     (~26 px) — gonflait artificiellement les line-box du <h3> et de
+     .sound-bank-count, faisant que le right-group atteignait 26 px,
+     ce qui centrait le bouton + Dossier (22 px) avec un offset
+     vertical de 2 px par rapport au bouton < du toggle voisin.
+     Unitless 1.2 = recalculé par-élément sur sa propre font-size. */
+  line-height: 1.2;
   margin-bottom: 10px;
   padding-bottom: 8px;
   border-bottom: 1px solid #3a3a5a;
