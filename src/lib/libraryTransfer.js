@@ -69,11 +69,7 @@ export function buildExportPayload({ patches, soundFolders, scope }) {
 //
 // IDs régénérés systématiquement → aucun risque de collision avec les
 // clips de la timeline qui référencent des patchIds existants.
-// `patches` n'est pas utilisé ici (les IDs sont régénérés, donc pas de dédup
-// nécessaire côté patches), mais reste dans la signature pour documenter la
-// forme du state attendu côté caller.
-// eslint-disable-next-line no-unused-vars
-export function applyImport(payload, mode, wrapperName, { patches, soundFolders, folderCounter, patchCounter }) {
+export function applyImport(payload, mode, wrapperName, { soundFolders, folderCounter, patchCounter }) {
   const folderIdMap = new Map()
   const patchIdMap = new Map()
 
