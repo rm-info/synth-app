@@ -22,6 +22,9 @@ const GRID_LABELS = [
 const DB_FLOOR = -80
 const DB_CEIL = 0
 
+const GRACE_MS = 1000
+const FFT_SIZE = 2048
+
 function freqToX(freq, plotW) {
   const clamped = Math.max(FREQ_MIN, Math.min(FREQ_MAX, freq))
   return ((Math.log10(clamped) - LOG_MIN) / (LOG_MAX - LOG_MIN)) * plotW
@@ -43,9 +46,7 @@ function freqToX(freq, plotW) {
 function Spectrogram({
   points,
   frequency,
-  // eslint-disable-next-line no-unused-vars
   analyserRef,
-  // eslint-disable-next-line no-unused-vars
   activeVoicesCountRef,
   dbScale,
   peakHold,
@@ -54,11 +55,18 @@ function Spectrogram({
 }) {
   const canvasRef = useRef(null)
   const containerRef = useRef(null)
-  const propsRef = useRef({ points, frequency, dbScale })
+  const propsRef = useRef({ points, frequency, dbScale, peakHold, analyserRef, activeVoicesCountRef })
+  const stateRef = useRef({
+    mode: 'static',
+    lastActivityTime: 0,
+    fftDataBuffer: new Float32Array(FFT_SIZE / 2),
+    peakBuffer: null,
+    lastPointsKey: '',
+  })
 
   useEffect(() => {
-    propsRef.current = { points, frequency, dbScale }
-  }, [points, frequency, dbScale])
+    propsRef.current = { points, frequency, dbScale, peakHold, analyserRef, activeVoicesCountRef }
+  }, [points, frequency, dbScale, peakHold, analyserRef, activeVoicesCountRef])
 
   const drawStatic = useCallback(() => {
     const canvas = canvasRef.current
@@ -138,16 +146,161 @@ function Spectrogram({
     }
   }, [])
 
+  const drawLive = useCallback(() => {
+    const canvas = canvasRef.current
+    if (!canvas) return
+    const { analyserRef, dbScale, peakHold } = propsRef.current
+    const analyser = analyserRef?.current
+    if (!analyser) return
+
+    const W = canvas.width
+    const H = canvas.height
+    if (!W || !H) return
+    const ctx = canvas.getContext('2d')
+
+    ctx.fillStyle = '#1a1a2e'
+    ctx.fillRect(0, 0, W, H)
+
+    const plotX = PADDING_LEFT
+    const plotY = PADDING_TOP
+    const plotW = W - PADDING_LEFT - PADDING_RIGHT
+    const plotH = H - PADDING_TOP - PADDING_BOTTOM
+    if (plotW <= 0 || plotH <= 0) return
+
+    ctx.strokeStyle = '#2a2a4a'
+    ctx.lineWidth = 1
+    ctx.setLineDash([4, 4])
+    ctx.fillStyle = '#8a8fa8'
+    ctx.font = '10px system-ui, sans-serif'
+    ctx.textAlign = 'center'
+    ctx.textBaseline = 'top'
+    for (const { hz, label } of GRID_LABELS) {
+      const x = plotX + freqToX(hz, plotW)
+      ctx.beginPath()
+      ctx.moveTo(x, plotY)
+      ctx.lineTo(x, plotY + plotH)
+      ctx.stroke()
+      ctx.fillText(label, x, plotY + plotH + 4)
+    }
+    ctx.setLineDash([])
+
+    ctx.strokeStyle = '#3a3a5a'
+    ctx.beginPath()
+    ctx.moveTo(plotX, plotY + plotH + 0.5)
+    ctx.lineTo(plotX + plotW, plotY + plotH + 0.5)
+    ctx.stroke()
+
+    analyser.getFloatFrequencyData(stateRef.current.fftDataBuffer)
+    const fft = stateRef.current.fftDataBuffer
+    const numBins = fft.length
+    const sampleRate = analyser.context.sampleRate
+    const binHz = sampleRate / (numBins * 2)
+
+    if (!stateRef.current.peakBuffer || stateRef.current.peakBuffer.length !== plotW) {
+      stateRef.current.peakBuffer = new Float32Array(plotW)
+    }
+    const peakBuffer = stateRef.current.peakBuffer
+
+    const values = new Float32Array(plotW)
+    for (let x = 0; x < plotW; x++) {
+      const t = x / plotW
+      const f = Math.pow(10, LOG_MIN + t * (LOG_MAX - LOG_MIN))
+      const binF = f / binHz
+      const bin0 = Math.floor(binF)
+      const bin1 = Math.min(bin0 + 1, numBins - 1)
+      const frac = binF - bin0
+      if (bin0 < 0 || bin0 >= numBins) {
+        values[x] = DB_FLOOR
+      } else {
+        values[x] = fft[bin0] * (1 - frac) + fft[bin1] * frac
+      }
+    }
+
+    function dbToY(db) {
+      let v = db
+      if (v < DB_FLOOR) v = DB_FLOOR
+      if (v > DB_CEIL) v = DB_CEIL
+      if (dbScale) {
+        return plotY + plotH - ((v - DB_FLOOR) / (DB_CEIL - DB_FLOOR)) * plotH
+      } else {
+        const lin = Math.pow(10, v / 20)
+        return plotY + plotH - lin * plotH
+      }
+    }
+
+    ctx.strokeStyle = '#00d4ff'
+    ctx.lineWidth = 1.5
+    ctx.beginPath()
+    for (let x = 0; x < plotW; x++) {
+      const y = dbToY(values[x])
+      if (x === 0) ctx.moveTo(plotX + x, y)
+      else ctx.lineTo(plotX + x, y)
+    }
+    ctx.stroke()
+
+    ctx.fillStyle = 'rgba(0, 212, 255, 0.2)'
+    ctx.lineTo(plotX + plotW - 1, plotY + plotH)
+    ctx.lineTo(plotX, plotY + plotH)
+    ctx.closePath()
+    ctx.fill()
+
+    if (peakHold) {
+      ctx.strokeStyle = '#80efff'
+      ctx.lineWidth = 1
+      ctx.beginPath()
+      for (let x = 0; x < plotW; x++) {
+        const current = values[x]
+        const linCurrent = Math.pow(10, current / 20)
+        peakBuffer[x] = Math.max(linCurrent, peakBuffer[x] * 0.97)
+        const linToDb = peakBuffer[x] <= 0 ? DB_FLOOR : 20 * Math.log10(peakBuffer[x])
+        const y = dbToY(linToDb)
+        if (x === 0) ctx.moveTo(plotX + x, y)
+        else ctx.lineTo(plotX + x, y)
+      }
+      ctx.stroke()
+    }
+  }, [])
+
   useEffect(() => {
-    drawStatic()
-  }, [points, frequency, dbScale, drawStatic])
+    let rafId = 0
+    const loop = (now) => {
+      const { activeVoicesCountRef } = propsRef.current
+
+      if (activeVoicesCountRef?.current < 0) activeVoicesCountRef.current = 0
+
+      const voicesActive = (activeVoicesCountRef?.current ?? 0) > 0
+
+      if (voicesActive) {
+        stateRef.current.lastActivityTime = now
+        stateRef.current.mode = 'live'
+      } else if (now - stateRef.current.lastActivityTime > GRACE_MS) {
+        if (stateRef.current.mode === 'live') {
+          if (stateRef.current.peakBuffer) stateRef.current.peakBuffer.fill(0)
+        }
+        stateRef.current.mode = 'static'
+      }
+
+      if (stateRef.current.mode === 'live') {
+        drawLive()
+      } else {
+        const { points, frequency, dbScale } = propsRef.current
+        const key = `${points.length}:${points[0]}:${points[300]}:${points[599]}:${frequency}:${dbScale}`
+        if (key !== stateRef.current.lastPointsKey) {
+          stateRef.current.lastPointsKey = key
+          drawStatic()
+        }
+      }
+
+      rafId = requestAnimationFrame(loop)
+    }
+    rafId = requestAnimationFrame(loop)
+    return () => cancelAnimationFrame(rafId)
+  }, [drawStatic, drawLive])
 
   useEffect(() => {
     const container = containerRef.current
     const canvas = canvasRef.current
     if (!container || !canvas || typeof ResizeObserver === 'undefined') return
-    let raf1 = 0
-    let raf2 = 0
     const ro = new ResizeObserver((entries) => {
       for (const entry of entries) {
         const w = Math.floor(entry.contentRect.width)
@@ -156,24 +309,16 @@ function Spectrogram({
         if (w !== canvas.width || h !== canvas.height) {
           canvas.width = w
           canvas.height = h
-          drawStatic()
-          // Firefox : ops 2D post-resize silencieusement avalées avant le
-          // paint allocateur du backing store. Double rAF rattrape.
-          cancelAnimationFrame(raf1)
-          cancelAnimationFrame(raf2)
-          raf1 = requestAnimationFrame(() => {
-            raf2 = requestAnimationFrame(() => drawStatic())
-          })
+          // Force redraw au prochain tick rAF : invalide la cache static
+          // et réinitialise le peakBuffer (sera ré-alloué à la nouvelle largeur).
+          stateRef.current.lastPointsKey = ''
+          stateRef.current.peakBuffer = null
         }
       }
     })
     ro.observe(container)
-    return () => {
-      cancelAnimationFrame(raf1)
-      cancelAnimationFrame(raf2)
-      ro.disconnect()
-    }
-  }, [drawStatic])
+    return () => ro.disconnect()
+  }, [])
 
   return (
     <div className="spectrogram">
