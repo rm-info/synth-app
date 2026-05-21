@@ -243,6 +243,24 @@ Backlog : adaptation UI pour résolutions intermédiaires
 [924×668..1740×900] ; implémentation effective Import/Export
 bibliothèque (boutons placeholders dans Actions).
 
+**Itération H (Import/Export)** **clôturée le 2026-05-21**. Phase 1
+(import/export bibliothèque) : nouveau format binaire `.osa` (magic
+header OSA1 + gzip(JSON versionné), zéro dépendance npm via
+CompressionStream natif). Trois voies d'export — bouton Actions
+Download (bibliothèque complète), clic droit row dossier ("Exporter ce
+dossier", désactivé si sous-arbre vide), clic droit row patch
+("Exporter ce patch"). Modale "Export as..." avec saisie du nom de
+fichier, suffixe `.osa` auto (case-insensitive), slugification des
+chars filesystem interdits. Import unique via bouton Actions Upload :
+validation pré-modale strict-strict (magic / gzip / JSON parse /
+schéma), puis modale de placement (sous-ensemble dans un dossier
+wrapper / racine). IDs systématiquement régénérés à l'import →
+invariant timeline préservé (les clips existants ne peuvent jamais
+être affectés). Déduplication des noms de dossiers via
+`nextAvailableFolderName` (extrait dans `src/lib/folderNames.js` au
+passage). Nouveau primitive `Modal.jsx` partagé (backdrop / Escape /
+focus trap basique). Persistance auto via la pile undo Designer.
+
 **Release v1.2.0** (2026-05-21) — Mode mobile complet + suppression
 de ResolutionGate. En dessous de 924 × 668 px : (1) la sidebar Designer
 est forcée en mode réduit (preference utilisateur préservée en state) ;
@@ -275,24 +293,6 @@ tape ») dans la barre des onglets à gauche, tampon de version
 \`v1.0.0\` à droite (inliné au build via Vite `define` depuis
 `package.json`, source de vérité unique). Tag git `v1.0.0`. README
 remplacé (boilerplate Vite → vrai README projet).
-
-**Itération H (Import/Export)** **clôturée le 2026-05-21**. Phase 1
-(import/export bibliothèque) : nouveau format binaire `.osa` (magic
-header OSA1 + gzip(JSON versionné), zéro dépendance npm via
-CompressionStream natif). Trois voies d'export — bouton Actions
-Download (bibliothèque complète), clic droit row dossier ("Exporter ce
-dossier", désactivé si sous-arbre vide), clic droit row patch
-("Exporter ce patch"). Modale "Export as..." avec saisie du nom de
-fichier, suffixe `.osa` auto (case-insensitive), slugification des
-chars filesystem interdits. Import unique via bouton Actions Upload :
-validation pré-modale strict-strict (magic / gzip / JSON parse /
-schéma), puis modale de placement (sous-ensemble dans un dossier
-wrapper / racine). IDs systématiquement régénérés à l'import →
-invariant timeline préservé (les clips existants ne peuvent jamais
-être affectés). Déduplication des noms de dossiers via
-`nextAvailableFolderName` (extrait dans `src/lib/folderNames.js` au
-passage). Nouveau primitive `Modal.jsx` partagé (backdrop / Escape /
-focus trap basique). Persistance auto via la pile undo Designer.
 
 ## Objectif
 
