@@ -1127,6 +1127,15 @@ export function reducer(state, action) {
         currentPatchId: state.currentPatchId === patchId ? null : state.currentPatchId,
       }
     }
+    case 'IMPORT_LIBRARY': {
+      return {
+        ...state,
+        patches: [...state.patches, ...action.newPatches],
+        soundFolders: [...state.soundFolders, ...action.newFolders],
+        patchCounter: action.patchCounterAfter,
+        folderCounter: action.folderCounterAfter,
+      }
+    }
     case 'RENAME_PATCH': {
       const { patchId, name } = action.payload
       return {
@@ -1465,6 +1474,7 @@ const DESIGNER_UNDOABLE = new Set([
   'SET_EDITOR_TEST_TUNING_SYSTEM', 'SET_EDITOR_TEST_FREQUENCY', 'SET_EDITOR_AMPLITUDE',
   'SET_EDITOR_ADSR', 'SET_EDITOR_ADSR_AND_AMP', 'APPLY_EDITOR_PRESET', 'RESET_EDITOR',
   'SET_EDITOR_VISUAL_CUE_PATTERN', 'SET_EDITOR_VISUAL_CUE_TONIC',
+  'IMPORT_LIBRARY',
 ])
 
 const COMPOSER_FIELDS = ['clips', 'numMeasures', 'bpm', 'a4Ref', 'xEdoN', 'selectedClipIds', 'tracks']
