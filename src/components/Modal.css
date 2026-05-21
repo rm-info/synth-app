@@ -1,0 +1,58 @@
+/* src/components/Modal.css */
+
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.modal-dialog {
+  background: #1a1a1a;
+  border: 1px solid #333;
+  border-radius: 8px;
+  padding: 20px 24px;
+  max-width: 480px;
+  width: 100%;
+  margin: 16px;
+  color: #e0e0e0;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6);
+}
+
+.modal-sm { max-width: 360px; }
+.modal-md { max-width: 480px; }
+.modal-lg { max-width: 640px; }
+
+.modal-title {
+  margin: 0 0 16px;
+  font-size: 1.1em;
+  font-weight: 600;
+}
+
+/* Boutons de modale standardisés (réutilisés par ExportModal et ImportModal) */
+.modal-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+  margin-top: 20px;
+}
+.modal-btn {
+  padding: 8px 16px;
+  border: 1px solid #444;
+  border-radius: 4px;
+  background: #2a2a2a;
+  color: #e0e0e0;
+  cursor: pointer;
+  font-size: 0.95em;
+}
+.modal-btn:hover:not(:disabled) { background: #333; }
+.modal-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+.modal-btn-primary {
+  background: #2c5070;
+  border-color: #3e6890;
+}
+.modal-btn-primary:hover:not(:disabled) { background: #356085; }
