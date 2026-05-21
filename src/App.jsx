@@ -1409,6 +1409,24 @@ function App() {
     })
   }
 
+  const handleExportFolder = (folderId) => {
+    const folder = soundFolders.find((f) => f.id === folderId)
+    if (!folder) return
+    setExportModal({
+      scope: { type: 'folder', id: folderId },
+      defaultName: folder.name,
+    })
+  }
+
+  const handleExportPatch = (patchId) => {
+    const patch = patches.find((p) => p.id === patchId)
+    if (!patch) return
+    setExportModal({
+      scope: { type: 'patch', id: patchId },
+      defaultName: patch.name,
+    })
+  }
+
   const handleConfirmExport = async (filename) => {
     const { scope } = exportModal
     try {
@@ -1581,6 +1599,8 @@ function App() {
                           onDeleteFolder={handleDeleteFolder}
                           onMovePatchToFolder={handleMovePatchToFolder}
                           onMoveFolder={handleMoveFolder}
+                          onExportFolder={handleExportFolder}
+                          onExportPatch={handleExportPatch}
                           headerExtra={
                             <button
                               type="button"
@@ -1609,6 +1629,8 @@ function App() {
                       onDeleteFolder={handleDeleteFolder}
                       onMovePatchToFolder={handleMovePatchToFolder}
                       onMoveFolder={handleMoveFolder}
+                      onExportFolder={handleExportFolder}
+                      onExportPatch={handleExportPatch}
                       headerExtra={
                         <button
                           type="button"
@@ -1788,6 +1810,8 @@ function App() {
                       onDeleteFolder={handleDeleteFolder}
                       onMovePatchToFolder={handleMovePatchToFolder}
                       onMoveFolder={handleMoveFolder}
+                      onExportFolder={handleExportFolder}
+                      onExportPatch={handleExportPatch}
                       headerExtra={
                         <button
                           type="button"
