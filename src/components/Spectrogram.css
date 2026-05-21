@@ -15,9 +15,38 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
+  gap: 12px;
   margin-bottom: 8px;
   padding-bottom: 6px;
   border-bottom: 1px solid #3a3a5a;
+}
+
+.spectrogram-controls {
+  display: flex;
+  gap: 4px;
+}
+
+.spectrogram-toggle {
+  background: #1f1f30;
+  color: #a8acc4;
+  border: 1px solid #3a3a5a;
+  border-radius: 4px;
+  padding: 4px 10px;
+  font-size: 0.85em;
+  font-family: inherit;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+
+.spectrogram-toggle:hover {
+  background: #2a2a4a;
+  color: #d0d4ec;
+}
+
+.spectrogram-toggle.is-active {
+  background: #003a4a;
+  color: #00d4ff;
+  border-color: #00d4ff;
 }
 
 .spectrogram-header h3 {

@@ -19,6 +19,9 @@ const GRID_LABELS = [
   { hz: 10000, label: '10 kHz' },
 ]
 
+const DB_FLOOR = -80
+const DB_CEIL = 0
+
 function freqToX(freq, plotW) {
   const clamped = Math.max(FREQ_MIN, Math.min(FREQ_MAX, freq))
   return ((Math.log10(clamped) - LOG_MIN) / (LOG_MAX - LOG_MIN)) * plotW
@@ -37,23 +40,34 @@ function freqToX(freq, plotW) {
  * par le max courant (le volume global / amplitude n'entre pas en jeu,
  * on veut voir la "forme" du spectre).
  */
-function Spectrogram({ points, frequency }) {
+function Spectrogram({
+  points,
+  frequency,
+  // eslint-disable-next-line no-unused-vars
+  analyserRef,
+  // eslint-disable-next-line no-unused-vars
+  activeVoicesCountRef,
+  dbScale,
+  peakHold,
+  onToggleDbScale,
+  onTogglePeakHold,
+}) {
   const canvasRef = useRef(null)
   const containerRef = useRef(null)
-  const propsRef = useRef({ points, frequency })
+  const propsRef = useRef({ points, frequency, dbScale })
 
   useEffect(() => {
-    propsRef.current = { points, frequency }
-  }, [points, frequency])
+    propsRef.current = { points, frequency, dbScale }
+  }, [points, frequency, dbScale])
 
-  const draw = useCallback(() => {
+  const drawStatic = useCallback(() => {
     const canvas = canvasRef.current
     if (!canvas) return
     const W = canvas.width
     const H = canvas.height
     if (!W || !H) return
     const ctx = canvas.getContext('2d')
-    const { points, frequency } = propsRef.current
+    const { points, frequency, dbScale } = propsRef.current
 
     ctx.fillStyle = '#1a1a2e'
     ctx.fillRect(0, 0, W, H)
@@ -109,17 +123,24 @@ function Spectrogram({ points, frequency }) {
       const f = k * frequency
       if (f > FREQ_MAX) break
       if (f < FREQ_MIN) continue
-      const relMag = magnitudes[k] / maxMag
-      if (relMag <= 0) continue
+      const ratio = magnitudes[k] / maxMag
+      if (ratio <= 0) continue
+      let barH
+      if (dbScale) {
+        const db = 20 * Math.log10(ratio)
+        if (db < DB_FLOOR) continue
+        barH = ((db - DB_FLOOR) / (DB_CEIL - DB_FLOOR)) * plotH
+      } else {
+        barH = ratio * plotH
+      }
       const x = plotX + freqToX(f, plotW)
-      const barH = relMag * plotH
       ctx.fillRect(x - BAR_WIDTH_PX / 2, plotY + plotH - barH, BAR_WIDTH_PX, barH)
     }
   }, [])
 
   useEffect(() => {
-    draw()
-  }, [points, frequency, draw])
+    drawStatic()
+  }, [points, frequency, dbScale, drawStatic])
 
   useEffect(() => {
     const container = containerRef.current
@@ -135,13 +156,13 @@ function Spectrogram({ points, frequency }) {
         if (w !== canvas.width || h !== canvas.height) {
           canvas.width = w
           canvas.height = h
-          draw()
+          drawStatic()
           // Firefox : ops 2D post-resize silencieusement avalées avant le
           // paint allocateur du backing store. Double rAF rattrape.
           cancelAnimationFrame(raf1)
           cancelAnimationFrame(raf2)
           raf1 = requestAnimationFrame(() => {
-            raf2 = requestAnimationFrame(() => draw())
+            raf2 = requestAnimationFrame(() => drawStatic())
           })
         }
       }
@@ -152,12 +173,26 @@ function Spectrogram({ points, frequency }) {
       cancelAnimationFrame(raf2)
       ro.disconnect()
     }
-  }, [draw])
+  }, [drawStatic])
 
   return (
     <div className="spectrogram">
       <header className="spectrogram-header">
         <h3>Spectrogramme</h3>
+        <div className="spectrogram-controls">
+          <button
+            type="button"
+            onClick={onToggleDbScale}
+            className={`spectrogram-toggle${dbScale ? ' is-active' : ''}`}
+            title="Échelle décibels"
+          >dB</button>
+          <button
+            type="button"
+            onClick={onTogglePeakHold}
+            className={`spectrogram-toggle${peakHold ? ' is-active' : ''}`}
+            title="Tenir les pics (mode Live)"
+          >Peak</button>
+        </div>
       </header>
       <div className="spectrogram-canvas-container" ref={containerRef}>
         <canvas ref={canvasRef} className="spectrogram-canvas" />
