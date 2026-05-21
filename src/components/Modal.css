@@ -56,3 +56,31 @@
   border-color: #3e6890;
 }
 .modal-btn-primary:hover:not(:disabled) { background: #356085; }
+
+.modal-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-bottom: 4px;
+}
+.modal-field > span {
+  font-size: 0.9em;
+  color: #aaa;
+}
+.modal-field input[type="text"] {
+  background: #0e0e0e;
+  border: 1px solid #444;
+  border-radius: 4px;
+  padding: 8px 10px;
+  color: #e0e0e0;
+  font-size: 0.95em;
+}
+.modal-field input[type="text"]:focus {
+  outline: none;
+  border-color: #4a8ab8;
+}
+.modal-hint {
+  margin: 4px 0 0;
+  font-size: 0.85em;
+  color: #888;
+}
