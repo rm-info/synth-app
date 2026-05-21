@@ -244,8 +244,9 @@ Backlog : adaptation UI pour résolutions intermédiaires
 bibliothèque (boutons placeholders dans Actions).
 
 **Itération H (Import/Export)** **clôturée le 2026-05-21**. Phase 1
-(import/export bibliothèque) : nouveau format binaire `.osa` (magic
-header OSA1 + gzip(JSON versionné), zéro dépendance npm via
+(import/export bibliothèque) : nouveau format binaire `.osa` (magic header OSA2 + gzip(JSON versionné)
+avec 4 octets garbage injectés à offset 10 du flux gzip pour défaire
+les archiveurs permissifs type 7-zip, zéro dépendance npm via
 CompressionStream natif). Trois voies d'export — bouton Actions
 Download (bibliothèque complète), clic droit row dossier ("Exporter ce
 dossier", désactivé si sous-arbre vide), clic droit row patch
@@ -899,11 +900,17 @@ Choix non évidents pris pour de bonnes raisons. À ne pas remettre en question
   `gain.value` AVANT `cancelScheduledValues`, sinon l'annulation
   fait retomber le param sur le dernier `setValueAtTime` antérieur
   et la valeur lue est fausse (voir aussi E.8 pour le release ADSR).
-- **Format `.osa` = magic `OSA1` + gzip(JSON) versionné** — zéro
-  dépendance npm (CompressionStream natif). Tout changement
-  incompatible du schéma → bump version (`migrateVNtoVN+1` explicite
-  à l'import) ou bump magic (`OSA2`) si on change le wire format.
-  Pas de tolérance silencieuse.
+- **Format `.osa` = magic `OSA2` + gzip(JSON) versionné avec injection
+  4 octets garbage à offset 10 du flux gzip** — zéro dépendance npm
+  (CompressionStream natif). L'injection mid-stream casse les
+  archiveurs permissifs (7-zip et al.) qui scannent la signature gzip
+  à n'importe quel offset : ils détectent le `1F 8B` à offset 4 du
+  fichier, tentent la décompression, et échouent immédiatement sur la
+  corruption du premier bloc DEFLATE. C'est de la **dissuasion casual
+  uniquement** — un lecteur de code source trouve l'offset en 2 minutes.
+  Tout changement incompatible du schéma → bump version (`migrateVNtoVN+1`
+  explicite à l'import) ou bump magic (`OSA3`) si on change le wire
+  format. Pas de tolérance silencieuse.
 - **IDs régénérés à l'import (jamais d'overlap)** — garantit que
   les clips de la timeline ne peuvent jamais être affectés par un
   import. Les `folderId` / `parentId` internes au payload sont
@@ -1760,6 +1767,17 @@ Phases listées ci-dessous dans l'ordre chronologique d'implémentation.
   prochaine candidate).
 
 ## Historique (chronologie inverse)
+
+- **2026-05-21 — Iter H follow-up : bump format à OSA2 + injection mid-stream**
+  7-zip a été trouvé capable d'extraire le JSON malgré le magic header
+  OSA1 (scanne la signature gzip à offset 4 et l'attaque directement).
+  Mitigation : on injecte 4 octets garbage (`0xDE 0xAD 0xBE 0xEF`) à
+  offset 10 du flux gzip — juste après le header standard de 10 octets,
+  donc dans le premier bloc DEFLATE. Toute tentative de décompression
+  naïve échoue immédiatement. Bump du magic à `OSA2` pour signaler le
+  format-break (aucun OSA1 en circulation, juste des tests locaux —
+  pas de migration). Reste de la dissuasion casual ; un lecteur des
+  sources trouve l'offset en 2 minutes — assumé.
 
 - **2026-05-21 — Itération H phase 1 : Import/Export bibliothèque .osa**
   Livraison complète du format binaire `.osa` et de l'UI associée. 14
