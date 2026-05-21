@@ -14,3 +14,36 @@ export async function encodeOsa(payload) {
   const compressedBuffer = await new Response(compressedStream).arrayBuffer()
   return new Blob([OSA_MAGIC, compressedBuffer], { type: 'application/octet-stream' })
 }
+
+export class OsaMagicError extends Error {
+  constructor() { super('Magic header invalide (.osa attendu)'); this.name = 'OsaMagicError' }
+}
+export class OsaCorruptError extends Error {
+  constructor() { super('Décompression échouée'); this.name = 'OsaCorruptError' }
+}
+export class OsaParseError extends Error {
+  constructor() { super('JSON malformé'); this.name = 'OsaParseError' }
+}
+
+// Lit un ArrayBuffer .osa → renvoie le payload JSON parsé (non validé schéma).
+// Throws OsaMagicError | OsaCorruptError | OsaParseError selon l'étape qui échoue.
+export async function decodeOsa(arrayBuffer) {
+  const bytes = new Uint8Array(arrayBuffer)
+  if (bytes.length < 4) throw new OsaMagicError()
+  for (let i = 0; i < 4; i++) {
+    if (bytes[i] !== OSA_MAGIC[i]) throw new OsaMagicError()
+  }
+  const compressedSlice = bytes.subarray(4)
+  let jsonText
+  try {
+    const stream = new Blob([compressedSlice]).stream().pipeThrough(new DecompressionStream('gzip'))
+    jsonText = await new Response(stream).text()
+  } catch {
+    throw new OsaCorruptError()
+  }
+  try {
+    return JSON.parse(jsonText)
+  } catch {
+    throw new OsaParseError()
+  }
+}
