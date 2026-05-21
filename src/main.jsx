@@ -11,3 +11,11 @@ createRoot(document.getElementById('root')).render(
     </TooSmallGate>
   </StrictMode>,
 )
+
+// Dev-only : exposer les utilitaires .osa pour tests manuels console.
+// import.meta.env.DEV est inliné par Vite à false en prod → bloc supprimé.
+if (import.meta.env.DEV) {
+  import('./lib/osaFormat.js').then((mod) => {
+    window.__osa = mod
+  })
+}
