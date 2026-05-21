@@ -276,6 +276,24 @@ tape ») dans la barre des onglets à gauche, tampon de version
 `package.json`, source de vérité unique). Tag git `v1.0.0`. README
 remplacé (boilerplate Vite → vrai README projet).
 
+**Itération H (Import/Export)** **clôturée le 2026-05-21**. Phase 1
+(import/export bibliothèque) : nouveau format binaire `.osa` (magic
+header OSA1 + gzip(JSON versionné), zéro dépendance npm via
+CompressionStream natif). Trois voies d'export — bouton Actions
+Download (bibliothèque complète), clic droit row dossier ("Exporter ce
+dossier", désactivé si sous-arbre vide), clic droit row patch
+("Exporter ce patch"). Modale "Export as..." avec saisie du nom de
+fichier, suffixe `.osa` auto (case-insensitive), slugification des
+chars filesystem interdits. Import unique via bouton Actions Upload :
+validation pré-modale strict-strict (magic / gzip / JSON parse /
+schéma), puis modale de placement (sous-ensemble dans un dossier
+wrapper / racine). IDs systématiquement régénérés à l'import →
+invariant timeline préservé (les clips existants ne peuvent jamais
+être affectés). Déduplication des noms de dossiers via
+`nextAvailableFolderName` (extrait dans `src/lib/folderNames.js` au
+passage). Nouveau primitive `Modal.jsx` partagé (backdrop / Escape /
+focus trap basique). Persistance auto via la pile undo Designer.
+
 ## Objectif
 
 Synthétiseur web pédagogique / créatif : dessiner des formes d'onde à la souris,
@@ -314,7 +332,10 @@ synth-app/
     │   ├── clipNote.js       # formatClipNote + NOTE_NAMES Unicode
     │   ├── tuningSystems.js  # registre tempéraments + freq + keyboardMap par système
     │   ├── visualCues.js     # catalogue gammes/accords en cents + cuedNoteIndices (F.4.4)
-    │   └── keyboardCandidates.js  # NOTE_GUARD_KEYS — touches du mode note (F.7.5)
+    │   ├── keyboardCandidates.js  # NOTE_GUARD_KEYS — touches du mode note (F.7.5)
+    │   ├── osaFormat.js      # format binaire .osa (encode/decode/validate)
+    │   ├── libraryTransfer.js # transformations état ↔ payload .osa
+    │   └── folderNames.js    # nextAvailableFolderName partagé (extraction H.1.4)
     └── components/
         ├── Tabs.jsx + .css                    # bascule Designer / Composer
         ├── PatchBank.jsx + .css               # banque de patches partagée
@@ -333,6 +354,9 @@ synth-app/
         ├── Timeline.jsx + .css                # grille + clips + curseur (Composer)
         ├── PropertiesPanel.jsx + .css         # édition du clip sélectionné (Composer)
         ├── ResolutionGate.jsx + .css          # gate résolution mount + resize (G.1.4 + G.2.6)
+        ├── Modal.jsx + .css                   # primitive modale partagé (H.1.8)
+        ├── ExportModal.jsx                    # modale "Export as..." (H.1.9)
+        ├── ImportModal.jsx                    # modale post-validation (H.1.13)
         └── ShortLabelSelect.jsx + .css        # dropdown custom libellé court trigger / complet menu (G.2.3)
 ```
 
@@ -875,6 +899,29 @@ Choix non évidents pris pour de bonnes raisons. À ne pas remettre en question
   `gain.value` AVANT `cancelScheduledValues`, sinon l'annulation
   fait retomber le param sur le dernier `setValueAtTime` antérieur
   et la valeur lue est fausse (voir aussi E.8 pour le release ADSR).
+- **Format `.osa` = magic `OSA1` + gzip(JSON) versionné** — zéro
+  dépendance npm (CompressionStream natif). Tout changement
+  incompatible du schéma → bump version (`migrateVNtoVN+1` explicite
+  à l'import) ou bump magic (`OSA2`) si on change le wire format.
+  Pas de tolérance silencieuse.
+- **IDs régénérés à l'import (jamais d'overlap)** — garantit que
+  les clips de la timeline ne peuvent jamais être affectés par un
+  import. Les `folderId` / `parentId` internes au payload sont
+  remappés via une table `oldId → newId`. **Règle non négociable.**
+- **Validation strict-strict des fichiers `.osa`** — un seul champ
+  malformé = rejet complet. Pas de tolérance partielle. Raison :
+  un fichier partiellement importé est une banque dans un état
+  indéterminé, source de bugs subtils plus tard.
+- **Pas de compression du localStorage** (décision *contre*) — on
+  compresse au transport (`.osa`), pas au stockage actif. Le path
+  chaud localStorage doit rester synchrone et bon marché. Si la
+  pression sur le quota devient réelle, IndexedDB (async-natif,
+  gros quota) ou quantification des points, pas gzip-in-localStorage.
+- **Modale comme primitive partagé** (`Modal.jsx`) — pattern
+  manuscrit léger (backdrop, Escape, focus trap basique), réutilisé
+  par les modales import / export. Pas de framework UI. Si une 4ème
+  modale émerge, vérifier la cohérence d'UX (backdrop close-on-outside,
+  animation, padding) plutôt que diverger.
 
 ## Contraintes implicites
 
@@ -1178,6 +1225,11 @@ Phases listées ci-dessous dans l'ordre chronologique d'implémentation.
 ## État actuel
 
 ✅ **Terminé**
+- Import / Export bibliothèque format `.osa` (itér H phase 1) : 3 voies
+  d'export (Actions Download bibliothèque complète / menu contextuel
+  folder / menu contextuel patch), import unique avec choix de placement
+  (sous-ensemble wrapper / racine), IDs régénérés systématiquement,
+  déduplication des noms de dossiers, IMPORT_LIBRARY undoable Designer.
 - Dessin waveform + presets
 - Éditeur ADSR visuel draggable
 - Preview polyphonique via clavier piano interactif + raccourcis QWERTY
@@ -1708,6 +1760,50 @@ Phases listées ci-dessous dans l'ordre chronologique d'implémentation.
   prochaine candidate).
 
 ## Historique (chronologie inverse)
+
+- **2026-05-21 — Itération H phase 1 : Import/Export bibliothèque .osa**
+  Livraison complète du format binaire `.osa` et de l'UI associée. 14
+  sous-commits principaux (1.1-1.14) plus 4 mineurs (refactor DRY,
+  cleanup eslint-disable inutile, fix .osa case-insensitive, etc.) :
+  - 1.1-1.3 : `src/lib/osaFormat.js` — `encodeOsa` (magic + gzip),
+    `decodeOsa` avec 3 classes d'erreurs, `validatePayload` strict-strict
+    couvrant tous les champs du schéma (folders, patches, points, ADSR,
+    presets, defaultTuningSystem, cycle detection).
+  - 1.4 : extraction `nextAvailableFolderName` de PatchBank vers
+    `src/lib/folderNames.js` (préalable pour réutilisation à l'import).
+  - 1.5-1.6 : `src/lib/libraryTransfer.js` — `buildExportPayload` (3
+    scopes : all / folder / patch), `applyImport` (modes subset / root,
+    regen IDs systématique, déduplication folders).
+  - 1.7 : action reducer `IMPORT_LIBRARY` ajoutée à `DESIGNER_UNDOABLE`.
+  - 1.8 : `src/components/Modal.jsx` + `.css` — primitive partagé
+    (backdrop, Escape, focus trap basique, scroll body lock).
+  - 1.9 : `ExportModal.jsx` — saisie nom de fichier, slugify chars
+    filesystem-interdits, suffix `.osa` case-insensitive auto.
+  - 1.10 : wiring export bibliothèque complète depuis App
+    (`handleExportAll` + `handleConfirmExport` + `triggerDownload`
+    helper, Download button activé dans WaveformEditor Actions).
+  - 1.11 : menu contextuel PatchBank (state inline calqué Timeline,
+    entrées "Exporter ce dossier" / "Exporter ce patch", disabled si
+    sous-arbre vide).
+  - 1.12 : wiring export folder/patch depuis App.
+  - 1.13 : `ImportModal.jsx` — radio mode subset/root, champ wrapper
+    name conditionnel, compteurs détectés.
+  - 1.14 : wiring import depuis App — `<input type="file" accept=".osa"
+    hidden>` + validation pré-modale (4 erreurs distinctes → toasts) +
+    `applyImport` + dispatch `IMPORT_LIBRARY`.
+
+  Sécurité timeline : règle non négociable — les IDs des patches/folders
+  du fichier importé sont systématiquement régénérés via les counters
+  destination, jamais réutilisés tels quels. Conséquence directe : un
+  clip existant qui pointait vers `patch-3` continue de pointer vers le
+  patch-3 *original* après l'import, jamais vers le patch importé qui
+  reçoit un ID neuf au-delà du counter actuel.
+
+  Spec + plan archivés : `docs/superpowers/specs/2026-05-21-import-export-bibliotheque-design.md`,
+  `docs/superpowers/plans/2026-05-21-import-export-bibliotheque.md`.
+
+  Tests manuels round-trip attendus de l'utilisateur (lecture audio,
+  cycle export/clear-localStorage/reimport en mode racine et subset).
 
 000000000000000000000000000000. **Iter G — Phase 2** (2026-05-20) :
     Raffinements UX en 6 sous-phases livrées le même jour, suite
@@ -3096,12 +3192,11 @@ Phases listées ci-dessous dans l'ordre chronologique d'implémentation.
     gamelan Pelog Bem/Barang — belle feature pédagogique future
     avec catalogue de ragas Bhairav, Yaman, etc.), 53-EDO et autres
     EDO Tier 2, refonte UI dropdown.
-- **Reste en backlog Tier 2** : **22-EDO Erlich**
-  (xenharmonique — distinct des frameworks shrutis indiens
-  authentiques livrés en F.7 ; couvert par X-EDO N=22 depuis F.8.1),
-  **53-EDO** (approximation fine de la juste intonation —
-  potentiellement couvert par X-EDO N=53 quand la logique Shift
-  de F.8.2 sera livrée).
+**22-EDO et 53-EDO** : couverts par le système X-EDO paramétrique (N=22
+et N=53, livré en F.8.1-3). La contribution propre de Paul Erlich à
+22-EDO (gammes décatoniques pajara) pourrait éventuellement émerger
+comme un pattern de `visualCues.js` — pas comme une entrée registre
+distincte. Décision prise à l'ouverture de l'itération H (2026-05-21).
 - **Dette UI dropdown tempéraments** (13 entrées avec X-EDO) —
   devient urgente, prochaine phase F candidate après F.8. Pistes :
   optgroup HTML ("Égaux occidentaux", "Justes", "Historiques
@@ -3593,6 +3688,20 @@ clavier 22 cases, octave selector, boutons save, message slot).
 
   **Itération G phase 2 (raffinements UX) clôturée le 2026-05-20.**
 
+### Itération H (Import/Export) — clôturée 2026-05-21
+
+- ✅ **Phase 1** (2026-05-21) — Import/Export bibliothèque format `.osa`.
+  16 sous-commits + 4 refactor/fix mineurs (1.1-1.14 + cleanup) couvrant :
+  osaFormat (encode/decode/validate strict-strict), libraryTransfer
+  (buildExportPayload + applyImport avec regen IDs), extraction
+  folderNames vers lib partagé, action reducer IMPORT_LIBRARY undoable
+  Designer, primitive Modal partagé, ExportModal (slugify + .osa suffix
+  case-insensitive), ImportModal (radio mode + wrapper name + counts),
+  menu contextuel PatchBank folder+patch (calqué Timeline), wiring App
+  complet (handlers + state + render + props), Upload/Download buttons
+  activés dans WaveformEditor Actions panel. Spec + plan dans
+  `docs/superpowers/{specs,plans}/2026-05-21-import-export-bibliotheque-*.md`.
+
 ### Backlog général (à caser quand pertinent)
 
 - **Adaptation UI résolutions intermédiaires [924×668..1740×900]**
@@ -3604,11 +3713,6 @@ clavier 22 cases, octave selector, boutons save, message slot).
   supérieures (mode "expanded canvas" en plein écran, etc.).
   Cohérence avec les constantes `MIN_USABLE_*` / `RECOMMENDED_*`
   de `ResolutionGate.jsx`.
-- **Import / export bibliothèque** : implémenter les actions des
-  boutons placeholders Upload / Download ajoutés dans le panneau
-  Actions (G.2.2). Probablement export JSON du sous-arbre folder +
-  patches (vs export complet), import avec collision detection
-  + namespacing.
 - Catégorisation optgroup ou cat+système split pour les dropdowns
   Composer (Toolbar + PropertiesPanel) — alignement sur G.1.3
   côté Designer. Hérité de l'ancien backlog F "B.dropdown-tuning".
