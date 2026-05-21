@@ -270,6 +270,8 @@ function WaveformEditor({
   onExport,
   canExport,
   onImport,
+  analyserRef,
+  activeVoicesCountRef,
   ref,
   children,
 }) {
@@ -316,6 +318,7 @@ function WaveformEditor({
   const adsrCanvasRef = useRef(null)
   const adsrContainerRef = useRef(null)
   const audioCtxRef = useRef(null)
+  const analyserGainRef = useRef(null)
 
   // Instrument (E.3) : une voix par note jouée, indexée par noteIndex. Un
   // second appui sur la même touche (retrigger) coupe la voix existante
@@ -561,8 +564,33 @@ function WaveformEditor({
   // --- Instrument live (E.3) : play at mousedown, release at mouseup ---
 
   const ensureAudioCtx = () => {
-    const ctx = audioCtxRef.current || new AudioContext()
+    if (audioCtxRef.current && audioCtxRef.current.state !== 'closed') {
+      const ctx = audioCtxRef.current
+      if (ctx.state === 'suspended') ctx.resume()
+      return ctx
+    }
+    const ctx = new AudioContext()
     audioCtxRef.current = ctx
+
+    // Tap analyser pour le Spectrogram Designer (live FFT mode, iter I).
+    // Les voix se connectent à analyserGain au lieu de ctx.destination ;
+    // analyserGain → analyser (lecture passive) et analyserGain → ctx.destination
+    // (sortie audible inchangée).
+    const analyserGain = ctx.createGain()
+    const analyser = ctx.createAnalyser()
+    analyser.fftSize = 2048
+    analyser.smoothingTimeConstant = 0.75
+    analyser.minDecibels = -90
+    analyser.maxDecibels = -10
+    analyserGain.connect(analyser)
+    analyserGain.connect(ctx.destination)
+
+    analyserGainRef.current = analyserGain
+    if (analyserRef) analyserRef.current = analyser
+
+    // Reset compteur de voix à la création d'un nouveau context.
+    if (activeVoicesCountRef) activeVoicesCountRef.current = 0
+
     if (ctx.state === 'suspended') ctx.resume()
     return ctx
   }
@@ -591,6 +619,12 @@ function WaveformEditor({
       }
       activeNotesMapRef.current.delete(idx)
       sustainedNotesRef.current.delete(idx)
+      // Retrigger : la voix précédente est en train d'être stoppée,
+      // on décrémente le compteur. La nouvelle incrémentation arrive
+      // après la création de la voix ci-dessous.
+      if (activeVoicesCountRef) {
+        activeVoicesCountRef.current = Math.max(0, activeVoicesCountRef.current - 1)
+      }
     }
 
     const ctx = ensureAudioCtx()
@@ -617,11 +651,27 @@ function WaveformEditor({
     // Sustain indéfini jusqu'au release.
 
     osc.connect(gain)
-    gain.connect(ctx.destination)
+    gain.connect(analyserGainRef.current)
     osc.start(now)
 
     activeNotesMapRef.current.set(idx, { osc, gain, octave: oct })
     setActiveNoteIndices(new Set(activeNotesMapRef.current.keys()))
+
+    // Compteur de voix actives (iter I) : incrément à la création.
+    // Le décrément naturel se fait via un setTimeout calé sur la durée
+    // approximative totale (attack+hold+decay+release + epsilon). Si la
+    // voix est sustainée par l'utilisateur, le compteur peut transitoirement
+    // se désaligner — la grace period 1s côté Spectrogram absorbe l'écart.
+    if (activeVoicesCountRef) {
+      activeVoicesCountRef.current += 1
+      const r = params.release / 1000
+      const totalDurationMs = (a + h + d + r + 0.05) * 1000
+      setTimeout(() => {
+        if (activeVoicesCountRef) {
+          activeVoicesCountRef.current = Math.max(0, activeVoicesCountRef.current - 1)
+        }
+      }, totalDurationMs)
+    }
   }
 
   // Exécute le release réel (rampe ADSR) — contournable par le sustain.
@@ -728,6 +778,9 @@ function WaveformEditor({
         try { existing.gain.disconnect() } catch { /* already */ }
       }
       freeVoiceRef.current = null
+      if (activeVoicesCountRef) {
+        activeVoicesCountRef.current = Math.max(0, activeVoicesCountRef.current - 1)
+      }
     }
     const ctx = ensureAudioCtx()
     const osc = ctx.createOscillator()
@@ -748,11 +801,23 @@ function WaveformEditor({
     gain.gain.linearRampToValueAtTime(sustainLevel, now + a + h + d)
 
     osc.connect(gain)
-    gain.connect(ctx.destination)
+    gain.connect(analyserGainRef.current)
     osc.start(now)
 
     freeVoiceRef.current = { osc, gain }
     setFreeNoteActive(true)
+
+    // Compteur de voix actives (iter I) : symétrique à playInstrumentNote.
+    if (activeVoicesCountRef) {
+      activeVoicesCountRef.current += 1
+      const r = params.release / 1000
+      const totalDurationMs = (a + h + d + r + 0.05) * 1000
+      setTimeout(() => {
+        if (activeVoicesCountRef) {
+          activeVoicesCountRef.current = Math.max(0, activeVoicesCountRef.current - 1)
+        }
+      }, totalDurationMs)
+    }
   }
 
   const releaseFreeNote = () => {
@@ -779,6 +844,11 @@ function WaveformEditor({
   useEffect(() => {
     return () => {
       stopAllInstrumentNotes()
+      // Cleanup analyser tap (iter I) : reset des refs partagées pour que le
+      // Spectrogram ne pointe pas sur des nodes orphelins après unmount.
+      if (activeVoicesCountRef) activeVoicesCountRef.current = 0
+      if (analyserRef) analyserRef.current = null
+      analyserGainRef.current = null
     }
   }, [])
 
