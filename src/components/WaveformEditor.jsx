@@ -269,6 +269,7 @@ function WaveformEditor({
   onRedo,
   onExport,
   canExport,
+  onImport,
   ref,
   children,
 }) {
@@ -1735,9 +1736,9 @@ function WaveformEditor({
           <button
             type="button"
             className="actions-icon-btn"
-            disabled
-            title="Importer une bibliothèque (à venir)"
-            aria-label="Importer une bibliothèque (à venir)"
+            onClick={onImport}
+            title="Importer une bibliothèque"
+            aria-label="Importer une bibliothèque"
           ><Upload size={16} strokeWidth={2} /></button>
           <button
             type="button"
@@ -1807,9 +1808,9 @@ function WaveformEditor({
             <button
               type="button"
               className="actions-icon-btn"
-              disabled
-              title="Importer une bibliothèque (à venir)"
-              aria-label="Importer une bibliothèque (à venir)"
+              onClick={onImport}
+              title="Importer une bibliothèque"
+              aria-label="Importer une bibliothèque"
             ><Upload size={18} strokeWidth={2} /></button>
             <button
               type="button"

@@ -42,8 +42,12 @@ import {
 } from './lib/durations'
 import Toast from './components/Toast'
 import ExportModal from './components/ExportModal.jsx'
-import { encodeOsa } from './lib/osaFormat.js'
-import { buildExportPayload, EmptyExportError } from './lib/libraryTransfer.js'
+import ImportModal from './components/ImportModal.jsx'
+import {
+  encodeOsa, decodeOsa,
+  OsaMagicError, OsaCorruptError, OsaParseError, OsaSchemaError,
+} from './lib/osaFormat.js'
+import { buildExportPayload, EmptyExportError, applyImport } from './lib/libraryTransfer.js'
 import { usePlayback } from './hooks/usePlayback'
 import './App.css'
 
@@ -672,6 +676,13 @@ function App() {
   // Modal d'export bibliothèque (H.1) : géré en local React (UI éphémère).
   // Forme : null | { scope: { type, id? }, defaultName: string }
   const [exportModal, setExportModal] = useState(null)
+
+  // Modal d'import bibliothèque (H.1.14) : géré en local React (UI éphémère).
+  // Forme : null | { payload, fileName }
+  const [importModal, setImportModal] = useState(null)
+
+  // Ref pour l'input file caché (déclenché par le bouton Upload).
+  const fileInputRef = useRef(null)
 
   // Popover Bibliothèque (mode réduit) : géré en local React, pas dans le
   // reducer (UI éphémère, ne survit pas au reload).
@@ -1444,6 +1455,39 @@ function App() {
     }
   }
 
+  const handleImportClick = () => {
+    fileInputRef.current?.click()
+  }
+
+  const handleFileSelected = async (e) => {
+    const file = e.target.files?.[0]
+    e.target.value = ''
+    if (!file) return
+    try {
+      const buffer = await file.arrayBuffer()
+      const payload = await decodeOsa(buffer)
+      setImportModal({ payload, fileName: file.name })
+    } catch (err) {
+      if (err instanceof OsaMagicError) notify('Fichier non reconnu (format .osa attendu)', 'error')
+      else if (err instanceof OsaCorruptError) notify('Fichier corrompu', 'error')
+      else if (err instanceof OsaParseError) notify('Contenu malformé', 'error')
+      else if (err instanceof OsaSchemaError) notify(`Fichier invalide : ${err.field}`, 'error')
+      else notify('Lecture du fichier impossible', 'error')
+    }
+  }
+
+  const handleConfirmImport = (mode, wrapperName) => {
+    const { payload } = importModal
+    const result = applyImport(payload, mode, wrapperName, {
+      soundFolders, folderCounter, patchCounter,
+    })
+    dispatch({ type: 'IMPORT_LIBRARY', ...result })
+    setImportModal(null)
+    const np = result.newPatches.length
+    const nf = result.newFolders.length
+    notify(`Importé : ${np} patch${np > 1 ? 'es' : ''}, ${nf} dossier${nf > 1 ? 's' : ''}`, 'success')
+  }
+
   const handleLoadPatch = useCallback(
     (patchId) => {
       if (currentPatchId === patchId && activeTab === 'designer') return
@@ -1525,6 +1569,7 @@ function App() {
         onRedo={handleRedoDesigner}
         onExport={handleExportAll}
         canExport={patches.length > 0}
+        onImport={handleImportClick}
       >
         {({ renderCanvasArea, renderParamsArea, renderAdsrArea, renderActions }) => (
           <>
@@ -1958,6 +2003,23 @@ function App() {
           defaultName={exportModal.defaultName}
           onConfirm={handleConfirmExport}
           onCancel={() => setExportModal(null)}
+        />
+      )}
+
+      <input
+        type="file"
+        accept=".osa"
+        ref={fileInputRef}
+        onChange={handleFileSelected}
+        style={{ display: 'none' }}
+      />
+      {importModal && (
+        <ImportModal
+          isOpen={true}
+          payload={importModal.payload}
+          fileName={importModal.fileName}
+          onConfirm={handleConfirmImport}
+          onCancel={() => setImportModal(null)}
         />
       )}
     </div>
