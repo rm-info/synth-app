@@ -13,6 +13,17 @@ export class EmptyExportError extends Error {
   constructor() { super('Rien à exporter'); this.name = 'EmptyExportError' }
 }
 
+// Rétro-compat patches < G.2.4 : defaultTuningSystem absent → fallback '12-TET'.
+// JSON.stringify drop les clés undefined, ce qui ferait échouer validatePayload
+// à la ré-importation. On normalise donc au moment du build de l'export.
+function normalizePatchForExport(patch, folderId) {
+  return {
+    ...patch,
+    defaultTuningSystem: patch.defaultTuningSystem ?? '12-TET',
+    folderId: folderId === undefined ? patch.folderId : folderId,
+  }
+}
+
 function getDescendantFolderIds(rootId, soundFolders) {
   const ids = new Set([rootId])
   let changed = true
@@ -33,18 +44,20 @@ export function buildExportPayload({ patches, soundFolders, scope }) {
   let exportedPatches, exportedFolders
 
   if (scope.type === 'all') {
-    exportedPatches = patches.slice()
+    exportedPatches = patches.map((p) => normalizePatchForExport(p))
     exportedFolders = soundFolders.slice()
   } else if (scope.type === 'folder') {
     const folderIds = getDescendantFolderIds(scope.id, soundFolders)
     exportedFolders = soundFolders
       .filter((f) => folderIds.has(f.id))
       .map((f) => f.id === scope.id ? { ...f, parentId: null } : f)
-    exportedPatches = patches.filter((p) => folderIds.has(p.folderId))
+    exportedPatches = patches
+      .filter((p) => folderIds.has(p.folderId))
+      .map((p) => normalizePatchForExport(p))
   } else if (scope.type === 'patch') {
     const patch = patches.find((p) => p.id === scope.id)
     if (!patch) throw new EmptyExportError()
-    exportedPatches = [{ ...patch, folderId: null }]
+    exportedPatches = [normalizePatchForExport(patch, null)]
     exportedFolders = []
   } else {
     throw new Error(`Scope inconnu: ${scope.type}`)
