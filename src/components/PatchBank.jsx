@@ -1,7 +1,21 @@
-import { useState, useCallback, useRef } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { getDescendantFolderIds } from '../reducer'
 import { nextAvailableFolderName } from '../lib/folderNames.js'
 import './PatchBank.css'
+
+function folderHasAnyPatch(folderId, patches, soundFolders) {
+  const ids = new Set([folderId])
+  let changed = true
+  while (changed) {
+    changed = false
+    for (const f of soundFolders) {
+      if (f.parentId && ids.has(f.parentId) && !ids.has(f.id)) {
+        ids.add(f.id); changed = true
+      }
+    }
+  }
+  return patches.some((p) => ids.has(p.folderId))
+}
 
 function PatchBank({
   patches,
@@ -16,6 +30,8 @@ function PatchBank({
   onDeleteFolder,
   onMovePatchToFolder,
   onMoveFolder,
+  onExportFolder,
+  onExportPatch,
   headerExtra,
 }) {
   const loadOnSingleClick = activeTab === 'designer'
@@ -26,6 +42,18 @@ function PatchBank({
   const [dragItem, setDragItem] = useState(null) // { type: 'patch'|'folder', id }
   const [dragOverTarget, setDragOverTarget] = useState(null) // folderId or 'root'
   const dragRef = useRef(null)
+
+  const [contextMenu, setContextMenu] = useState(null)
+  // contextMenu: null | { type: 'folder'|'patch', id: string, clientX, clientY }
+
+  useEffect(() => {
+    if (!contextMenu) return
+    const onKey = (e) => {
+      if (e.key === 'Escape') { e.preventDefault(); setContextMenu(null) }
+    }
+    document.addEventListener('keydown', onKey, true)
+    return () => document.removeEventListener('keydown', onKey, true)
+  }, [contextMenu])
 
   const toggleFolder = (folderId) => {
     setCollapsedFolders((prev) => {
@@ -198,6 +226,11 @@ function PatchBank({
         onDragOver={handleChipDragOver}
         onClick={handleSingleClick}
         onDoubleClick={handleDoubleClick}
+        onContextMenu={(e) => {
+          e.preventDefault()
+          e.stopPropagation()
+          setContextMenu({ type: 'patch', id: patch.id, clientX: e.clientX, clientY: e.clientY })
+        }}
         title={isEditing ? undefined : titleText}
       >
         <span className="chip-dot" />
@@ -269,6 +302,11 @@ function PatchBank({
           onDrop={(e) => handleDropOnFolder(e, folder.id)}
           onClick={() => { if (!isEditing) toggleFolder(folder.id) }}
           onDoubleClick={(e) => { e.stopPropagation(); if (!isEditing) startEdit(folder.id, folder.name) }}
+          onContextMenu={(e) => {
+            e.preventDefault()
+            e.stopPropagation()
+            setContextMenu({ type: 'folder', id: folder.id, clientX: e.clientX, clientY: e.clientY })
+          }}
         >
           <span className={`folder-chevron ${isExpanded ? 'is-expanded' : ''}`}>▶</span>
           <span className="folder-icon">📁</span>
@@ -369,6 +407,46 @@ function PatchBank({
         >
           Déposer ici → racine
         </div>
+      )}
+      {contextMenu && (
+        <>
+          <div
+            className="patchbank-context-backdrop"
+            onClick={() => setContextMenu(null)}
+            onContextMenu={(e) => { e.preventDefault(); setContextMenu(null) }}
+          />
+          <div
+            className="patchbank-context-menu"
+            style={{ left: `${contextMenu.clientX}px`, top: `${contextMenu.clientY}px` }}
+          >
+            {contextMenu.type === 'folder' && (() => {
+              const isEmpty = !folderHasAnyPatch(contextMenu.id, patches, soundFolders)
+              return (
+                <button
+                  type="button"
+                  className="patchbank-context-item"
+                  disabled={isEmpty}
+                  onClick={() => {
+                    const id = contextMenu.id
+                    setContextMenu(null)
+                    onExportFolder?.(id)
+                  }}
+                >Exporter ce dossier</button>
+              )
+            })()}
+            {contextMenu.type === 'patch' && (
+              <button
+                type="button"
+                className="patchbank-context-item"
+                onClick={() => {
+                  const id = contextMenu.id
+                  setContextMenu(null)
+                  onExportPatch?.(id)
+                }}
+              >Exporter ce patch</button>
+            )}
+          </div>
+        </>
       )}
     </aside>
   )
