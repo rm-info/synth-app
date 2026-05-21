@@ -3,20 +3,6 @@ import { getDescendantFolderIds } from '../reducer'
 import { nextAvailableFolderName } from '../lib/folderNames.js'
 import './PatchBank.css'
 
-function folderHasAnyPatch(folderId, patches, soundFolders) {
-  const ids = new Set([folderId])
-  let changed = true
-  while (changed) {
-    changed = false
-    for (const f of soundFolders) {
-      if (f.parentId && ids.has(f.parentId) && !ids.has(f.id)) {
-        ids.add(f.id); changed = true
-      }
-    }
-  }
-  return patches.some((p) => ids.has(p.folderId))
-}
-
 function PatchBank({
   patches,
   soundFolders,
@@ -420,7 +406,9 @@ function PatchBank({
             style={{ left: `${contextMenu.clientX}px`, top: `${contextMenu.clientY}px` }}
           >
             {contextMenu.type === 'folder' && (() => {
-              const isEmpty = !folderHasAnyPatch(contextMenu.id, patches, soundFolders)
+              const descendantIds = getDescendantFolderIds(contextMenu.id, soundFolders)
+              const folderIds = new Set([contextMenu.id, ...descendantIds])
+              const isEmpty = !patches.some((p) => folderIds.has(p.folderId))
               return (
                 <button
                   type="button"
