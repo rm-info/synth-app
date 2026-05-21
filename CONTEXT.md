@@ -262,6 +262,21 @@ invariant timeline préservé (les clips existants ne peuvent jamais
 passage). Nouveau primitive `Modal.jsx` partagé (backdrop / Escape /
 focus trap basique). Persistance auto via la pile undo Designer.
 
+**Itération I (Spectrogramme avancé)** **clôturée le 2026-05-21**.
+Phase 1 : enrichissement du Spectrogram Designer avec deux modes
+(statique = DFT canonique d'un cycle + Live FFT = AnalyserNode
+temps réel pendant les notes test). Auto-switch sur note play avec
+grace period 1s pour éviter le flicker en jeu rapide. Toggle dB /
+linéaire applicable aux deux modes. Toggle peak hold pour le mode
+Live (peaks persistants décroissant en ~1s, stockés en linéaire
+pour décroissance multiplicative naturelle). Nouveau routage audio
+dans WaveformEditor (`osc → gain → analyserGain → analyser +
+ctx.destination`). Compteur `activeVoicesCountRef` maintenu (utile
+au-delà du spectrogramme). Refs `analyserRef` et `activeVoicesCountRef`
+partagés App → WaveformEditor (peuple) → Spectrogram (lit), évite
+les re-renders à 60fps. Scope α Designer-only — le Composer a son
+propre AnalyserNode (usePlayback) non couvert dans cette phase.
+
 **Release v1.2.0** (2026-05-21) — Mode mobile complet + suppression
 de ResolutionGate. En dessous de 924 × 668 px : (1) la sidebar Designer
 est forcée en mode réduit (preference utilisateur préservée en state) ;
@@ -930,6 +945,30 @@ Choix non évidents pris pour de bonnes raisons. À ne pas remettre en question
   modale émerge, vérifier la cohérence d'UX (backdrop close-on-outside,
   animation, padding) plutôt que diverger.
 
+- **Spectrogram : double mode statique/live** — le statique reste la
+  vue par défaut (DFT canonique d'un cycle du dessin), le live consomme
+  l'AnalyserNode du WaveformEditor pendant les notes test. Auto-switch
+  sur note play avec grace period 1s pour éviter le flicker en jeu
+  rapide (cas "doum tchak doum tchak").
+
+- **AnalyserNode Designer-only (scope α)** — le Spectrogram Designer
+  ne reflète que les notes test du clavier piano, pas la lecture
+  Composer (qui a son propre AnalyserNode dans usePlayback). Cohérent
+  avec le placement du Spectrogram (Designer uniquement). Si on veut
+  un Spectrogram Composer un jour, c'est une feature séparée.
+
+- **Refs partagés entre WaveformEditor et Spectrogram** (`analyserRef`,
+  `activeVoicesCountRef`) gérés par App — pattern de coordination
+  cross-composant pour éviter re-renders à 60fps. Précédent :
+  `editorRef` (imperative handle) existant déjà entre App et
+  WaveformEditor.
+
+- **Compteur `activeVoicesCountRef` côté WaveformEditor** — primitive
+  utile au-delà du spectrogramme (indicateur visuel "ça joue", limiteur
+  de polyphonie, etc.). Décrémentation planifiée via `setTimeout(release
+  + epsilon)`. Guard anti-dérive au consumer (clamp à ≥ 0 par tick).
+  `stopAllInstrumentNotes` reset le compteur à 0 (cleanup forcé).
+
 ## Contraintes implicites
 
 Conventions tacites. Les enfreindre sans raison crée des bugs subtils.
@@ -1232,6 +1271,10 @@ Phases listées ci-dessous dans l'ordre chronologique d'implémentation.
 ## État actuel
 
 ✅ **Terminé**
+- Spectrogramme Designer avancé (itér I phase 1) : mode statique (DFT)
+  + mode Live FFT (AnalyserNode temps réel) avec auto-switch sur note
+  play (grace period 1s), toggle dB / linéaire, peak hold optionnel
+  pour le Live.
 - Import / Export bibliothèque format `.osa` (itér H phase 1) : 3 voies
   d'export (Actions Download bibliothèque complète / menu contextuel
   folder / menu contextuel patch), import unique avec choix de placement
@@ -1767,6 +1810,53 @@ Phases listées ci-dessous dans l'ordre chronologique d'implémentation.
   prochaine candidate).
 
 ## Historique (chronologie inverse)
+
+- **2026-05-21 — Itération I phase 1 : Spectrogramme avancé**
+  Enrichissement du Spectrogram Designer avec un mode Live FFT, un
+  toggle dB / linéaire (applicable aux deux modes) et un toggle peak
+  hold (mode Live).
+  - 1.1 : reducer — `spectrogramDbScale` et `spectrogramPeakHold` +
+    persistance.
+  - 1.2 : `WaveformEditor.jsx` — analyser tap (`osc → gain → analyserGain
+    → analyser + ctx.destination`), compteur `activeVoicesCountRef`
+    maintenu (incrément/décrément planifié via `setTimeout(release+epsilon)`).
+    Fix complémentaire : reset du compteur dans `stopAllInstrumentNotes`.
+  - 1.3 : `App.jsx` — création des refs partagés (`analyserRef`,
+    `activeVoicesCountRef`), handlers toggle, passing aux deux
+    composants. Refactor DRY : extraction d'un `spectrogramNode` local
+    pour ne pas dupliquer les 8 props sur les deux instances (mobile +
+    desktop).
+  - 1.4 : `Spectrogram.jsx` — refactor `drawStatic` avec support dB
+    scale, ajout du header controls (`<button>` toggle dB / Peak).
+    Static mode complet. dB conversion via `20*log10(ratio)` (amplitude
+    convention), clamp `< DB_FLOOR (-80)` via `continue`.
+  - 1.5 : `Spectrogram.jsx` — rAF loop permanente (auto-switch
+    statique/live avec grace period 1s), implémentation `drawLive`
+    (interpolation des bins FFT sur axe log, peak hold optionnel
+    stocké en linéaire 0..1 pour decay multiplicatif `* 0.97`).
+    Polish : `PEAK_DECAY` const, `valuesBuffer` caché dans `stateRef`
+    pour éviter allocation hot-path, commentaire explicatif sur le
+    fill-after-stroke trick, JSDoc mis à jour pour décrire les deux
+    modes.
+
+  Cas d'usage typique : utilisateur dessine une onde → spectre
+  statique en barres ; presse une touche du clavier piano → bascule
+  immédiate en mode Live (ligne continue cyan + aire fill légère) qui
+  suit l'enveloppe ADSR ; relâche → décroissance fluide, retour au
+  statique après 1 seconde. Si peak hold actif, traits clairs
+  persistent au-dessus de la courbe et redescendent en ~1s.
+
+  Sécurité audio : le routage modifié dans WaveformEditor introduit
+  un `GainNode` passif (`analyserGain`) entre les voix et la
+  destination ; aucune altération du signal audible. L'AnalyserNode
+  ne consomme que des copies des samples (lecture passive).
+
+  Spec + plan archivés : `docs/superpowers/specs/2026-05-21-spectrogramme-avance-design.md`,
+  `docs/superpowers/plans/2026-05-21-spectrogramme-avance.md`.
+
+  Tests manuels round-trip attendus de l'utilisateur (jeu de notes,
+  toggles dB/peak hold, vérification non-régression sur la lecture
+  Composer).
 
 - **2026-05-21 — Iter H follow-up : bump format à OSA2 + injection mid-stream**
   7-zip a été trouvé capable d'extraire le JSON malgré le magic header
@@ -3720,6 +3810,19 @@ clavier 22 cases, octave selector, boutons save, message slot).
   activés dans WaveformEditor Actions panel. Spec + plan dans
   `docs/superpowers/{specs,plans}/2026-05-21-import-export-bibliotheque-*.md`.
 
+### Itération I (Spectrogramme avancé) — clôturée 2026-05-21
+
+- ✅ **Phase 1** (2026-05-21) — Spectrogramme avancé. 5 sous-commits
+  principaux (1.1-1.5) + 4 fixes/refactor mineurs (alignement style,
+  reset compteur stopAllInstrumentNotes, DRY spectrogramNode, polish
+  PEAK_DECAY+valuesBuffer+JSDoc) : reducer (state + persistance),
+  WaveformEditor (analyser tap + compteur voix), App (refs + handlers
+  + props), Spectrogram refactor (static + dB toggle + controls),
+  Spectrogram Live FFT (rAF loop + drawLive + auto-switch + peak hold),
+  CONTEXT.md. Spec + plan dans
+  `docs/superpowers/{specs,plans}/2026-05-21-spectrogramme-avance-*.md`.
+  Zoom X axis et Spectrogram Composer restent en backlog.
+
 ### Backlog général (à caser quand pertinent)
 
 - **Adaptation UI résolutions intermédiaires [924×668..1740×900]**
@@ -3735,8 +3838,12 @@ clavier 22 cases, octave selector, boutons save, message slot).
   Composer (Toolbar + PropertiesPanel) — alignement sur G.1.3
   côté Designer. Hérité de l'ancien backlog F "B.dropdown-tuning".
 
-- Spectrogramme avancé : toggle dB / linéaire, zoom, FFT temps réel
-  pendant la lecture, affichage post-ADSR
+- Spectrogramme — zoom X axis (frequency range) — gardé en backlog
+  depuis iter I phase 1, l'échelle log actuelle étale déjà
+  suffisamment.
+- Spectrogramme Composer (visualiser la lecture timeline via le
+  AnalyserNode existant dans usePlayback) — gardé en backlog depuis
+  iter I phase 1.
 - Bouton "Vider la banque" (avec undo)
 - Toggle thème clair/sombre
 - Améliorations contrastes (passe 2)
