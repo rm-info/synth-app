@@ -69,7 +69,8 @@ function App() {
   const {
     clips, patches, soundFolders, tracks, bpm, numMeasures, a4Ref, xEdoN,
     editor, activeTab, currentPatchId, zoomH, defaultClipDuration,
-    spectrogramVisible, durationMode, selectedClipIds, composerFlash, lastAnchorClipId,
+    spectrogramVisible, spectrogramDbScale, spectrogramPeakHold,
+    durationMode, selectedClipIds, composerFlash, lastAnchorClipId,
     composerBankWidth, composerAsideWidth, composerBankCollapsed, composerAsideCollapsed,
     designerSidebarWidth, designerSidebarCollapsed,
     patchCounter, clipCounter, folderCounter, trackCounter,
@@ -521,6 +522,8 @@ function App() {
           a4Ref,
           xEdoN,
           spectrogramVisible,
+          spectrogramDbScale,
+          spectrogramPeakHold,
           durationMode,
           activeTab,
           patchCounter,
@@ -550,7 +553,8 @@ function App() {
     }
   }, [
     patches, soundFolders, tracks, clips, bpm, numMeasures, a4Ref, xEdoN,
-    spectrogramVisible, durationMode, activeTab, patchCounter, clipCounter, folderCounter, trackCounter,
+    spectrogramVisible, spectrogramDbScale, spectrogramPeakHold,
+    durationMode, activeTab, patchCounter, clipCounter, folderCounter, trackCounter,
     composerBankWidth, composerAsideWidth, composerBankCollapsed, composerAsideCollapsed,
     designerSidebarWidth, designerSidebarCollapsed,
     editor.testTuningSystem, editor.testNoteIndex, editor.testOctave, editor.testFrequency,
