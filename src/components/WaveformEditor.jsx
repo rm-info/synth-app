@@ -267,6 +267,8 @@ function WaveformEditor({
   canRedo,
   onUndo,
   onRedo,
+  onExport,
+  canExport,
   ref,
   children,
 }) {
@@ -1740,9 +1742,10 @@ function WaveformEditor({
           <button
             type="button"
             className="actions-icon-btn"
-            disabled
-            title="Exporter la bibliothèque (à venir)"
-            aria-label="Exporter la bibliothèque (à venir)"
+            onClick={onExport}
+            disabled={!canExport}
+            title={canExport ? 'Exporter la bibliothèque' : 'Bibliothèque vide'}
+            aria-label="Exporter la bibliothèque"
           ><Download size={16} strokeWidth={2} /></button>
         </div>
       )
@@ -1811,9 +1814,10 @@ function WaveformEditor({
             <button
               type="button"
               className="actions-icon-btn"
-              disabled
-              title="Exporter la bibliothèque (à venir)"
-              aria-label="Exporter la bibliothèque (à venir)"
+              onClick={onExport}
+              disabled={!canExport}
+              title={canExport ? 'Exporter la bibliothèque' : 'Bibliothèque vide'}
+              aria-label="Exporter la bibliothèque"
             ><Download size={18} strokeWidth={2} /></button>
           </div>
         </div>

@@ -41,10 +41,24 @@ import {
   deriveBaseAndCoef, effectiveDuration, isValidCoef,
 } from './lib/durations'
 import Toast from './components/Toast'
+import ExportModal from './components/ExportModal.jsx'
+import { encodeOsa } from './lib/osaFormat.js'
+import { buildExportPayload, EmptyExportError } from './lib/libraryTransfer.js'
 import { usePlayback } from './hooks/usePlayback'
 import './App.css'
 
 const wrappedReducer = withUndo(reducer)
+
+function triggerDownload(blob, filename) {
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = filename
+  document.body.appendChild(a)
+  a.click()
+  document.body.removeChild(a)
+  URL.revokeObjectURL(url)
+}
 
 function App() {
   const [state, dispatch] = useReducer(wrappedReducer, undefined, buildInitialState)
@@ -654,6 +668,10 @@ function App() {
   const handleResizeDesignerSidebar = useCallback((width) => {
     dispatch({ type: 'SET_DESIGNER_SIDEBAR_WIDTH', payload: width })
   }, [])
+
+  // Modal d'export bibliothèque (H.1) : géré en local React (UI éphémère).
+  // Forme : null | { scope: { type, id? }, defaultName: string }
+  const [exportModal, setExportModal] = useState(null)
 
   // Popover Bibliothèque (mode réduit) : géré en local React, pas dans le
   // reducer (UI éphémère, ne survit pas au reload).
@@ -1375,6 +1393,39 @@ function App() {
     dispatch({ type: 'MOVE_FOLDER', payload: { folderId, parentId } })
   }, [])
 
+  const notify = (message, type = 'info') => {
+    dispatch({ type: 'SET_NOTIFICATION', payload: { message, type, timestamp: Date.now() } })
+  }
+
+  const handleExportAll = () => {
+    if (patches.length === 0) {
+      notify('Rien à exporter', 'error')
+      return
+    }
+    const today = new Date().toISOString().slice(0, 10)
+    setExportModal({
+      scope: { type: 'all' },
+      defaultName: `synth-app-bibliotheque-${today}`,
+    })
+  }
+
+  const handleConfirmExport = async (filename) => {
+    const { scope } = exportModal
+    try {
+      const payload = buildExportPayload({ patches, soundFolders, scope })
+      const blob = await encodeOsa(payload)
+      triggerDownload(blob, filename)
+      setExportModal(null)
+      const np = payload.patches.length
+      const nf = payload.soundFolders.length
+      notify(`Exporté : ${np} patch${np > 1 ? 'es' : ''}, ${nf} dossier${nf > 1 ? 's' : ''}`, 'success')
+    } catch (e) {
+      setExportModal(null)
+      if (e instanceof EmptyExportError) notify('Rien à exporter', 'error')
+      else notify(`Erreur d'export : ${e.message}`, 'error')
+    }
+  }
+
   const handleLoadPatch = useCallback(
     (patchId) => {
       if (currentPatchId === patchId && activeTab === 'designer') return
@@ -1454,6 +1505,8 @@ function App() {
         canRedo={designerCanRedo}
         onUndo={handleUndoDesigner}
         onRedo={handleRedoDesigner}
+        onExport={handleExportAll}
+        canExport={patches.length > 0}
       >
         {({ renderCanvasArea, renderParamsArea, renderAdsrArea, renderActions }) => (
           <>
@@ -1872,6 +1925,15 @@ function App() {
           message={notification.message}
           type={notification.type}
           onDismiss={dismissNotification}
+        />
+      )}
+
+      {exportModal && (
+        <ExportModal
+          isOpen={true}
+          defaultName={exportModal.defaultName}
+          onConfirm={handleConfirmExport}
+          onCancel={() => setExportModal(null)}
         />
       )}
     </div>
