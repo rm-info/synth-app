@@ -1,14 +1,7 @@
 import { useState, useCallback, useRef } from 'react'
 import { getDescendantFolderIds } from '../reducer'
+import { nextAvailableFolderName } from '../lib/folderNames.js'
 import './PatchBank.css'
-
-function nextAvailableFolderName(base, existingFolders) {
-  const taken = new Set(existingFolders.map((f) => f.name))
-  if (!taken.has(base)) return base
-  let i = 2
-  while (taken.has(`${base} (${i})`)) i++
-  return `${base} (${i})`
-}
 
 function PatchBank({
   patches,
