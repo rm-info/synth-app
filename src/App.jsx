@@ -79,6 +79,9 @@ function App() {
 
   const editorRef = useRef(null)
 
+  const analyserRef = useRef(null)
+  const activeVoicesCountRef = useRef(0)
+
   const timelineMouseRef = useRef(null)
 
   // Raccourcis clavier E.4 (Composer) : note physique maintenue → override de
@@ -638,6 +641,13 @@ function App() {
 
   const setSpectrogramVisible = useCallback((v) => {
     dispatch({ type: 'SET_SPECTROGRAM_VISIBLE', payload: v })
+  }, [])
+
+  const setSpectrogramDbScale = useCallback((v) => {
+    dispatch({ type: 'SET_SPECTROGRAM_DB_SCALE', payload: v })
+  }, [])
+  const setSpectrogramPeakHold = useCallback((v) => {
+    dispatch({ type: 'SET_SPECTROGRAM_PEAK_HOLD', payload: v })
   }, [])
 
   // Max dynamique : chaque sidebar ne doit pas rogner la zone centrale en
@@ -1574,6 +1584,8 @@ function App() {
         onExport={handleExportAll}
         canExport={patches.length > 0}
         onImport={handleImportClick}
+        analyserRef={analyserRef}
+        activeVoicesCountRef={activeVoicesCountRef}
       >
         {({ renderCanvasArea, renderParamsArea, renderAdsrArea, renderActions }) => (
           <>
@@ -1727,7 +1739,18 @@ function App() {
                 <div className="designer-main designer-main-mobile">
                   {[
                     { id: 'canvas', title: 'Waveform', body: renderCanvasArea() },
-                    { id: 'spectrogram', title: 'Spectrogramme', body: <Spectrogram points={editor.points} frequency={editorFrequency} /> },
+                    { id: 'spectrogram', title: 'Spectrogramme', body: (
+                      <Spectrogram
+                        points={editor.points}
+                        frequency={editorFrequency}
+                        analyserRef={analyserRef}
+                        activeVoicesCountRef={activeVoicesCountRef}
+                        dbScale={spectrogramDbScale}
+                        peakHold={spectrogramPeakHold}
+                        onToggleDbScale={() => setSpectrogramDbScale(!spectrogramDbScale)}
+                        onTogglePeakHold={() => setSpectrogramPeakHold(!spectrogramPeakHold)}
+                      />
+                    ) },
                     { id: 'adsr', title: 'Enveloppe AHDSR', body: renderAdsrArea() },
                     { id: 'params', title: 'Instrument', body: renderParamsArea() },
                   ].map((zone) => {
@@ -1758,7 +1781,16 @@ function App() {
                     <div className="designer-cell">{renderCanvasArea()}</div>
                     {spectrogramVisible && (
                       <div className="designer-cell">
-                        <Spectrogram points={editor.points} frequency={editorFrequency} />
+                        <Spectrogram
+                          points={editor.points}
+                          frequency={editorFrequency}
+                          analyserRef={analyserRef}
+                          activeVoicesCountRef={activeVoicesCountRef}
+                          dbScale={spectrogramDbScale}
+                          peakHold={spectrogramPeakHold}
+                          onToggleDbScale={() => setSpectrogramDbScale(!spectrogramDbScale)}
+                          onTogglePeakHold={() => setSpectrogramPeakHold(!spectrogramPeakHold)}
+                        />
                       </div>
                     )}
                   </div>
