@@ -1556,6 +1556,20 @@ function App() {
     setXEdoN: (n) => dispatch({ type: 'SET_X_EDO_N', payload: n }),
   }), [])
 
+  // Computed once per render — used dans les deux variantes responsive (mobile accordion + desktop grid)
+  const spectrogramNode = (
+    <Spectrogram
+      points={editor.points}
+      frequency={editorFrequency}
+      analyserRef={analyserRef}
+      activeVoicesCountRef={activeVoicesCountRef}
+      dbScale={spectrogramDbScale}
+      peakHold={spectrogramPeakHold}
+      onToggleDbScale={() => setSpectrogramDbScale(!spectrogramDbScale)}
+      onTogglePeakHold={() => setSpectrogramPeakHold(!spectrogramPeakHold)}
+    />
+  )
+
   return (
     <div className="app">
       <Tabs activeTab={activeTab} onChange={setActiveTab} />
@@ -1739,18 +1753,7 @@ function App() {
                 <div className="designer-main designer-main-mobile">
                   {[
                     { id: 'canvas', title: 'Waveform', body: renderCanvasArea() },
-                    { id: 'spectrogram', title: 'Spectrogramme', body: (
-                      <Spectrogram
-                        points={editor.points}
-                        frequency={editorFrequency}
-                        analyserRef={analyserRef}
-                        activeVoicesCountRef={activeVoicesCountRef}
-                        dbScale={spectrogramDbScale}
-                        peakHold={spectrogramPeakHold}
-                        onToggleDbScale={() => setSpectrogramDbScale(!spectrogramDbScale)}
-                        onTogglePeakHold={() => setSpectrogramPeakHold(!spectrogramPeakHold)}
-                      />
-                    ) },
+                    { id: 'spectrogram', title: 'Spectrogramme', body: spectrogramNode },
                     { id: 'adsr', title: 'Enveloppe AHDSR', body: renderAdsrArea() },
                     { id: 'params', title: 'Instrument', body: renderParamsArea() },
                   ].map((zone) => {
@@ -1780,18 +1783,7 @@ function App() {
                   <div className="designer-row">
                     <div className="designer-cell">{renderCanvasArea()}</div>
                     {spectrogramVisible && (
-                      <div className="designer-cell">
-                        <Spectrogram
-                          points={editor.points}
-                          frequency={editorFrequency}
-                          analyserRef={analyserRef}
-                          activeVoicesCountRef={activeVoicesCountRef}
-                          dbScale={spectrogramDbScale}
-                          peakHold={spectrogramPeakHold}
-                          onToggleDbScale={() => setSpectrogramDbScale(!spectrogramDbScale)}
-                          onTogglePeakHold={() => setSpectrogramPeakHold(!spectrogramPeakHold)}
-                        />
-                      </div>
+                      <div className="designer-cell">{spectrogramNode}</div>
                     )}
                   </div>
                   <div className="designer-row">
