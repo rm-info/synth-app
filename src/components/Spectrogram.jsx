@@ -24,6 +24,7 @@ const DB_CEIL = 0
 
 const GRACE_MS = 1000
 const FFT_SIZE = 2048
+const PEAK_DECAY = 0.97  // facteur multiplicatif par frame ; peak décroît visiblement en ~1s @ 60fps
 
 function freqToX(freq, plotW) {
   const clamped = Math.max(FREQ_MIN, Math.min(FREQ_MAX, freq))
@@ -31,17 +32,24 @@ function freqToX(freq, plotW) {
 }
 
 /**
- * Spectrogramme statique du son en cours d'édition.
+ * Spectrogramme du son en cours d'édition Designer — deux modes :
  *
- * Affiche les magnitudes des harmoniques issues de la DFT (même
- * décomposition que celle utilisée par `pointsToPeriodicWave` pour
- * la lecture audio). Lecture seule — aucun état interne, aucune
- * interaction utilisateur. Se redessine à chaque changement de
- * `points` ou `frequency` (drafts locaux absorbent les gestes continus).
+ * - **Statique** : DFT d'un cycle de l'onde dessinée. Affiche les
+ *   magnitudes des harmoniques en barres (axe log fréquence, Y linéaire
+ *   ou dB selon `dbScale`). Vue par défaut.
  *
- * Axe X : log 20 Hz → 20 kHz. Axe Y : magnitude linéaire, normalisée
- * par le max courant (le volume global / amplitude n'entre pas en jeu,
- * on veut voir la "forme" du spectre).
+ * - **Live FFT** : lecture temps réel de l'AnalyserNode du WaveformEditor
+ *   pendant les notes test. Trace une ligne continue + aire fill. Option
+ *   peak hold (traits persistants qui décroissent en ~1s).
+ *
+ * Auto-switch vers Live quand une voix joue (compteur
+ * `activeVoicesCountRef`), retour à Static après une grace period de
+ * 1 seconde sans note (évite le flicker en jeu rapide).
+ *
+ * État interne dans `stateRef` (mode courant, buffers, hash de détection
+ * de changement static), aucun re-render React à 60fps grâce aux refs.
+ *
+ * Axe X : log 16 Hz → 32 kHz. Axe Y : linéaire (default) ou dB (toggle).
  */
 function Spectrogram({
   points,
@@ -61,6 +69,7 @@ function Spectrogram({
     lastActivityTime: 0,
     fftDataBuffer: new Float32Array(FFT_SIZE / 2),
     peakBuffer: null,
+    valuesBuffer: null,  // alloué/redimensionné à la largeur plotW
     lastPointsKey: '',
   })
 
@@ -201,7 +210,10 @@ function Spectrogram({
     }
     const peakBuffer = stateRef.current.peakBuffer
 
-    const values = new Float32Array(plotW)
+    if (!stateRef.current.valuesBuffer || stateRef.current.valuesBuffer.length !== plotW) {
+      stateRef.current.valuesBuffer = new Float32Array(plotW)
+    }
+    const values = stateRef.current.valuesBuffer
     for (let x = 0; x < plotW; x++) {
       const t = x / plotW
       const f = Math.pow(10, LOG_MIN + t * (LOG_MAX - LOG_MIN))
@@ -238,6 +250,10 @@ function Spectrogram({
     }
     ctx.stroke()
 
+    // L'aire sous la courbe est dessinée en réutilisant le path tracé pour
+    // stroke() ci-dessus (Canvas2D ne clear pas le path après stroke).
+    // On le ferme manuellement vers les coins bas pour former un polygone
+    // fermé, puis on fill.
     ctx.fillStyle = 'rgba(0, 212, 255, 0.2)'
     ctx.lineTo(plotX + plotW - 1, plotY + plotH)
     ctx.lineTo(plotX, plotY + plotH)
@@ -251,7 +267,7 @@ function Spectrogram({
       for (let x = 0; x < plotW; x++) {
         const current = values[x]
         const linCurrent = Math.pow(10, current / 20)
-        peakBuffer[x] = Math.max(linCurrent, peakBuffer[x] * 0.97)
+        peakBuffer[x] = Math.max(linCurrent, peakBuffer[x] * PEAK_DECAY)
         const linToDb = peakBuffer[x] <= 0 ? DB_FLOOR : 20 * Math.log10(peakBuffer[x])
         const y = dbToY(linToDb)
         if (x === 0) ctx.moveTo(plotX + x, y)
@@ -310,9 +326,11 @@ function Spectrogram({
           canvas.width = w
           canvas.height = h
           // Force redraw au prochain tick rAF : invalide la cache static
-          // et réinitialise le peakBuffer (sera ré-alloué à la nouvelle largeur).
+          // et réinitialise les buffers width-dependent (réalloués à la
+          // nouvelle largeur au prochain drawLive).
           stateRef.current.lastPointsKey = ''
           stateRef.current.peakBuffer = null
+          stateRef.current.valuesBuffer = null
         }
       }
     })
