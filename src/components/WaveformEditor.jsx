@@ -738,6 +738,7 @@ function WaveformEditor({
     setSustainActive(false)
     // Voix Libre éventuelle (iter G phase 1.3) : même traitement sans fade.
     stopFreeVoiceImmediate()
+    if (activeVoicesCountRef) activeVoicesCountRef.current = 0
   }
 
   // === Mode Libre : test de la fréquence courante (iter G phase 1.3) ===
