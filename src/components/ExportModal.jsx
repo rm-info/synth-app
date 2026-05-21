@@ -15,7 +15,7 @@ function slugifyForFilesystem(name) {
 }
 
 function ensureOsaSuffix(name) {
-  return name.endsWith('.osa') ? name : `${name}.osa`
+  return name.toLowerCase().endsWith('.osa') ? name : `${name}.osa`
 }
 
 export default function ExportModal({ isOpen, defaultName, onConfirm, onCancel }) {
