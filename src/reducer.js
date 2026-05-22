@@ -1491,10 +1491,38 @@ const DESIGNER_UNDOABLE = new Set([
 const COMPOSER_FIELDS = ['clips', 'numMeasures', 'bpm', 'a4Ref', 'xEdoN', 'selectedClipIds', 'tracks']
 const DESIGNER_FIELDS = ['patches', 'soundFolders', 'editor']
 
+// Champs de preview test du Designer — exclus des snapshots undo.
+// Le clavier piano ne sert qu'à tester les sons : aucune raison
+// d'historiser quelle touche est sélectionnée. À la restauration
+// undo, on garde leurs valeurs courantes (pas d'overwrite).
+const EDITOR_TEST_FIELDS = ['testNoteIndex', 'testOctave', 'testTuningSystem', 'testFrequency']
+
 function pickFields(state, fields) {
   const out = {}
-  for (const k of fields) out[k] = state[k]
+  for (const k of fields) {
+    if (k === 'editor') {
+      // Snapshot editor sans les champs test* (preview-only, non-undoable).
+      const filtered = {}
+      for (const ek in state.editor) {
+        if (!EDITOR_TEST_FIELDS.includes(ek)) filtered[ek] = state.editor[ek]
+      }
+      out[k] = filtered
+    } else {
+      out[k] = state[k]
+    }
+  }
   return out
+}
+
+// Restauration : merge editor pour préserver les test* fields
+// courants (jamais snapshottés, jamais restaurés).
+function restoreSnapshot(state, snapshot) {
+  if (!snapshot.editor) return { ...state, ...snapshot }
+  return {
+    ...state,
+    ...snapshot,
+    editor: { ...state.editor, ...snapshot.editor },
+  }
 }
 
 // Vérifie qu'aucun clip ne référencerait un patch disparu après restauration.
@@ -1608,8 +1636,7 @@ function applyUndoAware(baseReducer, state, action) {
         ? state.lastAnchorClipId
         : resolveAnchorAfterRestore(prevAnchorClip, previous.clips)
       return {
-        ...state,
-        ...previous,
+        ...restoreSnapshot(state, previous),
         lastAnchorClipId: nextAnchor,
         history: {
           ...state.history,
@@ -1638,8 +1665,7 @@ function applyUndoAware(baseReducer, state, action) {
         ? state.lastAnchorClipId
         : resolveAnchorAfterRestore(prevAnchorClip, next.clips)
       return {
-        ...state,
-        ...next,
+        ...restoreSnapshot(state, next),
         lastAnchorClipId: nextAnchor,
         history: {
           ...state.history,
@@ -1665,8 +1691,7 @@ function applyUndoAware(baseReducer, state, action) {
       }
       const current = pickFields(state, DESIGNER_FIELDS)
       return {
-        ...state,
-        ...previous,
+        ...restoreSnapshot(state, previous),
         history: {
           ...state.history,
           designer: { past: past.slice(0, -1), future: [current, ...future] },
@@ -1691,8 +1716,7 @@ function applyUndoAware(baseReducer, state, action) {
       }
       const current = pickFields(state, DESIGNER_FIELDS)
       return {
-        ...state,
-        ...next,
+        ...restoreSnapshot(state, next),
         history: {
           ...state.history,
           designer: { past: [...past, current], future: future.slice(1) },
