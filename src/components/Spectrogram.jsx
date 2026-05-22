@@ -46,8 +46,9 @@ function freqToX(freq, plotW) {
  * `activeVoicesCountRef`), retour à Static après une grace period de
  * 1 seconde sans note (évite le flicker en jeu rapide).
  *
- * État interne dans `stateRef` (mode courant, buffers, hash de détection
- * de changement static), aucun re-render React à 60fps grâce aux refs.
+ * État interne dans `stateRef` (mode courant, buffers, dernières valeurs
+ * de points/frequency/dbScale pour détection de changement static), aucun
+ * re-render React à 60fps grâce aux refs.
  *
  * Axe X : log 16 Hz → 32 kHz. Axe Y : linéaire (default) ou dB (toggle).
  */
@@ -69,8 +70,15 @@ function Spectrogram({
     lastActivityTime: 0,
     fftDataBuffer: new Float32Array(FFT_SIZE / 2),
     peakBuffer: null,
-    valuesBuffer: null,  // alloué/redimensionné à la largeur plotW
-    lastPointsKey: '',
+    valuesBuffer: null,
+    // Détection de changement static : on compare la RÉFÉRENCE du buffer
+    // points (le reducer crée un nouveau tableau à chaque modif d'onde),
+    // plus frequency et dbScale par valeur. Le hash à 3 indices précédent
+    // avait un bug : modifier l'onde sans toucher [0]/[300]/[599] ne
+    // déclenchait pas de redraw.
+    lastPoints: null,
+    lastFrequency: 0,
+    lastDbScale: false,
   })
 
   useEffect(() => {
@@ -294,7 +302,7 @@ function Spectrogram({
           if (stateRef.current.peakBuffer) stateRef.current.peakBuffer.fill(0)
           // Force un redraw static au prochain tick (sinon le canvas reste figé
           // sur le dernier rendu live).
-          stateRef.current.lastPointsKey = ''
+          stateRef.current.lastPoints = null
         }
         stateRef.current.mode = 'static'
       }
@@ -302,10 +310,16 @@ function Spectrogram({
       if (stateRef.current.mode === 'live') {
         drawLive()
       } else {
+        // Static : redraw uniquement si points (ref) / frequency / dbScale ont changé
         const { points, frequency, dbScale } = propsRef.current
-        const key = `${points.length}:${points[0]}:${points[300]}:${points[599]}:${frequency}:${dbScale}`
-        if (key !== stateRef.current.lastPointsKey) {
-          stateRef.current.lastPointsKey = key
+        if (
+          points !== stateRef.current.lastPoints ||
+          frequency !== stateRef.current.lastFrequency ||
+          dbScale !== stateRef.current.lastDbScale
+        ) {
+          stateRef.current.lastPoints = points
+          stateRef.current.lastFrequency = frequency
+          stateRef.current.lastDbScale = dbScale
           drawStatic()
         }
       }
@@ -331,7 +345,7 @@ function Spectrogram({
           // Force redraw au prochain tick rAF : invalide la cache static
           // et réinitialise les buffers width-dependent (réalloués à la
           // nouvelle largeur au prochain drawLive).
-          stateRef.current.lastPointsKey = ''
+          stateRef.current.lastPoints = null
           stateRef.current.peakBuffer = null
           stateRef.current.valuesBuffer = null
         }
