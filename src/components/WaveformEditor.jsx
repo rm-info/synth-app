@@ -613,6 +613,8 @@ function WaveformEditor({
       existing.gain.gain.setValueAtTime(currentGain, prevNow)
       existing.gain.gain.linearRampToValueAtTime(0, prevNow + RETRIGGER_FADE)
       try { existing.osc.stop(prevNow + RETRIGGER_FADE + 0.02) } catch { /* already */ }
+      // Le décrément du compteur est fait manuellement ci-dessous (cleanup forcé) ;
+      // on neutralise le onended existant pour ne pas re-décrémenter en double.
       existing.osc.onended = () => {
         try { existing.osc.disconnect() } catch { /* already */ }
         try { existing.gain.disconnect() } catch { /* already */ }
@@ -652,25 +654,26 @@ function WaveformEditor({
 
     osc.connect(gain)
     gain.connect(analyserGainRef.current)
+
+    // Décrément réel à la fin de la voix : osc.onended fire quand
+    // l'oscillator s'arrête effectivement (release naturel OU osc.stop()
+    // forcé via retrigger / stopAll). Plus précis que setTimeout planifié
+    // sur la durée nominale ADSR, qui se désaligne dès qu'on sustain.
+    // Assigné avant osc.start() pour être sûr d'être en place.
+    osc.onended = () => {
+      if (activeVoicesCountRef) {
+        activeVoicesCountRef.current = Math.max(0, activeVoicesCountRef.current - 1)
+      }
+    }
     osc.start(now)
 
     activeNotesMapRef.current.set(idx, { osc, gain, octave: oct })
     setActiveNoteIndices(new Set(activeNotesMapRef.current.keys()))
 
     // Compteur de voix actives (iter I) : incrément à la création.
-    // Le décrément naturel se fait via un setTimeout calé sur la durée
-    // approximative totale (attack+hold+decay+release + epsilon). Si la
-    // voix est sustainée par l'utilisateur, le compteur peut transitoirement
-    // se désaligner — la grace period 1s côté Spectrogram absorbe l'écart.
+    // Le décrément se fait via osc.onended ci-dessus (réel, pas planifié).
     if (activeVoicesCountRef) {
       activeVoicesCountRef.current += 1
-      const r = params.release / 1000
-      const totalDurationMs = (a + h + d + r + 0.05) * 1000
-      setTimeout(() => {
-        if (activeVoicesCountRef) {
-          activeVoicesCountRef.current = Math.max(0, activeVoicesCountRef.current - 1)
-        }
-      }, totalDurationMs)
     }
   }
 
@@ -692,9 +695,15 @@ function WaveformEditor({
     node.gain.gain.linearRampToValueAtTime(0, now + r)
     // Marge pour garantir que l'osc ne soit pas coupé avant la fin de la rampe.
     try { node.osc.stop(now + r + 0.02) } catch { /* already stopped */ }
+    // Le onended posé par playInstrumentNote (décrément du compteur)
+    // serait écrasé par cette réassignation : on intègre le décrément ici
+    // pour que la voix soit comptabilisée jusqu'à la fin réelle du release.
     node.osc.onended = () => {
       try { node.osc.disconnect() } catch { /* already */ }
       try { node.gain.disconnect() } catch { /* already */ }
+      if (activeVoicesCountRef) {
+        activeVoicesCountRef.current = Math.max(0, activeVoicesCountRef.current - 1)
+      }
     }
     activeNotesMapRef.current.delete(idx)
     setActiveNoteIndices(new Set(activeNotesMapRef.current.keys()))
@@ -774,6 +783,8 @@ function WaveformEditor({
       existing.gain.gain.setValueAtTime(currentGain, prevNow)
       existing.gain.gain.linearRampToValueAtTime(0, prevNow + RETRIGGER_FADE)
       try { existing.osc.stop(prevNow + RETRIGGER_FADE + 0.02) } catch { /* already */ }
+      // Le décrément du compteur est fait manuellement ci-dessous (cleanup forcé) ;
+      // on neutralise le onended existant pour ne pas re-décrémenter en double.
       existing.osc.onended = () => {
         try { existing.osc.disconnect() } catch { /* already */ }
         try { existing.gain.disconnect() } catch { /* already */ }
@@ -803,6 +814,17 @@ function WaveformEditor({
 
     osc.connect(gain)
     gain.connect(analyserGainRef.current)
+
+    // Décrément réel à la fin de la voix : osc.onended fire quand
+    // l'oscillator s'arrête effectivement (release naturel OU osc.stop()
+    // forcé via retrigger / stopAll). Plus précis que setTimeout planifié
+    // sur la durée nominale ADSR, qui se désaligne dès qu'on sustain.
+    // Assigné avant osc.start() pour être sûr d'être en place.
+    osc.onended = () => {
+      if (activeVoicesCountRef) {
+        activeVoicesCountRef.current = Math.max(0, activeVoicesCountRef.current - 1)
+      }
+    }
     osc.start(now)
 
     freeVoiceRef.current = { osc, gain }
@@ -811,13 +833,6 @@ function WaveformEditor({
     // Compteur de voix actives (iter I) : symétrique à playInstrumentNote.
     if (activeVoicesCountRef) {
       activeVoicesCountRef.current += 1
-      const r = params.release / 1000
-      const totalDurationMs = (a + h + d + r + 0.05) * 1000
-      setTimeout(() => {
-        if (activeVoicesCountRef) {
-          activeVoicesCountRef.current = Math.max(0, activeVoicesCountRef.current - 1)
-        }
-      }, totalDurationMs)
     }
   }
 
@@ -834,9 +849,15 @@ function WaveformEditor({
     node.gain.gain.setValueAtTime(currentGain, now)
     node.gain.gain.linearRampToValueAtTime(0, now + r)
     try { node.osc.stop(now + r + 0.02) } catch { /* already */ }
+    // Le onended posé par playFreeNote (décrément du compteur) serait
+    // écrasé par cette réassignation : on intègre le décrément ici pour
+    // que la voix soit comptabilisée jusqu'à la fin réelle du release.
     node.osc.onended = () => {
       try { node.osc.disconnect() } catch { /* already */ }
       try { node.gain.disconnect() } catch { /* already */ }
+      if (activeVoicesCountRef) {
+        activeVoicesCountRef.current = Math.max(0, activeVoicesCountRef.current - 1)
+      }
     }
     freeVoiceRef.current = null
     setFreeNoteActive(false)
