@@ -292,6 +292,9 @@ function Spectrogram({
       } else if (now - stateRef.current.lastActivityTime > GRACE_MS) {
         if (stateRef.current.mode === 'live') {
           if (stateRef.current.peakBuffer) stateRef.current.peakBuffer.fill(0)
+          // Force un redraw static au prochain tick (sinon le canvas reste figé
+          // sur le dernier rendu live).
+          stateRef.current.lastPointsKey = ''
         }
         stateRef.current.mode = 'static'
       }
