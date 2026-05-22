@@ -7,7 +7,7 @@ const FREQ_MAX = 32768
 const LOG_MIN = Math.log10(FREQ_MIN)
 const LOG_MAX = Math.log10(FREQ_MAX)
 
-const PADDING_LEFT = 8
+const PADDING_LEFT = 36  // était 8 — élargi pour les labels Y
 const PADDING_RIGHT = 8
 const PADDING_TOP = 8
 const PADDING_BOTTOM = 20
@@ -22,6 +22,24 @@ const GRID_LABELS = [
 const DB_FLOOR = -80
 const DB_CEIL = 0
 
+// Graduations Y : ratio dans le plot (0 = bas, 1 = haut) + label affiché.
+// Linéaire : 0..1 par pas de 0.25.
+// dB : -80..0 par pas de 20 (note : caractère U+2212 MINUS SIGN, pas U+002D hyphen-minus).
+const Y_TICKS_LINEAR = [
+  { ratio: 0,    label: '0' },
+  { ratio: 0.25, label: '0.25' },
+  { ratio: 0.5,  label: '0.5' },
+  { ratio: 0.75, label: '0.75' },
+  { ratio: 1,    label: '1' },
+]
+const Y_TICKS_DB = [
+  { ratio: 0,    label: '−80' },
+  { ratio: 0.25, label: '−60' },
+  { ratio: 0.5,  label: '−40' },
+  { ratio: 0.75, label: '−20' },
+  { ratio: 1,    label: '0' },
+]
+
 const GRACE_MS = 1000
 const FFT_SIZE = 2048
 const PEAK_DECAY = 0.97  // facteur multiplicatif par frame ; peak décroît visiblement en ~1s @ 60fps
@@ -29,6 +47,28 @@ const PEAK_DECAY = 0.97  // facteur multiplicatif par frame ; peak décroît vis
 function freqToX(freq, plotW) {
   const clamped = Math.max(FREQ_MIN, Math.min(FREQ_MAX, freq))
   return ((Math.log10(clamped) - LOG_MIN) / (LOG_MAX - LOG_MIN)) * plotW
+}
+
+function drawYGrid(ctx, plotX, plotY, plotW, plotH, dbScale) {
+  const ticks = dbScale ? Y_TICKS_DB : Y_TICKS_LINEAR
+  ctx.strokeStyle = '#2a2a4a'
+  ctx.lineWidth = 1
+  ctx.setLineDash([4, 4])
+  ctx.fillStyle = '#8a8fa8'
+  ctx.font = '10px system-ui, sans-serif'
+  ctx.textAlign = 'right'
+  ctx.textBaseline = 'middle'
+  for (const { ratio, label } of ticks) {
+    const y = plotY + plotH - ratio * plotH
+    // Ligne pointillée horizontale traversant le plot
+    ctx.beginPath()
+    ctx.moveTo(plotX, y)
+    ctx.lineTo(plotX + plotW, y)
+    ctx.stroke()
+    // Label à gauche du plot
+    ctx.fillText(label, plotX - 4, y)
+  }
+  ctx.setLineDash([])
 }
 
 /**
@@ -120,6 +160,8 @@ function Spectrogram({
     }
     ctx.setLineDash([])
 
+    drawYGrid(ctx, plotX, plotY, plotW, plotH, dbScale)
+
     ctx.strokeStyle = '#3a3a5a'
     ctx.beginPath()
     ctx.moveTo(plotX, plotY + plotH + 0.5)
@@ -200,6 +242,8 @@ function Spectrogram({
       ctx.fillText(label, x, plotY + plotH + 4)
     }
     ctx.setLineDash([])
+
+    drawYGrid(ctx, plotX, plotY, plotW, plotH, dbScale)
 
     ctx.strokeStyle = '#3a3a5a'
     ctx.beginPath()
