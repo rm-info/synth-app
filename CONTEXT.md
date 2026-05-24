@@ -1043,6 +1043,22 @@ Choix non évidents pris pour de bonnes raisons. À ne pas remettre en question
   partagé entre playback audio et Spectrogram statique → une seule
   transformation par changement de dessin.
 
+- **Limites Web Audio à haute fréquence — acceptées** — après iter-J,
+  la vérification manuelle a révélé plusieurs comportements observables
+  à hautes fréquences (≥ B6/2 kHz) : (1) le live FFT affiche moins
+  d'harmoniques que le statique car l'anti-aliasing interne de
+  `createPeriodicWave` applique un rolloff progressif près de Nyquist
+  (24 kHz à 48 kHz sample rate) au lieu d'un cut net, (2) les amplitudes
+  des harmoniques individuelles sont non-monotones (scalloping FFT de
+  l'AnalyserNode + interpolation wavetable + aliasing résiduel près de
+  Nyquist), (3) certains peaks à très hautes fréquences (~G#9, 13 kHz+)
+  décroissent visuellement à -80 dB même si l'audio reste stable
+  (artefact interne createPeriodicWave). Ces phénomènes sont des
+  **conséquences attendues du modèle PeriodicWave + AnalyserNode** et
+  ne sont pas un bug du code applicatif. Les corriger demanderait un
+  refactor majeur vers `AudioWorkletNode` (synthèse custom sample-par-
+  sample en thread audio dédié, avec anti-aliasing custom). Backlog.
+
 ## Contraintes implicites
 
 Conventions tacites. Les enfreindre sans raison crée des bugs subtils.
@@ -1922,6 +1938,17 @@ Phases listées ci-dessous dans l'ordre chronologique d'implémentation.
     naïve), mais invisible vu l'échelle (microsecondes vs nanosecondes).
   - Sons inchangés pour les patches existants : la convention
     `exp(-iθ)` et la normalisation `/N` sont préservées bit-pour-bit.
+
+  **Vérification post-livraison utilisateur** (2026-05-24) : parasites
+  audio 4-8 kHz à C0 confirmés disparus (objectif principal atteint).
+  Au passage, exploration manuelle plus poussée à hautes fréquences a
+  révélé d'autres phénomènes (rolloff Nyquist, amplitudes
+  non-monotones, peaks décroissants à ≥ 13 kHz, certains affichages
+  manquants type D10) qui sont des limites attendues du modèle
+  `createPeriodicWave` + `AnalyserNode`, pas un bug du code applicatif.
+  Documentées en décision archi "Limites Web Audio à haute fréquence —
+  acceptées" et options d'amélioration (refactor `AudioWorkletNode`)
+  en backlog.
 
   Spec + plan archivés : `docs/superpowers/specs/2026-05-24-anti-aliasing-design.md`,
   `docs/superpowers/plans/2026-05-24-anti-aliasing.md`.
@@ -4038,9 +4065,20 @@ clavier 22 cases, octave selector, boutons save, message slot).
   pourrait voir/entendre l'effet du nombre d'harmoniques sur le timbre.
   Demande UI dédiée (slider + persistance + decision preset). Reporté
   comme projet séparé depuis l'iter J.
-- Investigation des 2 pics > 10 kHz en live + C0 + carré — observés
-  avant le fix iter-J. Si persistent après fix, probable artefact de
-  wavetable interne `createPeriodicWave`. À vérifier post-livraison.
+- Synthèse audio pro-grade via `AudioWorkletNode` — l'iter-J a éliminé
+  les parasites à basse fréquence via DFT truncation, mais Web Audio
+  `createPeriodicWave` montre toujours des limites à hautes fréquences :
+  rolloff Nyquist progressif au lieu de cut net, scalloping FFT,
+  amplitudes non-monotones à cause de l'aliasing résiduel et de
+  l'interpolation wavetable, peaks décroissants à ≥ 13 kHz. Pour
+  audio pro-grade ce serait un refactor majeur : synthèse custom
+  sample-par-sample dans un AudioWorklet, avec anti-aliasing
+  oversampled. Reste en backlog — l'usage actuel est acceptable
+  pédagogiquement avec ces limites documentées (cf. décision archi
+  "Limites Web Audio à haute fréquence — acceptées").
+- D10 (18794 Hz, sous Nyquist) qui n'affiche rien en live malgré
+  un signal audio actif — observation post iter-J, à creuser
+  séparément si le sujet revient.
 - Refonte système notes/durées : boutons au lieu de dropdowns pour
   note/octave, durées manquantes dans le sélecteur (blanche pointée,
   ronde pointée, double-pointées)
