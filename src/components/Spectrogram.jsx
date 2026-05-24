@@ -232,14 +232,12 @@ function Spectrogram({
   const drawLive = useCallback(() => {
     const canvas = canvasRef.current
     if (!canvas) return
-    const { analyserRef, dbScale, peakHold } = propsRef.current
-    const analyser = analyserRef?.current
-    if (!analyser) return
 
     const W = canvas.width
     const H = canvas.height
     if (!W || !H) return
     const ctx = canvas.getContext('2d')
+    const { analyserRef, dbScale, peakHold } = propsRef.current
 
     ctx.fillStyle = '#1a1a2e'
     ctx.fillRect(0, 0, W, H)
@@ -274,6 +272,12 @@ function Spectrogram({
     ctx.moveTo(plotX, plotY + plotH + 0.5)
     ctx.lineTo(plotX + plotW, plotY + plotH + 0.5)
     ctx.stroke()
+
+    // Check FFT analyser APRÈS le rendu fond+grilles : si pas encore d'AnalyserNode
+    // (aucune note jouée depuis le boot), on garde un plot vide mais lisible
+    // avec ses graduations au lieu d'un canvas figé/blanc.
+    const analyser = analyserRef?.current
+    if (!analyser) return
 
     analyser.getFloatFrequencyData(stateRef.current.fftDataBuffer)
     const fft = stateRef.current.fftDataBuffer
