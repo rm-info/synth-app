@@ -44,7 +44,6 @@ const Y_TICKS_DB = [
 // donc -70/-50/-30/-10 tombent exactement au milieu de chaque segment).
 const Y_TICKS_MINOR_RATIOS = [0.125, 0.375, 0.625, 0.875]
 
-const GRACE_MS = 1000
 const FFT_SIZE = 2048
 const PEAK_DECAY = 0.97  // facteur multiplicatif par frame ; peak décroît visiblement en ~1s @ 60fps
 
@@ -89,42 +88,40 @@ function drawYGrid(ctx, plotX, plotY, plotW, plotH, dbScale) {
 }
 
 /**
- * Spectrogramme du son en cours d'édition Designer — deux modes :
+ * Spectrogramme du son en cours d'édition Designer — deux modes,
+ * basculés explicitement par l'utilisateur via le toggle "Live" dans
+ * le header :
  *
- * - **Statique** : DFT d'un cycle de l'onde dessinée. Affiche les
- *   magnitudes des harmoniques en barres (axe log fréquence, Y linéaire
- *   ou dB selon `dbScale`). Vue par défaut.
+ * - **Statique** (défaut) : DFT d'un cycle de l'onde dessinée. Affiche
+ *   les magnitudes des harmoniques en barres (axe log fréquence, Y
+ *   linéaire ou dB selon `dbScale`).
  *
  * - **Live FFT** : lecture temps réel de l'AnalyserNode du WaveformEditor
  *   pendant les notes test. Trace une ligne continue + aire fill. Option
  *   peak hold (traits persistants qui décroissent en ~1s).
  *
- * Auto-switch vers Live quand une voix joue (compteur
- * `activeVoicesCountRef`), retour à Static après une grace period de
- * 1 seconde sans note (évite le flicker en jeu rapide).
+ * Pas d'auto-switch : le mode est piloté entièrement par la prop `mode`
+ * (toggle explicite). Au passage live → static, on invalide la cache de
+ * détection de changement pour forcer un redraw static immédiat, et on
+ * reset le peakBuffer pour éviter les pics fantômes au prochain passage
+ * en live.
  *
- * État interne dans `stateRef` (mode courant, buffers, dernières valeurs
- * de points/frequency/dbScale pour détection de changement static), aucun
+ * État interne dans `stateRef` (buffers, dernières valeurs de
+ * points/frequency/dbScale pour détection de changement static), aucun
  * re-render React à 60fps grâce aux refs.
  *
  * Axe X : log 16 Hz → 32 kHz. Axe Y : linéaire (default) ou dB (toggle).
  */
 function Spectrogram({
-  points,
-  frequency,
-  analyserRef,
-  activeVoicesCountRef,
-  dbScale,
-  peakHold,
-  onToggleDbScale,
-  onTogglePeakHold,
+  points, frequency,
+  analyserRef, activeVoicesCountRef,
+  dbScale, peakHold, mode,
+  onToggleDbScale, onTogglePeakHold, onToggleMode,
 }) {
   const canvasRef = useRef(null)
   const containerRef = useRef(null)
-  const propsRef = useRef({ points, frequency, dbScale, peakHold, analyserRef, activeVoicesCountRef })
+  const propsRef = useRef({ points, frequency, dbScale, peakHold, mode, analyserRef, activeVoicesCountRef })
   const stateRef = useRef({
-    mode: 'static',
-    lastActivityTime: 0,
     fftDataBuffer: new Float32Array(FFT_SIZE / 2),
     peakBuffer: null,
     valuesBuffer: null,
@@ -139,8 +136,18 @@ function Spectrogram({
   })
 
   useEffect(() => {
-    propsRef.current = { points, frequency, dbScale, peakHold, analyserRef, activeVoicesCountRef }
-  }, [points, frequency, dbScale, peakHold, analyserRef, activeVoicesCountRef])
+    propsRef.current = { points, frequency, dbScale, peakHold, mode, analyserRef, activeVoicesCountRef }
+  }, [points, frequency, dbScale, peakHold, mode, analyserRef, activeVoicesCountRef])
+
+  useEffect(() => {
+    if (mode === 'static') {
+      // Force redraw static au prochain tick rAF (sinon canvas figé sur l'ancien
+      // rendu live), et reset le peakBuffer pour éviter les pics fantômes au
+      // prochain passage en live.
+      stateRef.current.lastPoints = null
+      if (stateRef.current.peakBuffer) stateRef.current.peakBuffer.fill(0)
+    }
+  }, [mode])
 
   const drawStatic = useCallback(() => {
     const canvas = canvasRef.current
@@ -348,31 +355,13 @@ function Spectrogram({
 
   useEffect(() => {
     let rafId = 0
-    const loop = (now) => {
-      const { activeVoicesCountRef } = propsRef.current
+    const loop = () => {
+      const { mode, points, frequency, dbScale } = propsRef.current
 
-      if (activeVoicesCountRef?.current < 0) activeVoicesCountRef.current = 0
-
-      const voicesActive = (activeVoicesCountRef?.current ?? 0) > 0
-
-      if (voicesActive) {
-        stateRef.current.lastActivityTime = now
-        stateRef.current.mode = 'live'
-      } else if (now - stateRef.current.lastActivityTime > GRACE_MS) {
-        if (stateRef.current.mode === 'live') {
-          if (stateRef.current.peakBuffer) stateRef.current.peakBuffer.fill(0)
-          // Force un redraw static au prochain tick (sinon le canvas reste figé
-          // sur le dernier rendu live).
-          stateRef.current.lastPoints = null
-        }
-        stateRef.current.mode = 'static'
-      }
-
-      if (stateRef.current.mode === 'live') {
+      if (mode === 'live') {
         drawLive()
       } else {
         // Static : redraw uniquement si points (ref) / frequency / dbScale ont changé
-        const { points, frequency, dbScale } = propsRef.current
         if (
           points !== stateRef.current.lastPoints ||
           frequency !== stateRef.current.lastFrequency ||
@@ -421,6 +410,12 @@ function Spectrogram({
       <header className="spectrogram-header">
         <h3>Spectrogramme</h3>
         <div className="spectrogram-controls">
+          <button
+            type="button"
+            onClick={onToggleMode}
+            className={`spectrogram-toggle${mode === 'live' ? ' is-active' : ''}`}
+            title="Mode Live (analyse temps réel)"
+          >Live</button>
           <button
             type="button"
             onClick={onToggleDbScale}

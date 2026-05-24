@@ -69,7 +69,7 @@ function App() {
   const {
     clips, patches, soundFolders, tracks, bpm, numMeasures, a4Ref, xEdoN,
     editor, activeTab, currentPatchId, zoomH, defaultClipDuration,
-    spectrogramVisible, spectrogramDbScale, spectrogramPeakHold,
+    spectrogramVisible, spectrogramDbScale, spectrogramPeakHold, spectrogramMode,
     durationMode, selectedClipIds, composerFlash, lastAnchorClipId,
     composerBankWidth, composerAsideWidth, composerBankCollapsed, composerAsideCollapsed,
     designerSidebarWidth, designerSidebarCollapsed,
@@ -527,6 +527,7 @@ function App() {
           spectrogramVisible,
           spectrogramDbScale,
           spectrogramPeakHold,
+          spectrogramMode,
           durationMode,
           activeTab,
           patchCounter,
@@ -556,7 +557,7 @@ function App() {
     }
   }, [
     patches, soundFolders, tracks, clips, bpm, numMeasures, a4Ref, xEdoN,
-    spectrogramVisible, spectrogramDbScale, spectrogramPeakHold,
+    spectrogramVisible, spectrogramDbScale, spectrogramPeakHold, spectrogramMode,
     durationMode, activeTab, patchCounter, clipCounter, folderCounter, trackCounter,
     composerBankWidth, composerAsideWidth, composerBankCollapsed, composerAsideCollapsed,
     designerSidebarWidth, designerSidebarCollapsed,
@@ -648,6 +649,9 @@ function App() {
   }, [])
   const setSpectrogramPeakHold = useCallback((v) => {
     dispatch({ type: 'SET_SPECTROGRAM_PEAK_HOLD', payload: v })
+  }, [])
+  const setSpectrogramMode = useCallback((mode) => {
+    dispatch({ type: 'SET_SPECTROGRAM_MODE', payload: mode })
   }, [])
 
   // Max dynamique : chaque sidebar ne doit pas rogner la zone centrale en
@@ -1565,8 +1569,12 @@ function App() {
       activeVoicesCountRef={activeVoicesCountRef}
       dbScale={spectrogramDbScale}
       peakHold={spectrogramPeakHold}
+      mode={spectrogramMode}
       onToggleDbScale={() => setSpectrogramDbScale(!spectrogramDbScale)}
       onTogglePeakHold={() => setSpectrogramPeakHold(!spectrogramPeakHold)}
+      onToggleMode={() =>
+        setSpectrogramMode(spectrogramMode === 'live' ? 'static' : 'live')
+      }
     />
   )
 

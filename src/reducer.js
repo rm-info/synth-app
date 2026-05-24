@@ -227,6 +227,7 @@ export function loadPersistedState() {
         typeof parsed.spectrogramDbScale === 'boolean' ? parsed.spectrogramDbScale : false,
       spectrogramPeakHold:
         typeof parsed.spectrogramPeakHold === 'boolean' ? parsed.spectrogramPeakHold : false,
+      spectrogramMode: parsed.spectrogramMode === 'live' ? 'live' : 'static',
       activeTab: parsed.activeTab === 'composer' ? 'composer' : 'designer',
       durationMode: parsed.durationMode === 'fraction' ? 'fraction' : 'solfège',
       composerBankWidth: typeof parsed.composerBankWidth === 'number' ? parsed.composerBankWidth : null,
@@ -373,6 +374,7 @@ export function buildInitialState() {
     spectrogramVisible: persisted?.spectrogramVisible ?? true,
     spectrogramDbScale: persisted?.spectrogramDbScale ?? false,
     spectrogramPeakHold: persisted?.spectrogramPeakHold ?? false,
+    spectrogramMode: persisted?.spectrogramMode ?? 'static',
     defaultClipDuration: DEFAULT_CLIP_DURATION,
     // Mode d'affichage des durées dans les boutons (E.6.1).
     // 'solfège' : ♩ ♪ 𝅘𝅥𝅯 etc. / 'fraction' : 1 1/2 1/4 etc. (réf. = noire).
@@ -1409,6 +1411,9 @@ export function reducer(state, action) {
     }
     case 'SET_SPECTROGRAM_PEAK_HOLD': {
       return { ...state, spectrogramPeakHold: !!action.payload }
+    }
+    case 'SET_SPECTROGRAM_MODE': {
+      return { ...state, spectrogramMode: action.payload === 'live' ? 'live' : 'static' }
     }
     case 'SET_DEFAULT_CLIP_DURATION': {
       return { ...state, defaultClipDuration: action.payload }
