@@ -274,10 +274,21 @@ function Spectrogram({
     ctx.stroke()
 
     // Check FFT analyser APRÈS le rendu fond+grilles : si pas encore d'AnalyserNode
-    // (aucune note jouée depuis le boot), on garde un plot vide mais lisible
-    // avec ses graduations au lieu d'un canvas figé/blanc.
+    // (aucune note jouée depuis le boot), on trace une ligne plate au floor pour
+    // cohérence avec l'état "live actif mais signal silencieux" (qui apparaît
+    // après release des notes : l'analyser retourne minDecibels clampé à DB_FLOOR,
+    // soit une ligne au bas du plot). Sans ce tracé manuel, le plot serait vide
+    // avant la première note alors que l'état logique est identique.
     const analyser = analyserRef?.current
-    if (!analyser) return
+    if (!analyser) {
+      ctx.strokeStyle = '#00d4ff'
+      ctx.lineWidth = 1.5
+      ctx.beginPath()
+      ctx.moveTo(plotX, plotY + plotH)
+      ctx.lineTo(plotX + plotW - 1, plotY + plotH)
+      ctx.stroke()
+      return
+    }
 
     analyser.getFloatFrequencyData(stateRef.current.fftDataBuffer)
     const fft = stateRef.current.fftDataBuffer
