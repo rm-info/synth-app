@@ -262,20 +262,25 @@ invariant timeline préservé (les clips existants ne peuvent jamais
 passage). Nouveau primitive `Modal.jsx` partagé (backdrop / Escape /
 focus trap basique). Persistance auto via la pile undo Designer.
 
-**Itération I (Spectrogramme avancé)** **clôturée le 2026-05-21**.
+**Itération I (Spectrogramme avancé)** **clôturée le 2026-05-24**.
 Phase 1 : enrichissement du Spectrogram Designer avec deux modes
 (statique = DFT canonique d'un cycle + Live FFT = AnalyserNode
-temps réel pendant les notes test). Auto-switch sur note play avec
-grace period 1s pour éviter le flicker en jeu rapide. Toggle dB /
-linéaire applicable aux deux modes. Toggle peak hold pour le mode
-Live (peaks persistants décroissant en ~1s, stockés en linéaire
-pour décroissance multiplicative naturelle). Nouveau routage audio
-dans WaveformEditor (`osc → gain → analyserGain → analyser +
-ctx.destination`). Compteur `activeVoicesCountRef` maintenu (utile
-au-delà du spectrogramme). Refs `analyserRef` et `activeVoicesCountRef`
-partagés App → WaveformEditor (peuple) → Spectrogram (lit), évite
-les re-renders à 60fps. Scope α Designer-only — le Composer a son
-propre AnalyserNode (usePlayback) non couvert dans cette phase.
+temps réel pendant les notes test). Toggle Static/Live **explicite**
+via bouton header (l'auto-switch initial avec grace period 1s a été
+remplacé après retour utilisateur — option A du brainstorming choisie
+finalement). Toggle dB / linéaire applicable aux deux modes.
+Toggle peak hold pour le mode Live (peaks persistants décroissant en
+~1s, stockés en linéaire pour décroissance multiplicative naturelle).
+Graduations Y sur les deux modes (majors + minors traversant le plot,
+labels "0/0.25/0.5/0.75/1" en linéaire, "−80/−60/−40/−20/0" en dB).
+Nouveau routage audio dans WaveformEditor (`osc → gain → analyserGain
+→ analyser + ctx.destination`) ; compteur `activeVoicesCountRef`
+maintenu via `osc.onended` (réagit au release réel, pas au timeout
+nominal). Refs `analyserRef` et `activeVoicesCountRef` partagés
+App → WaveformEditor (peuple) → Spectrogram (lit). Scope α Designer-only.
+Au passage, fix d'un bug pré-existant : les actions `SET_EDITOR_TEST_*`
+n'étaient plus undoable et leurs valeurs ne sont plus écrasées par les
+snapshots undo (deep-merge editor au restore via `restoreSnapshot`).
 
 **Release v1.2.0** (2026-05-21) — Mode mobile complet + suppression
 de ResolutionGate. En dessous de 924 × 668 px : (1) la sidebar Designer
@@ -945,11 +950,18 @@ Choix non évidents pris pour de bonnes raisons. À ne pas remettre en question
   modale émerge, vérifier la cohérence d'UX (backdrop close-on-outside,
   animation, padding) plutôt que diverger.
 
-- **Spectrogram : double mode statique/live** — le statique reste la
-  vue par défaut (DFT canonique d'un cycle du dessin), le live consomme
-  l'AnalyserNode du WaveformEditor pendant les notes test. Auto-switch
-  sur note play avec grace period 1s pour éviter le flicker en jeu
-  rapide (cas "doum tchak doum tchak").
+- **Spectrogram : double mode statique/live, toggle explicite** — le
+  statique reste la vue par défaut (DFT canonique d'un cycle du dessin),
+  le live consomme l'AnalyserNode du WaveformEditor pendant les notes
+  test. Un bouton "Live" dans le header bascule explicitement entre les
+  deux modes. **Évolution** : l'iter I phase 1 avait initialement choisi
+  l'auto-switch (mode bascule automatiquement quand une voix joue,
+  grace period 1s post-release pour éviter le flicker en jeu rapide).
+  À l'usage, le retour utilisateur a montré que l'auto-switch est
+  surprenant et complique la lecture comparative — le toggle explicite
+  (option A du brainstorming initial) est plus prévisible. Refactor
+  appliqué dans `4a22400` : compteur `activeVoicesCountRef` conservé
+  comme primitive mais ne pilote plus le mode.
 
 - **AnalyserNode Designer-only (scope α)** — le Spectrogram Designer
   ne reflète que les notes test du clavier piano, pas la lecture
@@ -965,9 +977,30 @@ Choix non évidents pris pour de bonnes raisons. À ne pas remettre en question
 
 - **Compteur `activeVoicesCountRef` côté WaveformEditor** — primitive
   utile au-delà du spectrogramme (indicateur visuel "ça joue", limiteur
-  de polyphonie, etc.). Décrémentation planifiée via `setTimeout(release
-  + epsilon)`. Guard anti-dérive au consumer (clamp à ≥ 0 par tick).
-  `stopAllInstrumentNotes` reset le compteur à 0 (cleanup forcé).
+  de polyphonie, etc.). Décrémentation via `osc.onended` (event natif
+  Web Audio) qui fire quand l'oscillator s'arrête effectivement
+  (release naturel OU osc.stop() forcé via retrigger / stopAll). Plus
+  précis qu'un `setTimeout` planifié au start (qui sous-évaluait la
+  durée des notes en sustain long). Guard anti-dérive `Math.max(0, …)`.
+  `stopAllInstrumentNotes` reset explicitement à 0 (cleanup forcé).
+
+- **Snapshots undo Designer : exclure les `editor.test*` fields** — les
+  champs preview du clavier (testNoteIndex, testOctave, testTuningSystem,
+  testFrequency) sont mutables hors undo : leur intent est "quelle touche
+  je teste en ce moment", pas "à quoi je veux revenir avec Ctrl+Z".
+  Implémentation (commit `68a58f1`) : `pickFields` filtre ces champs au
+  snapshot, `restoreSnapshot` deep-merge editor au restore pour préserver
+  les test* fields courants. Symétrique : ce qui n'est pas snapshotté
+  n'est jamais restauré. Pattern applicable à tout futur "preview/transient"
+  state qu'on voudrait exclure de la pile undo.
+
+- **Cache "déjà dessiné" basé sur le succès effectif du draw** — la
+  rAF loop du Spectrogram ne marque sa cache `lastPoints/lastFrequency/
+  lastDbScale` qu'**après** que `drawStatic` ait réussi (canvas sizé,
+  dimensions valides). Si le draw échoue (e.g. canvas pas encore
+  dimensionné au mount initial), la cache reste invalide et le prochain
+  tick réessaiera. Évite le bug de "cache marquée mais draw raté" qui
+  laissait le Spectrogramme vide au chargement.
 
 ## Contraintes implicites
 
@@ -1272,9 +1305,11 @@ Phases listées ci-dessous dans l'ordre chronologique d'implémentation.
 
 ✅ **Terminé**
 - Spectrogramme Designer avancé (itér I phase 1) : mode statique (DFT)
-  + mode Live FFT (AnalyserNode temps réel) avec auto-switch sur note
-  play (grace period 1s), toggle dB / linéaire, peak hold optionnel
-  pour le Live.
+  + mode Live FFT (AnalyserNode temps réel), basculés via **toggle
+  explicite "Live"** dans le header. Toggle dB / linéaire applicable
+  aux deux modes. Peak hold optionnel pour le Live. Graduations Y
+  (majors + minors) sur les deux modes pour lecture précise des
+  amplitudes.
 - Import / Export bibliothèque format `.osa` (itér H phase 1) : 3 voies
   d'export (Actions Download bibliothèque complète / menu contextuel
   folder / menu contextuel patch), import unique avec choix de placement
@@ -1850,6 +1885,40 @@ Phases listées ci-dessous dans l'ordre chronologique d'implémentation.
   un `GainNode` passif (`analyserGain`) entre les voix et la
   destination ; aucune altération du signal audible. L'AnalyserNode
   ne consomme que des copies des samples (lecture passive).
+
+  **Évolution post-livraison initiale (commits du 2026-05-21 au
+  2026-05-24)** : retours utilisateur ont révélé plusieurs ajustements
+  nécessaires. (1) Ctrl+Z annulait les notes test du clavier piano —
+  fix en deux étapes : retirer `SET_EDITOR_TEST_*` de DESIGNER_UNDOABLE
+  (les actions ne déclenchent plus de snapshot) puis ajouter
+  `restoreSnapshot` pour deep-merge `editor` au restore (préserve les
+  test* fields courants au lieu de les écraser avec le snapshot).
+  (2) Peak hold / courbe live qui restaient figés après expiration de
+  la grace period — fix : invalider `lastPointsKey` au passage live →
+  static. (3) Compteur de voix décrémenté trop tôt en sustain long —
+  refactor majeur : remplacer le `setTimeout(release+epsilon)` initial
+  par `osc.onended` (event natif Web Audio), modifie 5 sites dans
+  `WaveformEditor.jsx`. (4) Hash de détection de changements statics
+  avec false negatives sur certains dessins — remplacé par comparaison
+  de référence du buffer `points` (le reducer crée toujours un nouveau
+  tableau à chaque modif, donc la ref change). (5) Graduations Y (P3)
+  ajoutées pour rendre les amplitudes lisibles — majors avec labels
+  "0..1" (linéaire) ou "−80..0" (dB), minors sans labels entre les
+  majors. (6) **Évolution UX majeure (P4)** : remplacer l'auto-switch
+  par un toggle "Live" explicite. À l'usage, l'auto-switch créait des
+  surprises (vue qui clignotait pendant un jeu rapide, sustain long
+  qui passait en static après 1-2s alors que la note jouait encore).
+  Le toggle explicite, choisi en option A au brainstorming initial,
+  s'est révélé plus prévisible. Le compteur `activeVoicesCountRef`
+  reste comme primitive disponible mais ne pilote plus le mode.
+  Constantes `GRACE_MS` et `lastActivityTime` supprimées. (7) Edge
+  cases du mode Live : `drawLive` qui ne dessinait rien si analyser
+  null (avant la 1ère note), ligne plate cohérente au floor dans tous
+  les cas "Live actif sans signal" (avant 1ère note OU après release
+  OU au reload), cache d'optimisation statique qui marquait "déjà
+  dessiné" même quand le canvas n'était pas encore sizé — fix :
+  `drawStatic` retourne true/false, la cache n'est marquée valide que
+  si le draw a réussi.
 
   Spec + plan archivés : `docs/superpowers/specs/2026-05-21-spectrogramme-avance-design.md`,
   `docs/superpowers/plans/2026-05-21-spectrogramme-avance.md`.
@@ -3810,16 +3879,23 @@ clavier 22 cases, octave selector, boutons save, message slot).
   activés dans WaveformEditor Actions panel. Spec + plan dans
   `docs/superpowers/{specs,plans}/2026-05-21-import-export-bibliotheque-*.md`.
 
-### Itération I (Spectrogramme avancé) — clôturée 2026-05-21
+### Itération I (Spectrogramme avancé) — clôturée 2026-05-24
 
-- ✅ **Phase 1** (2026-05-21) — Spectrogramme avancé. 5 sous-commits
-  principaux (1.1-1.5) + 4 fixes/refactor mineurs (alignement style,
-  reset compteur stopAllInstrumentNotes, DRY spectrogramNode, polish
-  PEAK_DECAY+valuesBuffer+JSDoc) : reducer (state + persistance),
-  WaveformEditor (analyser tap + compteur voix), App (refs + handlers
-  + props), Spectrogram refactor (static + dB toggle + controls),
-  Spectrogram Live FFT (rAF loop + drawLive + auto-switch + peak hold),
-  CONTEXT.md. Spec + plan dans
+- ✅ **Phase 1** (2026-05-24) — Spectrogramme avancé. **Livraison
+  principale** : 5 sous-commits (1.1-1.5) ; reducer (state +
+  persistance), WaveformEditor (analyser tap + compteur voix), App
+  (refs + handlers + props), Spectrogram refactor (static + dB toggle
+  + controls), Spectrogram Live FFT (rAF loop + drawLive + auto-switch
+  initial + peak hold). **10+ fixes/polish post-livraison** ont
+  affiné le résultat : alignement style cases reducer, reset compteur
+  dans stopAll, DRY spectrogramNode, PEAK_DECAY const + valuesBuffer
+  cache + JSDoc, Ctrl+Z notes test (en 2 étapes : retire actions de
+  DESIGNER_UNDOABLE puis deep-merge editor au restore), peak/live
+  figé après grace period, sustain long via osc.onended, hash
+  détection static par ref equality, graduations Y majors + minors
+  (P3), **toggle Static/Live explicite remplaçant l'auto-switch
+  (P4)**, drawLive sans analyser, cohérence ligne plate au floor,
+  initial draw vide. Spec + plan archivés dans
   `docs/superpowers/{specs,plans}/2026-05-21-spectrogramme-avance-*.md`.
   Zoom X axis et Spectrogram Composer restent en backlog.
 
