@@ -73,14 +73,19 @@ function drawYGrid(ctx, plotX, plotY, plotW, plotH, dbScale) {
     ctx.fillText(label, plotX - 4, y)
   }
   ctx.setLineDash([])
-  // Minor ticks dans la marge gauche, traits solides courts.
+  // Minor ticks (sans labels) traversant le plot ; pattern dash plus
+  // fin et couleur légèrement plus claire pour rester subordonné aux
+  // majors visuellement.
+  ctx.strokeStyle = '#33335a'
+  ctx.setLineDash([2, 4])
   for (const ratio of Y_TICKS_MINOR_RATIOS) {
     const y = plotY + plotH - ratio * plotH
     ctx.beginPath()
-    ctx.moveTo(plotX - 4, y)
-    ctx.lineTo(plotX, y)
+    ctx.moveTo(plotX, y)
+    ctx.lineTo(plotX + plotW, y)
     ctx.stroke()
   }
+  ctx.setLineDash([])
 }
 
 /**
