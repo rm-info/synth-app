@@ -92,12 +92,22 @@ if (import.meta.env.DEV) {
   }
 }
 
+// Cache memoization : keyed par référence du buffer `points`. Le reducer
+// crée un nouveau tableau à chaque modif (immutable updates), donc la ref
+// change → cache miss → recalcul. WeakMap garantit pas de fuite mémoire
+// (entrée GC'd quand le patch est supprimé). Cache partagé entre playback
+// audio et Spectrogram statique.
+const harmonicsCache = new WeakMap()
+
 // Décomposition spectrale d'une période de l'onde échantillonnée sur `points`
 // (longueur CANVAS_WIDTH). Retourne les coefficients `real`/`imag` attendus
 // par `createPeriodicWave` (tronqués aux 129 premiers — k=0..128, le reste
 // est le mirror conjugué redondant qui causerait des parasites audio).
 // Voir spec docs/superpowers/specs/2026-05-24-anti-aliasing-design.md §2.
 export function pointsToHarmonics(points) {
+  const cached = harmonicsCache.get(points)
+  if (cached) return cached
+
   // Resample 600 → 256 (linear interp)
   const cycle = new Float32Array(NUM_SAMPLES)
   for (let i = 0; i < NUM_SAMPLES; i++) {
@@ -131,7 +141,9 @@ export function pointsToHarmonics(points) {
     magnitudes[k] = Math.sqrt(truncReal[k] ** 2 + truncImag[k] ** 2)
   }
 
-  return { real: truncReal, imag: truncImag, magnitudes }
+  const result = { real: truncReal, imag: truncImag, magnitudes }
+  harmonicsCache.set(points, result)
+  return result
 }
 
 export function pointsToPeriodicWave(points, audioCtx) {
