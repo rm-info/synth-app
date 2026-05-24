@@ -39,6 +39,10 @@ const Y_TICKS_DB = [
   { ratio: 0.75, label: '−20' },
   { ratio: 1,    label: '0' },
 ]
+// Minor ticks (sans labels) entre les majors. Mêmes ratios pour linéaire
+// et dB (l'échelle dB est répartie uniformément de -80 à 0 sur les majors,
+// donc -70/-50/-30/-10 tombent exactement au milieu de chaque segment).
+const Y_TICKS_MINOR_RATIOS = [0.125, 0.375, 0.625, 0.875]
 
 const GRACE_MS = 1000
 const FFT_SIZE = 2048
@@ -69,6 +73,14 @@ function drawYGrid(ctx, plotX, plotY, plotW, plotH, dbScale) {
     ctx.fillText(label, plotX - 4, y)
   }
   ctx.setLineDash([])
+  // Minor ticks dans la marge gauche, traits solides courts.
+  for (const ratio of Y_TICKS_MINOR_RATIOS) {
+    const y = plotY + plotH - ratio * plotH
+    ctx.beginPath()
+    ctx.moveTo(plotX - 4, y)
+    ctx.lineTo(plotX, y)
+    ctx.stroke()
+  }
 }
 
 /**
