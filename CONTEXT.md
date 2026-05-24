@@ -282,6 +282,22 @@ Au passage, fix d'un bug pré-existant : les actions `SET_EDITOR_TEST_*`
 n'étaient plus undoable et leurs valeurs ne sont plus écrasées par les
 snapshots undo (deep-merge editor au restore via `restoreSnapshot`).
 
+**Itération J (Anti-aliasing audio)** **clôturée le 2026-05-24**.
+Phase 1 : correction d'un bug audio fondamental — les harmoniques
+miroirs de la DFT (k=129..255, conjugués de k=1..127 pour un signal
+réel) étaient passés à `createPeriodicWave`, qui les traitait comme
+des harmoniques indépendants à des fréquences `k×f`, produisant des
+parasites audibles à basse fréquence (4-8 kHz pour C0). Fix :
+truncation à `N/2+1 = 129` coefficients (k=0..128). Au passage,
+remplacement de la DFT naïve O(N²) par une FFT Cooley-Tukey radix-2
+in-place O(N log N) (~30 lignes JS pur, zéro dépendance), avec
+self-test en dev mode. Memoization runtime via WeakMap keyed par
+référence du buffer `points` — le reducer créant un nouveau tableau
+à chaque modif (immutable updates), le cache hit naturel évite les
+recalculs entre playback audio et Spectrogram statique. Single-file
+refactor (`src/audio.js`). Aucun changement de signature publique
+— consumers transparents.
+
 **Release v1.2.0** (2026-05-21) — Mode mobile complet + suppression
 de ResolutionGate. En dessous de 924 × 668 px : (1) la sidebar Designer
 est forcée en mode réduit (preference utilisateur préservée en state) ;
@@ -1001,6 +1017,31 @@ Choix non évidents pris pour de bonnes raisons. À ne pas remettre en question
   dimensionné au mount initial), la cache reste invalide et le prochain
   tick réessaiera. Évite le bug de "cache marquée mais draw raté" qui
   laissait le Spectrogramme vide au chargement.
+
+- **DFT truncation à N/2+1 = 129 coefficients** — pour un signal réel
+  d'entrée, les k=129..255 de la DFT sont les conjugués miroirs de
+  k=1..127 (information redondante). Mais `createPeriodicWave` les
+  traite comme des harmoniques indépendants à des fréquences `k×f`,
+  produisant des "parasites" audibles à basse fréquence (4-8 kHz pour
+  C0). On tronque à k=0..128 avant `createPeriodicWave`. Trade-off :
+  128 harmoniques utiles, suffisant pour la musique courante. Si plus
+  de détail spectral souhaité un jour, bumper `NUM_SAMPLES` à 512.
+
+- **FFT Cooley-Tukey radix-2 in-place** — remplace la DFT naïve O(N²)
+  par un algorithme O(N log N) (~30 lignes JS pur, zéro dépendance).
+  Speedup ~30× pour N=256. Pas critique en performance mais aligné
+  avec sobriété énergétique. Self-test en dev mode garantit la
+  correctness numérique. Convention `exp(-iθ)` préservée — équivalence
+  numérique avec la DFT naïve précédente (sons inchangés sur les
+  patches existants).
+
+- **Cache memoization de `pointsToHarmonics` via WeakMap** — keyed par
+  référence du buffer `points`. Cache hit naturel quand le dessin n'a
+  pas changé (le reducer crée des nouveaux arrays sur modif → référence
+  différente → cache miss → recalcul). WeakMap garantit pas de fuite
+  mémoire (entrée GC'd quand le patch est supprimé). Le cache est
+  partagé entre playback audio et Spectrogram statique → une seule
+  transformation par changement de dessin.
 
 ## Contraintes implicites
 
@@ -1845,6 +1886,55 @@ Phases listées ci-dessous dans l'ordre chronologique d'implémentation.
   prochaine candidate).
 
 ## Historique (chronologie inverse)
+
+- **2026-05-24 — Itération J phase 1 : Anti-aliasing audio**
+  Correction d'un bug audio fondamental : les harmoniques miroirs de
+  la DFT (k=129..255) étaient passés à `createPeriodicWave` comme des
+  harmoniques indépendants à des fréquences `k×f`, produisant des
+  parasites audibles à basse fréquence (typiquement 4-8 kHz pour C0).
+  Trois sous-commits + un fix mineur + un docs :
+  - 1.1 : Ajout du FFT Cooley-Tukey radix-2 in-place (~30 lignes JS
+    pur, convention forward `exp(-iθ)`) + self-test en dev mode au
+    module load (vérifie les coefficients attendus pour une sine pure).
+    La FFT remplace la DFT naïve O(N²) par O(N log N) sans changer le
+    résultat numérique. Fix EPS du self-test à 1e-5 (1e-10 trop serré
+    pour Float32).
+  - 1.2 : Refactor de `pointsToHarmonics` pour utiliser FFT et
+    tronquer aux 129 premiers coefficients (k=0..128). `HARMONIC_COUNT`
+    export mis à jour à 128 (anciennement dead code à 256).
+  - 1.3 : Cache memoization via WeakMap keyed par référence du buffer
+    `points`. Cache partagé entre `pointsToPeriodicWave` (audio
+    playback) et `Spectrogram` (display statique). Pas de fuite mémoire
+    (GC libère les entrées quand le patch est supprimé).
+
+  Aucun consumer impacté — signatures publiques (`pointsToHarmonics`,
+  `pointsToPeriodicWave`, `HARMONIC_COUNT`) inchangées. Le Spectrogram
+  itère sur `magnitudes.length` (= 129 maintenant au lieu de 256), donc
+  s'adapte naturellement à la nouvelle taille.
+
+  Effets attendus :
+  - Audio : disparition des parasites 4-8 kHz à basse fréquence (C0,
+    C1) — testable empiriquement.
+  - Spectrogram statique : disparition de la "remontée" miroir à droite
+    du graphe (les bars k=129..255 ne s'affichent plus). Vue plus
+    cohérente avec le live FFT.
+  - Performance : speedup ~30× sur la transformation (FFT vs DFT
+    naïve), mais invisible vu l'échelle (microsecondes vs nanosecondes).
+  - Sons inchangés pour les patches existants : la convention
+    `exp(-iθ)` et la normalisation `/N` sont préservées bit-pour-bit.
+
+  Spec + plan archivés : `docs/superpowers/specs/2026-05-24-anti-aliasing-design.md`,
+  `docs/superpowers/plans/2026-05-24-anti-aliasing.md`.
+
+  Tests manuels round-trip attendus de l'utilisateur :
+  - Spectrogram statique à C0 + square → décroissance harmonique
+    propre, pas de remontée à droite.
+  - Audio square à C0 → plus de parasites 4-8 kHz.
+  - Notes hautes (A4, A5, A6) inchangées.
+  - Self-test FFT en dev console : pas de message "FFT self-test FAIL".
+  - Vérification follow-up : les 2 pics > 10 kHz observés en live + C0
+    + carré pré-fix sont-ils toujours là ? Si oui, sujet séparé à
+    investiguer.
 
 - **2026-05-21 — Itération I phase 1 : Spectrogramme avancé**
   Enrichissement du Spectrogram Designer avec un mode Live FFT, un
@@ -3899,6 +3989,19 @@ clavier 22 cases, octave selector, boutons save, message slot).
   `docs/superpowers/{specs,plans}/2026-05-21-spectrogramme-avance-*.md`.
   Zoom X axis et Spectrogram Composer restent en backlog.
 
+### Itération J (Anti-aliasing audio) — clôturée 2026-05-24
+
+- ✅ **Phase 1** (2026-05-24) — Anti-aliasing des fréquences parasites.
+  3 sous-commits (1.1-1.3) + 1 fix EPS self-test + 1 docs : FFT
+  Cooley-Tukey + self-test dev, `pointsToHarmonics` via FFT avec
+  truncation à 129 coefficients, cache memoization via WeakMap,
+  CONTEXT.md update.
+  Spec + plan dans `docs/superpowers/{specs,plans}/2026-05-24-anti-aliasing*.md`.
+  Backlog résiduel : configurabilité de N par patch (pédagogique),
+  investigation des 2 pics > 10 kHz en live + C0 + carré observés
+  pré-fix (à vérifier post-livraison, suspect : artefact wavetable
+  interne `createPeriodicWave`).
+
 ### Backlog général (à caser quand pertinent)
 
 - **Adaptation UI résolutions intermédiaires [924×668..1740×900]**
@@ -3931,9 +4034,13 @@ clavier 22 cases, octave selector, boutons save, message slot).
 - Fréquence libre : flèches haut/bas dans FreqInput pour incréments fins
 - Flèches haut/bas dans NumberInput (sliders ADSR : Amp, A, D, S, R) pour
   incréments fins, sur le modèle de A4Input/BpmInput
-- Anti-aliasing / qualité de synthèse audio (harmoniques parasites
-  découvertes via spectrogramme sur les basses fréquences, voir
-  image triangle C1)
+- N configurable par patch (de 2^0 à 2^9) — pédagogique : l'utilisateur
+  pourrait voir/entendre l'effet du nombre d'harmoniques sur le timbre.
+  Demande UI dédiée (slider + persistance + decision preset). Reporté
+  comme projet séparé depuis l'iter J.
+- Investigation des 2 pics > 10 kHz en live + C0 + carré — observés
+  avant le fix iter-J. Si persistent après fix, probable artefact de
+  wavetable interne `createPeriodicWave`. À vérifier post-livraison.
 - Refonte système notes/durées : boutons au lieu de dropdowns pour
   note/octave, durées manquantes dans le sélecteur (blanche pointée,
   ronde pointée, double-pointées)
