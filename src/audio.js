@@ -2,7 +2,7 @@ const NUM_SAMPLES = 256
 const CANVAS_WIDTH = 600
 const HALF_HARMONICS = NUM_SAMPLES / 2 + 1   // = 129 (k=0..128)
 
-export const HARMONIC_COUNT = NUM_SAMPLES
+export const HARMONIC_COUNT = HALF_HARMONICS - 1   // = 128 (k=1..128)
 
 // Durée minimale (secondes) de la rampe d'attack appliquée au démarrage
 // d'une voix. Sans ça, un attack utilisateur de 0 (ou sub-ms) fait sauter
@@ -92,11 +92,13 @@ if (import.meta.env.DEV) {
   }
 }
 
-// Décomposition DFT d'une période de l'onde échantillonnée sur `points`
+// Décomposition spectrale d'une période de l'onde échantillonnée sur `points`
 // (longueur CANVAS_WIDTH). Retourne les coefficients `real`/`imag` attendus
-// par `createPeriodicWave`, ainsi que les magnitudes `sqrt(real²+imag²)` —
-// utilisées pour l'affichage spectrogramme.
+// par `createPeriodicWave` (tronqués aux 129 premiers — k=0..128, le reste
+// est le mirror conjugué redondant qui causerait des parasites audio).
+// Voir spec docs/superpowers/specs/2026-05-24-anti-aliasing-design.md §2.
 export function pointsToHarmonics(points) {
+  // Resample 600 → 256 (linear interp)
   const cycle = new Float32Array(NUM_SAMPLES)
   for (let i = 0; i < NUM_SAMPLES; i++) {
     const canvasX = (i / NUM_SAMPLES) * CANVAS_WIDTH
@@ -106,26 +108,30 @@ export function pointsToHarmonics(points) {
     cycle[i] = points[x0] * (1 - frac) + points[x1] * frac
   }
 
+  // FFT in-place : copie cycle dans real, imag reste à zéro
   const real = new Float32Array(NUM_SAMPLES)
   const imag = new Float32Array(NUM_SAMPLES)
-  for (let k = 1; k < NUM_SAMPLES; k++) {
-    let re = 0
-    let im = 0
-    for (let n = 0; n < NUM_SAMPLES; n++) {
-      const angle = (2 * Math.PI * k * n) / NUM_SAMPLES
-      re += cycle[n] * Math.cos(angle)
-      im -= cycle[n] * Math.sin(angle)
-    }
-    real[k] = re / NUM_SAMPLES
-    imag[k] = im / NUM_SAMPLES
+  for (let i = 0; i < NUM_SAMPLES; i++) real[i] = cycle[i]
+  fft(real, imag)
+
+  // Normalisation /N (convention de la DFT historique préservée)
+  for (let i = 0; i < NUM_SAMPLES; i++) {
+    real[i] /= NUM_SAMPLES
+    imag[i] /= NUM_SAMPLES
   }
 
-  const magnitudes = new Float32Array(NUM_SAMPLES)
-  for (let k = 0; k < NUM_SAMPLES; k++) {
-    magnitudes[k] = Math.sqrt(real[k] * real[k] + imag[k] * imag[k])
+  // Truncation aux 129 premiers coefficients (k=0..128). Les k=129..255
+  // sont les conjugués miroirs de k=1..127 (information redondante pour un
+  // signal réel) — on les drop pour éviter qu'ils deviennent des
+  // harmoniques parasites une fois passés à createPeriodicWave.
+  const truncReal = real.slice(0, HALF_HARMONICS)
+  const truncImag = imag.slice(0, HALF_HARMONICS)
+  const magnitudes = new Float32Array(HALF_HARMONICS)
+  for (let k = 0; k < HALF_HARMONICS; k++) {
+    magnitudes[k] = Math.sqrt(truncReal[k] ** 2 + truncImag[k] ** 2)
   }
 
-  return { real, imag, magnitudes }
+  return { real: truncReal, imag: truncImag, magnitudes }
 }
 
 export function pointsToPeriodicWave(points, audioCtx) {
