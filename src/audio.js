@@ -72,7 +72,10 @@ if (import.meta.env.DEV) {
   //   imag[1]/N ≈ -0.5 (convention exp(-iθ) → imag négatif)
   //   real[1]/N ≈ 0
   //   tous les autres bins ≈ 0
-  const EPS = 1e-10
+  // EPS = 1e-5 — au-dessus du floor de précision Float32 (~1e-7 pour valeurs ~1)
+  // accumulé sur 8 stages de butterfly. Catche les vrais bugs (sign flip,
+  // normalisation manquante, scramble bit-reversal) sans false positive.
+  const EPS = 1e-5
   const ok = (
     Math.abs(realTest[1] / N) < EPS &&
     Math.abs(imagTest[1] / N + 0.5) < EPS &&
