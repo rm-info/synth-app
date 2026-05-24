@@ -1,5 +1,6 @@
 const NUM_SAMPLES = 256
 const CANVAS_WIDTH = 600
+const HALF_HARMONICS = NUM_SAMPLES / 2 + 1   // = 129 (k=0..128)
 
 export const HARMONIC_COUNT = NUM_SAMPLES
 
@@ -9,6 +10,84 @@ export const HARMONIC_COUNT = NUM_SAMPLES
 // 3 ms est sous le seuil de perception d'attaque (~10 ms) donc inaudible
 // comme délai, mais suffit à supprimer le tick.
 export const MIN_ATTACK = 0.003
+
+// FFT in-place via Cooley-Tukey radix-2. N doit être une puissance de 2.
+// Modifie real[] et imag[] en place. Convention forward (exp(-iθ)) —
+// matche bit-pour-bit la convention de la DFT naïve historique (cf. spec).
+function fft(real, imag) {
+  const N = real.length
+
+  // 1. Permutation par bit-reversal
+  let j = 0
+  for (let i = 1; i < N; i++) {
+    let bit = N >> 1
+    while (j & bit) { j ^= bit; bit >>= 1 }
+    j ^= bit
+    if (i < j) {
+      let tmp = real[i]; real[i] = real[j]; real[j] = tmp
+      tmp = imag[i]; imag[i] = imag[j]; imag[j] = tmp
+    }
+  }
+
+  // 2. Butterflies par taille de bloc croissante : 2, 4, 8, ..., N
+  for (let len = 2; len <= N; len <<= 1) {
+    const halfLen = len >> 1
+    const angle = -2 * Math.PI / len
+    const wReal = Math.cos(angle)
+    const wImag = Math.sin(angle)
+    for (let i = 0; i < N; i += len) {
+      let curReal = 1
+      let curImag = 0
+      for (let k = 0; k < halfLen; k++) {
+        const a = i + k
+        const b = a + halfLen
+        const tReal = curReal * real[b] - curImag * imag[b]
+        const tImag = curReal * imag[b] + curImag * real[b]
+        real[b] = real[a] - tReal
+        imag[b] = imag[a] - tImag
+        real[a] += tReal
+        imag[a] += tImag
+        const nextReal = curReal * wReal - curImag * wImag
+        const nextImag = curReal * wImag + curImag * wReal
+        curReal = nextReal
+        curImag = nextImag
+      }
+    }
+  }
+}
+
+if (import.meta.env.DEV) {
+  // Self-test: vérifier que FFT donne les coefficients attendus pour un
+  // signal d'entrée connu (sine pure à k=1). Si échec, console.error visible
+  // au load. Élimine la classe de bugs "bit-reversal off-by-one, butterfly
+  // mal indexé, normalisation oubliée, convention de signe inversée".
+  const N = NUM_SAMPLES
+  const realTest = new Float32Array(N)
+  const imagTest = new Float32Array(N)
+  for (let i = 0; i < N; i++) {
+    realTest[i] = Math.sin(2 * Math.PI * i / N)
+  }
+  fft(realTest, imagTest)
+  // Pour une sine pure à k=1 après normalisation /N :
+  //   imag[1]/N ≈ -0.5 (convention exp(-iθ) → imag négatif)
+  //   real[1]/N ≈ 0
+  //   tous les autres bins ≈ 0
+  const EPS = 1e-10
+  const ok = (
+    Math.abs(realTest[1] / N) < EPS &&
+    Math.abs(imagTest[1] / N + 0.5) < EPS &&
+    Math.abs(realTest[2] / N) < EPS &&
+    Math.abs(imagTest[2] / N) < EPS
+  )
+  if (!ok) {
+    console.error('FFT self-test FAIL:', {
+      'real[1]/N': realTest[1] / N,
+      'imag[1]/N': imagTest[1] / N,
+      'real[2]/N': realTest[2] / N,
+      'imag[2]/N': imagTest[2] / N,
+    })
+  }
+}
 
 // Décomposition DFT d'une période de l'onde échantillonnée sur `points`
 // (longueur CANVAS_WIDTH). Retourne les coefficients `real`/`imag` attendus
