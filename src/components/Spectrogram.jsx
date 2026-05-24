@@ -151,10 +151,10 @@ function Spectrogram({
 
   const drawStatic = useCallback(() => {
     const canvas = canvasRef.current
-    if (!canvas) return
+    if (!canvas) return false
     const W = canvas.width
     const H = canvas.height
-    if (!W || !H) return
+    if (!W || !H) return false
     const ctx = canvas.getContext('2d')
     const { points, frequency, dbScale } = propsRef.current
 
@@ -165,7 +165,7 @@ function Spectrogram({
     const plotY = PADDING_TOP
     const plotW = W - PADDING_LEFT - PADDING_RIGHT
     const plotH = H - PADDING_TOP - PADDING_BOTTOM
-    if (plotW <= 0 || plotH <= 0) return
+    if (plotW <= 0 || plotH <= 0) return false
 
     ctx.strokeStyle = '#2a2a4a'
     ctx.lineWidth = 1
@@ -199,7 +199,7 @@ function Spectrogram({
       ctx.textAlign = 'center'
       ctx.textBaseline = 'middle'
       ctx.fillText("Dessinez une onde pour voir le spectre", W / 2, plotY + plotH / 2)
-      return
+      return true
     }
 
     const { magnitudes } = pointsToHarmonics(points)
@@ -207,7 +207,7 @@ function Spectrogram({
     for (let k = 1; k < magnitudes.length; k++) {
       if (magnitudes[k] > maxMag) maxMag = magnitudes[k]
     }
-    if (maxMag <= 0) return
+    if (maxMag <= 0) return true
 
     ctx.fillStyle = '#00d4ff'
     for (let k = 1; k < magnitudes.length; k++) {
@@ -227,15 +227,16 @@ function Spectrogram({
       const x = plotX + freqToX(f, plotW)
       ctx.fillRect(x - BAR_WIDTH_PX / 2, plotY + plotH - barH, BAR_WIDTH_PX, barH)
     }
+    return true
   }, [])
 
   const drawLive = useCallback(() => {
     const canvas = canvasRef.current
-    if (!canvas) return
+    if (!canvas) return false
 
     const W = canvas.width
     const H = canvas.height
-    if (!W || !H) return
+    if (!W || !H) return false
     const ctx = canvas.getContext('2d')
     const { analyserRef, dbScale, peakHold } = propsRef.current
 
@@ -246,7 +247,7 @@ function Spectrogram({
     const plotY = PADDING_TOP
     const plotW = W - PADDING_LEFT - PADDING_RIGHT
     const plotH = H - PADDING_TOP - PADDING_BOTTOM
-    if (plotW <= 0 || plotH <= 0) return
+    if (plotW <= 0 || plotH <= 0) return false
 
     ctx.strokeStyle = '#2a2a4a'
     ctx.lineWidth = 1
@@ -287,7 +288,7 @@ function Spectrogram({
       ctx.moveTo(plotX, plotY + plotH)
       ctx.lineTo(plotX + plotW - 1, plotY + plotH)
       ctx.stroke()
-      return
+      return true
     }
 
     analyser.getFloatFrequencyData(stateRef.current.fftDataBuffer)
@@ -366,6 +367,7 @@ function Spectrogram({
       }
       ctx.stroke()
     }
+    return true
   }, [])
 
   useEffect(() => {
@@ -382,10 +384,14 @@ function Spectrogram({
           frequency !== stateRef.current.lastFrequency ||
           dbScale !== stateRef.current.lastDbScale
         ) {
-          stateRef.current.lastPoints = points
-          stateRef.current.lastFrequency = frequency
-          stateRef.current.lastDbScale = dbScale
-          drawStatic()
+          if (drawStatic()) {
+            // Cache mise à jour UNIQUEMENT si drawStatic a réussi.
+            // Sinon (canvas non-sizé au mount initial), on réessaiera au
+            // prochain tick.
+            stateRef.current.lastPoints = points
+            stateRef.current.lastFrequency = frequency
+            stateRef.current.lastDbScale = dbScale
+          }
         }
       }
 
