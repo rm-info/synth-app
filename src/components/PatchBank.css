@@ -112,6 +112,20 @@
   font-style: italic;
 }
 
+.sound-bank-body {
+  flex: 1;
+  overflow-y: auto;
+  min-height: 0;
+  position: relative;
+}
+
+.bib-lasso {
+  border: 1px dashed #00d4ff;
+  background: rgba(0, 212, 255, 0.08);
+  pointer-events: none;
+  z-index: 10;
+}
+
 .sound-bank-list {
   list-style: none;
   margin: 0;
@@ -119,9 +133,6 @@
   display: flex;
   flex-direction: column;
   gap: 4px;
-  overflow-y: auto;
-  flex: 1;
-  min-height: 0;
 }
 
 /* === Folder items === */
@@ -515,9 +526,6 @@
   grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
   gap: 8px;
   padding: 0 8px;
-  overflow-y: auto;
-  flex: 1;
-  min-height: 0;
 }
 .tile {
   background: rgba(255, 255, 255, 0.04);

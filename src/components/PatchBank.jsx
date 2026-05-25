@@ -72,8 +72,6 @@ function PatchBank({
   bibSelectedIds = [],
   bibSelectionAnchor = null,
   onSelectItems,
-  // onClearSelection est passé par App pour usage futur (Task 10+ menu contextuel).
-  // eslint-disable-next-line no-unused-vars
   onClearSelection,
 }) {
   const loadOnSingleClick = activeTab === 'designer'
@@ -87,6 +85,9 @@ function PatchBank({
 
   const [contextMenu, setContextMenu] = useState(null)
   // contextMenu: null | { type: 'folder'|'patch', id: string, clientX, clientY }
+
+  const [lasso, setLasso] = useState(null)
+  const bodyRef = useRef(null)
 
   useEffect(() => {
     if (!contextMenu) return
@@ -231,6 +232,66 @@ function PatchBank({
     setDragOverTarget(null)
     dragRef.current = null
   }, [])
+
+  // --- Lasso selection ---
+
+  const handleBodyMouseDown = (e) => {
+    if (e.button !== 0) return  // gauche uniquement
+    // Seulement si clic dans zone vide (pas sur un item, ni toolbar, ni breadcrumb)
+    if (e.target.closest('[data-bib-item-id]')) return
+    if (e.target.closest('.bib-toolbar')) return
+    if (e.target.closest('.bib-breadcrumb')) return
+    if (!bodyRef.current) return
+    const rect = bodyRef.current.getBoundingClientRect()
+    const x = e.clientX - rect.left
+    const y = e.clientY - rect.top
+    setLasso({ x0: x, y0: y, x1: x, y1: y })
+  }
+
+  const handleBodyMouseMove = (e) => {
+    if (!lasso) return
+    if (!bodyRef.current) return
+    const rect = bodyRef.current.getBoundingClientRect()
+    setLasso(prev => ({ ...prev, x1: e.clientX - rect.left, y1: e.clientY - rect.top }))
+  }
+
+  const handleBodyMouseUp = () => {
+    if (!lasso) return
+    // Si rect minuscule (clic sans drag), clear selection
+    if (Math.abs(lasso.x1 - lasso.x0) < 3 && Math.abs(lasso.y1 - lasso.y0) < 3) {
+      if (onClearSelection) onClearSelection()
+      setLasso(null)
+      return
+    }
+    const lassoRect = {
+      left: Math.min(lasso.x0, lasso.x1),
+      top: Math.min(lasso.y0, lasso.y1),
+      right: Math.max(lasso.x0, lasso.x1),
+      bottom: Math.max(lasso.y0, lasso.y1),
+    }
+    if (!bodyRef.current) {
+      setLasso(null)
+      return
+    }
+    const containerRect = bodyRef.current.getBoundingClientRect()
+    const selected = []
+    for (const el of bodyRef.current.querySelectorAll('[data-bib-item-id]')) {
+      const r = el.getBoundingClientRect()
+      const x0 = r.left - containerRect.left
+      const x1 = r.right - containerRect.left
+      const y0 = r.top - containerRect.top
+      const y1 = r.bottom - containerRect.top
+      if (x1 >= lassoRect.left && x0 <= lassoRect.right &&
+          y1 >= lassoRect.top && y0 <= lassoRect.bottom) {
+        selected.push({
+          type: el.dataset.bibItemType,
+          id: el.dataset.bibItemId,
+        })
+      }
+    }
+    onSelectItems?.(selected, 'set')
+    setLasso(null)
+  }
 
   // --- Build tree ---
 
@@ -676,7 +737,28 @@ function PatchBank({
   return (
     <aside className="sound-bank-panel">
       {renderHeader()}
-      {renderBody()}
+      <div
+        ref={bodyRef}
+        className="sound-bank-body"
+        onMouseDown={handleBodyMouseDown}
+        onMouseMove={handleBodyMouseMove}
+        onMouseUp={handleBodyMouseUp}
+        style={{ position: 'relative' }}
+      >
+        {renderBody()}
+        {lasso && (
+          <div
+            className="bib-lasso"
+            style={{
+              position: 'absolute',
+              left: Math.min(lasso.x0, lasso.x1),
+              top: Math.min(lasso.y0, lasso.y1),
+              width: Math.abs(lasso.x1 - lasso.x0),
+              height: Math.abs(lasso.y1 - lasso.y0),
+            }}
+          />
+        )}
+      </div>
       {dragItem && (
         <div
           className={`drop-root-zone ${dragOverTarget === 'root' ? 'is-active' : ''}`}
