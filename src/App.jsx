@@ -1863,41 +1863,45 @@ function App() {
                   </>
                 ) : (
                   <>
-                    <PatchPicker
-                      patches={patches}
-                      soundFolders={soundFolders}
-                      currentPatchId={currentPatchId}
-                      bibClipboard={bibClipboard}
-                      bibSelectedIds={bibSelectedIds}
-                      bibCollapsedFolders={bibCollapsedFolders}
-                      activeTab="designer"
-                      onLoadPatch={handleLoadPatch}
-                      onOpenInLibrary={handleOpenInLibrary}
-                      onDragStart={handleDragStartFromPicker}
-                      onToggleBibFolderCollapsed={onToggleBibFolderCollapsed}
-                      headerExtra={
-                        <button
-                          type="button"
-                          className="sidebar-toggle sidebar-toggle-inline"
-                          onClick={handleToggleDesignerCollapsed}
-                          title="Réduire le panneau latéral"
-                          aria-label="Réduire le panneau latéral"
-                          aria-expanded={true}
-                        >
-                          <ChevronLeft size={14} strokeWidth={2.2} />
-                        </button>
-                      }
-                    />
-                    {renderActions()}
-                    <MiniPlayer
-                      isPlaying={playback.isPlaying}
-                      cursorPos={playback.cursorPos}
-                      currentTime={playback.currentTime}
-                      totalDurationSec={totalDurationSec}
-                      hasClips={clips.length > 0}
-                      onPlay={playback.play}
-                      onStop={playback.stop}
-                    />
+                    <section className="sidebar-section sidebar-library">
+                      <PatchPicker
+                        patches={patches}
+                        soundFolders={soundFolders}
+                        currentPatchId={currentPatchId}
+                        bibClipboard={bibClipboard}
+                        bibSelectedIds={bibSelectedIds}
+                        bibCollapsedFolders={bibCollapsedFolders}
+                        activeTab="designer"
+                        onLoadPatch={handleLoadPatch}
+                        onOpenInLibrary={handleOpenInLibrary}
+                        onDragStart={handleDragStartFromPicker}
+                        onToggleBibFolderCollapsed={onToggleBibFolderCollapsed}
+                        headerExtra={
+                          <button
+                            type="button"
+                            className="sidebar-toggle sidebar-toggle-inline"
+                            onClick={handleToggleDesignerCollapsed}
+                            title="Réduire le panneau latéral"
+                            aria-label="Réduire le panneau latéral"
+                            aria-expanded={true}
+                          >
+                            <ChevronLeft size={14} strokeWidth={2.2} />
+                          </button>
+                        }
+                      />
+                    </section>
+                    <section className="sidebar-section sidebar-actions">
+                      {renderActions()}
+                      <MiniPlayer
+                        isPlaying={playback.isPlaying}
+                        cursorPos={playback.cursorPos}
+                        currentTime={playback.currentTime}
+                        totalDurationSec={totalDurationSec}
+                        hasClips={clips.length > 0}
+                        onPlay={playback.play}
+                        onStop={playback.stop}
+                      />
+                    </section>
                     <SidebarResizer
                       side="right"
                       width={designerSidebarWidth}

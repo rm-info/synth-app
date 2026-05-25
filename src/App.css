@@ -52,9 +52,9 @@
   min-height: 0;
 }
 
-/* Sidebar Designer : Bibliothèque (flex:1) → Actions (flex:0) → MiniPlayer
-   (flex:0). Bord unifié autour des trois enfants, séparateurs internes
-   en border-top. */
+/* Sidebar Designer : deux zones distinctes (Bibliothèque / Actions+Play),
+   séparées par border-top sur .sidebar-actions. Bord unifié autour des
+   deux sections, overflow:hidden sur la sidebar globale. */
 .designer-sidebar {
   grid-area: sidebar;
   display: flex;
@@ -216,21 +216,33 @@
   color: #ff4466;
   border-color: #ff4466;
 }
-.designer-sidebar > .sound-bank-panel {
+/* Zone Bibliothèque : prend tout l'espace vertical disponible. */
+.designer-sidebar .sidebar-library {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+/* La PatchPicker remplit toute la section. On neutralise son propre
+   border/border-radius pour s'intégrer au cadre de la sidebar globale. */
+.designer-sidebar .sidebar-library .patch-picker {
   flex: 1;
   min-height: 0;
   border: none;
   border-radius: 0;
-  max-width: none;
-  min-width: 0;
   background: transparent;
 }
-.designer-sidebar > .designer-actions-panel {
+/* Zone Actions + Play : séparée de la Bibliothèque par une ligne franche. */
+.designer-sidebar .sidebar-actions {
   flex: 0 0 auto;
-  border-top: 1px solid #2a2a4a;
+  border-top: 1px solid #3a3a5a;
 }
-.designer-sidebar > .mini-player {
-  flex: 0 0 auto;
+/* Le .designer-actions-panel n'a plus à gérer son propre border-top
+   (absorbé par .sidebar-actions). Le .mini-player non plus. */
+.sidebar-actions > .designer-actions-panel {
+  border-top: none;
+}
+.sidebar-actions > .mini-player {
   border: none;
   border-top: 1px solid #2a2a4a;
   border-radius: 0;
