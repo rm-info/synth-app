@@ -235,7 +235,9 @@ export function loadPersistedState() {
       bibPopupWidth: typeof parsed.bibPopupWidth === 'number'
         ? Math.max(320, Math.min(parsed.bibPopupWidth, 1200))
         : 480,
-      activeTab: parsed.activeTab === 'composer' ? 'composer' : 'designer',
+      activeTab: ['library', 'composer', 'designer'].includes(parsed.activeTab)
+        ? parsed.activeTab
+        : 'designer',
       durationMode: parsed.durationMode === 'fraction' ? 'fraction' : 'solfège',
       composerBankWidth: typeof parsed.composerBankWidth === 'number' ? parsed.composerBankWidth : null,
       composerAsideWidth: typeof parsed.composerAsideWidth === 'number' ? parsed.composerAsideWidth : null,
@@ -1096,10 +1098,10 @@ export function reducer(state, action) {
 
     // ----- Designer (undoable) -----
     case 'SAVE_PATCH': {
-      // payload: { patchData (sans id/color) }
+      // payload: { patchData (sans id/color), folderId? }
       // iter G phase 2.4 : patchData porte aussi defaultTuningSystem
       // (système musical actif au moment de l'enregistrement).
-      const { patchData } = action.payload
+      const { patchData, folderId = null } = action.payload
       const newCounter = state.patchCounter + 1
       const id = `patch-${newCounter}`
       const colorIndex = (newCounter - 1) % SOUND_COLORS.length
@@ -1121,7 +1123,7 @@ export function reducer(state, action) {
             sustain: patchData.sustain ?? DEFAULT_ADSR.sustain,
             release: patchData.release ?? DEFAULT_ADSR.release,
             defaultTuningSystem: patchData.defaultTuningSystem ?? '12-TET',
-            folderId: null,
+            folderId,
           },
         ],
         currentPatchId: id,
@@ -1411,7 +1413,11 @@ export function reducer(state, action) {
       return { ...state, zoomH: clampZoomH(v) }
     }
     case 'SET_ACTIVE_TAB': {
-      return { ...state, activeTab: action.payload }
+      return {
+        ...state,
+        activeTab: action.payload,
+        pendingDeleteWarning: null,
+      }
     }
     case 'SELECT_CLIPS': {
       // Mise à jour de l'anchor : si la sélection devient non-vide, prend le
