@@ -1109,28 +1109,35 @@ export function reducer(state, action) {
       const newCounter = state.patchCounter + 1
       const id = `patch-${newCounter}`
       const colorIndex = (newCounter - 1) % SOUND_COLORS.length
+      const newPatch = {
+        id,
+        name: patchData.name,
+        color: SOUND_COLORS[colorIndex],
+        points: Array.from(patchData.points),
+        amplitude: patchData.amplitude,
+        preset: patchData.preset,
+        attack: patchData.attack ?? DEFAULT_ADSR.attack,
+        hold: patchData.hold ?? DEFAULT_ADSR.hold,
+        decay: patchData.decay ?? DEFAULT_ADSR.decay,
+        sustain: patchData.sustain ?? DEFAULT_ADSR.sustain,
+        release: patchData.release ?? DEFAULT_ADSR.release,
+        defaultTuningSystem: patchData.defaultTuningSystem ?? '12-TET',
+        folderId,
+      }
+
+      // SAVE_PATCH non-undoable, mais on rewrite les snapshots LIBRARY
+      // pour préserver ce patch à travers les undos.
+      const patchedLibHist = patchLibrarySnapshotsAdditive(state.history.library, {
+        newPatches: [newPatch],
+        patchCounter: newCounter,
+      })
+
       return {
         ...state,
         patchCounter: newCounter,
-        patches: [
-          ...state.patches,
-          {
-            id,
-            name: patchData.name,
-            color: SOUND_COLORS[colorIndex],
-            points: Array.from(patchData.points),
-            amplitude: patchData.amplitude,
-            preset: patchData.preset,
-            attack: patchData.attack ?? DEFAULT_ADSR.attack,
-            hold: patchData.hold ?? DEFAULT_ADSR.hold,
-            decay: patchData.decay ?? DEFAULT_ADSR.decay,
-            sustain: patchData.sustain ?? DEFAULT_ADSR.sustain,
-            release: patchData.release ?? DEFAULT_ADSR.release,
-            defaultTuningSystem: patchData.defaultTuningSystem ?? '12-TET',
-            folderId,
-          },
-        ],
+        patches: [...state.patches, newPatch],
         currentPatchId: id,
+        history: { ...state.history, library: patchedLibHist },
       }
     }
     case 'UPDATE_PATCH': {
@@ -1185,14 +1192,28 @@ export function reducer(state, action) {
     case 'CREATE_FOLDER': {
       const { name, parentId = null } = action.payload
       const newCounter = state.folderCounter + 1
-      return {
+      const newFolder = { id: `folder-${newCounter}`, name, parentId }
+
+      const baseReturn = {
         ...state,
         folderCounter: newCounter,
-        soundFolders: [
-          ...state.soundFolders,
-          { id: `folder-${newCounter}`, name, parentId },
-        ],
+        soundFolders: [...state.soundFolders, newFolder],
       }
+
+      if (action.meta?.skipUndo === true) {
+        // skipUndo additive : patche tous les snapshots LIBRARY pour préserver
+        // ce folder à travers les undos.
+        const patchedLibHist = patchLibrarySnapshotsAdditive(state.history.library, {
+          newFolders: [newFolder],
+          folderCounter: newCounter,
+        })
+        return {
+          ...baseReturn,
+          history: { ...state.history, library: patchedLibHist },
+        }
+      }
+
+      return baseReturn
     }
     case 'RENAME_FOLDER': {
       const { folderId, name } = action.payload
@@ -1810,6 +1831,24 @@ function restoreSnapshot(state, snapshot) {
     ...state,
     ...snapshot,
     editor: { ...state.editor, ...snapshot.editor },
+  }
+}
+
+// Patche tous les snapshots de la pile LIBRARY pour qu'ils incluent
+// les ajouts (nouveaux patches et/ou folders) d'une action additive non-undoable.
+// Garantit que les ajouts persistent à travers les undos (skipUndo "rewrite past").
+function patchLibrarySnapshotsAdditive(libHist, { newPatches = [], newFolders = [], patchCounter = null, folderCounter = null }) {
+  const patchSnap = (snap) => {
+    const patched = { ...snap }
+    if (newPatches.length > 0) patched.patches = [...(snap.patches || []), ...newPatches]
+    if (newFolders.length > 0) patched.soundFolders = [...(snap.soundFolders || []), ...newFolders]
+    if (patchCounter !== null) patched.patchCounter = Math.max(snap.patchCounter ?? 0, patchCounter)
+    if (folderCounter !== null) patched.folderCounter = Math.max(snap.folderCounter ?? 0, folderCounter)
+    return patched
+  }
+  return {
+    past: libHist.past.map(patchSnap),
+    future: libHist.future.map(patchSnap),
   }
 }
 
