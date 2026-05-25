@@ -1,0 +1,80 @@
+.delete-warning-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  z-index: 1500;
+}
+.delete-warning-dialog {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 400px;
+  background: #1a1a2e;
+  border: 1px solid #3a3a5a;
+  border-radius: 8px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+  padding: 20px;
+  z-index: 1501;
+  font-family: system-ui, sans-serif;
+  color: #d0d4ec;
+}
+.delete-warning-dialog h4 {
+  margin: 0 0 14px;
+  color: #f5c542;
+  font-size: 14px;
+  font-weight: 600;
+}
+.delete-warning-success {
+  margin: 0 0 10px;
+  font-size: 12px;
+  color: #4ade80;
+}
+.delete-warning-blocked-intro {
+  margin: 0 0 8px;
+  font-size: 12px;
+  color: #d0d4ec;
+}
+.delete-warning-list {
+  list-style: none;
+  margin: 0 0 14px;
+  padding: 0;
+}
+.delete-warning-list li {
+  padding: 4px 8px;
+  background: rgba(245, 197, 66, 0.06);
+  border-left: 2px solid #f5c542;
+  margin-bottom: 4px;
+  font-size: 12px;
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+}
+.delete-warning-name { color: #d0d4ec; }
+.delete-warning-usage { color: #8a8fa8; font-style: italic; }
+
+.delete-warning-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+.delete-warning-btn {
+  background: #1a1a2e;
+  border: 1px solid #3a3a5a;
+  color: #d0d4ec;
+  padding: 6px 14px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 12px;
+}
+.delete-warning-btn:hover {
+  background: #2a2a4a;
+}
+.delete-warning-btn.primary {
+  background: #003a4a;
+  border-color: #00d4ff;
+  color: #00d4ff;
+}
+.delete-warning-btn.primary:hover {
+  background: #004a5a;
+}
