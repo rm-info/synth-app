@@ -446,7 +446,7 @@
   display: flex;
   align-items: center;
   gap: 6px;
-  padding: 0 8px 8px;
+  padding: 0 8px;
 }
 .bib-toggle-group {
   display: flex;
@@ -641,7 +641,7 @@
   display: flex;
   align-items: center;
   gap: 4px;
-  padding: 0 8px 8px;
+  padding: 0 8px;
   flex-wrap: wrap;
 }
 .bib-action-btn {
