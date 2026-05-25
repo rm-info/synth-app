@@ -1647,6 +1647,10 @@ const DESIGNER_UNDOABLE = new Set([
 
 const LIBRARY_FIELDS = ['patches', 'soundFolders', 'patchCounter', 'folderCounter']
 
+// SAVE_PATCH n'est dans aucune pile undo : la création d'un patch via le
+// popup SavePatchDialog est une action explicite et délibérée
+// (location + nom validés par l'utilisateur). Suppression manuelle assumée
+// si le patch créé est indésirable (cf phase 2 décision archi).
 const LIBRARY_UNDOABLE = new Set([
   'CREATE_FOLDER',
   'RENAME_FOLDER',
@@ -1926,10 +1930,14 @@ function applyUndoAware(baseReducer, state, action) {
     const newState = baseReducer(state, action)
     if (newState === state) return newState
 
+    // Retourne true si au moins un field a changé entre oldState et newState.
+    // Comparaison par référence — suffisant grâce au pattern d'immutabilité.
+    const fieldsChanged = (oldS, newS, fields) => fields.some(f => oldS[f] !== newS[f])
+
     const skipUndo = action.meta?.skipUndo === true
-    const isComposer = !skipUndo && COMPOSER_UNDOABLE.has(action.type)
-    const isDesigner = !skipUndo && DESIGNER_UNDOABLE.has(action.type)
-    const isLibrary = !skipUndo && LIBRARY_UNDOABLE.has(action.type)
+    const isComposer = !skipUndo && COMPOSER_UNDOABLE.has(action.type) && fieldsChanged(state, newState, COMPOSER_FIELDS)
+    const isDesigner = !skipUndo && DESIGNER_UNDOABLE.has(action.type) && fieldsChanged(state, newState, DESIGNER_FIELDS)
+    const isLibrary = !skipUndo && LIBRARY_UNDOABLE.has(action.type) && fieldsChanged(state, newState, LIBRARY_FIELDS)
     if (isComposer || isDesigner || isLibrary) {
       let hist = newState.history
       if (isComposer) {
