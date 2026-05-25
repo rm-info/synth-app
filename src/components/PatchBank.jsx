@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import { ListTree, Folder, List, LayoutList, LayoutGrid } from 'lucide-react'
 import { getDescendantFolderIds, countFolderContents } from '../reducer'
 import { nextAvailableFolderName } from '../lib/folderNames.js'
@@ -46,6 +46,36 @@ function computeRange(anchor, target, orderedList) {
   return orderedList.slice(from, to + 1)
 }
 
+// Retire les items dont un ancêtre folder est aussi dans la liste.
+// Évite de déplacer un patch ou folder PUIS son parent : on garde uniquement le parent.
+function filterOutDescendants(items, soundFolders, patches) {
+  const selectedFolderIds = new Set(items.filter(i => i.type === 'folder').map(i => i.id))
+  if (selectedFolderIds.size === 0) return items
+  const parentOf = new Map(soundFolders.map(f => [f.id, f.parentId]))
+  const isFolderInSelectedSubtree = (folderId) => {
+    let cur = folderId
+    let depth = 0
+    while (cur !== null && cur !== undefined && depth < 1000) {
+      if (selectedFolderIds.has(cur)) return true
+      cur = parentOf.get(cur)
+      depth++
+    }
+    return false
+  }
+  const patchById = new Map(patches.map(p => [p.id, p]))
+  return items.filter(item => {
+    if (item.type === 'folder') {
+      const parent = parentOf.get(item.id)
+      return !(parent !== null && parent !== undefined && isFolderInSelectedSubtree(parent))
+    } else {
+      const patch = patchById.get(item.id)
+      if (!patch) return true
+      // Si le folderId du patch ou un de ses ancêtres est sélectionné, on filtre le patch
+      return !isFolderInSelectedSubtree(patch.folderId)
+    }
+  })
+}
+
 function PatchBank({
   patches,
   soundFolders,
@@ -73,6 +103,12 @@ function PatchBank({
   bibSelectionAnchor = null,
   onSelectItems,
   onClearSelection,
+  bibClipboard,
+  onCopy,
+  onCut,
+  // eslint-disable-next-line no-unused-vars
+  onClearClipboard,
+  onPaste,
 }) {
   const loadOnSingleClick = activeTab === 'designer'
   const [editingId, setEditingId] = useState(null)
@@ -89,6 +125,27 @@ function PatchBank({
   const [lasso, setLasso] = useState(null)
   const lassoRef = useRef(null)
   const bodyRef = useRef(null)
+
+  const cutItemKeys = useMemo(() => {
+    if (!bibClipboard || bibClipboard.mode !== 'cut') return new Set()
+    return new Set(bibClipboard.items.map(i => `${i.type}:${i.id}`))
+  }, [bibClipboard])
+
+  // eslint-disable-next-line no-unused-vars
+  const handleCopy = () => {
+    if (bibSelectedIds.length === 0) return
+    onCopy?.(filterOutDescendants(bibSelectedIds, soundFolders, patches))
+  }
+  // eslint-disable-next-line no-unused-vars
+  const handleCut = () => {
+    if (bibSelectedIds.length === 0) return
+    onCut?.(filterOutDescendants(bibSelectedIds, soundFolders, patches))
+  }
+  // eslint-disable-next-line no-unused-vars
+  const handlePaste = (targetFolderId = bibCurrentFolderId ?? null) => {
+    if (!bibClipboard) return
+    onPaste?.(targetFolderId)
+  }
 
   useEffect(() => {
     if (!contextMenu) return
@@ -346,6 +403,7 @@ function PatchBank({
     const isDragging = dragItem?.type === 'patch' && dragItem?.id === patch.id
     const isSelected = bibSelectedIds.some(s => s.type === 'patch' && s.id === patch.id)
     const isDetails = bibDisplayMode === 'details'
+    const isCut = cutItemKeys.has(`patch:${patch.id}`)
 
     const handleDelete = (e) => {
       e.stopPropagation()
@@ -374,7 +432,7 @@ function PatchBank({
     return (
       <li
         key={patch.id}
-        className={`sound-chip ${isCurrent ? 'is-current' : ''} ${isDragging ? 'is-dragging' : ''} ${isDetails ? 'is-details' : ''} ${isSelected ? 'is-selected' : ''}`}
+        className={`sound-chip ${isCurrent ? 'is-current' : ''} ${isDragging ? 'is-dragging' : ''} ${isDetails ? 'is-details' : ''} ${isSelected ? 'is-selected' : ''} ${isCut ? 'is-cut' : ''}`}
         style={{ '--chip-color': patch.color, marginLeft: `${depth * 16}px` }}
         draggable={!isEditing}
         onDragStart={(e) => handleDragStartInternal(e, 'patch', patch.id)}
@@ -458,11 +516,12 @@ function PatchBank({
     const descendantCount = isDetails
       ? countFolderContents(folder.id, soundFolders, patches).patchCount
       : null
+    const isCut = cutItemKeys.has(`folder:${folder.id}`)
 
     return (
       <li key={folder.id} className={`folder-item ${isDragging ? 'is-dragging' : ''}`}>
         <div
-          className={`folder-row ${isDetails ? 'is-details' : ''} ${isDropTarget ? 'is-drop-target' : ''} ${isSelected ? 'is-selected' : ''}`}
+          className={`folder-row ${isDetails ? 'is-details' : ''} ${isDropTarget ? 'is-drop-target' : ''} ${isSelected ? 'is-selected' : ''} ${isCut ? 'is-cut' : ''}`}
           style={{ marginLeft: `${depth * 16}px` }}
           draggable={!isEditing}
           onDragStart={(e) => handleDragStartInternal(e, 'folder', folder.id)}
@@ -552,10 +611,11 @@ function PatchBank({
     const isDropTarget = dragOverTarget === folder.id
     const isDragging = dragItem?.type === 'folder' && dragItem?.id === folder.id
     const isSelected = bibSelectedIds.some(s => s.type === 'folder' && s.id === folder.id)
+    const isCut = cutItemKeys.has(`folder:${folder.id}`)
     return (
       <div
         key={folder.id}
-        className={`tile is-folder ${isDropTarget ? 'is-drop-target' : ''} ${isDragging ? 'is-dragging' : ''} ${isSelected ? 'is-selected' : ''}`}
+        className={`tile is-folder ${isDropTarget ? 'is-drop-target' : ''} ${isDragging ? 'is-dragging' : ''} ${isSelected ? 'is-selected' : ''} ${isCut ? 'is-cut' : ''}`}
         draggable
         onDragStart={(e) => handleDragStartInternal(e, 'folder', folder.id)}
         onDragEnd={handleDragEnd}
@@ -582,10 +642,11 @@ function PatchBank({
     const isCurrent = loadOnSingleClick && currentPatchId === patch.id
     const isDragging = dragItem?.type === 'patch' && dragItem?.id === patch.id
     const isSelected = bibSelectedIds.some(s => s.type === 'patch' && s.id === patch.id)
+    const isCut = cutItemKeys.has(`patch:${patch.id}`)
     return (
       <div
         key={patch.id}
-        className={`tile is-patch ${isCurrent ? 'is-current' : ''} ${isDragging ? 'is-dragging' : ''} ${isSelected ? 'is-selected' : ''}`}
+        className={`tile is-patch ${isCurrent ? 'is-current' : ''} ${isDragging ? 'is-dragging' : ''} ${isSelected ? 'is-selected' : ''} ${isCut ? 'is-cut' : ''}`}
         draggable
         onDragStart={(e) => handleDragStartInternal(e, 'patch', patch.id)}
         onDragEnd={handleDragEnd}

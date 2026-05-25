@@ -564,6 +564,13 @@
   background: rgba(0, 212, 255, 0.15);
   border-color: rgba(0, 212, 255, 0.5);
 }
+.sound-chip.is-cut,
+.folder-row.is-cut,
+.tile.is-cut {
+  opacity: 0.4;
+  font-style: italic;
+}
+
 /* Patch chargé (is-current) ET sélectionné : préserve le glow chip-color. */
 .sound-chip.is-current.is-selected {
   border: 1px solid var(--chip-color);

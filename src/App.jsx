@@ -76,7 +76,7 @@ function App() {
     bibHierarchyMode, bibDisplayMode, bibCurrentFolderId, bibPopupWidth,
     bibSelectedIds, bibSelectionAnchor,
     patchCounter, clipCounter, folderCounter, trackCounter,
-    clipboard, measureClipboard, history, notification,
+    clipboard, measureClipboard, bibClipboard, history, notification,
   } = state
 
   const editorRef = useRef(null)
@@ -676,6 +676,20 @@ function App() {
   const onClearBibSelection = useCallback(() => {
     dispatch({ type: 'CLEAR_BIB_SELECTION' })
   }, [])
+
+  const onCopyBibItems = useCallback((items) => {
+    dispatch({ type: 'COPY_BIB_ITEMS', payload: { items } })
+  }, [])
+  const onCutBibItems = useCallback((items) => {
+    dispatch({ type: 'CUT_BIB_ITEMS', payload: { items } })
+  }, [])
+  const onClearBibClipboard = useCallback(() => {
+    dispatch({ type: 'CLEAR_BIB_CLIPBOARD' })
+  }, [])
+  const onPasteBibClipboard = useCallback((targetFolderId) => {
+    dispatch({ type: 'PASTE_BIB_CLIPBOARD', payload: { targetFolderId } })
+  }, [])
+
   // eslint-disable-next-line no-unused-vars
   const setBibPopupWidth = useCallback((w) => {
     dispatch({ type: 'SET_BIB_POPUP_WIDTH', payload: w })
@@ -1722,6 +1736,11 @@ function App() {
                           bibSelectionAnchor={bibSelectionAnchor}
                           onSelectItems={onSelectBibItems}
                           onClearSelection={onClearBibSelection}
+                          bibClipboard={bibClipboard}
+                          onCopy={onCopyBibItems}
+                          onCut={onCutBibItems}
+                          onClearClipboard={onClearBibClipboard}
+                          onPaste={onPasteBibClipboard}
                           headerExtra={
                             <button
                               type="button"
@@ -1763,6 +1782,11 @@ function App() {
                       bibSelectionAnchor={bibSelectionAnchor}
                       onSelectItems={onSelectBibItems}
                       onClearSelection={onClearBibSelection}
+                      bibClipboard={bibClipboard}
+                      onCopy={onCopyBibItems}
+                      onCut={onCutBibItems}
+                      onClearClipboard={onClearBibClipboard}
+                      onPaste={onPasteBibClipboard}
                       headerExtra={
                         <button
                           type="button"
@@ -1953,6 +1977,11 @@ function App() {
                       bibSelectionAnchor={bibSelectionAnchor}
                       onSelectItems={onSelectBibItems}
                       onClearSelection={onClearBibSelection}
+                      bibClipboard={bibClipboard}
+                      onCopy={onCopyBibItems}
+                      onCut={onCutBibItems}
+                      onClearClipboard={onClearBibClipboard}
+                      onPaste={onPasteBibClipboard}
                       headerExtra={
                         <button
                           type="button"
