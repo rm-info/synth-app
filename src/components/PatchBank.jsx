@@ -131,13 +131,25 @@ function PatchBank({
     return new Set(bibClipboard.items.map(i => `${i.type}:${i.id}`))
   }, [bibClipboard])
 
+  // Si rien sélectionné, fallback sur l'item du contextMenu (right-click sur item non sélectionné).
+  const itemsForClipboardOp = () => {
+    if (bibSelectedIds.length > 0) {
+      return filterOutDescendants(bibSelectedIds, soundFolders, patches)
+    }
+    if (contextMenu && (contextMenu.type === 'patch' || contextMenu.type === 'folder')) {
+      return [{ type: contextMenu.type, id: contextMenu.id }]
+    }
+    return []
+  }
   const handleCopy = () => {
-    if (bibSelectedIds.length === 0) return
-    onCopy?.(filterOutDescendants(bibSelectedIds, soundFolders, patches))
+    const items = itemsForClipboardOp()
+    if (items.length === 0) return
+    onCopy?.(items)
   }
   const handleCut = () => {
-    if (bibSelectedIds.length === 0) return
-    onCut?.(filterOutDescendants(bibSelectedIds, soundFolders, patches))
+    const items = itemsForClipboardOp()
+    if (items.length === 0) return
+    onCut?.(items)
   }
   const handlePaste = (targetFolderId = bibCurrentFolderId ?? null) => {
     if (!bibClipboard) return
