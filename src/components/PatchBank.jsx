@@ -139,15 +139,10 @@ function PatchBank({
     return new Set(bibClipboard.items.map(i => `${i.type}:${i.id}`))
   }, [bibClipboard])
 
-  // Si rien sélectionné, fallback sur l'item du contextMenu (right-click sur item non sélectionné).
   const itemsForClipboardOp = () => {
-    if (bibSelectedIds.length > 0) {
-      return filterOutDescendants(bibSelectedIds, soundFolders, patches)
-    }
-    if (contextMenu && (contextMenu.type === 'patch' || contextMenu.type === 'folder')) {
-      return [{ type: contextMenu.type, id: contextMenu.id }]
-    }
-    return []
+    return bibSelectedIds.length > 0
+      ? filterOutDescendants(bibSelectedIds, soundFolders, patches)
+      : []
   }
   const handleCopy = () => {
     const items = itemsForClipboardOp()
@@ -165,17 +160,16 @@ function PatchBank({
   }
 
   const handleDeleteSelected = () => {
-    if (bibSelectedIds.length === 0) {
-      // Si rien sélectionné, fallback : supprimer l'item du contextMenu
-      if (contextMenu && (contextMenu.type === 'patch' || contextMenu.type === 'folder')) {
-        if (contextMenu.type === 'patch') onDeletePatch(contextMenu.id)
-        else onDeleteFolder(contextMenu.id)
+    if (bibSelectedIds.length === 0) return
+    if (onDeleteItems) {
+      // Mode batch (préféré quand isFullTab)
+      onDeleteItems(bibSelectedIds)
+    } else {
+      // Mode legacy : boucle individuelle
+      for (const item of bibSelectedIds) {
+        if (item.type === 'patch') onDeletePatch(item.id)
+        else if (item.type === 'folder') onDeleteFolder(item.id)
       }
-      return
-    }
-    for (const item of bibSelectedIds) {
-      if (item.type === 'patch') onDeletePatch(item.id)
-      else if (item.type === 'folder') onDeleteFolder(item.id)
     }
     onClearSelection?.()
   }
@@ -502,13 +496,13 @@ function PatchBank({
     document.addEventListener('keydown', onKey, true)
     return () => document.removeEventListener('keydown', onKey, true)
   // handleCopy/Cut/Paste/DeleteSelected sont des fonctions inline recréées à chaque render.
-  // Leurs captures réelles (bibSelectedIds, contextMenu, bibClipboard, onCopy, onCut, onPaste,
+  // Leurs captures réelles (bibSelectedIds, bibClipboard, onCopy, onCut, onPaste,
   // onDeletePatch, onDeleteFolder, onClearSelection, soundFolders, patches) sont toutes listées.
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [bibSelectedIds, bibSelectionAnchor, bibClipboard, bibCurrentFolderId,
-      bibHierarchyMode, soundFolders, patches, collapsedFolders, contextMenu,
+      bibHierarchyMode, soundFolders, patches, collapsedFolders,
       onSelectItems, onClearSelection, onClearClipboard, onLoadPatch, onSetCurrentFolder,
-      onCopy, onCut, onPaste, onDeletePatch, onDeleteFolder])
+      onCopy, onCut, onPaste, onDeletePatch, onDeleteFolder, onDeleteItems])
 
   // --- Build tree ---
 
@@ -570,6 +564,11 @@ function PatchBank({
         onContextMenu={(e) => {
           e.preventDefault()
           e.stopPropagation()
+          const itemKey = { type: 'patch', id: patch.id }
+          const isInSelection = bibSelectedIds.some(s => s.type === 'patch' && s.id === patch.id)
+          if (!isInSelection) {
+            onSelectItems?.([itemKey], 'set')
+          }
           setContextMenu({ type: 'patch', id: patch.id, clientX: e.clientX, clientY: e.clientY })
         }}
         title={isEditing ? undefined : titleText}
@@ -675,6 +674,11 @@ function PatchBank({
           onContextMenu={(e) => {
             e.preventDefault()
             e.stopPropagation()
+            const itemKey = { type: 'folder', id: folder.id }
+            const isInSelection = bibSelectedIds.some(s => s.type === 'folder' && s.id === folder.id)
+            if (!isInSelection) {
+              onSelectItems?.([itemKey], 'set')
+            }
             setContextMenu({ type: 'folder', id: folder.id, clientX: e.clientX, clientY: e.clientY })
           }}
           data-bib-item-id={folder.id}
@@ -754,6 +758,11 @@ function PatchBank({
         onContextMenu={(e) => {
           e.preventDefault()
           e.stopPropagation()
+          const itemKey = { type: 'folder', id: folder.id }
+          const isInSelection = bibSelectedIds.some(s => s.type === 'folder' && s.id === folder.id)
+          if (!isInSelection) {
+            onSelectItems?.([itemKey], 'set')
+          }
           setContextMenu({ type: 'folder', id: folder.id, clientX: e.clientX, clientY: e.clientY })
         }}
         data-bib-item-id={folder.id}
@@ -782,6 +791,11 @@ function PatchBank({
         onContextMenu={(e) => {
           e.preventDefault()
           e.stopPropagation()
+          const itemKey = { type: 'patch', id: patch.id }
+          const isInSelection = bibSelectedIds.some(s => s.type === 'patch' && s.id === patch.id)
+          if (!isInSelection) {
+            onSelectItems?.([itemKey], 'set')
+          }
           setContextMenu({ type: 'patch', id: patch.id, clientX: e.clientX, clientY: e.clientY })
         }}
         data-bib-item-id={patch.id}
@@ -1058,6 +1072,7 @@ function PatchBank({
         onContextMenu={(e) => {
           if (e.target.closest('[data-bib-item-id]')) return  // gère l'item lui-même
           e.preventDefault()
+          onClearSelection?.()
           setContextMenu({ type: 'empty', clientX: e.clientX, clientY: e.clientY })
         }}
       >
