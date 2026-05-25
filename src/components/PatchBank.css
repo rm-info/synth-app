@@ -466,3 +466,44 @@
 .bib-updir .folder-icon {
   font-size: 14px;
 }
+
+/* === Mode Details === */
+
+.sound-chip.is-details {
+  display: grid;
+  grid-template-columns: 12px 1fr 60px 16px auto auto;
+  gap: 6px;
+  align-items: center;
+  padding: 4px 8px;
+}
+.sound-chip.is-details .chip-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.sound-chip.is-details .chip-meta-tuning {
+  font-size: 10px;
+  color: #8a8fa8;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.sound-chip.is-details .chip-meta-color {
+  width: 12px;
+  height: 12px;
+  border-radius: 2px;
+  border: 1px solid rgba(255,255,255,0.1);
+}
+
+.folder-row.is-details {
+  display: grid;
+  grid-template-columns: 16px 16px 1fr auto auto auto;
+  gap: 6px;
+  align-items: center;
+}
+.folder-row .folder-meta-count {
+  font-size: 10px;
+  color: #8a8fa8;
+  background: rgba(255,255,255,0.06);
+  padding: 1px 6px;
+  border-radius: 8px;
+}

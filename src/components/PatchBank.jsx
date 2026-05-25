@@ -1,6 +1,20 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { ListTree, Folder, List, LayoutList, LayoutGrid } from 'lucide-react'
 import { getDescendantFolderIds } from '../reducer'
+
+function countDescendants(folderId, soundFolders, patches) {
+  const ids = new Set([folderId])
+  let changed = true
+  while (changed) {
+    changed = false
+    for (const f of soundFolders) {
+      if (f.parentId && ids.has(f.parentId) && !ids.has(f.id)) {
+        ids.add(f.id); changed = true
+      }
+    }
+  }
+  return patches.filter(p => ids.has(p.folderId)).length
+}
 import { nextAvailableFolderName } from '../lib/folderNames.js'
 import BibBreadcrumb from './BibBreadcrumb'
 import './PatchBank.css'
@@ -181,6 +195,7 @@ function PatchBank({
     const isEditing = editingId === patch.id
     const isCurrent = loadOnSingleClick && currentPatchId === patch.id
     const isDragging = dragItem?.type === 'patch' && dragItem?.id === patch.id
+    const isDetails = bibDisplayMode === 'details'
 
     const handleDelete = (e) => {
       e.stopPropagation()
@@ -209,7 +224,7 @@ function PatchBank({
     return (
       <li
         key={patch.id}
-        className={`sound-chip ${isCurrent ? 'is-current' : ''} ${isDragging ? 'is-dragging' : ''}`}
+        className={`sound-chip ${isCurrent ? 'is-current' : ''} ${isDragging ? 'is-dragging' : ''} ${isDetails ? 'is-details' : ''}`}
         style={{ '--chip-color': patch.color, marginLeft: `${depth * 16}px` }}
         draggable={!isEditing}
         onDragStart={(e) => handleDragStartInternal(e, 'patch', patch.id)}
@@ -223,6 +238,8 @@ function PatchBank({
           setContextMenu({ type: 'patch', id: patch.id, clientX: e.clientX, clientY: e.clientY })
         }}
         title={isEditing ? undefined : titleText}
+        data-bib-item-id={patch.id}
+        data-bib-item-type="patch"
       >
         <span className="chip-dot" />
         {isEditing ? (
@@ -243,6 +260,12 @@ function PatchBank({
         ) : (
           <>
             <span className="chip-name">{patch.name}</span>
+            {isDetails && (
+              <>
+                <span className="chip-meta-tuning">{patch.defaultTuningSystem ?? '—'}</span>
+                <span className="chip-meta-color" style={{ background: patch.color }} title={patch.color} />
+              </>
+            )}
             {!loadOnSingleClick && (
               <button
                 type="button"
@@ -280,11 +303,15 @@ function PatchBank({
     const { folders: childFolders, patches: childPatches } = getFolderChildren(folder.id)
     const isDropTarget = dragOverTarget === folder.id
     const isDragging = dragItem?.type === 'folder' && dragItem?.id === folder.id
+    const isDetails = bibDisplayMode === 'details'
+    const descendantCount = isDetails
+      ? countDescendants(folder.id, soundFolders, patches)
+      : null
 
     return (
       <li key={folder.id} className={`folder-item ${isDragging ? 'is-dragging' : ''}`}>
         <div
-          className={`folder-row ${isDropTarget ? 'is-drop-target' : ''}`}
+          className={`folder-row ${isDetails ? 'is-details' : ''} ${isDropTarget ? 'is-drop-target' : ''}`}
           style={{ marginLeft: `${depth * 16}px` }}
           draggable={!isEditing}
           onDragStart={(e) => handleDragStartInternal(e, 'folder', folder.id)}
@@ -313,6 +340,8 @@ function PatchBank({
             e.stopPropagation()
             setContextMenu({ type: 'folder', id: folder.id, clientX: e.clientX, clientY: e.clientY })
           }}
+          data-bib-item-id={folder.id}
+          data-bib-item-type="folder"
         >
           <span className={`folder-chevron ${isExpanded ? 'is-expanded' : ''}`}>▶</span>
           <span className="folder-icon">📁</span>
@@ -335,6 +364,9 @@ function PatchBank({
             <>
               <span className="folder-name">{folder.name}</span>
               <span className="folder-badge">{childPatches.length + childFolders.length}</span>
+              {isDetails && descendantCount !== null && (
+                <span className="folder-meta-count">{descendantCount}</span>
+              )}
               <button
                 type="button"
                 className="chip-delete"
