@@ -231,7 +231,9 @@ export function loadPersistedState() {
       bibHierarchyMode: parsed.bibHierarchyMode === 'tree' ? 'tree' : 'nav',
       bibDisplayMode: ['list', 'details', 'tiles'].includes(parsed.bibDisplayMode) ? parsed.bibDisplayMode : 'list',
       bibCurrentFolderId: typeof parsed.bibCurrentFolderId === 'string' ? parsed.bibCurrentFolderId : null,
-      bibPopupWidth: typeof parsed.bibPopupWidth === 'number' && parsed.bibPopupWidth >= 320 ? parsed.bibPopupWidth : 480,
+      bibPopupWidth: typeof parsed.bibPopupWidth === 'number'
+        ? Math.max(320, Math.min(parsed.bibPopupWidth, 1200))
+        : 480,
       activeTab: parsed.activeTab === 'composer' ? 'composer' : 'designer',
       durationMode: parsed.durationMode === 'fraction' ? 'fraction' : 'solfège',
       composerBankWidth: typeof parsed.composerBankWidth === 'number' ? parsed.composerBankWidth : null,
@@ -1440,8 +1442,7 @@ export function reducer(state, action) {
       return { ...state, bibDisplayMode: mode }
     }
     case 'SET_BIB_CURRENT_FOLDER': {
-      // Vide aussi la sélection (per spec : cleared sur change de folder)
-      return { ...state, bibCurrentFolderId: action.payload, bibSelectedIds: [], bibSelectionAnchor: null }
+      return { ...state, bibCurrentFolderId: action.payload }
     }
     case 'SET_BIB_POPUP_WIDTH': {
       const w = Math.max(320, Math.min(action.payload, 1200))
