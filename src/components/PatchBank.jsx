@@ -106,10 +106,12 @@ function PatchBank({
   bibClipboard,
   onCopy,
   onCut,
-  // eslint-disable-next-line no-unused-vars
   onClearClipboard,
   onPaste,
 }) {
+  const asideRef = useRef(null)
+  const isFocusedRef = useRef(false)
+
   const loadOnSingleClick = activeTab === 'designer'
   const [editingId, setEditingId] = useState(null)
   const [editingValue, setEditingValue] = useState('')
@@ -404,6 +406,96 @@ function PatchBank({
     // lasso lui-même pendant un drag (les deltas viennent du ref).
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [lasso === null, onClearSelection, onSelectItems])
+
+  // --- Focus tracking ---
+
+  useEffect(() => {
+    const el = asideRef.current
+    if (!el) return
+    const onFocusIn = () => { isFocusedRef.current = true }
+    const onFocusOut = (e) => {
+      if (!el.contains(e.relatedTarget)) isFocusedRef.current = false
+    }
+    el.addEventListener('focusin', onFocusIn)
+    el.addEventListener('focusout', onFocusOut)
+    return () => {
+      el.removeEventListener('focusin', onFocusIn)
+      el.removeEventListener('focusout', onFocusOut)
+    }
+  }, [])
+
+  // --- Raccourcis clavier (actifs quand le focus est dans l'aside) ---
+
+  useEffect(() => {
+    const onKey = (e) => {
+      if (!isFocusedRef.current) return
+      // Skip si typing dans un input ou contentEditable
+      if (e.target.tagName === 'INPUT' || e.target.isContentEditable) return
+
+      if ((e.ctrlKey || e.metaKey) && e.key === 'c') {
+        e.preventDefault()
+        handleCopy()
+      } else if ((e.ctrlKey || e.metaKey) && e.key === 'x') {
+        e.preventDefault()
+        handleCut()
+      } else if ((e.ctrlKey || e.metaKey) && e.key === 'v') {
+        e.preventDefault()
+        handlePaste()
+      } else if (e.key === 'F2' && bibSelectedIds.length === 1) {
+        e.preventDefault()
+        const item = bibSelectedIds[0]
+        const name = item.type === 'patch'
+          ? patches.find(p => p.id === item.id)?.name
+          : soundFolders.find(f => f.id === item.id)?.name
+        if (name) startEdit(item.id, name)
+      } else if (e.key === 'Delete') {
+        e.preventDefault()
+        handleDeleteSelected()
+      } else if (e.key === 'Escape') {
+        e.preventDefault()
+        if (bibClipboard) onClearClipboard?.()
+        else onClearSelection?.()
+      } else if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+        e.preventDefault()
+        const orderedList = getOrderedItemList({
+          hierarchyMode: bibHierarchyMode,
+          currentFolderId: bibCurrentFolderId,
+          soundFolders, patches, collapsedFolders,
+        })
+        if (orderedList.length === 0) return
+        const currentAnchor = bibSelectionAnchor ||
+          (bibSelectedIds.length > 0 ? bibSelectedIds[bibSelectedIds.length - 1] : null)
+        const currentIdx = currentAnchor
+          ? orderedList.findIndex(i => i.id === currentAnchor.id && i.type === currentAnchor.type)
+          : -1
+        const nextIdx = e.key === 'ArrowDown'
+          ? Math.min(currentIdx + 1, orderedList.length - 1)
+          : Math.max(currentIdx - 1, 0)
+        const next = orderedList[nextIdx]
+        if (e.shiftKey && currentAnchor) {
+          const range = computeRange(currentAnchor, next, orderedList)
+          onSelectItems?.(range, 'range')
+        } else {
+          onSelectItems?.([next], 'set')
+        }
+      } else if (e.key === 'Enter' && bibSelectedIds.length === 1) {
+        e.preventDefault()
+        const item = bibSelectedIds[0]
+        if (item.type === 'patch') onLoadPatch?.(item.id)
+        else if (item.type === 'folder') {
+          if (bibHierarchyMode === 'nav') onSetCurrentFolder?.(item.id)
+          else toggleFolder(item.id)
+        }
+      }
+    }
+    document.addEventListener('keydown', onKey)
+    return () => document.removeEventListener('keydown', onKey)
+  // handleCopy/handleCut/handlePaste/handleDeleteSelected sont des fonctions inline dont
+  // toutes les dépendances capturées (bibSelectedIds, contextMenu, etc.) sont déjà listées.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [bibSelectedIds, bibSelectionAnchor, bibClipboard, bibCurrentFolderId,
+      bibHierarchyMode, soundFolders, patches, collapsedFolders,
+      onSelectItems, onClearSelection, onClearClipboard, onLoadPatch, onSetCurrentFolder])
 
   // --- Build tree ---
 
@@ -861,7 +953,7 @@ function PatchBank({
 
   if (totalCount === 0 && soundFolders.length === 0) {
     return (
-      <aside className="sound-bank-panel">
+      <aside ref={asideRef} tabIndex={-1} className="sound-bank-panel">
         {renderHeader()}
         <p className="sound-bank-empty">
           Aucun patch. Dessinez-en un dans l&apos;onglet Designer.
@@ -871,7 +963,7 @@ function PatchBank({
   }
 
   return (
-    <aside className="sound-bank-panel">
+    <aside ref={asideRef} tabIndex={-1} className="sound-bank-panel">
       {renderHeader()}
       <div
         ref={bodyRef}
