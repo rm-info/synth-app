@@ -5,12 +5,12 @@ import { useMemo } from 'react'
 export default function PatchThumbnail({ points, color = '#00d4ff', width = 60, height = 30 }) {
   const pathData = useMemo(() => {
     if (!points || points.length === 0) return ''
-    const step = points.length / width
     const ymid = height / 2
+    const lastIdx = points.length - 1
+    const idxAt = (x) => Math.round((x / (width - 1)) * lastIdx)
     let d = `M 0 ${ymid - points[0] * ymid * 0.9}`
     for (let x = 1; x < width; x++) {
-      const idx = Math.min(Math.floor(x * step), points.length - 1)
-      const y = ymid - points[idx] * ymid * 0.9
+      const y = ymid - points[idxAt(x)] * ymid * 0.9
       d += ` L ${x} ${y}`
     }
     return d

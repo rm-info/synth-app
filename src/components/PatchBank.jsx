@@ -440,8 +440,13 @@ function PatchBank({
     if (isNavMode && isTiles) {
       const { folders, patches: navPatches } = getFolderChildren(bibCurrentFolderId ?? null)
       return (
-        <div className="sound-bank-tiles">
-          {bibCurrentFolderId !== null && bibCurrentFolderId !== undefined && (
+        <div
+          className="sound-bank-tiles"
+          onDragOver={handleDragOverRoot}
+          onDragLeave={handleDragLeave}
+          onDrop={handleDropOnRoot}
+        >
+          {bibCurrentFolderId !== null && (
             <div
               className="tile is-updir"
               onClick={() => {
