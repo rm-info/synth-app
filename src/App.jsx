@@ -5,6 +5,7 @@ import WaveformEditor from './components/WaveformEditor'
 import Timeline from './components/Timeline'
 import Tabs from './components/Tabs'
 import PatchBank from './components/PatchBank'
+import PatchPicker from './components/PatchPicker'
 import MiniPlayer from './components/MiniPlayer'
 import Toolbar from './components/Toolbar'
 import PropertiesPanel from './components/PropertiesPanel'
@@ -1615,6 +1616,20 @@ function App() {
     [currentPatchId, activeTab],
   )
 
+  const handleDragStartFromPicker = useCallback((e, type, id) => {
+    e.stopPropagation()
+    const dragItems = [{ type, id }]
+    e.dataTransfer.effectAllowed = 'move'
+    e.dataTransfer.setData('application/x-patchbank-drag', JSON.stringify(dragItems))
+    if (type === 'patch') {
+      e.dataTransfer.setData('text/plain', id)
+    }
+  }, [])
+
+  const handleOpenInLibrary = useCallback(({ type, id }) => {
+    dispatch({ type: 'OPEN_IN_LIBRARY', payload: { type, id } })
+  }, [])
+
   const handlePatchCreated = useCallback((newPatchId) => {
     dispatch({ type: 'SET_CURRENT_PATCH_ID', payload: newPatchId })
   }, [])
@@ -1804,36 +1819,16 @@ function App() {
                             Le bouton close est passé via headerExtra pour
                             apparaître à côté de "+ Dossier" — un seul
                             header, alignement cohérent. */}
-                        <PatchBank
+                        <PatchPicker
                           patches={patches}
                           soundFolders={soundFolders}
                           currentPatchId={currentPatchId}
+                          bibClipboard={bibClipboard}
+                          bibSelectedIds={bibSelectedIds}
                           activeTab="designer"
                           onLoadPatch={(id) => { handleLoadPatch(id); setLibraryPopoverOpen(false) }}
-                          onRenamePatch={handleRenamePatch}
-                          onDeletePatch={handleDeletePatch}
-                          onCreateFolder={handleCreateFolder}
-                          onRenameFolder={handleRenameFolder}
-                          onDeleteFolder={handleDeleteFolder}
-                          onMoveItems={onMoveBibItems}
-                          onExportFolder={handleExportFolder}
-                          onExportPatch={handleExportPatch}
-                          bibHierarchyMode={bibHierarchyMode}
-                          bibDisplayMode={bibDisplayMode}
-                          bibCurrentFolderId={bibCurrentFolderId}
-                          onSetHierarchyMode={setBibHierarchyMode}
-                          onSetDisplayMode={setBibDisplayMode}
-                          onSetCurrentFolder={setBibCurrentFolder}
-                          onNotify={notify}
-                          bibSelectedIds={bibSelectedIds}
-                          bibSelectionAnchor={bibSelectionAnchor}
-                          onSelectItems={onSelectBibItems}
-                          onClearSelection={onClearBibSelection}
-                          bibClipboard={bibClipboard}
-                          onCopy={onCopyBibItems}
-                          onCut={onCutBibItems}
-                          onClearClipboard={onClearBibClipboard}
-                          onPaste={onPasteBibClipboard}
+                          onOpenInLibrary={handleOpenInLibrary}
+                          onDragStart={handleDragStartFromPicker}
                           headerExtra={
                             <button
                               type="button"
@@ -1850,36 +1845,16 @@ function App() {
                   </>
                 ) : (
                   <>
-                    <PatchBank
+                    <PatchPicker
                       patches={patches}
                       soundFolders={soundFolders}
                       currentPatchId={currentPatchId}
+                      bibClipboard={bibClipboard}
+                      bibSelectedIds={bibSelectedIds}
                       activeTab="designer"
                       onLoadPatch={handleLoadPatch}
-                      onRenamePatch={handleRenamePatch}
-                      onDeletePatch={handleDeletePatch}
-                      onCreateFolder={handleCreateFolder}
-                      onRenameFolder={handleRenameFolder}
-                      onDeleteFolder={handleDeleteFolder}
-                      onMoveItems={onMoveBibItems}
-                      onExportFolder={handleExportFolder}
-                      onExportPatch={handleExportPatch}
-                      bibHierarchyMode={bibHierarchyMode}
-                      bibDisplayMode={bibDisplayMode}
-                      bibCurrentFolderId={bibCurrentFolderId}
-                      onSetHierarchyMode={setBibHierarchyMode}
-                      onSetDisplayMode={setBibDisplayMode}
-                      onSetCurrentFolder={setBibCurrentFolder}
-                      onNotify={notify}
-                      bibSelectedIds={bibSelectedIds}
-                      bibSelectionAnchor={bibSelectionAnchor}
-                      onSelectItems={onSelectBibItems}
-                      onClearSelection={onClearBibSelection}
-                      bibClipboard={bibClipboard}
-                      onCopy={onCopyBibItems}
-                      onCut={onCutBibItems}
-                      onClearClipboard={onClearBibClipboard}
-                      onPaste={onPasteBibClipboard}
+                      onOpenInLibrary={handleOpenInLibrary}
+                      onDragStart={handleDragStartFromPicker}
                       headerExtra={
                         <button
                           type="button"
@@ -2044,36 +2019,16 @@ function App() {
                   </>
                 ) : (
                   <>
-                    <PatchBank
+                    <PatchPicker
                       patches={patches}
                       soundFolders={soundFolders}
                       currentPatchId={currentPatchId}
-                      activeTab="composer"
-                      onLoadPatch={handleLoadPatch}
-                      onRenamePatch={handleRenamePatch}
-                      onDeletePatch={handleDeletePatch}
-                      onCreateFolder={handleCreateFolder}
-                      onRenameFolder={handleRenameFolder}
-                      onDeleteFolder={handleDeleteFolder}
-                      onMoveItems={onMoveBibItems}
-                      onExportFolder={handleExportFolder}
-                      onExportPatch={handleExportPatch}
-                      bibHierarchyMode={bibHierarchyMode}
-                      bibDisplayMode={bibDisplayMode}
-                      bibCurrentFolderId={bibCurrentFolderId}
-                      onSetHierarchyMode={setBibHierarchyMode}
-                      onSetDisplayMode={setBibDisplayMode}
-                      onSetCurrentFolder={setBibCurrentFolder}
-                      onNotify={notify}
-                      bibSelectedIds={bibSelectedIds}
-                      bibSelectionAnchor={bibSelectionAnchor}
-                      onSelectItems={onSelectBibItems}
-                      onClearSelection={onClearBibSelection}
                       bibClipboard={bibClipboard}
-                      onCopy={onCopyBibItems}
-                      onCut={onCutBibItems}
-                      onClearClipboard={onClearBibClipboard}
-                      onPaste={onPasteBibClipboard}
+                      bibSelectedIds={bibSelectedIds}
+                      activeTab="composer"
+                      onLoadPatch={undefined}
+                      onOpenInLibrary={handleOpenInLibrary}
+                      onDragStart={handleDragStartFromPicker}
                       headerExtra={
                         <button
                           type="button"
