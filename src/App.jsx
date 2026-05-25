@@ -1520,7 +1520,6 @@ function App() {
     dispatch({ type: 'SET_NOTIFICATION', payload: { message, type, timestamp: Date.now() } })
   }
 
-  // eslint-disable-next-line no-unused-vars -- conservé pour usage futur (export tout)
   const handleExportAll = () => {
     if (patches.length === 0) {
       notify('Rien à exporter', 'error')
@@ -1715,6 +1714,7 @@ function App() {
             onMoveItems={onMoveBibItems}
             onExportFolder={handleExportFolder}
             onExportPatch={handleExportPatch}
+            onExportAll={handleExportAll}
             bibHierarchyMode={bibHierarchyMode}
             bibDisplayMode={bibDisplayMode}
             bibCurrentFolderId={bibCurrentFolderId}

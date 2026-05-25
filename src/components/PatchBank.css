@@ -228,7 +228,7 @@
   display: flex;
   align-items: center;
   gap: 6px;
-  padding: 6px 8px;
+  padding: 5px 8px;
   border-radius: 6px;
   background: color-mix(in srgb, var(--chip-color) 12%, #1a1a2e);
   border: 1px solid color-mix(in srgb, var(--chip-color) 35%, transparent);
@@ -513,7 +513,7 @@
   grid-template-columns: 12px 1fr 60px 16px auto auto;
   gap: 6px;
   align-items: center;
-  padding: 4px 8px;
+  padding: 7px 8px;
 }
 .sound-chip.is-details .chip-name {
   overflow: hidden;

@@ -11,10 +11,15 @@ import PatchThumbnail from './PatchThumbnail'
 import './PatchBank.css'
 
 // Retourne la liste ordonnée des items visibles (pour le calcul de range Shift+clic).
+// Doit matcher exactement le sort de getFolderChildren pour que Shift+clic soit cohérent.
 function getOrderedItemList({ hierarchyMode, currentFolderId, soundFolders, patches, collapsedFolders }) {
   if (hierarchyMode === 'nav') {
-    const folders = soundFolders.filter(f => f.parentId === currentFolderId)
-    const folderPatches = patches.filter(p => p.folderId === currentFolderId)
+    const folders = soundFolders
+      .filter(f => f.parentId === currentFolderId)
+      .sort((a, b) => a.name.localeCompare(b.name))
+    const folderPatches = patches
+      .filter(p => p.folderId === currentFolderId)
+      .sort((a, b) => a.name.localeCompare(b.name))
     return [
       ...folders.map(f => ({ type: 'folder', id: f.id })),
       ...folderPatches.map(p => ({ type: 'patch', id: p.id })),
@@ -22,14 +27,18 @@ function getOrderedItemList({ hierarchyMode, currentFolderId, soundFolders, patc
   }
   function dfs(parentId) {
     const result = []
-    const subFolders = soundFolders.filter(f => f.parentId === parentId)
+    const subFolders = soundFolders
+      .filter(f => f.parentId === parentId)
+      .sort((a, b) => a.name.localeCompare(b.name))
     for (const folder of subFolders) {
       result.push({ type: 'folder', id: folder.id })
       if (!collapsedFolders.has(folder.id)) {
         result.push(...dfs(folder.id))
       }
     }
-    const subPatches = patches.filter(p => p.folderId === parentId)
+    const subPatches = patches
+      .filter(p => p.folderId === parentId)
+      .sort((a, b) => a.name.localeCompare(b.name))
     for (const patch of subPatches) {
       result.push({ type: 'patch', id: patch.id })
     }
@@ -94,6 +103,7 @@ function PatchBank({
   onMoveItems,
   onExportFolder,
   onExportPatch,
+  onExportAll,
   headerExtra,
   bibHierarchyMode,
   bibDisplayMode,
@@ -158,9 +168,26 @@ function PatchBank({
     if (items.length === 0) return
     onCut?.(items)
   }
-  const handlePaste = (targetFolderId = bibCurrentFolderId ?? null) => {
+  const handlePaste = (targetFolderId = undefined) => {
     if (!bibClipboard) return
-    onPaste?.(targetFolderId)
+    let target = targetFolderId
+    if (target === undefined) {
+      if (bibHierarchyMode === 'nav') {
+        target = bibCurrentFolderId ?? null
+      } else {
+        // Tree mode : utilise la sélection si exactement 1 folder
+        if (bibSelectedIds.length === 1 && bibSelectedIds[0].type === 'folder') {
+          target = bibSelectedIds[0].id
+        } else if (bibSelectedIds.length === 1 && bibSelectedIds[0].type === 'patch') {
+          // patch sélectionné → coller dans son parent
+          const patch = patches.find(p => p.id === bibSelectedIds[0].id)
+          target = patch?.folderId ?? null
+        } else {
+          target = null  // root
+        }
+      }
+    }
+    onPaste?.(target)
   }
 
   const handleDeleteSelected = () => {
@@ -357,7 +384,7 @@ function PatchBank({
         return next
       })
     }
-    const onUp = () => {
+    const onUp = (e) => {
       const current = lassoRef.current
       if (!current) { setLasso(null); return }
       if (Math.abs(current.x1 - current.x0) < 3 && Math.abs(current.y1 - current.y0) < 3) {
@@ -394,7 +421,9 @@ function PatchBank({
           })
         }
       }
-      onSelectItems?.(selected, 'set')
+      // Respecter les modifiers pour étendre la sélection existante
+      const mode = (e.ctrlKey || e.metaKey || e.shiftKey) ? 'add' : 'set'
+      onSelectItems?.(selected, mode)
       lassoRef.current = null
       setLasso(null)
     }
@@ -826,10 +855,6 @@ function PatchBank({
           {bibCurrentFolderId !== null && (
             <div
               className="tile is-updir"
-              onClick={() => {
-                const cur = soundFolders.find(f => f.id === bibCurrentFolderId)
-                onSetCurrentFolder(cur ? cur.parentId : null)
-              }}
               onDoubleClick={() => {
                 const cur = soundFolders.find(f => f.id === bibCurrentFolderId)
                 onSetCurrentFolder(cur ? cur.parentId : null)
@@ -868,10 +893,6 @@ function PatchBank({
           {bibCurrentFolderId !== null && (
             <li
               className="bib-updir"
-              onClick={() => {
-                const cur = soundFolders.find(f => f.id === bibCurrentFolderId)
-                onSetCurrentFolder?.(cur ? cur.parentId : null)
-              }}
               onDoubleClick={() => {
                 const cur = soundFolders.find(f => f.id === bibCurrentFolderId)
                 onSetCurrentFolder?.(cur ? cur.parentId : null)
@@ -1039,33 +1060,43 @@ function PatchBank({
           <button
             type="button"
             className="bib-action-btn"
-            title="Exporter (sélection unique)"
-            disabled={bibSelectedIds.length !== 1}
+            title="Exporter (dossier courant si rien sélectionné)"
+            disabled={bibSelectedIds.length > 1}
             onClick={() => {
-              const item = bibSelectedIds[0]
-              if (!item) return
-              if (item.type === 'patch') onExportPatch?.(item.id)
-              else onExportFolder?.(item.id)
+              if (bibSelectedIds.length === 1) {
+                const item = bibSelectedIds[0]
+                if (item.type === 'patch') onExportPatch?.(item.id)
+                else onExportFolder?.(item.id)
+              } else if (bibSelectedIds.length === 0) {
+                // Fallback : dossier courant en nav, sinon all
+                if (bibHierarchyMode === 'nav' && bibCurrentFolderId) {
+                  onExportFolder?.(bibCurrentFolderId)
+                } else {
+                  onExportAll?.()
+                }
+              }
             }}
           ><Download size={14} /></button>
         </div>
-      )}
-      {bibHierarchyMode === 'nav' && (
-        <BibBreadcrumb
-          currentFolderId={bibCurrentFolderId ?? null}
-          soundFolders={soundFolders}
-          onNavigate={(folderId) => onSetCurrentFolder?.(folderId)}
-          onNotify={onNotify}
-        />
       )}
       {headerExtra && <div className="sound-bank-header-toggle">{headerExtra}</div>}
     </header>
   )
 
+  const renderBreadcrumb = () => bibHierarchyMode === 'nav' ? (
+    <BibBreadcrumb
+      currentFolderId={bibCurrentFolderId ?? null}
+      soundFolders={soundFolders}
+      onNavigate={(folderId) => onSetCurrentFolder?.(folderId)}
+      onNotify={onNotify}
+    />
+  ) : null
+
   if (totalCount === 0 && soundFolders.length === 0) {
     return (
       <aside ref={asideRef} tabIndex={-1} className="sound-bank-panel">
         {renderHeader()}
+        {renderBreadcrumb()}
         <p className="sound-bank-empty">
           Aucun patch. Dessinez-en un dans l&apos;onglet Designer.
         </p>
@@ -1076,6 +1107,7 @@ function PatchBank({
   return (
     <aside ref={asideRef} tabIndex={-1} className="sound-bank-panel">
       {renderHeader()}
+      {renderBreadcrumb()}
       <div
         ref={bodyRef}
         className="sound-bank-body"
@@ -1132,6 +1164,7 @@ function PatchBank({
           const ids = new Set([id, ...desc])
           return patches.some(p => ids.has(p.folderId))
         }}
+        selectionSize={bibSelectedIds.length}
       />
     </aside>
   )

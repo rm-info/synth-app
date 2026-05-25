@@ -6,6 +6,7 @@ export default function BibContextMenu({
   onExportFolder, onExportPatch, onNewFolder,
   clipboardHasItems,
   folderHasAnyPatch,
+  selectionSize = 1,
 }) {
   useEffect(() => {
     const onKey = (e) => {
@@ -35,7 +36,11 @@ export default function BibContextMenu({
       >
         {isItem && (
           <>
-            <button className="bib-ctx-item" onClick={() => { onRename(menu.id, menu.type); onClose() }}>
+            <button
+              className="bib-ctx-item"
+              disabled={selectionSize !== 1}
+              onClick={() => { onRename(menu.id, menu.type); onClose() }}
+            >
               Renommer <span className="shortcut">F2</span>
             </button>
             <div className="bib-ctx-sep" />
@@ -59,13 +64,17 @@ export default function BibContextMenu({
               <button
                 className="bib-ctx-item"
                 onClick={() => { onExportFolder(menu.id); onClose() }}
-                disabled={!folderHasAnyPatch(menu.id)}
+                disabled={selectionSize !== 1 || !folderHasAnyPatch(menu.id)}
               >
                 Exporter ce dossier
               </button>
             )}
             {isPatch && (
-              <button className="bib-ctx-item" onClick={() => { onExportPatch(menu.id); onClose() }}>
+              <button
+                className="bib-ctx-item"
+                disabled={selectionSize !== 1}
+                onClick={() => { onExportPatch(menu.id); onClose() }}
+              >
                 Exporter ce patch
               </button>
             )}
