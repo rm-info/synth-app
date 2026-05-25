@@ -410,6 +410,7 @@ export function buildInitialState() {
     history: {
       designer: { past: [], future: [] },
       composer: { past: [], future: [] },
+      library: { past: [], future: [] },
     },
     notification: null,
   }
@@ -1638,15 +1639,24 @@ const COMPOSER_UNDOABLE = new Set([
 ])
 
 const DESIGNER_UNDOABLE = new Set([
-  'SAVE_PATCH', 'UPDATE_PATCH', 'DELETE_PATCH', 'RENAME_PATCH',
-  'CREATE_FOLDER', 'RENAME_FOLDER', 'DELETE_FOLDER',
-  'MOVE_PATCH_TO_FOLDER', 'MOVE_FOLDER',
+  'UPDATE_PATCH',
   'SET_EDITOR_POINTS', 'SET_EDITOR_AMPLITUDE',
   'SET_EDITOR_ADSR', 'SET_EDITOR_ADSR_AND_AMP', 'APPLY_EDITOR_PRESET', 'RESET_EDITOR',
   'SET_EDITOR_VISUAL_CUE_PATTERN', 'SET_EDITOR_VISUAL_CUE_TONIC',
-  'IMPORT_LIBRARY',
-  'PASTE_BIB_CLIPBOARD',
+])
+
+const LIBRARY_FIELDS = ['patches', 'soundFolders', 'patchCounter', 'folderCounter']
+
+const LIBRARY_UNDOABLE = new Set([
+  'CREATE_FOLDER',
+  'RENAME_FOLDER',
+  'DELETE_FOLDER',
+  'RENAME_PATCH',
+  'DELETE_PATCH',
+  'DELETE_BIB_ITEMS',
   'MOVE_BIB_ITEMS',
+  'PASTE_BIB_CLIPBOARD',
+  'IMPORT_LIBRARY',
 ])
 
 const COMPOSER_FIELDS = ['clips', 'numMeasures', 'bpm', 'a4Ref', 'xEdoN', 'selectedClipIds', 'tracks']
@@ -1884,13 +1894,43 @@ function applyUndoAware(baseReducer, state, action) {
         },
       }
     }
+    if (action.type === 'UNDO_LIBRARY') {
+      const { past, future } = state.history.library
+      if (past.length === 0) return state
+      const previous = past[past.length - 1]
+      const current = pickFields(state, LIBRARY_FIELDS)
+      return {
+        ...state,
+        ...previous,
+        history: {
+          ...state.history,
+          library: { past: past.slice(0, -1), future: [current, ...future] },
+        },
+      }
+    }
+    if (action.type === 'REDO_LIBRARY') {
+      const { past, future } = state.history.library
+      if (future.length === 0) return state
+      const next = future[0]
+      const current = pickFields(state, LIBRARY_FIELDS)
+      return {
+        ...state,
+        ...next,
+        history: {
+          ...state.history,
+          library: { past: [...past, current], future: future.slice(1) },
+        },
+      }
+    }
 
     const newState = baseReducer(state, action)
     if (newState === state) return newState
 
-    const isComposer = COMPOSER_UNDOABLE.has(action.type)
-    const isDesigner = DESIGNER_UNDOABLE.has(action.type)
-    if (isComposer || isDesigner) {
+    const skipUndo = action.meta?.skipUndo === true
+    const isComposer = !skipUndo && COMPOSER_UNDOABLE.has(action.type)
+    const isDesigner = !skipUndo && DESIGNER_UNDOABLE.has(action.type)
+    const isLibrary = !skipUndo && LIBRARY_UNDOABLE.has(action.type)
+    if (isComposer || isDesigner || isLibrary) {
       let hist = newState.history
       if (isComposer) {
         const snap = pickFields(state, COMPOSER_FIELDS)
@@ -1908,6 +1948,16 @@ function applyUndoAware(baseReducer, state, action) {
           ...hist,
           designer: {
             past: [...hist.designer.past, snap].slice(-HISTORY_DEPTH),
+            future: [],
+          },
+        }
+      }
+      if (isLibrary) {
+        const snap = pickFields(state, LIBRARY_FIELDS)
+        hist = {
+          ...hist,
+          library: {
+            past: [...hist.library.past, snap].slice(-HISTORY_DEPTH),
             future: [],
           },
         }
