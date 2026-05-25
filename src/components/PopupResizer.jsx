@@ -14,6 +14,7 @@ export default function PopupResizer({ currentWidth, onResize }) {
     startXRef.current = e.clientX
     startWidthRef.current = currentWidth
     document.body.style.cursor = 'ew-resize'
+    document.body.style.userSelect = 'none'
   }
 
   useEffect(() => {
@@ -29,6 +30,7 @@ export default function PopupResizer({ currentWidth, onResize }) {
       if (draggingRef.current) {
         draggingRef.current = false
         document.body.style.cursor = ''
+        document.body.style.userSelect = ''
       }
     }
     document.addEventListener('mousemove', onMouseMove)
