@@ -1455,12 +1455,8 @@ function App() {
     dispatch({ type: 'DELETE_FOLDER', payload: { folderId } })
   }, [clips, patches, soundFolders, activeTab])
 
-  const handleMovePatchToFolder = useCallback((patchId, folderId) => {
-    dispatch({ type: 'MOVE_PATCH_TO_FOLDER', payload: { patchId, folderId } })
-  }, [])
-
-  const handleMoveFolder = useCallback((folderId, parentId) => {
-    dispatch({ type: 'MOVE_FOLDER', payload: { folderId, parentId } })
+  const onMoveBibItems = useCallback((items, targetFolderId) => {
+    dispatch({ type: 'MOVE_BIB_ITEMS', payload: { items, targetFolderId } })
   }, [])
 
   const notify = (message, type = 'info') => {
@@ -1721,8 +1717,7 @@ function App() {
                           onCreateFolder={handleCreateFolder}
                           onRenameFolder={handleRenameFolder}
                           onDeleteFolder={handleDeleteFolder}
-                          onMovePatchToFolder={handleMovePatchToFolder}
-                          onMoveFolder={handleMoveFolder}
+                          onMoveItems={onMoveBibItems}
                           onExportFolder={handleExportFolder}
                           onExportPatch={handleExportPatch}
                           bibHierarchyMode={bibHierarchyMode}
@@ -1767,8 +1762,7 @@ function App() {
                       onCreateFolder={handleCreateFolder}
                       onRenameFolder={handleRenameFolder}
                       onDeleteFolder={handleDeleteFolder}
-                      onMovePatchToFolder={handleMovePatchToFolder}
-                      onMoveFolder={handleMoveFolder}
+                      onMoveItems={onMoveBibItems}
                       onExportFolder={handleExportFolder}
                       onExportPatch={handleExportPatch}
                       bibHierarchyMode={bibHierarchyMode}
@@ -1962,8 +1956,7 @@ function App() {
                       onCreateFolder={handleCreateFolder}
                       onRenameFolder={handleRenameFolder}
                       onDeleteFolder={handleDeleteFolder}
-                      onMovePatchToFolder={handleMovePatchToFolder}
-                      onMoveFolder={handleMoveFolder}
+                      onMoveItems={onMoveBibItems}
                       onExportFolder={handleExportFolder}
                       onExportPatch={handleExportPatch}
                       bibHierarchyMode={bibHierarchyMode}

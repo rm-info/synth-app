@@ -87,8 +87,7 @@ function PatchBank({
   onCreateFolder,
   onRenameFolder,
   onDeleteFolder,
-  onMovePatchToFolder,
-  onMoveFolder,
+  onMoveItems,
   onExportFolder,
   onExportPatch,
   headerExtra,
@@ -220,22 +219,38 @@ function PatchBank({
 
   const handleDragStartInternal = useCallback((e, type, id) => {
     e.stopPropagation()
-    setDragItem({ type, id })
-    dragRef.current = { type, id }
-    e.dataTransfer.effectAllowed = type === 'patch' ? 'copyMove' : 'move'
-    e.dataTransfer.setData('application/x-patchbank-drag', JSON.stringify({ type, id }))
-    if (type === 'patch') {
+    const itemKey = { type, id }
+    const isSelected = bibSelectedIds.some(s => s.id === id && s.type === type)
+    // Si l'item draggé est déjà dans la sélection (avec >1 items), drag la sélection entière.
+    // Sinon, drag UNIQUEMENT cet item ET set la sélection à cet item.
+    let dragItems
+    if (isSelected && bibSelectedIds.length > 1) {
+      dragItems = filterOutDescendants(bibSelectedIds, soundFolders, patches)
+    } else {
+      dragItems = [itemKey]
+      if (!isSelected) {
+        onSelectItems?.([itemKey], 'set')
+      }
+    }
+    setDragItem({ type, id, count: dragItems.length })
+    dragRef.current = dragItems
+    e.dataTransfer.effectAllowed = 'move'
+    e.dataTransfer.setData('application/x-patchbank-drag', JSON.stringify(dragItems))
+    if (type === 'patch' && dragItems.length === 1) {
       e.dataTransfer.setData('text/plain', id)
     }
-  }, [])
+  }, [bibSelectedIds, soundFolders, patches, onSelectItems])
 
   const handleDragOverFolder = useCallback((e, folderId) => {
     const data = dragRef.current
-    if (!data) return
-    if (data.type === 'folder' && data.id === folderId) return
-    if (data.type === 'folder') {
-      const descendants = getDescendantFolderIds(data.id, soundFolders)
-      if (descendants.includes(folderId)) return
+    if (!data || data.length === 0) return
+    // Pour chaque folder draggé, check cycle
+    for (const item of data) {
+      if (item.type === 'folder') {
+        if (item.id === folderId) return  // drop sur soi-même
+        const descendants = getDescendantFolderIds(item.id, soundFolders)
+        if (descendants.includes(folderId)) return  // target dans le sous-arbre
+      }
     }
     e.preventDefault()
     e.stopPropagation()
@@ -243,7 +258,7 @@ function PatchBank({
   }, [soundFolders])
 
   const handleDragOverRoot = useCallback((e) => {
-    if (!dragRef.current) return
+    if (!dragRef.current || dragRef.current.length === 0) return
     e.preventDefault()
     e.stopPropagation()
     setDragOverTarget('root')
@@ -259,31 +274,24 @@ function PatchBank({
     e.preventDefault()
     e.stopPropagation()
     const data = dragRef.current
-    if (!data) return
-    if (data.type === 'patch') {
-      onMovePatchToFolder(data.id, folderId)
-    } else if (data.type === 'folder') {
-      onMoveFolder(data.id, folderId)
-    }
-    setDragItem(null)
+    if (!data || data.length === 0) return
     setDragOverTarget(null)
+    setDragItem(null)
     dragRef.current = null
-  }, [onMovePatchToFolder, onMoveFolder])
+    // L'anti-cycle est géré côté handleDragOverFolder (le highlight est bloqué si cycle).
+    onMoveItems?.(data, folderId)
+  }, [onMoveItems])
 
   const handleDropOnRoot = useCallback((e) => {
     e.preventDefault()
     e.stopPropagation()
     const data = dragRef.current
-    if (!data) return
-    if (data.type === 'patch') {
-      onMovePatchToFolder(data.id, null)
-    } else if (data.type === 'folder') {
-      onMoveFolder(data.id, null)
-    }
-    setDragItem(null)
+    if (!data || data.length === 0) return
     setDragOverTarget(null)
+    setDragItem(null)
     dragRef.current = null
-  }, [onMovePatchToFolder, onMoveFolder])
+    onMoveItems?.(data, null)
+  }, [onMoveItems])
 
   const handleDragEnd = useCallback(() => {
     setDragItem(null)
@@ -691,7 +699,17 @@ function PatchBank({
                 const cur = soundFolders.find(f => f.id === bibCurrentFolderId)
                 onSetCurrentFolder(cur ? cur.parentId : null)
               }}
-              onDragOver={(e) => { e.preventDefault() }}
+              onDragOver={(e) => {
+                if (dragRef.current) {
+                  e.preventDefault()
+                  e.stopPropagation()
+                }
+              }}
+              onDrop={(e) => {
+                const cur = soundFolders.find(f => f.id === bibCurrentFolderId)
+                const parentId = cur ? (cur.parentId ?? null) : null
+                handleDropOnFolder(e, parentId)
+              }}
               title="Remonter"
             >
               <div className="tile-preview folder-preview">📁</div>
@@ -723,7 +741,17 @@ function PatchBank({
                 const cur = soundFolders.find(f => f.id === bibCurrentFolderId)
                 onSetCurrentFolder?.(cur ? cur.parentId : null)
               }}
-              onDragOver={(e) => { e.preventDefault() }}
+              onDragOver={(e) => {
+                if (dragRef.current) {
+                  e.preventDefault()
+                  e.stopPropagation()
+                }
+              }}
+              onDrop={(e) => {
+                const cur = soundFolders.find(f => f.id === bibCurrentFolderId)
+                const parentId = cur ? (cur.parentId ?? null) : null
+                handleDropOnFolder(e, parentId)
+              }}
               title="Remonter au dossier parent"
             >
               <span className="folder-icon">📁</span>
