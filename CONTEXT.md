@@ -317,6 +317,21 @@ partagé entre instances Designer et Composer (un seul jeu de
 préférences globales). Default Navigation mode au load (vs Tree
 historique).
 
+**Itération K phase 2 (Bibliothèque dédiée + 3 sous-apps)** **clôturée le 2026-05-25**.
+Restructuration en 3 sous-applications autonomes (Bibliothèque, Designer,
+Composer) avec piles undo séparées routées par activeTab. Ajout d'un
+3e onglet "Bibliothèque" en premier dans le header, qui héberge le full
+PatchBank avec toolbar d'actions icônes. Les sidebars Designer/Composer
+sont downgrade en `PatchPicker` lightweight (Tree+List, click=load,
+drag-out, menu "Ouvrir dans Bibliothèque"). Popup `SavePatchDialog`
+remplace l'auto-save : breadcrumb+dropdown picker, bouton "Nouveau
+dossier" inline non-undoable. `DELETE_BIB_ITEMS` batch atomique (1 undo
+= 1 batch) + `DeleteUsageWarningDialog` modal pour patches utilisés en
+Composer (lien "Voir dans le Composer" sélectionne les clips concernés).
+Clipboard cut→copy après premier paste (multi-paste). `OPEN_IN_LIBRARY`
+action atomique. SAVE_PATCH non-undoable. skipUndo flag dans
+action.meta pour les opérations non-undoable contextuelles.
+
 **Release v1.2.0** (2026-05-21) — Mode mobile complet + suppression
 de ResolutionGate. En dessous de 924 × 668 px : (1) la sidebar Designer
 est forcée en mode réduit (preference utilisateur préservée en state) ;
@@ -418,7 +433,10 @@ synth-app/
         ├── BibBreadcrumb.jsx + .css           # breadcrumb cliquable + éditable (K.1.2)
         ├── BibContextMenu.jsx                 # menu contextuel enrichi (K.1.10)
         ├── PatchThumbnail.jsx                 # mini-SVG waveform pour Tiles (K.1.4)
-        └── PopupResizer.jsx + .css            # poignée resize du popup (K.1.12)
+        ├── PopupResizer.jsx + .css            # poignée resize du popup (K.1.12)
+        ├── PatchPicker.jsx + .css            # sidebar lightweight (K.2.6)
+        ├── SavePatchDialog.jsx + .css        # modal popup save patch (K.2.7)
+        └── DeleteUsageWarningDialog.jsx + .css # modal warning patches utilisés (K.2.8)
 ```
 
 ### Layout
@@ -1119,6 +1137,49 @@ Choix non évidents pris pour de bonnes raisons. À ne pas remettre en question
   Convention : un sous-élément qui dépasse ~80 lignes mérite son
   fichier.
 
+- **3 sous-applications autonomes** (Bibliothèque, Designer, Composer)
+  avec piles undo séparées (`history.library`, `history.designer`,
+  `history.composer`). Chaque onglet a son cycle de vie, son raccourci
+  Ctrl+Z. Co-dépendances : delete patch utilisé bloqué avec modal +
+  lien Composer ; suppression du currentPatch vide le Designer.
+
+- **Routing Ctrl+Z par activeTab** (`UNDO_LIBRARY` si `activeTab ===
+  'library'`, etc.). Trivial et prédictible. Remplace le focus tracking
+  introduit en phase 1 Task 11. Le keydown PatchBank ne traite plus
+  Ctrl+Z (délégué à App.jsx).
+
+- **`SAVE_PATCH` non-undoable** — action explicite via `SavePatchDialog`
+  popup (location + nom validés par l'utilisateur). Suppression manuelle
+  assumée. Évite le cross-cut entre piles Designer et Library.
+
+- **Clipboard cut→copy après premier paste** — `bibClipboard.mode`
+  bascule de `'cut'` à `'copy'` au premier paste. Items préservés pour
+  multi-paste. Ghost `is-cut` disparaît naturellement.
+
+- **`DELETE_BIB_ITEMS` batch atomique undoable** — multi-delete = 1
+  action = 1 entrée undo. Détecte les patches utilisés en Composer,
+  supprime les libres, retourne `pendingDeleteWarning` pour modal récap.
+
+- **`skipUndo` flag dans `action.meta`** — extension générique pour
+  bypasser le snapshot undo sur certaines actions contextuelles
+  (ex : `CREATE_FOLDER` depuis le popup Save). Pattern réutilisable.
+
+- **Sidebar Designer/Composer = `PatchPicker` lightweight** — composant
+  ~155 lignes (Tree+List forcé, click=load Designer / drag-out Composer,
+  aucune manipulation directe). Menu contextuel unique : "Ouvrir dans
+  Bibliothèque" (dispatch `OPEN_IN_LIBRARY`). Réduit la complexité
+  runtime des sidebars et clarifie le paradigme.
+
+- **Onglet Bibliothèque en premier dans l'ordre visuel du header** —
+  Bibliothèque, Designer, Composer. Cohérent avec flow logique
+  ressources → édition → composition. `activeTab` default reste
+  `'designer'` au premier load.
+
+- **Right-click sur item non sélectionné met à jour la sélection** à cet
+  item avant d'ouvrir le menu. Invariant garanti : "menu = sélection
+  courante". Simplifie `handleCopy/Cut/Delete` (plus de fallback
+  `contextMenu.id` ajouté en phase 1).
+
 ## Contraintes implicites
 
 Conventions tacites. Les enfreindre sans raison crée des bugs subtils.
@@ -1421,6 +1482,11 @@ Phases listées ci-dessous dans l'ordre chronologique d'implémentation.
 ## État actuel
 
 ✅ **Terminé**
+- Bibliothèque dédiée + 3 sous-apps autonomes (itér K phase 2) : onglet
+  Bibliothèque dédié avec full PatchBank + toolbar d'actions icônes,
+  sidebars en PatchPicker simplifié, popup SavePatchDialog avec folder
+  picker, modal DeleteUsageWarningDialog, piles undo séparées routées
+  par activeTab, clipboard multi-paste, batch delete atomique.
 - Bibliothèque multi-mode style file explorer (itér K phase 1) :
   5 combinaisons Tree/Nav × List/Details/Tiles, breadcrumb, multi-
   sélection (Ctrl/Shift/lasso), clipboard Copier/Couper/Coller avec
@@ -1967,6 +2033,30 @@ Phases listées ci-dessous dans l'ordre chronologique d'implémentation.
   prochaine candidate).
 
 ## Historique (chronologie inverse)
+
+- **2026-05-25 — Itération K phase 2 : Bibliothèque dédiée + 3 sous-apps autonomes**
+  Restructure de l'app en 3 sous-applications avec piles undo séparées.
+  Onglet Bibliothèque dédié (en premier dans le header) hébergeant le
+  full PatchBank avec toolbar d'actions icônes. Sidebars downgrade en
+  PatchPicker simplifié. Popup SavePatchDialog avec folder picker
+  breadcrumb+dropdown + "Nouveau dossier" inline non-undoable.
+  DELETE_BIB_ITEMS batch + DeleteUsageWarningDialog modal pour patches
+  utilisés en Composer. Clipboard cut→copy multi-paste.
+
+  **Décisions UX clés** :
+  - Routing Ctrl+Z par activeTab (trivial, remplace le focus tracking
+    phase 1).
+  - SAVE_PATCH non-undoable (popup explicite = commit).
+  - Sidebars = pickers, pas éditeurs.
+  - Right-click invariant : menu = sélection courante.
+
+  Spec + plan archivés : `docs/superpowers/specs/2026-05-25-bibliotheque-multi-mode-phase-2.md`,
+  `docs/superpowers/plans/2026-05-25-bibliotheque-multi-mode-phase-2.md`.
+
+  Tests manuels (26 scénarios listés dans la spec §10) attendus de
+  l'utilisateur : 3 piles undo séparées, save patch popup, clipboard
+  multi-paste, multi-delete avec warning Composer, right-click semantics,
+  sidebar PatchPicker, onglet Bibliothèque dédié, co-dépendances cross-tabs.
 
 - **2026-05-25 — Itération K phase 1 : Bibliothèque multi-mode**
   Refonte de `PatchBank` en bibliothèque type file explorer.
@@ -4169,6 +4259,19 @@ clavier 22 cases, octave selector, boutons save, message slot).
   F2, Suppr, ↑↓, Enter, Esc), PopupResizer pour le popup sidebar
   collapsed.
   Spec + plan dans `docs/superpowers/{specs,plans}/2026-05-25-bibliotheque-multi-mode*.md`.
+
+### Itération K phase 2 (Bibliothèque dédiée + 3 sous-apps) — clôturée 2026-05-25
+
+- ✅ **Phase 2** (2026-05-25) — Restructure en 3 sous-applications
+  autonomes. Sous-commits 2.1-2.14 : reducer foundation (LIBRARY_UNDOABLE
+  + skipUndo + migration actions), SAVE_PATCH avec folderId, PASTE
+  cut→copy, DELETE_BIB_ITEMS batch + pendingDeleteWarning,
+  OPEN_IN_LIBRARY + GO_TO_COMPOSER_WITH_CLIPS, PatchPicker composant,
+  SavePatchDialog, DeleteUsageWarningDialog, WaveformEditor delegate
+  popup, App.jsx 3 onglets + routing Ctrl+Z + popup mounts + library
+  tab, PatchBank toolbar d'actions, right-click sync + retrait Ctrl+Z
+  keydown, sidebars → PatchPicker, CONTEXT.md.
+  Spec + plan dans `docs/superpowers/{specs,plans}/2026-05-25-bibliotheque-multi-mode-phase-2.md`.
 
 ### Backlog général (à caser quand pertinent)
 
