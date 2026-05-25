@@ -660,15 +660,12 @@ function App() {
     dispatch({ type: 'SET_SPECTROGRAM_MODE', payload: mode })
   }, [])
 
-  // eslint-disable-next-line no-unused-vars
   const setBibHierarchyMode = useCallback((mode) => {
     dispatch({ type: 'SET_BIB_HIERARCHY_MODE', payload: mode })
   }, [])
-  // eslint-disable-next-line no-unused-vars
   const setBibDisplayMode = useCallback((mode) => {
     dispatch({ type: 'SET_BIB_DISPLAY_MODE', payload: mode })
   }, [])
-  // eslint-disable-next-line no-unused-vars
   const setBibCurrentFolder = useCallback((folderId) => {
     dispatch({ type: 'SET_BIB_CURRENT_FOLDER', payload: folderId })
   }, [])
@@ -1707,6 +1704,13 @@ function App() {
                           onMoveFolder={handleMoveFolder}
                           onExportFolder={handleExportFolder}
                           onExportPatch={handleExportPatch}
+                          bibHierarchyMode={bibHierarchyMode}
+                          bibDisplayMode={bibDisplayMode}
+                          bibCurrentFolderId={bibCurrentFolderId}
+                          onSetHierarchyMode={setBibHierarchyMode}
+                          onSetDisplayMode={setBibDisplayMode}
+                          onSetCurrentFolder={setBibCurrentFolder}
+                          onNotify={(message, type) => dispatch({ type: 'SET_NOTIFICATION', payload: { message, type, timestamp: Date.now() } })}
                           headerExtra={
                             <button
                               type="button"
@@ -1737,6 +1741,13 @@ function App() {
                       onMoveFolder={handleMoveFolder}
                       onExportFolder={handleExportFolder}
                       onExportPatch={handleExportPatch}
+                      bibHierarchyMode={bibHierarchyMode}
+                      bibDisplayMode={bibDisplayMode}
+                      bibCurrentFolderId={bibCurrentFolderId}
+                      onSetHierarchyMode={setBibHierarchyMode}
+                      onSetDisplayMode={setBibDisplayMode}
+                      onSetCurrentFolder={setBibCurrentFolder}
+                      onNotify={(message, type) => dispatch({ type: 'SET_NOTIFICATION', payload: { message, type, timestamp: Date.now() } })}
                       headerExtra={
                         <button
                           type="button"
@@ -1916,6 +1927,13 @@ function App() {
                       onMoveFolder={handleMoveFolder}
                       onExportFolder={handleExportFolder}
                       onExportPatch={handleExportPatch}
+                      bibHierarchyMode={bibHierarchyMode}
+                      bibDisplayMode={bibDisplayMode}
+                      bibCurrentFolderId={bibCurrentFolderId}
+                      onSetHierarchyMode={setBibHierarchyMode}
+                      onSetDisplayMode={setBibDisplayMode}
+                      onSetCurrentFolder={setBibCurrentFolder}
+                      onNotify={(message, type) => dispatch({ type: 'SET_NOTIFICATION', payload: { message, type, timestamp: Date.now() } })}
                       headerExtra={
                         <button
                           type="button"

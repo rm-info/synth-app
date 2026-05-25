@@ -1,6 +1,8 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
+import { ListTree, Folder, List, LayoutList, LayoutGrid } from 'lucide-react'
 import { getDescendantFolderIds } from '../reducer'
 import { nextAvailableFolderName } from '../lib/folderNames.js'
+import BibBreadcrumb from './BibBreadcrumb'
 import './PatchBank.css'
 
 function PatchBank({
@@ -19,6 +21,13 @@ function PatchBank({
   onExportFolder,
   onExportPatch,
   headerExtra,
+  bibHierarchyMode,
+  bibDisplayMode,
+  bibCurrentFolderId,
+  onSetHierarchyMode,
+  onSetDisplayMode,
+  onSetCurrentFolder,
+  onNotify,
 }) {
   const loadOnSingleClick = activeTab === 'designer'
   const [editingId, setEditingId] = useState(null)
@@ -155,13 +164,6 @@ function PatchBank({
 
   // --- Build tree ---
 
-  const rootFolders = soundFolders
-    .filter((f) => f.parentId === null)
-    .sort((a, b) => a.name.localeCompare(b.name))
-  const rootPatches = patches
-    .filter((p) => !p.folderId)
-    .sort((a, b) => a.name.localeCompare(b.name))
-
   const getFolderChildren = (parentId) => {
     const folders = soundFolders
       .filter((f) => f.parentId === parentId)
@@ -171,6 +173,8 @@ function PatchBank({
       .sort((a, b) => a.name.localeCompare(b.name))
     return { folders, patches: childPatches }
   }
+
+  const isNavMode = bibHierarchyMode === 'nav'
 
   const renderPatchChip = (patch, depth) => {
     const isEditing = editingId === patch.id
@@ -269,7 +273,8 @@ function PatchBank({
   }
 
   const renderFolder = (folder, depth) => {
-    const isExpanded = !collapsedFolders.has(folder.id)
+    // En nav mode, le chevron/expand n'est pas utilisé (on entre via double-clic)
+    const isExpanded = !isNavMode && !collapsedFolders.has(folder.id)
     const isEditing = editingId === folder.id
     const { folders: childFolders, patches: childPatches } = getFolderChildren(folder.id)
     const isDropTarget = dragOverTarget === folder.id
@@ -286,8 +291,22 @@ function PatchBank({
           onDragOver={(e) => handleDragOverFolder(e, folder.id)}
           onDragLeave={handleDragLeave}
           onDrop={(e) => handleDropOnFolder(e, folder.id)}
-          onClick={() => { if (!isEditing) toggleFolder(folder.id) }}
-          onDoubleClick={(e) => { e.stopPropagation(); if (!isEditing) startEdit(folder.id, folder.name) }}
+          onClick={() => {
+            if (isEditing) return
+            if (!isNavMode) toggleFolder(folder.id)
+            // nav mode : single click = noop (sélection en Task 5)
+          }}
+          onDoubleClick={(e) => {
+            e.stopPropagation()
+            if (isEditing) return
+            if (isNavMode) {
+              // Nav mode : double-clic entre dans le dossier
+              onSetCurrentFolder?.(folder.id)
+            } else {
+              // Tree mode : double-clic renomme (comportement existant)
+              startEdit(folder.id, folder.name)
+            }
+          }}
           onContextMenu={(e) => {
             e.preventDefault()
             e.stopPropagation()
@@ -329,7 +348,8 @@ function PatchBank({
             </>
           )}
         </div>
-        {isExpanded && (childFolders.length > 0 || childPatches.length > 0) && (
+        {/* En tree mode uniquement, render des enfants si expanded */}
+        {!isNavMode && isExpanded && (childFolders.length > 0 || childPatches.length > 0) && (
           <ul className="folder-children" onDragOver={(e) => e.stopPropagation()}>
             {childFolders.map((f) => renderFolder(f, depth + 1))}
             {childPatches.map((p) => renderPatchChip(p, depth + 1))}
@@ -339,43 +359,41 @@ function PatchBank({
     )
   }
 
-  const totalCount = patches.length
-
-  if (totalCount === 0 && soundFolders.length === 0) {
+  const renderBody = () => {
+    if (isNavMode) {
+      const { folders, patches: navPatches } = getFolderChildren(bibCurrentFolderId ?? null)
+      return (
+        <ul
+          className="sound-bank-list"
+          onDragOver={handleDragOverRoot}
+          onDragLeave={handleDragLeave}
+          onDrop={handleDropOnRoot}
+        >
+          {bibCurrentFolderId !== null && (
+            <li
+              className="bib-updir"
+              onClick={() => {
+                const cur = soundFolders.find(f => f.id === bibCurrentFolderId)
+                onSetCurrentFolder?.(cur ? cur.parentId : null)
+              }}
+              onDoubleClick={() => {
+                const cur = soundFolders.find(f => f.id === bibCurrentFolderId)
+                onSetCurrentFolder?.(cur ? cur.parentId : null)
+              }}
+              onDragOver={(e) => { e.preventDefault() }}
+              title="Remonter au dossier parent"
+            >
+              <span className="folder-icon">📁</span>
+              <span>..</span>
+            </li>
+          )}
+          {folders.map(f => renderFolder(f, 0))}
+          {navPatches.map(p => renderPatchChip(p, 0))}
+        </ul>
+      )
+    }
+    const { folders: rootFolders, patches: rootPatches } = getFolderChildren(null)
     return (
-      <aside className="sound-bank-panel">
-        <header className="sound-bank-header">
-          <div className="sound-bank-header-main">
-            <h3>Bibliothèque</h3>
-            <div className="sound-bank-header-right">
-              <button type="button" className="folder-add-btn" onClick={handleCreateFolder} title="Nouveau dossier">
-                + Dossier
-              </button>
-            </div>
-          </div>
-          {headerExtra && <div className="sound-bank-header-toggle">{headerExtra}</div>}
-        </header>
-        <p className="sound-bank-empty">
-          Aucun patch. Dessinez-en un dans l'onglet Designer.
-        </p>
-      </aside>
-    )
-  }
-
-  return (
-    <aside className="sound-bank-panel">
-      <header className="sound-bank-header">
-        <div className="sound-bank-header-main">
-          <h3>Bibliothèque</h3>
-          <div className="sound-bank-header-right">
-            <span className="sound-bank-count">{totalCount}</span>
-            <button type="button" className="folder-add-btn" onClick={handleCreateFolder} title="Nouveau dossier">
-              + Dossier
-            </button>
-          </div>
-        </div>
-        {headerExtra && <div className="sound-bank-header-toggle">{headerExtra}</div>}
-      </header>
       <ul
         className="sound-bank-list"
         onDragOver={handleDragOverRoot}
@@ -385,6 +403,92 @@ function PatchBank({
         {rootFolders.map((f) => renderFolder(f, 0))}
         {rootPatches.map((p) => renderPatchChip(p, 0))}
       </ul>
+    )
+  }
+
+  const totalCount = patches.length
+
+  // Header partagé entre la branche vide et la branche normale
+  const renderHeader = () => (
+    <header className="sound-bank-header">
+      <div className="sound-bank-header-main">
+        <h3>Bibliothèque</h3>
+        <div className="sound-bank-header-right">
+          {totalCount > 0 && <span className="sound-bank-count">{totalCount}</span>}
+        </div>
+      </div>
+      <div className="bib-toolbar">
+        <div className="bib-toggle-group">
+          <button
+            type="button"
+            className={`bib-toggle-btn ${bibHierarchyMode === 'tree' ? 'is-active' : ''}`}
+            onClick={() => onSetHierarchyMode?.('tree')}
+            title="Arborescence"
+          ><ListTree size={14} /></button>
+          <button
+            type="button"
+            className={`bib-toggle-btn ${bibHierarchyMode === 'nav' ? 'is-active' : ''}`}
+            onClick={() => onSetHierarchyMode?.('nav')}
+            title="Navigation (un dossier à la fois)"
+          ><Folder size={14} /></button>
+        </div>
+        <div className="bib-toggle-group">
+          <button
+            type="button"
+            className={`bib-toggle-btn ${bibDisplayMode === 'list' ? 'is-active' : ''}`}
+            onClick={() => onSetDisplayMode?.('list')}
+            title="Liste compacte"
+          ><List size={14} /></button>
+          <button
+            type="button"
+            className={`bib-toggle-btn ${bibDisplayMode === 'details' ? 'is-active' : ''}`}
+            onClick={() => onSetDisplayMode?.('details')}
+            title="Détails"
+          ><LayoutList size={14} /></button>
+          {bibHierarchyMode === 'nav' && (
+            <button
+              type="button"
+              className={`bib-toggle-btn ${bibDisplayMode === 'tiles' ? 'is-active' : ''}`}
+              onClick={() => onSetDisplayMode?.('tiles')}
+              title="Tuiles avec aperçu"
+            ><LayoutGrid size={14} /></button>
+          )}
+        </div>
+        <div className="bib-toolbar-spacer" />
+        <button
+          type="button"
+          className="bib-new-folder-btn"
+          onClick={handleCreateFolder}
+          title="Nouveau dossier"
+        >+ Dossier</button>
+      </div>
+      {bibHierarchyMode === 'nav' && (
+        <BibBreadcrumb
+          currentFolderId={bibCurrentFolderId ?? null}
+          soundFolders={soundFolders}
+          onNavigate={(folderId) => onSetCurrentFolder?.(folderId)}
+          onNotify={onNotify}
+        />
+      )}
+      {headerExtra && <div className="sound-bank-header-toggle">{headerExtra}</div>}
+    </header>
+  )
+
+  if (totalCount === 0 && soundFolders.length === 0) {
+    return (
+      <aside className="sound-bank-panel">
+        {renderHeader()}
+        <p className="sound-bank-empty">
+          Aucun patch. Dessinez-en un dans l&apos;onglet Designer.
+        </p>
+      </aside>
+    )
+  }
+
+  return (
+    <aside className="sound-bank-panel">
+      {renderHeader()}
+      {renderBody()}
       {dragItem && (
         <div
           className={`drop-root-zone ${dragOverTarget === 'root' ? 'is-active' : ''}`}

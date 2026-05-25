@@ -1,0 +1,56 @@
+.bib-breadcrumb {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  color: #d0d4ec;
+  background: #0e0e1e;
+  border: 1px solid #2a2a4a;
+  border-radius: 3px;
+  padding: 4px 8px;
+  margin: 0 8px 8px 8px;
+  font-family: ui-monospace, monospace;
+  cursor: text;
+  flex-wrap: wrap;
+}
+.bib-breadcrumb .seg {
+  color: #00d4ff;
+  cursor: pointer;
+  padding: 1px 4px;
+  border-radius: 2px;
+}
+.bib-breadcrumb .seg:hover {
+  background: rgba(0, 212, 255, 0.1);
+}
+.bib-breadcrumb .seg.current {
+  color: #d0d4ec;
+  cursor: default;
+}
+.bib-breadcrumb .seg.current:hover {
+  background: none;
+}
+.bib-breadcrumb .sep {
+  color: #4a4a6a;
+}
+.bib-breadcrumb .empty-zone {
+  flex: 1;
+  min-width: 16px;
+  min-height: 16px;
+}
+.bib-breadcrumb.editing {
+  background: #0e0e1e;
+  border: 1px solid #00d4ff;
+  border-radius: 3px;
+  padding: 4px 8px;
+  margin: 0 8px 8px 8px;
+}
+.bib-breadcrumb.editing input {
+  background: transparent;
+  border: none;
+  color: #d0d4ec;
+  font-family: ui-monospace, monospace;
+  font-size: 12px;
+  width: 100%;
+  outline: none;
+  padding: 0;
+}

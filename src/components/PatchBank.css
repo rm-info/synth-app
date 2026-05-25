@@ -398,3 +398,71 @@
 }
 .patchbank-context-item:hover:not(:disabled) { background: #2a2a2a; }
 .patchbank-context-item:disabled { color: #555; cursor: not-allowed; }
+
+.bib-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 8px 8px;
+}
+.bib-toggle-group {
+  display: flex;
+  background: #1a1a2e;
+  border: 1px solid #3a3a5a;
+  border-radius: 4px;
+  padding: 1px;
+}
+.bib-toggle-btn {
+  background: transparent;
+  color: #a8acc4;
+  border: none;
+  padding: 4px 7px;
+  cursor: pointer;
+  border-radius: 3px;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+}
+.bib-toggle-btn:hover {
+  background: #2a2a4a;
+  color: #d0d4ec;
+}
+.bib-toggle-btn.is-active {
+  background: #003a4a;
+  color: #00d4ff;
+}
+.bib-toolbar-spacer {
+  flex: 1;
+}
+.bib-new-folder-btn {
+  background: #1a1a2e;
+  color: #a8acc4;
+  border: 1px solid #3a3a5a;
+  border-radius: 4px;
+  padding: 4px 10px;
+  font-size: 11px;
+  cursor: pointer;
+}
+.bib-new-folder-btn:hover {
+  background: #2a2a4a;
+  color: #d0d4ec;
+}
+
+.bib-updir {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 8px;
+  margin: 0 8px;
+  color: #8a8fa8;
+  cursor: pointer;
+  font-style: italic;
+  border-radius: 3px;
+}
+.bib-updir:hover {
+  background: rgba(255, 255, 255, 0.04);
+  color: #d0d4ec;
+}
+.bib-updir .folder-icon {
+  font-size: 14px;
+}
