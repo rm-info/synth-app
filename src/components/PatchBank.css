@@ -545,6 +545,18 @@
   border-color: #00d4ff;
   background: rgba(0, 212, 255, 0.15);
 }
+
+/* Sélection bibliothèque (Task 5) */
+.sound-chip.is-selected,
+.folder-row.is-selected {
+  background: rgba(0, 212, 255, 0.2);
+  border: 1px solid rgba(0, 212, 255, 0.5);
+}
+.tile.is-selected {
+  background: rgba(0, 212, 255, 0.15);
+  border-color: rgba(0, 212, 255, 0.5);
+}
+
 .tile-preview {
   width: 60px;
   height: 30px;

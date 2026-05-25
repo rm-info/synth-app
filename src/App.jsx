@@ -74,6 +74,7 @@ function App() {
     composerBankWidth, composerAsideWidth, composerBankCollapsed, composerAsideCollapsed,
     designerSidebarWidth, designerSidebarCollapsed,
     bibHierarchyMode, bibDisplayMode, bibCurrentFolderId, bibPopupWidth,
+    bibSelectedIds, bibSelectionAnchor,
     patchCounter, clipCounter, folderCounter, trackCounter,
     clipboard, measureClipboard, history, notification,
   } = state
@@ -668,6 +669,12 @@ function App() {
   }, [])
   const setBibCurrentFolder = useCallback((folderId) => {
     dispatch({ type: 'SET_BIB_CURRENT_FOLDER', payload: folderId })
+  }, [])
+  const onSelectBibItems = useCallback((items, mode) => {
+    dispatch({ type: 'SELECT_BIB_ITEMS', payload: { items, mode } })
+  }, [])
+  const onClearBibSelection = useCallback(() => {
+    dispatch({ type: 'CLEAR_BIB_SELECTION' })
   }, [])
   // eslint-disable-next-line no-unused-vars
   const setBibPopupWidth = useCallback((w) => {
@@ -1711,6 +1718,10 @@ function App() {
                           onSetDisplayMode={setBibDisplayMode}
                           onSetCurrentFolder={setBibCurrentFolder}
                           onNotify={notify}
+                          bibSelectedIds={bibSelectedIds}
+                          bibSelectionAnchor={bibSelectionAnchor}
+                          onSelectItems={onSelectBibItems}
+                          onClearSelection={onClearBibSelection}
                           headerExtra={
                             <button
                               type="button"
@@ -1748,6 +1759,10 @@ function App() {
                       onSetDisplayMode={setBibDisplayMode}
                       onSetCurrentFolder={setBibCurrentFolder}
                       onNotify={notify}
+                      bibSelectedIds={bibSelectedIds}
+                      bibSelectionAnchor={bibSelectionAnchor}
+                      onSelectItems={onSelectBibItems}
+                      onClearSelection={onClearBibSelection}
                       headerExtra={
                         <button
                           type="button"
@@ -1934,6 +1949,10 @@ function App() {
                       onSetDisplayMode={setBibDisplayMode}
                       onSetCurrentFolder={setBibCurrentFolder}
                       onNotify={notify}
+                      bibSelectedIds={bibSelectedIds}
+                      bibSelectionAnchor={bibSelectionAnchor}
+                      onSelectItems={onSelectBibItems}
+                      onClearSelection={onClearBibSelection}
                       headerExtra={
                         <button
                           type="button"

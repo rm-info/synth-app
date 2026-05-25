@@ -401,6 +401,10 @@ export function buildInitialState() {
     designerSidebarCollapsed: persisted?.designerSidebarCollapsed ?? false,
     composerFlash: null,
 
+    // Sélection bibliothèque (transient runtime state, non persisté).
+    bibSelectedIds: [],
+    bibSelectionAnchor: null,
+
     history: {
       designer: { past: [], future: [] },
       composer: { past: [], future: [] },
@@ -1442,7 +1446,40 @@ export function reducer(state, action) {
       return { ...state, bibDisplayMode: mode }
     }
     case 'SET_BIB_CURRENT_FOLDER': {
-      return { ...state, bibCurrentFolderId: action.payload }
+      // Vide aussi la sélection (per spec : cleared sur change de folder)
+      return { ...state, bibCurrentFolderId: action.payload, bibSelectedIds: [], bibSelectionAnchor: null }
+    }
+    case 'SELECT_BIB_ITEMS': {
+      const { items, mode } = action.payload
+      const existing = state.bibSelectedIds
+      const keyOf = (i) => `${i.type}:${i.id}`
+      const existingKeys = new Set(existing.map(keyOf))
+      const newItemKeys = items.map(keyOf)
+      let result
+      if (mode === 'set') {
+        result = items
+      } else if (mode === 'add') {
+        const dedup = new Set(existingKeys)
+        const merged = [...existing]
+        for (const item of items) {
+          if (!dedup.has(keyOf(item))) { merged.push(item); dedup.add(keyOf(item)) }
+        }
+        result = merged
+      } else if (mode === 'toggle') {
+        const toRemove = new Set(newItemKeys)
+        result = existing.filter(i => !toRemove.has(keyOf(i)))
+      } else if (mode === 'range') {
+        result = items
+      } else {
+        result = existing
+      }
+      // Anchor : mis à jour sauf en mode 'range' (qui le conserve)
+      const newAnchor = mode === 'range' ? state.bibSelectionAnchor :
+                        items.length > 0 ? items[items.length - 1] : null
+      return { ...state, bibSelectedIds: result, bibSelectionAnchor: newAnchor }
+    }
+    case 'CLEAR_BIB_SELECTION': {
+      return { ...state, bibSelectedIds: [], bibSelectionAnchor: null }
     }
     case 'SET_BIB_POPUP_WIDTH': {
       const w = Math.max(320, Math.min(action.payload, 1200))

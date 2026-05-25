@@ -6,6 +6,46 @@ import BibBreadcrumb from './BibBreadcrumb'
 import PatchThumbnail from './PatchThumbnail'
 import './PatchBank.css'
 
+// Retourne la liste ordonnée des items visibles (pour le calcul de range Shift+clic).
+function getOrderedItemList({ hierarchyMode, currentFolderId, soundFolders, patches, collapsedFolders }) {
+  if (hierarchyMode === 'nav') {
+    const folders = soundFolders.filter(f => f.parentId === currentFolderId)
+    const folderPatches = patches.filter(p => p.folderId === currentFolderId)
+    return [
+      ...folders.map(f => ({ type: 'folder', id: f.id })),
+      ...folderPatches.map(p => ({ type: 'patch', id: p.id })),
+    ]
+  }
+  function dfs(parentId) {
+    const result = []
+    const subFolders = soundFolders.filter(f => f.parentId === parentId)
+    for (const folder of subFolders) {
+      result.push({ type: 'folder', id: folder.id })
+      if (!collapsedFolders.has(folder.id)) {
+        result.push(...dfs(folder.id))
+      }
+    }
+    const subPatches = patches.filter(p => p.folderId === parentId)
+    for (const patch of subPatches) {
+      result.push({ type: 'patch', id: patch.id })
+    }
+    return result
+  }
+  return dfs(null)
+}
+
+// Calcule la plage d'items entre anchor et target dans la liste ordonnée.
+function computeRange(anchor, target, orderedList) {
+  const keyOf = (i) => `${i.type}:${i.id}`
+  const anchorKey = anchor ? keyOf(anchor) : null
+  const targetKey = keyOf(target)
+  const anchorIdx = orderedList.findIndex(i => keyOf(i) === anchorKey)
+  const targetIdx = orderedList.findIndex(i => keyOf(i) === targetKey)
+  if (anchorIdx === -1 || targetIdx === -1) return [target]
+  const [from, to] = anchorIdx <= targetIdx ? [anchorIdx, targetIdx] : [targetIdx, anchorIdx]
+  return orderedList.slice(from, to + 1)
+}
+
 function PatchBank({
   patches,
   soundFolders,
@@ -29,6 +69,12 @@ function PatchBank({
   onSetDisplayMode,
   onSetCurrentFolder,
   onNotify,
+  bibSelectedIds = [],
+  bibSelectionAnchor = null,
+  onSelectItems,
+  // onClearSelection est passé par App pour usage futur (Task 10+ menu contextuel).
+  // eslint-disable-next-line no-unused-vars
+  onClearSelection,
 }) {
   const loadOnSingleClick = activeTab === 'designer'
   const [editingId, setEditingId] = useState(null)
@@ -60,6 +106,28 @@ function PatchBank({
     })
   }
 
+  const handleItemClick = (item, e) => {
+    if (!onSelectItems) return
+    const itemKey = { type: item.type, id: item.id }
+    if (e.shiftKey && bibSelectionAnchor) {
+      const orderedList = getOrderedItemList({
+        hierarchyMode: bibHierarchyMode,
+        currentFolderId: bibCurrentFolderId,
+        soundFolders, patches, collapsedFolders,
+      })
+      const range = computeRange(bibSelectionAnchor, itemKey, orderedList)
+      onSelectItems(range, 'range')
+    } else if (e.ctrlKey || e.metaKey) {
+      const alreadySelected = bibSelectedIds.some(s => s.id === item.id && s.type === item.type)
+      onSelectItems([itemKey], alreadySelected ? 'toggle' : 'add')
+    } else {
+      onSelectItems([itemKey], 'set')
+    }
+  }
+
+  // startEdit sera réactivé en Task 11 (F2 rename). Pour l'instant,
+  // le rename inline est désactivé : double-clic = load (file explorer pattern).
+  // eslint-disable-next-line no-unused-vars
   const startEdit = (id, currentName) => {
     setEditingId(id)
     setEditingValue(currentName)
@@ -182,6 +250,7 @@ function PatchBank({
     const isEditing = editingId === patch.id
     const isCurrent = loadOnSingleClick && currentPatchId === patch.id
     const isDragging = dragItem?.type === 'patch' && dragItem?.id === patch.id
+    const isSelected = bibSelectedIds.some(s => s.type === 'patch' && s.id === patch.id)
     const isDetails = bibDisplayMode === 'details'
 
     const handleDelete = (e) => {
@@ -192,17 +261,17 @@ function PatchBank({
       if (isEditing) return
       onLoadPatch?.(patch.id)
     }
-    const handleSingleClick = () => {
+    const handleClick = (e) => {
       if (isEditing) return
-      if (loadOnSingleClick) handleLoad()
+      handleItemClick({ type: 'patch', id: patch.id }, e)
     }
     const handleDoubleClick = () => {
       if (isEditing) return
-      startEdit(patch.id, patch.name)
+      // Double-clic = charger le patch (pattern file explorer).
+      // Le rename est accessible via le bouton ✎ ou F2 (Task 11).
+      onLoadPatch?.(patch.id)
     }
-    const titleText = loadOnSingleClick
-      ? 'Clic pour éditer, double-clic pour renommer'
-      : 'Double-clic pour renommer, glisser pour placer sur la timeline'
+    const titleText = 'Clic pour sélectionner, double-clic pour charger, glisser pour placer'
 
     const handleChipDragOver = depth > 0
       ? (e) => { e.stopPropagation() }
@@ -211,13 +280,13 @@ function PatchBank({
     return (
       <li
         key={patch.id}
-        className={`sound-chip ${isCurrent ? 'is-current' : ''} ${isDragging ? 'is-dragging' : ''} ${isDetails ? 'is-details' : ''}`}
+        className={`sound-chip ${isCurrent ? 'is-current' : ''} ${isDragging ? 'is-dragging' : ''} ${isDetails ? 'is-details' : ''} ${isSelected ? 'is-selected' : ''}`}
         style={{ '--chip-color': patch.color, marginLeft: `${depth * 16}px` }}
         draggable={!isEditing}
         onDragStart={(e) => handleDragStartInternal(e, 'patch', patch.id)}
         onDragEnd={handleDragEnd}
         onDragOver={handleChipDragOver}
-        onClick={handleSingleClick}
+        onClick={handleClick}
         onDoubleClick={handleDoubleClick}
         onContextMenu={(e) => {
           e.preventDefault()
@@ -290,6 +359,7 @@ function PatchBank({
     const { folders: childFolders, patches: childPatches } = getFolderChildren(folder.id)
     const isDropTarget = dragOverTarget === folder.id
     const isDragging = dragItem?.type === 'folder' && dragItem?.id === folder.id
+    const isSelected = bibSelectedIds.some(s => s.type === 'folder' && s.id === folder.id)
     const isDetails = bibDisplayMode === 'details'
     const descendantCount = isDetails
       ? countFolderContents(folder.id, soundFolders, patches).patchCount
@@ -298,7 +368,7 @@ function PatchBank({
     return (
       <li key={folder.id} className={`folder-item ${isDragging ? 'is-dragging' : ''}`}>
         <div
-          className={`folder-row ${isDetails ? 'is-details' : ''} ${isDropTarget ? 'is-drop-target' : ''}`}
+          className={`folder-row ${isDetails ? 'is-details' : ''} ${isDropTarget ? 'is-drop-target' : ''} ${isSelected ? 'is-selected' : ''}`}
           style={{ marginLeft: `${depth * 16}px` }}
           draggable={!isEditing}
           onDragStart={(e) => handleDragStartInternal(e, 'folder', folder.id)}
@@ -306,10 +376,10 @@ function PatchBank({
           onDragOver={(e) => handleDragOverFolder(e, folder.id)}
           onDragLeave={handleDragLeave}
           onDrop={(e) => handleDropOnFolder(e, folder.id)}
-          onClick={() => {
+          onClick={(e) => {
             if (isEditing) return
-            if (!isNavMode) toggleFolder(folder.id)
-            // nav mode : single click = noop (sélection en Task 5)
+            handleItemClick({ type: 'folder', id: folder.id }, e)
+            // tree mode : chevron click reste séparé (toggleFolder)
           }}
           onDoubleClick={(e) => {
             e.stopPropagation()
@@ -318,8 +388,8 @@ function PatchBank({
               // Nav mode : double-clic entre dans le dossier
               onSetCurrentFolder?.(folder.id)
             } else {
-              // Tree mode : double-clic renomme (comportement existant)
-              startEdit(folder.id, folder.name)
+              // Tree mode : double-clic toggle expand
+              toggleFolder(folder.id)
             }
           }}
           onContextMenu={(e) => {
@@ -330,7 +400,12 @@ function PatchBank({
           data-bib-item-id={folder.id}
           data-bib-item-type="folder"
         >
-          <span className={`folder-chevron ${isExpanded ? 'is-expanded' : ''}`}>▶</span>
+          {/* En tree mode, le chevron est un bouton séparé pour le toggle expand.
+              Clic sur le chevron ne propage pas à la row (sélection). */}
+          <span
+            className={`folder-chevron ${isExpanded ? 'is-expanded' : ''}`}
+            onClick={!isNavMode ? (e) => { e.stopPropagation(); toggleFolder(folder.id) } : undefined}
+          >▶</span>
           <span className="folder-icon">📁</span>
           {isEditing ? (
             <input
@@ -382,16 +457,18 @@ function PatchBank({
   const renderFolderTile = (folder) => {
     const isDropTarget = dragOverTarget === folder.id
     const isDragging = dragItem?.type === 'folder' && dragItem?.id === folder.id
+    const isSelected = bibSelectedIds.some(s => s.type === 'folder' && s.id === folder.id)
     return (
       <div
         key={folder.id}
-        className={`tile is-folder ${isDropTarget ? 'is-drop-target' : ''} ${isDragging ? 'is-dragging' : ''}`}
+        className={`tile is-folder ${isDropTarget ? 'is-drop-target' : ''} ${isDragging ? 'is-dragging' : ''} ${isSelected ? 'is-selected' : ''}`}
         draggable
         onDragStart={(e) => handleDragStartInternal(e, 'folder', folder.id)}
         onDragEnd={handleDragEnd}
         onDragOver={(e) => handleDragOverFolder(e, folder.id)}
         onDragLeave={handleDragLeave}
         onDrop={(e) => handleDropOnFolder(e, folder.id)}
+        onClick={(e) => handleItemClick({ type: 'folder', id: folder.id }, e)}
         onDoubleClick={() => onSetCurrentFolder(folder.id)}
         onContextMenu={(e) => {
           e.preventDefault()
@@ -410,13 +487,15 @@ function PatchBank({
   const renderPatchTile = (patch) => {
     const isCurrent = loadOnSingleClick && currentPatchId === patch.id
     const isDragging = dragItem?.type === 'patch' && dragItem?.id === patch.id
+    const isSelected = bibSelectedIds.some(s => s.type === 'patch' && s.id === patch.id)
     return (
       <div
         key={patch.id}
-        className={`tile is-patch ${isCurrent ? 'is-current' : ''} ${isDragging ? 'is-dragging' : ''}`}
+        className={`tile is-patch ${isCurrent ? 'is-current' : ''} ${isDragging ? 'is-dragging' : ''} ${isSelected ? 'is-selected' : ''}`}
         draggable
         onDragStart={(e) => handleDragStartInternal(e, 'patch', patch.id)}
         onDragEnd={handleDragEnd}
+        onClick={(e) => handleItemClick({ type: 'patch', id: patch.id }, e)}
         onDoubleClick={() => onLoadPatch?.(patch.id)}
         onContextMenu={(e) => {
           e.preventDefault()
