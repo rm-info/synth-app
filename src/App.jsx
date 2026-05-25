@@ -1495,12 +1495,14 @@ function App() {
   }, [])
 
   const handleCreateFolderFromSavePopup = useCallback((name, parentId) => {
+    const newId = `folder-${folderCounter + 1}`
     dispatch({
       type: 'CREATE_FOLDER',
       payload: { name, parentId },
       meta: { skipUndo: true },
     })
-  }, [])
+    return newId
+  }, [folderCounter])
 
   // Warning suppression d'items bibliothèque utilisés dans la timeline :
   // popup monté en overlay, déclenché via state.pendingDeleteWarning.

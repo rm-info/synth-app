@@ -125,10 +125,21 @@ export default function SavePatchDialog({
       trimmed,
       soundFolders.filter(f => f.parentId === folderId)
     )
-    onCreateFolder?.(dedupedName, folderId)
+    const newId = onCreateFolder?.(dedupedName, folderId)
     setCreatingFolder(false)
     setNewFolderName('')
-    setOpenedFolders((prev) => new Set([...prev, folderId].filter(v => v !== null)))
+    // Bascule sur le nouveau folder créé + expand sa branche
+    if (newId) {
+      setFolderId(newId)
+      setOpenedFolders((prev) => {
+        const next = new Set(prev)
+        if (folderId !== null) next.add(folderId)  // expand le parent
+        return next
+      })
+    } else {
+      // Fallback si pas d'ID retourné : juste expand le parent
+      setOpenedFolders((prev) => new Set([...prev, folderId].filter(v => v !== null)))
+    }
   }
 
   return (
