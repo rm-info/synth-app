@@ -507,3 +507,69 @@
   padding: 1px 6px;
   border-radius: 8px;
 }
+
+/* === Mode Tiles === */
+
+.sound-bank-tiles {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
+  gap: 8px;
+  padding: 0 8px;
+  overflow-y: auto;
+  flex: 1;
+  min-height: 0;
+}
+.tile {
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid #2a2a4a;
+  border-radius: 4px;
+  padding: 6px;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  align-items: center;
+  text-align: center;
+}
+.tile:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+.tile.is-current {
+  border-color: #00d4ff;
+  background: rgba(0, 212, 255, 0.1);
+}
+.tile.is-dragging {
+  opacity: 0.4;
+}
+.tile.is-drop-target {
+  border-color: #00d4ff;
+  background: rgba(0, 212, 255, 0.15);
+}
+.tile-preview {
+  width: 60px;
+  height: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.3);
+  border-radius: 3px;
+}
+.tile.is-folder .tile-preview,
+.tile.is-updir .tile-preview {
+  background: rgba(255, 255, 255, 0.05);
+  font-size: 18px;
+  color: #d0d4ec;
+}
+.tile.is-updir {
+  color: #8a8fa8;
+  font-style: italic;
+}
+.tile-name {
+  font-size: 11px;
+  color: #d0d4ec;
+  word-break: break-word;
+  line-height: 1.2;
+}
+.patch-thumbnail {
+  display: block;
+}

@@ -3,6 +3,7 @@ import { ListTree, Folder, List, LayoutList, LayoutGrid } from 'lucide-react'
 import { getDescendantFolderIds, countFolderContents } from '../reducer'
 import { nextAvailableFolderName } from '../lib/folderNames.js'
 import BibBreadcrumb from './BibBreadcrumb'
+import PatchThumbnail from './PatchThumbnail'
 import './PatchBank.css'
 
 function PatchBank({
@@ -378,7 +379,91 @@ function PatchBank({
     )
   }
 
+  const renderFolderTile = (folder) => {
+    const isDropTarget = dragOverTarget === folder.id
+    const isDragging = dragItem?.type === 'folder' && dragItem?.id === folder.id
+    return (
+      <div
+        key={folder.id}
+        className={`tile is-folder ${isDropTarget ? 'is-drop-target' : ''} ${isDragging ? 'is-dragging' : ''}`}
+        draggable
+        onDragStart={(e) => handleDragStartInternal(e, 'folder', folder.id)}
+        onDragEnd={handleDragEnd}
+        onDragOver={(e) => handleDragOverFolder(e, folder.id)}
+        onDragLeave={handleDragLeave}
+        onDrop={(e) => handleDropOnFolder(e, folder.id)}
+        onDoubleClick={() => onSetCurrentFolder(folder.id)}
+        onContextMenu={(e) => {
+          e.preventDefault()
+          e.stopPropagation()
+          setContextMenu({ type: 'folder', id: folder.id, clientX: e.clientX, clientY: e.clientY })
+        }}
+        data-bib-item-id={folder.id}
+        data-bib-item-type="folder"
+      >
+        <div className="tile-preview folder-preview">📁</div>
+        <div className="tile-name">{folder.name}</div>
+      </div>
+    )
+  }
+
+  const renderPatchTile = (patch) => {
+    const isCurrent = loadOnSingleClick && currentPatchId === patch.id
+    const isDragging = dragItem?.type === 'patch' && dragItem?.id === patch.id
+    return (
+      <div
+        key={patch.id}
+        className={`tile is-patch ${isCurrent ? 'is-current' : ''} ${isDragging ? 'is-dragging' : ''}`}
+        draggable
+        onDragStart={(e) => handleDragStartInternal(e, 'patch', patch.id)}
+        onDragEnd={handleDragEnd}
+        onDoubleClick={() => onLoadPatch?.(patch.id)}
+        onContextMenu={(e) => {
+          e.preventDefault()
+          e.stopPropagation()
+          setContextMenu({ type: 'patch', id: patch.id, clientX: e.clientX, clientY: e.clientY })
+        }}
+        data-bib-item-id={patch.id}
+        data-bib-item-type="patch"
+      >
+        <div className="tile-preview">
+          <PatchThumbnail points={patch.points} color={patch.color} />
+        </div>
+        <div className="tile-name">{patch.name}</div>
+      </div>
+    )
+  }
+
   const renderBody = () => {
+    const isTiles = bibDisplayMode === 'tiles'
+    // Tiles mode : seulement valide en Nav. Fallback silencieux en Tree.
+    if (isNavMode && isTiles) {
+      const { folders, patches: navPatches } = getFolderChildren(bibCurrentFolderId ?? null)
+      return (
+        <div className="sound-bank-tiles">
+          {bibCurrentFolderId !== null && bibCurrentFolderId !== undefined && (
+            <div
+              className="tile is-updir"
+              onClick={() => {
+                const cur = soundFolders.find(f => f.id === bibCurrentFolderId)
+                onSetCurrentFolder(cur ? cur.parentId : null)
+              }}
+              onDoubleClick={() => {
+                const cur = soundFolders.find(f => f.id === bibCurrentFolderId)
+                onSetCurrentFolder(cur ? cur.parentId : null)
+              }}
+              onDragOver={(e) => { e.preventDefault() }}
+              title="Remonter"
+            >
+              <div className="tile-preview folder-preview">📁</div>
+              <div className="tile-name">..</div>
+            </div>
+          )}
+          {folders.map(f => renderFolderTile(f))}
+          {navPatches.map(p => renderPatchTile(p))}
+        </div>
+      )
+    }
     if (isNavMode) {
       const { folders, patches: navPatches } = getFolderChildren(bibCurrentFolderId ?? null)
       return (
