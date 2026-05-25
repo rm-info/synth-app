@@ -556,6 +556,11 @@
   background: rgba(0, 212, 255, 0.15);
   border-color: rgba(0, 212, 255, 0.5);
 }
+/* Patch chargé (is-current) ET sélectionné : préserve le glow chip-color. */
+.sound-chip.is-current.is-selected {
+  border: 1px solid var(--chip-color);
+  box-shadow: 0 0 0 1px var(--chip-color), 0 0 8px color-mix(in srgb, var(--chip-color) 50%, transparent);
+}
 
 .tile-preview {
   width: 60px;

@@ -469,7 +469,7 @@ function PatchBank({
         onDragLeave={handleDragLeave}
         onDrop={(e) => handleDropOnFolder(e, folder.id)}
         onClick={(e) => handleItemClick({ type: 'folder', id: folder.id }, e)}
-        onDoubleClick={() => onSetCurrentFolder(folder.id)}
+        onDoubleClick={() => onSetCurrentFolder?.(folder.id)}
         onContextMenu={(e) => {
           e.preventDefault()
           e.stopPropagation()
