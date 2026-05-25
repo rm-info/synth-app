@@ -298,6 +298,25 @@ recalculs entre playback audio et Spectrogram statique. Single-file
 refactor (`src/audio.js`). Aucun changement de signature publique
 — consumers transparents.
 
+**Itération K (Bibliothèque multi-mode)** **clôturée le 2026-05-25**.
+Phase 1 : transformation de `PatchBank` en bibliothèque type file
+explorer. 5 combinaisons d'affichage (Tree × List/Details + Nav ×
+List/Details/Tiles ; Tiles caché en Tree). Mode Navigation avec
+breadcrumb cliquable+éditable et ligne ".." pour remonter. Multi-
+sélection (Ctrl+clic toggle, Shift+clic range, drag rectangle lasso).
+Clipboard Copier/Couper/Coller avec anti-cycle (refus de coller un
+folder dans son sous-arbre, notification utilisateur). Menu contextuel
+enrichi : Renommer (F2), Copier (Ctrl+C), Couper (Ctrl+X), Coller
+(Ctrl+V), Exporter, Supprimer (Suppr). Raccourcis clavier complets
+quand focus dans la bibliothèque. Mode Tiles affiche un mini-SVG de
+la waveform de chaque patch. Popup Bibliothèque (Designer sidebar
+collapsed) redimensionnable via drag handle bord droit, largeur
+persistée. **Sélection comme concept UX distinct de `currentPatchId`** :
+simple clic = sélection visuelle, double-clic = ouvrir/charger. État
+partagé entre instances Designer et Composer (un seul jeu de
+préférences globales). Default Navigation mode au load (vs Tree
+historique).
+
 **Release v1.2.0** (2026-05-21) — Mode mobile complet + suppression
 de ResolutionGate. En dessous de 924 × 668 px : (1) la sidebar Designer
 est forcée en mode réduit (preference utilisateur préservée en state) ;
@@ -372,7 +391,8 @@ synth-app/
     │   ├── keyboardCandidates.js  # NOTE_GUARD_KEYS — touches du mode note (F.7.5)
     │   ├── osaFormat.js      # format binaire .osa (encode/decode/validate)
     │   ├── libraryTransfer.js # transformations état ↔ payload .osa
-    │   └── folderNames.js    # nextAvailableFolderName partagé (extraction H.1.4)
+    │   ├── folderNames.js    # nextAvailableFolderName partagé (extraction H.1.4)
+    │   └── bibTransfer.js               # wouldCreateCycle + duplicateItemsToFolder (K.1.7)
     └── components/
         ├── Tabs.jsx + .css                    # bascule Designer / Composer
         ├── PatchBank.jsx + .css               # banque de patches partagée
@@ -394,7 +414,11 @@ synth-app/
         ├── Modal.jsx + .css                   # primitive modale partagé (H.1.8)
         ├── ExportModal.jsx                    # modale "Export as..." (H.1.9)
         ├── ImportModal.jsx                    # modale post-validation (H.1.13)
-        └── ShortLabelSelect.jsx + .css        # dropdown custom libellé court trigger / complet menu (G.2.3)
+        ├── ShortLabelSelect.jsx + .css        # dropdown custom libellé court trigger / complet menu (G.2.3)
+        ├── BibBreadcrumb.jsx + .css           # breadcrumb cliquable + éditable (K.1.2)
+        ├── BibContextMenu.jsx                 # menu contextuel enrichi (K.1.10)
+        ├── PatchThumbnail.jsx                 # mini-SVG waveform pour Tiles (K.1.4)
+        └── PopupResizer.jsx + .css            # poignée resize du popup (K.1.12)
 ```
 
 ### Layout
@@ -1059,6 +1083,42 @@ Choix non évidents pris pour de bonnes raisons. À ne pas remettre en question
   refactor majeur vers `AudioWorkletNode` (synthèse custom sample-par-
   sample en thread audio dédié, avec anti-aliasing custom). Backlog.
 
+- **Bibliothèque multi-mode (5 combinaisons valides)** — Tree × List/Details
+  + Nav × List/Details/Tiles. Tiles caché en mode Tree (incohérent
+  visuellement). État `bibHierarchyMode` et `bibDisplayMode` persistés
+  partagés entre instances Designer et Composer (un seul jeu de
+  préférences globales). Default `'nav'` + `'list'` au load.
+
+- **Sélection comme concept UX distinct de `currentPatchId`** —
+  `bibSelectedIds` est la sélection visuelle multi-items dans la
+  bibliothèque ; `currentPatchId` reste le patch chargé dans le
+  Designer. Simple clic sélectionne, double-clic ouvre/charge.
+  Cohérent avec les file explorers modernes.
+
+- **Anti-cycle paste/drag via `wouldCreateCycle`** — toute opération
+  qui prend un folder pour cible doit refuser le folder lui-même ou
+  tout descendant. Helper centralisé dans `src/lib/bibTransfer.js`,
+  appelé par `PASTE_BIB_CLIPBOARD` et `MOVE_BIB_ITEMS`. Notification
+  utilisateur en cas de refus (`SET_NOTIFICATION` dispatch).
+
+- **Clipboard transient, PASTE/MOVE undoable** — `bibClipboard`,
+  `bibSelectedIds`, `bibSelectionAnchor` non persistés, non undoable
+  (UI state). `PASTE_BIB_CLIPBOARD` et `MOVE_BIB_ITEMS` dans
+  `DESIGNER_UNDOABLE` (mutent patches/folders).
+
+- **Lasso selection via `data-bib-item-id`** — chaque DOM node d'item
+  (chip, folder row, tile) porte des attributs `data-bib-item-id` et
+  `data-bib-item-type`. Le hit-test du lasso itère `querySelectorAll`
+  + `getBoundingClientRect()`. Robuste aux indentations variables
+  (tree mode) et aux changements de display mode.
+
+- **Composants extraits pour la croissance de PatchBank** — quatre
+  nouveaux composants (`BibBreadcrumb`, `BibContextMenu`,
+  `PatchThumbnail`, `PopupResizer`) extraits pour maintenir
+  `PatchBank.jsx` à une taille gérable (~700 lignes après refonte).
+  Convention : un sous-élément qui dépasse ~80 lignes mérite son
+  fichier.
+
 ## Contraintes implicites
 
 Conventions tacites. Les enfreindre sans raison crée des bugs subtils.
@@ -1361,6 +1421,11 @@ Phases listées ci-dessous dans l'ordre chronologique d'implémentation.
 ## État actuel
 
 ✅ **Terminé**
+- Bibliothèque multi-mode style file explorer (itér K phase 1) :
+  5 combinaisons Tree/Nav × List/Details/Tiles, breadcrumb, multi-
+  sélection (Ctrl/Shift/lasso), clipboard Copier/Couper/Coller avec
+  anti-cycle, raccourcis clavier, popup redimensionnable, état partagé
+  Designer + Composer.
 - Spectrogramme Designer avancé (itér I phase 1) : mode statique (DFT)
   + mode Live FFT (AnalyserNode temps réel), basculés via **toggle
   explicite "Live"** dans le header. Toggle dB / linéaire applicable
@@ -1902,6 +1967,68 @@ Phases listées ci-dessous dans l'ordre chronologique d'implémentation.
   prochaine candidate).
 
 ## Historique (chronologie inverse)
+
+- **2026-05-25 — Itération K phase 1 : Bibliothèque multi-mode**
+  Refonte de `PatchBank` en bibliothèque type file explorer.
+  Sous-commits 1.1 à 1.12 :
+  - 1.1 : state UI prefs (bibHierarchyMode, bibDisplayMode,
+    bibCurrentFolderId, bibPopupWidth) + actions reducer + persistance
+    + handlers App.
+  - 1.2 : toolbar avec 2 toggles icônes (Tree/Nav, List/Details/Tiles
+    avec Tiles caché en Tree) + composant `BibBreadcrumb` (segments
+    cliquables, édition au clic dans zone vide, parse path insensible
+    casse) + rendering nav mode (single folder + ligne ".." +
+    navigation).
+  - 1.3 : mode Details — colonnes méta (tuning system, swatch couleur)
+    pour patches ; count descendants pour folders.
+  - 1.4 : composant `PatchThumbnail` (mini-SVG d'une waveform, 60
+    samples sur 600 points, memoizé) + mode Tiles avec grille 2D.
+  - 1.5 : state selection (bibSelectedIds, bibSelectionAnchor) + actions
+    SELECT_BIB_ITEMS (modes set/add/toggle/range) + handlers
+    Ctrl+clic / Shift+clic / simple click + visuel `.is-selected`.
+  - 1.6 : lasso selection — drag rectangle dans zone vide, hit-test
+    via querySelectorAll + getBoundingClientRect, listeners window
+    pour mouseup hors body, coords content-space pour scroll.
+  - 1.7 : state clipboard (bibClipboard) + actions COPY/CUT/CLEAR +
+    PASTE_BIB_CLIPBOARD + MOVE_BIB_ITEMS dans DESIGNER_UNDOABLE +
+    `src/lib/bibTransfer.js` avec `wouldCreateCycle` et
+    `duplicateItemsToFolder` (récursion sur folders, dédup noms via
+    `nextAvailableFolderName`).
+  - 1.8 : handlers clipboard côté PatchBank + visuel `.is-cut` (ghost
+    opacity 0.4 + italic) + helper `filterOutDescendants` pour éviter
+    parent+enfant en mouvement.
+  - 1.9 : drag-and-drop refactor — utilise bibSelectedIds si l'item
+    draggé y est, dispatch MOVE_BIB_ITEMS au drop. Drop sur ".." vers
+    parent.
+  - 1.10 : composant `BibContextMenu` extrait + entrées Renommer (F2),
+    Copier, Couper, Coller dans (folder), Exporter, Supprimer (Suppr) ;
+    zone vide → Nouveau dossier + Coller ; fallback contextMenu.id si
+    pas de sélection.
+  - 1.11 : raccourcis clavier globaux avec focus tracking sur
+    `<aside tabIndex={-1}>` — Ctrl+C/X/V, F2, Suppr/Backspace, ↑↓ (avec
+    Shift pour range), Enter (ouvre selected), Esc (clear clipboard
+    puis selection). Capture phase + stopPropagation pour isoler des
+    listeners globaux d'App.jsx.
+  - 1.12 : composant `PopupResizer` + intégration dans le wrapper du
+    popup Bibliothèque (sidebar Designer collapsed). Drag handle bord
+    droit, largeur clampée [320, viewport×0.8 ou 1200], persistée.
+
+  **Décisions UX clés** :
+  - Sélection visuelle distincte du `currentPatchId` (simple clic
+    sélectionne, double-clic ouvre/charge).
+  - État de la bibliothèque partagé entre Designer et Composer (un
+    seul jeu de préférences, sélection synchronisée).
+  - Default navigation mode au load (vs tree historique).
+  - Tiles mode caché en Tree (incohérent visuellement).
+  - Anti-cycle paste/drag systématique via `wouldCreateCycle`.
+
+  Spec + plan archivés : `docs/superpowers/specs/2026-05-25-bibliotheque-multi-mode-design.md`,
+  `docs/superpowers/plans/2026-05-25-bibliotheque-multi-mode.md`.
+
+  Tests manuels attendus de l'utilisateur (33 scénarios listés dans
+  la spec §8) : modes & navigation, sélection, clipboard, multi-
+  sélection avec ops, keyboard nav, Tiles, popup resize, sync
+  Designer/Composer.
 
 - **2026-05-24 — Itération J phase 1 : Anti-aliasing audio**
   Correction d'un bug audio fondamental : les harmoniques miroirs de
@@ -4028,6 +4155,20 @@ clavier 22 cases, octave selector, boutons save, message slot).
   investigation des 2 pics > 10 kHz en live + C0 + carré observés
   pré-fix (à vérifier post-livraison, suspect : artefact wavetable
   interne `createPeriodicWave`).
+
+### Itération K (Bibliothèque multi-mode) — clôturée 2026-05-25
+
+- ✅ **Phase 1** (2026-05-25) — Bibliothèque type file explorer.
+  Sous-commits 1.1-1.12 couvrant : state UI prefs (modes, current
+  folder, popup width), toolbar toggles + BibBreadcrumb + nav mode
+  rendering, mode Details avec colonnes méta, mode Tiles avec
+  PatchThumbnail SVG, multi-sélection (Ctrl/Shift), lasso rectangle,
+  clipboard state + PASTE/MOVE actions + bibTransfer helper, ghost
+  visual cut, drag-and-drop refactor multi-sélection, BibContextMenu
+  extrait avec entrées enrichies, raccourcis clavier (Ctrl+C/X/V,
+  F2, Suppr, ↑↓, Enter, Esc), PopupResizer pour le popup sidebar
+  collapsed.
+  Spec + plan dans `docs/superpowers/{specs,plans}/2026-05-25-bibliotheque-multi-mode*.md`.
 
 ### Backlog général (à caser quand pertinent)
 
