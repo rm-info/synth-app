@@ -432,31 +432,35 @@ function PatchBank({
       // Skip si typing dans un input ou contentEditable
       if (e.target.tagName === 'INPUT' || e.target.isContentEditable) return
 
+      // Helper : preventDefault + stopPropagation pour isoler des listeners globaux
+      // (App.jsx écoute aussi Delete/Escape/Arrow pour la timeline).
+      const consume = () => { e.preventDefault(); e.stopPropagation() }
+
       if ((e.ctrlKey || e.metaKey) && e.key === 'c') {
-        e.preventDefault()
+        consume()
         handleCopy()
       } else if ((e.ctrlKey || e.metaKey) && e.key === 'x') {
-        e.preventDefault()
+        consume()
         handleCut()
       } else if ((e.ctrlKey || e.metaKey) && e.key === 'v') {
-        e.preventDefault()
+        consume()
         handlePaste()
       } else if (e.key === 'F2' && bibSelectedIds.length === 1) {
-        e.preventDefault()
+        consume()
         const item = bibSelectedIds[0]
         const name = item.type === 'patch'
           ? patches.find(p => p.id === item.id)?.name
           : soundFolders.find(f => f.id === item.id)?.name
         if (name) startEdit(item.id, name)
-      } else if (e.key === 'Delete') {
-        e.preventDefault()
+      } else if (e.key === 'Delete' || e.key === 'Backspace') {
+        consume()
         handleDeleteSelected()
       } else if (e.key === 'Escape') {
-        e.preventDefault()
+        consume()
         if (bibClipboard) onClearClipboard?.()
         else onClearSelection?.()
       } else if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
-        e.preventDefault()
+        consume()
         const orderedList = getOrderedItemList({
           hierarchyMode: bibHierarchyMode,
           currentFolderId: bibCurrentFolderId,
@@ -479,7 +483,7 @@ function PatchBank({
           onSelectItems?.([next], 'set')
         }
       } else if (e.key === 'Enter' && bibSelectedIds.length === 1) {
-        e.preventDefault()
+        consume()
         const item = bibSelectedIds[0]
         if (item.type === 'patch') onLoadPatch?.(item.id)
         else if (item.type === 'folder') {
@@ -488,14 +492,17 @@ function PatchBank({
         }
       }
     }
-    document.addEventListener('keydown', onKey)
-    return () => document.removeEventListener('keydown', onKey)
-  // handleCopy/handleCut/handlePaste/handleDeleteSelected sont des fonctions inline dont
-  // toutes les dépendances capturées (bibSelectedIds, contextMenu, etc.) sont déjà listées.
+    // Capture phase pour intercepter avant les listeners globaux d'App.jsx.
+    document.addEventListener('keydown', onKey, true)
+    return () => document.removeEventListener('keydown', onKey, true)
+  // handleCopy/Cut/Paste/DeleteSelected sont des fonctions inline recréées à chaque render.
+  // Leurs captures réelles (bibSelectedIds, contextMenu, bibClipboard, onCopy, onCut, onPaste,
+  // onDeletePatch, onDeleteFolder, onClearSelection, soundFolders, patches) sont toutes listées.
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [bibSelectedIds, bibSelectionAnchor, bibClipboard, bibCurrentFolderId,
-      bibHierarchyMode, soundFolders, patches, collapsedFolders,
-      onSelectItems, onClearSelection, onClearClipboard, onLoadPatch, onSetCurrentFolder])
+      bibHierarchyMode, soundFolders, patches, collapsedFolders, contextMenu,
+      onSelectItems, onClearSelection, onClearClipboard, onLoadPatch, onSetCurrentFolder,
+      onCopy, onCut, onPaste, onDeletePatch, onDeleteFolder])
 
   // --- Build tree ---
 
