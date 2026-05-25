@@ -1632,7 +1632,6 @@ export function reducer(state, action) {
         soundFolders: [...state.soundFolders, ...result.newFolders],
         patchCounter: result.patchCounterAfter,
         folderCounter: result.folderCounterAfter,
-        // Clipboard préservé (pas de bibClipboard: null)
       }
     }
     case 'MOVE_BIB_ITEMS': {
@@ -1664,8 +1663,12 @@ export function reducer(state, action) {
       const { items } = action.payload
       if (!items || items.length === 0) return state
 
-      const countUsage = (patchId) =>
-        (state.clips || []).filter(c => c.patchId === patchId).length
+      // Précalcul : patchId → nombre de clips référençant ce patch.
+      const usageByPatchId = new Map()
+      for (const c of (state.clips || [])) {
+        usageByPatchId.set(c.patchId, (usageByPatchId.get(c.patchId) ?? 0) + 1)
+      }
+      const usageOf = (patchId) => usageByPatchId.get(patchId) ?? 0
 
       const blockedPatches = []
       const allowedPatchIds = new Set()
@@ -1673,7 +1676,7 @@ export function reducer(state, action) {
 
       for (const item of items) {
         if (item.type === 'patch') {
-          const usage = countUsage(item.id)
+          const usage = usageOf(item.id)
           if (usage > 0) {
             const patch = state.patches.find(p => p.id === item.id)
             if (patch) blockedPatches.push({ id: item.id, name: patch.name, usageCount: usage })
@@ -1684,15 +1687,15 @@ export function reducer(state, action) {
           const folder = state.soundFolders.find(f => f.id === item.id)
           if (!folder) continue
           const result = countFolderContents(item.id, state.soundFolders, state.patches)
-          const blockedDescendants = result.patchIds.filter(pid => countUsage(pid) > 0)
+          const blockedDescendants = result.patchIds.filter(pid => usageOf(pid) > 0)
           if (blockedDescendants.length > 0) {
             // Folder entier bloqué (atomicity) : tous les patches bloqués remontent
             for (const pid of blockedDescendants) {
               const p = state.patches.find(pp => pp.id === pid)
-              if (p) blockedPatches.push({ id: pid, name: p.name, usageCount: countUsage(pid) })
+              if (p) blockedPatches.push({ id: pid, name: p.name, usageCount: usageOf(pid) })
             }
           } else {
-            // Folder libre : marque tout son sous-arbre comme supprimable
+            // Folder libre : marque tout son sous-arbre comme supprimable.
             allowedFolderIds.add(item.id)
             const descendantFolderIds = getDescendantFolderIds(item.id, state.soundFolders)
             for (const fid of descendantFolderIds) allowedFolderIds.add(fid)

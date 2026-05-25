@@ -1064,7 +1064,7 @@ function WaveformEditor({
       return
     }
 
-    // Fallback : comportement actuel (sera retiré une fois le popup branché)
+    // Fallback sans popup (contexte embarqué sans onRequestSavePopup)
     const proposedName = currentPatch
       ? nextAvailableName(`Copie de ${currentPatch.name}`, patches ?? [])
       : defaultName

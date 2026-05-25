@@ -162,10 +162,8 @@ function PatchBank({
   const handleDeleteSelected = () => {
     if (bibSelectedIds.length === 0) return
     if (onDeleteItems) {
-      // Mode batch (préféré quand isFullTab)
       onDeleteItems(bibSelectedIds)
     } else {
-      // Mode legacy : boucle individuelle
       for (const item of bibSelectedIds) {
         if (item.type === 'patch') onDeletePatch(item.id)
         else if (item.type === 'folder') onDeleteFolder(item.id)
@@ -1007,14 +1005,14 @@ function PatchBank({
             className="bib-action-btn"
             title="Coller (Ctrl+V)"
             disabled={!bibClipboard || bibClipboard.items.length === 0}
-            onClick={() => handlePaste()}
+            onClick={handlePaste}
           ><Clipboard size={14} /></button>
           <button
             type="button"
             className="bib-action-btn delete"
             title="Supprimer (Suppr)"
             disabled={bibSelectedIds.length === 0}
-            onClick={() => onDeleteItems?.(bibSelectedIds)}
+            onClick={handleDeleteSelected}
           ><Trash2 size={14} /></button>
           <div className="bib-action-separator" />
           {onImportLibrary && (
