@@ -501,6 +501,7 @@
   cursor: pointer;
   font-style: italic;
   border-radius: 3px;
+  user-select: none;
 }
 .bib-updir:hover {
   background: rgba(255, 255, 255, 0.04);
@@ -514,7 +515,7 @@
 
 .sound-chip.is-details {
   display: grid;
-  grid-template-columns: 12px 1fr 60px 16px auto auto;
+  grid-template-columns: 12px 1fr 60px auto;
   gap: 6px;
   align-items: center;
   padding: 7px 8px;
@@ -569,6 +570,7 @@
   gap: 6px;
   align-items: center;
   text-align: center;
+  user-select: none;
 }
 .tile:hover {
   background: rgba(255, 255, 255, 0.08);

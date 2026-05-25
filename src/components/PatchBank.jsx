@@ -566,10 +566,6 @@ function PatchBank({
       e.stopPropagation()
       onDeletePatch(patch.id)
     }
-    const handleLoad = () => {
-      if (isEditing) return
-      onLoadPatch?.(patch.id)
-    }
     const handleClick = (e) => {
       if (isEditing) return
       handleItemClick({ type: 'patch', id: patch.id }, e)
@@ -577,7 +573,7 @@ function PatchBank({
     const handleDoubleClick = () => {
       if (isEditing) return
       // Double-clic = charger le patch (pattern file explorer).
-      // Le rename est accessible via le bouton ✎ ou F2 (Task 11).
+      // Le rename est accessible via F2 ou le menu contextuel.
       onLoadPatch?.(patch.id)
     }
     const titleText = 'Clic pour sélectionner, double-clic pour charger, glisser pour placer'
@@ -631,23 +627,7 @@ function PatchBank({
           <>
             <span className="chip-name">{patch.name}</span>
             {isDetails && (
-              <>
-                <span className="chip-meta-tuning">{patch.defaultTuningSystem ?? '—'}</span>
-                <span className="chip-meta-color" style={{ background: patch.color }} title={patch.color} />
-              </>
-            )}
-            {!loadOnSingleClick && (
-              <button
-                type="button"
-                className="chip-rename"
-                onClick={(e) => { e.stopPropagation(); handleLoad() }}
-                onMouseDown={(e) => e.stopPropagation()}
-                draggable={false}
-                title="Éditer le patch"
-                aria-label={`Éditer ${patch.name}`}
-              >
-                ✎
-              </button>
+              <span className="chip-meta-tuning">{patch.defaultTuningSystem ?? '—'}</span>
             )}
             <button
               type="button"
@@ -657,9 +637,7 @@ function PatchBank({
               draggable={false}
               title={`Supprimer ${patch.name}`}
               aria-label={`Supprimer ${patch.name}`}
-            >
-              ×
-            </button>
+            ><Trash2 size={12} /></button>
           </>
         )}
       </li>
@@ -721,11 +699,14 @@ function PatchBank({
           data-bib-item-type="folder"
         >
           {/* En tree mode, le chevron est un bouton séparé pour le toggle expand.
-              Clic sur le chevron ne propage pas à la row (sélection). */}
-          <span
-            className={`folder-chevron ${isExpanded ? 'is-expanded' : ''}`}
-            onClick={!isNavMode ? (e) => { e.stopPropagation(); toggleFolder(folder.id) } : undefined}
-          >▶</span>
+              Clic sur le chevron ne propage pas à la row (sélection).
+              En nav mode, on entre dans le folder via double-clic → chevron inutile. */}
+          {isNavMode ? <span className="folder-chevron" /> : (
+            <span
+              className={`folder-chevron ${isExpanded ? 'is-expanded' : ''}`}
+              onClick={(e) => { e.stopPropagation(); toggleFolder(folder.id) }}
+            >▶</span>
+          )}
           <span className="folder-icon">📁</span>
           {isEditing ? (
             <input
@@ -745,9 +726,9 @@ function PatchBank({
           ) : (
             <>
               <span className="folder-name">{folder.name}</span>
-              <span className="folder-badge">{childPatches.length + childFolders.length}</span>
+              <span className="folder-badge" title="Patches directs">{childPatches.length + childFolders.length}</span>
               {isDetails && descendantCount !== null && (
-                <span className="folder-meta-count">{descendantCount}</span>
+                <span className="folder-meta-count" title="Patches dans le sous-arbre">{descendantCount}</span>
               )}
               <button
                 type="button"
@@ -757,9 +738,7 @@ function PatchBank({
                 draggable={false}
                 title={`Supprimer ${folder.name}`}
                 aria-label={`Supprimer ${folder.name}`}
-              >
-                ×
-              </button>
+              ><Trash2 size={12} /></button>
             </>
           )}
         </div>
@@ -946,7 +925,7 @@ function PatchBank({
       <div className="sound-bank-header-main">
         <h3>Bibliothèque</h3>
         <div className="sound-bank-header-right">
-          {totalCount > 0 && <span className="sound-bank-count">{totalCount}</span>}
+          {totalCount > 0 && <span className="sound-bank-count" title="Nombre total de patches">{totalCount}</span>}
         </div>
       </div>
       <div className="bib-toolbar">

@@ -13,6 +13,11 @@
   cursor: text;
   flex-wrap: wrap;
 }
+.bib-breadcrumb .seg-wrap {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+}
 .bib-breadcrumb .seg {
   color: #00d4ff;
   cursor: pointer;
