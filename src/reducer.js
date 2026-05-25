@@ -1584,19 +1584,19 @@ export function reducer(state, action) {
           soundFolders: state.soundFolders.map(f =>
             folderIds.has(f.id) ? { ...f, parentId: targetFolderId } : f
           ),
-          bibClipboard: null,
+          // Bascule en copy : préserve le clipboard pour multi-paste
+          bibClipboard: { mode: 'copy', items: [...items] },
         }
-      } else {
-        // mode === 'copy'
-        const result = duplicateItemsToFolder(items, targetFolderId, state)
-        return {
-          ...state,
-          patches: [...state.patches, ...result.newPatches],
-          soundFolders: [...state.soundFolders, ...result.newFolders],
-          patchCounter: result.patchCounterAfter,
-          folderCounter: result.folderCounterAfter,
-          bibClipboard: null,
-        }
+      }
+      // mode === 'copy' : duplique, clipboard reste actif
+      const result = duplicateItemsToFolder(items, targetFolderId, state)
+      return {
+        ...state,
+        patches: [...state.patches, ...result.newPatches],
+        soundFolders: [...state.soundFolders, ...result.newFolders],
+        patchCounter: result.patchCounterAfter,
+        folderCounter: result.folderCounterAfter,
+        // Clipboard préservé (pas de bibClipboard: null)
       }
     }
     case 'MOVE_BIB_ITEMS': {
