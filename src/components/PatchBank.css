@@ -629,3 +629,43 @@
 .patch-thumbnail {
   display: block;
 }
+
+.bib-action-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 0 8px 8px;
+  flex-wrap: wrap;
+}
+.bib-action-btn {
+  background: transparent;
+  color: #a8acc4;
+  border: 1px solid transparent;
+  padding: 5px 7px;
+  cursor: pointer;
+  border-radius: 4px;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.bib-action-btn:hover:not(:disabled) {
+  background: #2a2a4a;
+  color: #d0d4ec;
+  border-color: #3a3a5a;
+}
+.bib-action-btn:disabled {
+  color: #4a4a6a;
+  cursor: not-allowed;
+}
+.bib-action-btn.delete:hover:not(:disabled) {
+  background: rgba(248, 113, 113, 0.15);
+  color: #f87171;
+  border-color: rgba(248, 113, 113, 0.3);
+}
+.bib-action-separator {
+  width: 1px;
+  height: 20px;
+  background: #3a3a5a;
+  margin: 0 4px;
+}

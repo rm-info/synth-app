@@ -1,5 +1,8 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
-import { ListTree, Folder, List, LayoutList, LayoutGrid } from 'lucide-react'
+import {
+  ListTree, Folder, List, LayoutList, LayoutGrid,
+  FolderPlus, Edit3, Copy, Scissors, Clipboard, Trash2, Download, Upload,
+} from 'lucide-react'
 import { getDescendantFolderIds, countFolderContents } from '../reducer'
 import { nextAvailableFolderName } from '../lib/folderNames.js'
 import BibBreadcrumb from './BibBreadcrumb'
@@ -108,6 +111,9 @@ function PatchBank({
   onCut,
   onClearClipboard,
   onPaste,
+  isFullTab = false,
+  onDeleteItems,
+  onImportLibrary,
 }) {
   const asideRef = useRef(null)
   const isFocusedRef = useRef(false)
@@ -946,6 +952,79 @@ function PatchBank({
           title="Nouveau dossier"
         >+ Dossier</button>
       </div>
+      {isFullTab && (
+        <div className="bib-action-toolbar">
+          <button
+            type="button"
+            className="bib-action-btn"
+            title="Nouveau dossier"
+            onClick={handleCreateFolder}
+          ><FolderPlus size={14} /></button>
+          <button
+            type="button"
+            className="bib-action-btn"
+            title="Renommer (F2)"
+            disabled={bibSelectedIds.length !== 1}
+            onClick={() => {
+              const item = bibSelectedIds[0]
+              if (!item) return
+              const name = item.type === 'patch'
+                ? patches.find(p => p.id === item.id)?.name
+                : soundFolders.find(f => f.id === item.id)?.name
+              if (name) startEdit(item.id, name)
+            }}
+          ><Edit3 size={14} /></button>
+          <button
+            type="button"
+            className="bib-action-btn"
+            title="Copier (Ctrl+C)"
+            disabled={bibSelectedIds.length === 0}
+            onClick={handleCopy}
+          ><Copy size={14} /></button>
+          <button
+            type="button"
+            className="bib-action-btn"
+            title="Couper (Ctrl+X)"
+            disabled={bibSelectedIds.length === 0}
+            onClick={handleCut}
+          ><Scissors size={14} /></button>
+          <button
+            type="button"
+            className="bib-action-btn"
+            title="Coller (Ctrl+V)"
+            disabled={!bibClipboard || bibClipboard.items.length === 0}
+            onClick={() => handlePaste()}
+          ><Clipboard size={14} /></button>
+          <button
+            type="button"
+            className="bib-action-btn delete"
+            title="Supprimer (Suppr)"
+            disabled={bibSelectedIds.length === 0}
+            onClick={() => onDeleteItems?.(bibSelectedIds)}
+          ><Trash2 size={14} /></button>
+          <div className="bib-action-separator" />
+          {onImportLibrary && (
+            <button
+              type="button"
+              className="bib-action-btn"
+              title="Importer (.osa)"
+              onClick={onImportLibrary}
+            ><Upload size={14} /></button>
+          )}
+          <button
+            type="button"
+            className="bib-action-btn"
+            title="Exporter (sélection unique)"
+            disabled={bibSelectedIds.length !== 1}
+            onClick={() => {
+              const item = bibSelectedIds[0]
+              if (!item) return
+              if (item.type === 'patch') onExportPatch?.(item.id)
+              else onExportFolder?.(item.id)
+            }}
+          ><Download size={14} /></button>
+        </div>
+      )}
       {bibHierarchyMode === 'nav' && (
         <BibBreadcrumb
           currentFolderId={bibCurrentFolderId ?? null}
