@@ -10,6 +10,7 @@ import Toolbar from './components/Toolbar'
 import PropertiesPanel from './components/PropertiesPanel'
 import Spectrogram from './components/Spectrogram'
 import SidebarResizer from './components/SidebarResizer'
+import PopupResizer from './components/PopupResizer'
 import {
   reducer,
   withUndo,
@@ -690,7 +691,6 @@ function App() {
     dispatch({ type: 'PASTE_BIB_CLIPBOARD', payload: { targetFolderId } })
   }, [])
 
-  // eslint-disable-next-line no-unused-vars
   const setBibPopupWidth = useCallback((w) => {
     dispatch({ type: 'SET_BIB_POPUP_WIDTH', payload: w })
   }, [])
@@ -1700,7 +1700,7 @@ function App() {
                         : <Play size={14} strokeWidth={2.2} fill="currentColor" />}
                     </button>
                     {libraryPopoverOpen && (
-                      <div className="designer-library-popover" ref={libraryPopoverRef} role="dialog" aria-label="Bibliothèque">
+                      <div className="designer-library-popover" ref={libraryPopoverRef} role="dialog" aria-label="Bibliothèque" style={{ width: `${bibPopupWidth}px`, position: 'relative' }}>
                         {/* G.2.7 : le titre "Bibliothèque" est porté par
                             PatchBank lui-même (h3 du sound-bank-header).
                             Le bouton close est passé via headerExtra pour
@@ -1746,6 +1746,7 @@ function App() {
                             ><X size={14} strokeWidth={2.2} /></button>
                           }
                         />
+                        <PopupResizer currentWidth={bibPopupWidth} onResize={setBibPopupWidth} />
                       </div>
                     )}
                   </>
