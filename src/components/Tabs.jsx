@@ -1,6 +1,7 @@
 import './Tabs.css'
 
 const TABS = [
+  { id: 'library', label: 'Bibliothèque', hint: 'Gérer la bibliothèque de patches' },
   { id: 'designer', label: 'Designer', hint: 'Dessiner et éditer des sons' },
   { id: 'composer', label: 'Composer', hint: 'Composer la timeline' },
 ]

@@ -11,6 +11,8 @@ import PropertiesPanel from './components/PropertiesPanel'
 import Spectrogram from './components/Spectrogram'
 import SidebarResizer from './components/SidebarResizer'
 import PopupResizer from './components/PopupResizer'
+import SavePatchDialog from './components/SavePatchDialog'
+import DeleteUsageWarningDialog from './components/DeleteUsageWarningDialog'
 import {
   reducer,
   withUndo,
@@ -78,6 +80,7 @@ function App() {
     bibSelectedIds, bibSelectionAnchor,
     patchCounter, clipCounter, folderCounter, trackCounter,
     clipboard, measureClipboard, bibClipboard, history, notification,
+    pendingDeleteWarning,
   } = state
 
   const editorRef = useRef(null)
@@ -155,8 +158,18 @@ function App() {
       const isRedo = (e.key.toLowerCase() === 'z' && e.shiftKey) || e.key.toLowerCase() === 'y'
       if (!isUndo && !isRedo) return
       e.preventDefault()
-      const tab = activeTab === 'composer' ? 'COMPOSER' : 'DESIGNER'
-      dispatch({ type: `${isUndo ? 'UNDO' : 'REDO'}_${tab}` })
+      const undoAction = {
+        library: 'UNDO_LIBRARY',
+        designer: 'UNDO_DESIGNER',
+        composer: 'UNDO_COMPOSER',
+      }[activeTab]
+      const redoAction = {
+        library: 'REDO_LIBRARY',
+        designer: 'REDO_DESIGNER',
+        composer: 'REDO_COMPOSER',
+      }[activeTab]
+      const action = isUndo ? undoAction : redoAction
+      if (action) dispatch({ type: action })
     }
     window.addEventListener('keydown', handler)
     return () => window.removeEventListener('keydown', handler)
@@ -1459,6 +1472,49 @@ function App() {
     dispatch({ type: 'MOVE_BIB_ITEMS', payload: { items, targetFolderId } })
   }, [])
 
+  // Popup "Sauvegarder le patch" (iter K phase 2) : ouvert depuis le
+  // WaveformEditor via onRequestSavePopup, monté en overlay au niveau App.
+  // savePopup: null | { patchData, sourcePatch }
+  const [savePopup, setSavePopup] = useState(null)
+
+  const openSavePopup = useCallback(({ patchData, sourcePatch }) => {
+    setSavePopup({ patchData, sourcePatch })
+  }, [])
+
+  const closeSavePopup = useCallback(() => {
+    setSavePopup(null)
+  }, [])
+
+  const handleSavePopupConfirm = useCallback(({ name, folderId, patchData }) => {
+    dispatch({
+      type: 'SAVE_PATCH',
+      payload: { patchData: { ...patchData, name }, folderId },
+    })
+    setSavePopup(null)
+  }, [])
+
+  const handleCreateFolderFromSavePopup = useCallback((name, parentId) => {
+    dispatch({
+      type: 'CREATE_FOLDER',
+      payload: { name, parentId },
+      meta: { skipUndo: true },
+    })
+  }, [])
+
+  // Warning suppression d'items bibliothèque utilisés dans la timeline :
+  // popup monté en overlay, déclenché via state.pendingDeleteWarning.
+  const handleGoToComposerWithClips = useCallback(({ patchIds }) => {
+    dispatch({ type: 'GO_TO_COMPOSER_WITH_CLIPS', payload: { patchIds } })
+  }, [])
+
+  const handleCloseDeleteWarning = useCallback(() => {
+    dispatch({ type: 'CLEAR_PENDING_DELETE_WARNING' })
+  }, [])
+
+  const onDeleteBibItems = useCallback((items) => {
+    dispatch({ type: 'DELETE_BIB_ITEMS', payload: { items } })
+  }, [])
+
   const notify = (message, type = 'info') => {
     dispatch({ type: 'SET_NOTIFICATION', payload: { message, type, timestamp: Date.now() } })
   }
@@ -1619,6 +1675,47 @@ function App() {
     <div className="app">
       <Tabs activeTab={activeTab} onChange={setActiveTab} />
 
+      {activeTab === 'library' && (
+        <main className="library-tab-content">
+          <PatchBank
+            patches={patches}
+            soundFolders={soundFolders}
+            currentPatchId={currentPatchId}
+            activeTab={activeTab}
+            onLoadPatch={(id) => {
+              handleLoadPatch(id)
+              dispatch({ type: 'SET_ACTIVE_TAB', payload: 'designer' })
+            }}
+            onRenamePatch={handleRenamePatch}
+            onDeletePatch={handleDeletePatch}
+            onCreateFolder={handleCreateFolder}
+            onRenameFolder={handleRenameFolder}
+            onDeleteFolder={handleDeleteFolder}
+            onMoveItems={onMoveBibItems}
+            onExportFolder={handleExportFolder}
+            onExportPatch={handleExportPatch}
+            bibHierarchyMode={bibHierarchyMode}
+            bibDisplayMode={bibDisplayMode}
+            bibCurrentFolderId={bibCurrentFolderId}
+            onSetHierarchyMode={setBibHierarchyMode}
+            onSetDisplayMode={setBibDisplayMode}
+            onSetCurrentFolder={setBibCurrentFolder}
+            onNotify={notify}
+            bibSelectedIds={bibSelectedIds}
+            bibSelectionAnchor={bibSelectionAnchor}
+            onSelectItems={onSelectBibItems}
+            onClearSelection={onClearBibSelection}
+            bibClipboard={bibClipboard}
+            onCopy={onCopyBibItems}
+            onCut={onCutBibItems}
+            onClearClipboard={onClearBibClipboard}
+            onPaste={onPasteBibClipboard}
+            onDeleteItems={onDeleteBibItems}
+            isFullTab={true}
+          />
+        </main>
+      )}
+
       <WaveformEditor
         ref={editorRef}
         editor={editor}
@@ -1630,6 +1727,7 @@ function App() {
         onSavePatch={handleSavePatch}
         onUpdatePatch={handleUpdatePatch}
         onRequestNew={handleRequestNew}
+        onRequestSavePopup={openSavePopup}
         nextPatchName={nextPatchName}
         currentPatch={currentPatch}
         patches={patches}
@@ -2141,6 +2239,23 @@ function App() {
           onCancel={() => setImportModal(null)}
         />
       )}
+
+      <SavePatchDialog
+        open={savePopup !== null}
+        currentPatch={savePopup?.sourcePatch ?? null}
+        patches={patches}
+        soundFolders={soundFolders}
+        bibCurrentFolderId={bibCurrentFolderId}
+        patchData={savePopup?.patchData ?? null}
+        onConfirm={handleSavePopupConfirm}
+        onCancel={closeSavePopup}
+        onCreateFolder={handleCreateFolderFromSavePopup}
+      />
+      <DeleteUsageWarningDialog
+        warning={pendingDeleteWarning}
+        onGoToComposer={handleGoToComposerWithClips}
+        onClose={handleCloseDeleteWarning}
+      />
     </div>
   )
 }

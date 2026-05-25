@@ -18,6 +18,26 @@
   display: none !important;
 }
 
+/* ======================= LIBRARY ======================= */
+/* Onglet Bibliothèque plein écran : PatchBank centré avec largeur cappée. */
+.library-tab-content {
+  flex: 1;
+  min-height: 0;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  padding: 16px;
+  box-sizing: border-box;
+  overflow: hidden;
+}
+.library-tab-content > .sound-bank-panel {
+  max-width: 1400px;
+  width: 100%;
+  margin: 0 auto;
+  flex: 1;
+  min-height: 0;
+}
+
 /* ======================= DESIGNER ======================= */
 .designer-layout {
   flex: 1;
