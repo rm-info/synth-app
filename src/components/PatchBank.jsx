@@ -3,6 +3,7 @@ import { ListTree, Folder, List, LayoutList, LayoutGrid } from 'lucide-react'
 import { getDescendantFolderIds, countFolderContents } from '../reducer'
 import { nextAvailableFolderName } from '../lib/folderNames.js'
 import BibBreadcrumb from './BibBreadcrumb'
+import BibContextMenu from './BibContextMenu'
 import PatchThumbnail from './PatchThumbnail'
 import './PatchBank.css'
 
@@ -130,30 +131,34 @@ function PatchBank({
     return new Set(bibClipboard.items.map(i => `${i.type}:${i.id}`))
   }, [bibClipboard])
 
-  // eslint-disable-next-line no-unused-vars
   const handleCopy = () => {
     if (bibSelectedIds.length === 0) return
     onCopy?.(filterOutDescendants(bibSelectedIds, soundFolders, patches))
   }
-  // eslint-disable-next-line no-unused-vars
   const handleCut = () => {
     if (bibSelectedIds.length === 0) return
     onCut?.(filterOutDescendants(bibSelectedIds, soundFolders, patches))
   }
-  // eslint-disable-next-line no-unused-vars
   const handlePaste = (targetFolderId = bibCurrentFolderId ?? null) => {
     if (!bibClipboard) return
     onPaste?.(targetFolderId)
   }
 
-  useEffect(() => {
-    if (!contextMenu) return
-    const onKey = (e) => {
-      if (e.key === 'Escape') { e.preventDefault(); setContextMenu(null) }
+  const handleDeleteSelected = () => {
+    if (bibSelectedIds.length === 0) {
+      // Si rien sélectionné, fallback : supprimer l'item du contextMenu
+      if (contextMenu && (contextMenu.type === 'patch' || contextMenu.type === 'folder')) {
+        if (contextMenu.type === 'patch') onDeletePatch(contextMenu.id)
+        else onDeleteFolder(contextMenu.id)
+      }
+      return
     }
-    document.addEventListener('keydown', onKey, true)
-    return () => document.removeEventListener('keydown', onKey, true)
-  }, [contextMenu])
+    for (const item of bibSelectedIds) {
+      if (item.type === 'patch') onDeletePatch(item.id)
+      else if (item.type === 'folder') onDeleteFolder(item.id)
+    }
+    onClearSelection?.()
+  }
 
   const toggleFolder = (folderId) => {
     setCollapsedFolders((prev) => {
@@ -183,9 +188,6 @@ function PatchBank({
     }
   }
 
-  // startEdit sera réactivé en Task 11 (F2 rename). Pour l'instant,
-  // le rename inline est désactivé : double-clic = load (file explorer pattern).
-  // eslint-disable-next-line no-unused-vars
   const startEdit = (id, currentName) => {
     setEditingId(id)
     setEditingValue(currentName)
@@ -863,6 +865,11 @@ function PatchBank({
         ref={bodyRef}
         className="sound-bank-body"
         onMouseDown={handleBodyMouseDown}
+        onContextMenu={(e) => {
+          if (e.target.closest('[data-bib-item-id]')) return  // gère l'item lui-même
+          e.preventDefault()
+          setContextMenu({ type: 'empty', clientX: e.clientX, clientY: e.clientY })
+        }}
       >
         {renderBody()}
         {lasso && (
@@ -887,48 +894,29 @@ function PatchBank({
           Déposer ici → racine
         </div>
       )}
-      {contextMenu && (
-        <>
-          <div
-            className="patchbank-context-backdrop"
-            onClick={() => setContextMenu(null)}
-            onContextMenu={(e) => { e.preventDefault(); setContextMenu(null) }}
-          />
-          <div
-            className="patchbank-context-menu"
-            style={{ left: `${contextMenu.clientX}px`, top: `${contextMenu.clientY}px` }}
-          >
-            {contextMenu.type === 'folder' && (() => {
-              const descendantIds = getDescendantFolderIds(contextMenu.id, soundFolders)
-              const folderIds = new Set([contextMenu.id, ...descendantIds])
-              const isEmpty = !patches.some((p) => folderIds.has(p.folderId))
-              return (
-                <button
-                  type="button"
-                  className="patchbank-context-item"
-                  disabled={isEmpty}
-                  onClick={() => {
-                    const id = contextMenu.id
-                    setContextMenu(null)
-                    onExportFolder?.(id)
-                  }}
-                >Exporter ce dossier</button>
-              )
-            })()}
-            {contextMenu.type === 'patch' && (
-              <button
-                type="button"
-                className="patchbank-context-item"
-                onClick={() => {
-                  const id = contextMenu.id
-                  setContextMenu(null)
-                  onExportPatch?.(id)
-                }}
-              >Exporter ce patch</button>
-            )}
-          </div>
-        </>
-      )}
+      <BibContextMenu
+        menu={contextMenu}
+        onClose={() => setContextMenu(null)}
+        onRename={(id, type) => {
+          const name = type === 'patch'
+            ? patches.find(p => p.id === id)?.name
+            : soundFolders.find(f => f.id === id)?.name
+          if (name) startEdit(id, name)
+        }}
+        onCopy={handleCopy}
+        onCut={handleCut}
+        onPaste={(folderId) => handlePaste(folderId)}
+        onDelete={handleDeleteSelected}
+        onExportFolder={onExportFolder}
+        onExportPatch={onExportPatch}
+        onNewFolder={handleCreateFolder}
+        clipboardHasItems={!!bibClipboard && bibClipboard.items.length > 0}
+        folderHasAnyPatch={(id) => {
+          const desc = getDescendantFolderIds(id, soundFolders)
+          const ids = new Set([id, ...desc])
+          return patches.some(p => ids.has(p.folderId))
+        }}
+      />
     </aside>
   )
 }
