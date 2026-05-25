@@ -108,9 +108,11 @@ function PatchBank({
   bibHierarchyMode,
   bibDisplayMode,
   bibCurrentFolderId,
+  bibCollapsedFolders,
   onSetHierarchyMode,
   onSetDisplayMode,
   onSetCurrentFolder,
+  onToggleBibFolderCollapsed,
   onNotify,
   bibSelectedIds = [],
   bibSelectionAnchor = null,
@@ -135,7 +137,8 @@ function PatchBank({
   const loadOnSingleClick = activeTab === 'designer'
   const [editingId, setEditingId] = useState(null)
   const [editingValue, setEditingValue] = useState('')
-  const [collapsedFolders, setCollapsedFolders] = useState(new Set())
+  // Fix 4 : collapsedFolders vient du reducer global (persisté) via bibCollapsedFolders.
+  const collapsedFolders = useMemo(() => new Set(bibCollapsedFolders || []), [bibCollapsedFolders])
 
   const [dragItem, setDragItem] = useState(null) // { type: 'patch'|'folder', id }
   const [dragOverTarget, setDragOverTarget] = useState(null) // folderId or 'root'
@@ -148,10 +151,49 @@ function PatchBank({
   const lassoRef = useRef(null)
   const bodyRef = useRef(null)
 
+  // Fix 1 : input inline pour créer un nouveau dossier (null = fermé, string = en cours de saisie)
+  const [creatingFolderName, setCreatingFolderName] = useState(null)
+
   const cutItemKeys = useMemo(() => {
     if (!bibClipboard || bibClipboard.mode !== 'cut') return new Set()
     return new Set(bibClipboard.items.map(i => `${i.type}:${i.id}`))
   }, [bibClipboard])
+
+  // Fix 1 : parent pour la création inline de dossier.
+  const folderCreateParentId = useMemo(() => {
+    if (bibHierarchyMode === 'nav') return bibCurrentFolderId ?? null
+    // Tree mode : folder sélectionné si exactement 1, sinon racine
+    if (bibSelectedIds.length === 1 && bibSelectedIds[0].type === 'folder') {
+      return bibSelectedIds[0].id
+    }
+    return null
+  }, [bibHierarchyMode, bibCurrentFolderId, bibSelectedIds])
+
+  const folderCreateParentName = useMemo(() => {
+    if (folderCreateParentId === null) return 'racine'
+    // Reconstitue le chemin complet
+    const parts = []
+    let cur = folderCreateParentId
+    while (cur) {
+      const folder = soundFolders.find(f => f.id === cur)
+      if (!folder) break
+      parts.unshift(folder.name)
+      cur = folder.parentId
+    }
+    return parts.length > 0 ? `/${parts.join('/')}` : 'racine'
+  }, [folderCreateParentId, soundFolders])
+
+  const confirmCreateFolder = () => {
+    const trimmed = creatingFolderName?.trim() ?? ''
+    if (!trimmed) {
+      setCreatingFolderName(null)
+      return
+    }
+    const siblings = soundFolders.filter(f => f.parentId === folderCreateParentId)
+    const dedupedName = nextAvailableFolderName(trimmed, siblings)
+    onCreateFolder(dedupedName, folderCreateParentId)
+    setCreatingFolderName(null)
+  }
 
   const itemsForClipboardOp = () => {
     return bibSelectedIds.length > 0
@@ -204,12 +246,7 @@ function PatchBank({
   }
 
   const toggleFolder = (folderId) => {
-    setCollapsedFolders((prev) => {
-      const next = new Set(prev)
-      if (next.has(folderId)) next.delete(folderId)
-      else next.add(folderId)
-      return next
-    })
+    onToggleBibFolderCollapsed?.(folderId)
   }
 
   const handleItemClick = (item, e) => {
@@ -251,9 +288,7 @@ function PatchBank({
   }
 
   const handleCreateFolder = () => {
-    const name = nextAvailableFolderName('Nouveau dossier', soundFolders)
-    const parentId = bibHierarchyMode === 'nav' ? (bibCurrentFolderId ?? null) : null
-    onCreateFolder(name, parentId)
+    setCreatingFolderName('')  // ouvre l'input inline (Fix 1)
   }
 
   const handleDeleteFolder = (folder) => {
@@ -578,9 +613,14 @@ function PatchBank({
     }
     const titleText = 'Clic pour sélectionner, double-clic pour charger, glisser pour placer'
 
-    const handleChipDragOver = depth > 0
-      ? (e) => { e.stopPropagation() }
-      : undefined
+    // Fix 5 : drop sur un patch → déplace vers le dossier de ce patch.
+    // Stoppe la propagation pour éviter le conflit avec le drop-root-zone.
+    const handleChipDragOver = (e) => {
+      handleDragOverFolder(e, patch.folderId)
+    }
+    const handleChipDrop = (e) => {
+      handleDropOnFolder(e, patch.folderId)
+    }
 
     return (
       <li
@@ -591,6 +631,8 @@ function PatchBank({
         onDragStart={(e) => handleDragStartInternal(e, 'patch', patch.id)}
         onDragEnd={handleDragEnd}
         onDragOver={handleChipDragOver}
+        onDragLeave={handleDragLeave}
+        onDrop={handleChipDrop}
         onClick={handleClick}
         onDoubleClick={handleDoubleClick}
         onContextMenu={(e) => {
@@ -758,18 +800,19 @@ function PatchBank({
     const isDragging = dragItem?.type === 'folder' && dragItem?.id === folder.id
     const isSelected = bibSelectedIds.some(s => s.type === 'folder' && s.id === folder.id)
     const isCut = cutItemKeys.has(`folder:${folder.id}`)
+    const isEditing = editingId === folder.id
     return (
       <div
         key={folder.id}
         className={`tile is-folder ${isDropTarget ? 'is-drop-target' : ''} ${isDragging ? 'is-dragging' : ''} ${isSelected ? 'is-selected' : ''} ${isCut ? 'is-cut' : ''}`}
-        draggable
+        draggable={!isEditing}
         onDragStart={(e) => handleDragStartInternal(e, 'folder', folder.id)}
         onDragEnd={handleDragEnd}
         onDragOver={(e) => handleDragOverFolder(e, folder.id)}
         onDragLeave={handleDragLeave}
         onDrop={(e) => handleDropOnFolder(e, folder.id)}
-        onClick={(e) => handleItemClick({ type: 'folder', id: folder.id }, e)}
-        onDoubleClick={() => onSetCurrentFolder?.(folder.id)}
+        onClick={(e) => { if (!isEditing) handleItemClick({ type: 'folder', id: folder.id }, e) }}
+        onDoubleClick={() => { if (!isEditing) onSetCurrentFolder?.(folder.id) }}
         onContextMenu={(e) => {
           e.preventDefault()
           e.stopPropagation()
@@ -784,7 +827,24 @@ function PatchBank({
         data-bib-item-type="folder"
       >
         <div className="tile-preview folder-preview">📁</div>
-        <div className="tile-name">{folder.name}</div>
+        {isEditing ? (
+          <input
+            autoFocus
+            className="tile-rename-input"
+            value={editingValue}
+            onChange={(e) => setEditingValue(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') { e.preventDefault(); commitEdit(true) }
+              else if (e.key === 'Escape') { e.preventDefault(); cancelEdit() }
+            }}
+            onBlur={() => commitEdit(true)}
+            onClick={(e) => e.stopPropagation()}
+            onMouseDown={(e) => e.stopPropagation()}
+            draggable={false}
+          />
+        ) : (
+          <div className="tile-name">{folder.name}</div>
+        )}
       </div>
     )
   }
@@ -794,15 +854,16 @@ function PatchBank({
     const isDragging = dragItem?.type === 'patch' && dragItem?.id === patch.id
     const isSelected = bibSelectedIds.some(s => s.type === 'patch' && s.id === patch.id)
     const isCut = cutItemKeys.has(`patch:${patch.id}`)
+    const isEditing = editingId === patch.id
     return (
       <div
         key={patch.id}
         className={`tile is-patch ${isCurrent ? 'is-current' : ''} ${isDragging ? 'is-dragging' : ''} ${isSelected ? 'is-selected' : ''} ${isCut ? 'is-cut' : ''}`}
-        draggable
+        draggable={!isEditing}
         onDragStart={(e) => handleDragStartInternal(e, 'patch', patch.id)}
         onDragEnd={handleDragEnd}
-        onClick={(e) => handleItemClick({ type: 'patch', id: patch.id }, e)}
-        onDoubleClick={() => onLoadPatch?.(patch.id)}
+        onClick={(e) => { if (!isEditing) handleItemClick({ type: 'patch', id: patch.id }, e) }}
+        onDoubleClick={() => { if (!isEditing) onLoadPatch?.(patch.id) }}
         onContextMenu={(e) => {
           e.preventDefault()
           e.stopPropagation()
@@ -819,7 +880,55 @@ function PatchBank({
         <div className="tile-preview">
           <PatchThumbnail points={patch.points} color={patch.color} />
         </div>
-        <div className="tile-name">{patch.name}</div>
+        {isEditing ? (
+          <input
+            autoFocus
+            className="tile-rename-input"
+            value={editingValue}
+            onChange={(e) => setEditingValue(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') { e.preventDefault(); commitEdit(false) }
+              else if (e.key === 'Escape') { e.preventDefault(); cancelEdit() }
+            }}
+            onBlur={() => commitEdit(false)}
+            onClick={(e) => e.stopPropagation()}
+            onMouseDown={(e) => e.stopPropagation()}
+            draggable={false}
+          />
+        ) : (
+          <div className="tile-name">{patch.name}</div>
+        )}
+      </div>
+    )
+  }
+
+  // Fix 1 : input inline de création de dossier
+  const renderInlineCreateFolder = () => {
+    if (creatingFolderName === null) return null
+    return (
+      <div className="bib-inline-create-folder">
+        <span className="bib-inline-create-label">
+          Nouveau dossier dans {folderCreateParentName} :
+        </span>
+        <input
+          autoFocus
+          type="text"
+          value={creatingFolderName}
+          onChange={(e) => setCreatingFolderName(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') {
+              e.preventDefault()
+              confirmCreateFolder()
+            } else if (e.key === 'Escape') {
+              e.preventDefault()
+              setCreatingFolderName(null)
+            }
+          }}
+          onBlur={() => setCreatingFolderName(null)}
+          placeholder="Nom du dossier"
+          onClick={(e) => e.stopPropagation()}
+          onMouseDown={(e) => e.stopPropagation()}
+        />
       </div>
     )
   }
@@ -830,12 +939,14 @@ function PatchBank({
     if (isNavMode && isTiles) {
       const { folders, patches: navPatches } = getFolderChildren(bibCurrentFolderId ?? null)
       return (
-        <div
-          className="sound-bank-tiles"
-          onDragOver={handleDragOverRoot}
-          onDragLeave={handleDragLeave}
-          onDrop={handleDropOnRoot}
-        >
+        <>
+          {renderInlineCreateFolder()}
+          <div
+            className="sound-bank-tiles"
+            onDragOver={handleDragOverRoot}
+            onDragLeave={handleDragLeave}
+            onDrop={handleDropOnRoot}
+          >
           {bibCurrentFolderId !== null && (
             <div
               className="tile is-updir"
@@ -863,57 +974,64 @@ function PatchBank({
           {folders.map(f => renderFolderTile(f))}
           {navPatches.map(p => renderPatchTile(p))}
         </div>
+        </>
       )
     }
     if (isNavMode) {
       const { folders, patches: navPatches } = getFolderChildren(bibCurrentFolderId ?? null)
       return (
+        <>
+          {renderInlineCreateFolder()}
+          <ul
+            className="sound-bank-list"
+            onDragOver={handleDragOverRoot}
+            onDragLeave={handleDragLeave}
+            onDrop={handleDropOnRoot}
+          >
+            {bibCurrentFolderId !== null && (
+              <li
+                className="bib-updir"
+                onDoubleClick={() => {
+                  const cur = soundFolders.find(f => f.id === bibCurrentFolderId)
+                  onSetCurrentFolder?.(cur ? cur.parentId : null)
+                }}
+                onDragOver={(e) => {
+                  if (dragRef.current) {
+                    e.preventDefault()
+                    e.stopPropagation()
+                  }
+                }}
+                onDrop={(e) => {
+                  const cur = soundFolders.find(f => f.id === bibCurrentFolderId)
+                  const parentId = cur ? (cur.parentId ?? null) : null
+                  handleDropOnFolder(e, parentId)
+                }}
+                title="Remonter au dossier parent"
+              >
+                <span className="folder-icon">📁</span>
+                <span>..</span>
+              </li>
+            )}
+            {folders.map(f => renderFolder(f, 0))}
+            {navPatches.map(p => renderPatchChip(p, 0))}
+          </ul>
+        </>
+      )
+    }
+    const { folders: rootFolders, patches: rootPatches } = getFolderChildren(null)
+    return (
+      <>
+        {renderInlineCreateFolder()}
         <ul
           className="sound-bank-list"
           onDragOver={handleDragOverRoot}
           onDragLeave={handleDragLeave}
           onDrop={handleDropOnRoot}
         >
-          {bibCurrentFolderId !== null && (
-            <li
-              className="bib-updir"
-              onDoubleClick={() => {
-                const cur = soundFolders.find(f => f.id === bibCurrentFolderId)
-                onSetCurrentFolder?.(cur ? cur.parentId : null)
-              }}
-              onDragOver={(e) => {
-                if (dragRef.current) {
-                  e.preventDefault()
-                  e.stopPropagation()
-                }
-              }}
-              onDrop={(e) => {
-                const cur = soundFolders.find(f => f.id === bibCurrentFolderId)
-                const parentId = cur ? (cur.parentId ?? null) : null
-                handleDropOnFolder(e, parentId)
-              }}
-              title="Remonter au dossier parent"
-            >
-              <span className="folder-icon">📁</span>
-              <span>..</span>
-            </li>
-          )}
-          {folders.map(f => renderFolder(f, 0))}
-          {navPatches.map(p => renderPatchChip(p, 0))}
+          {rootFolders.map((f) => renderFolder(f, 0))}
+          {rootPatches.map((p) => renderPatchChip(p, 0))}
         </ul>
-      )
-    }
-    const { folders: rootFolders, patches: rootPatches } = getFolderChildren(null)
-    return (
-      <ul
-        className="sound-bank-list"
-        onDragOver={handleDragOverRoot}
-        onDragLeave={handleDragLeave}
-        onDrop={handleDropOnRoot}
-      >
-        {rootFolders.map((f) => renderFolder(f, 0))}
-        {rootPatches.map((p) => renderPatchChip(p, 0))}
-      </ul>
+      </>
     )
   }
 
@@ -933,7 +1051,12 @@ function PatchBank({
           <button
             type="button"
             className={`bib-toggle-btn ${bibHierarchyMode === 'tree' ? 'is-active' : ''}`}
-            onClick={() => onSetHierarchyMode?.('tree')}
+            onClick={() => {
+              onSetHierarchyMode?.('tree')
+              // Fix 3 : tiles n'existe pas en tree mode → repasse à list pour éviter
+              // un état sans bouton actif dans le groupe display.
+              if (bibDisplayMode === 'tiles') onSetDisplayMode?.('list')
+            }}
             title="Arborescence"
           ><ListTree size={14} /></button>
           <button
@@ -1081,6 +1204,7 @@ function PatchBank({
       <aside ref={asideRef} tabIndex={-1} className="sound-bank-panel" onMouseDown={handleBodyMouseDown}>
         {renderHeader()}
         {renderBreadcrumb()}
+        {renderInlineCreateFolder()}
         <p className="sound-bank-empty">
           Aucun patch. Dessinez-en un dans l&apos;onglet Designer.
         </p>

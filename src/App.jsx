@@ -78,7 +78,7 @@ function App() {
     composerBankWidth, composerAsideWidth, composerBankCollapsed, composerAsideCollapsed,
     designerSidebarWidth, designerSidebarCollapsed,
     bibHierarchyMode, bibDisplayMode, bibCurrentFolderId, bibPopupWidth,
-    bibSelectedIds, bibSelectionAnchor,
+    bibSelectedIds, bibSelectionAnchor, bibCollapsedFolders,
     patchCounter, clipCounter, folderCounter, trackCounter,
     clipboard, measureClipboard, bibClipboard, history, notification,
     pendingDeleteWarning,
@@ -560,6 +560,7 @@ function App() {
           bibHierarchyMode,
           bibDisplayMode,
           bibCurrentFolderId,
+          bibCollapsedFolders,
           bibPopupWidth,
           // F.4.4.3 : état d'exploration Designer persisté de bout en bout.
           // Chaque presse-touche dispatch un SET_EDITOR_TEST_NOTE qui re-tire
@@ -582,7 +583,7 @@ function App() {
     durationMode, activeTab, patchCounter, clipCounter, folderCounter, trackCounter,
     composerBankWidth, composerAsideWidth, composerBankCollapsed, composerAsideCollapsed,
     designerSidebarWidth, designerSidebarCollapsed,
-    bibHierarchyMode, bibDisplayMode, bibCurrentFolderId, bibPopupWidth,
+    bibHierarchyMode, bibDisplayMode, bibCurrentFolderId, bibCollapsedFolders, bibPopupWidth,
     editor.testTuningSystem, editor.testNoteIndex, editor.testOctave, editor.testFrequency,
     editor.visualCuePattern, editor.visualCueTonic,
   ])
@@ -684,6 +685,9 @@ function App() {
   }, [])
   const setBibCurrentFolder = useCallback((folderId) => {
     dispatch({ type: 'SET_BIB_CURRENT_FOLDER', payload: folderId })
+  }, [])
+  const onToggleBibFolderCollapsed = useCallback((folderId) => {
+    dispatch({ type: 'TOGGLE_BIB_FOLDER_COLLAPSED', payload: { folderId } })
   }, [])
   const onSelectBibItems = useCallback((items, mode) => {
     dispatch({ type: 'SELECT_BIB_ITEMS', payload: { items, mode } })
@@ -1720,9 +1724,11 @@ function App() {
             bibHierarchyMode={bibHierarchyMode}
             bibDisplayMode={bibDisplayMode}
             bibCurrentFolderId={bibCurrentFolderId}
+            bibCollapsedFolders={bibCollapsedFolders}
             onSetHierarchyMode={setBibHierarchyMode}
             onSetDisplayMode={setBibDisplayMode}
             onSetCurrentFolder={setBibCurrentFolder}
+            onToggleBibFolderCollapsed={onToggleBibFolderCollapsed}
             onNotify={notify}
             bibSelectedIds={bibSelectedIds}
             bibSelectionAnchor={bibSelectionAnchor}
@@ -1835,10 +1841,12 @@ function App() {
                           currentPatchId={currentPatchId}
                           bibClipboard={bibClipboard}
                           bibSelectedIds={bibSelectedIds}
+                          bibCollapsedFolders={bibCollapsedFolders}
                           activeTab="designer"
                           onLoadPatch={(id) => { handleLoadPatch(id); setLibraryPopoverOpen(false) }}
                           onOpenInLibrary={handleOpenInLibrary}
                           onDragStart={handleDragStartFromPicker}
+                          onToggleBibFolderCollapsed={onToggleBibFolderCollapsed}
                           headerExtra={
                             <button
                               type="button"
@@ -1861,10 +1869,12 @@ function App() {
                       currentPatchId={currentPatchId}
                       bibClipboard={bibClipboard}
                       bibSelectedIds={bibSelectedIds}
+                      bibCollapsedFolders={bibCollapsedFolders}
                       activeTab="designer"
                       onLoadPatch={handleLoadPatch}
                       onOpenInLibrary={handleOpenInLibrary}
                       onDragStart={handleDragStartFromPicker}
+                      onToggleBibFolderCollapsed={onToggleBibFolderCollapsed}
                       headerExtra={
                         <button
                           type="button"
@@ -2035,10 +2045,12 @@ function App() {
                       currentPatchId={currentPatchId}
                       bibClipboard={bibClipboard}
                       bibSelectedIds={bibSelectedIds}
+                      bibCollapsedFolders={bibCollapsedFolders}
                       activeTab="composer"
                       onLoadPatch={undefined}
                       onOpenInLibrary={handleOpenInLibrary}
                       onDragStart={handleDragStartFromPicker}
+                      onToggleBibFolderCollapsed={onToggleBibFolderCollapsed}
                       headerExtra={
                         <button
                           type="button"

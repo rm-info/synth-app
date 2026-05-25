@@ -232,6 +232,7 @@ export function loadPersistedState() {
       bibHierarchyMode: parsed.bibHierarchyMode === 'tree' ? 'tree' : 'nav',
       bibDisplayMode: ['list', 'details', 'tiles'].includes(parsed.bibDisplayMode) ? parsed.bibDisplayMode : 'list',
       bibCurrentFolderId: typeof parsed.bibCurrentFolderId === 'string' ? parsed.bibCurrentFolderId : null,
+      bibCollapsedFolders: Array.isArray(parsed.bibCollapsedFolders) ? parsed.bibCollapsedFolders : [],
       bibPopupWidth: typeof parsed.bibPopupWidth === 'number'
         ? Math.max(320, Math.min(parsed.bibPopupWidth, 1200))
         : 480,
@@ -388,6 +389,7 @@ export function buildInitialState() {
     bibHierarchyMode: persisted?.bibHierarchyMode ?? 'nav',
     bibDisplayMode: persisted?.bibDisplayMode ?? 'list',
     bibCurrentFolderId: persisted?.bibCurrentFolderId ?? null,
+    bibCollapsedFolders: persisted?.bibCollapsedFolders ?? [],
     bibPopupWidth: persisted?.bibPopupWidth ?? 480,
     defaultClipDuration: DEFAULT_CLIP_DURATION,
     // Mode d'affichage des durées dans les boutons (E.6.1).
@@ -1473,7 +1475,30 @@ export function reducer(state, action) {
     }
     case 'SET_BIB_HIERARCHY_MODE': {
       const mode = action.payload === 'tree' ? 'tree' : 'nav'
+      if (mode === 'tree' && state.bibCurrentFolderId) {
+        // Auto-expand path du dossier courant pour qu'il soit visible en tree mode.
+        const ancestorIds = []
+        let cur = state.bibCurrentFolderId
+        while (cur) {
+          ancestorIds.push(cur)
+          const folder = state.soundFolders.find(f => f.id === cur)
+          cur = folder?.parentId
+        }
+        const newCollapsed = (state.bibCollapsedFolders || []).filter(id => !ancestorIds.includes(id))
+        return { ...state, bibHierarchyMode: mode, bibCollapsedFolders: newCollapsed }
+      }
       return { ...state, bibHierarchyMode: mode }
+    }
+    case 'TOGGLE_BIB_FOLDER_COLLAPSED': {
+      const { folderId } = action.payload
+      const list = state.bibCollapsedFolders || []
+      const idx = list.indexOf(folderId)
+      const newList = idx >= 0 ? list.filter(id => id !== folderId) : [...list, folderId]
+      return { ...state, bibCollapsedFolders: newList }
+    }
+    case 'SET_BIB_COLLAPSED_FOLDERS': {
+      const list = Array.isArray(action.payload) ? action.payload : []
+      return { ...state, bibCollapsedFolders: list }
     }
     case 'SET_BIB_DISPLAY_MODE': {
       const mode = ['list', 'details', 'tiles'].includes(action.payload) ? action.payload : 'list'

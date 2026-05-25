@@ -678,3 +678,47 @@
   background: #3a3a5a;
   margin: 0 4px;
 }
+
+/* Fix 1 : input inline pour la création d'un nouveau dossier */
+.bib-inline-create-folder {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px;
+  background: rgba(0, 212, 255, 0.08);
+  border: 1px solid rgba(0, 212, 255, 0.4);
+  border-radius: 4px;
+  margin-bottom: 8px;
+}
+.bib-inline-create-label {
+  font-size: 11px;
+  color: #8a8fa8;
+  flex-shrink: 0;
+}
+.bib-inline-create-folder input {
+  flex: 1;
+  background: #0e0e1e;
+  border: 1px solid #2a2a4a;
+  border-radius: 4px;
+  color: #d0d4ec;
+  padding: 4px 8px;
+  font-size: 12px;
+  font-family: inherit;
+}
+.bib-inline-create-folder input:focus {
+  border-color: #00d4ff;
+  outline: none;
+}
+
+/* Fix 2 : input inline rename en mode Tile */
+.tile-rename-input {
+  width: 100%;
+  background: #0e0e1e;
+  border: 1px solid #00d4ff;
+  border-radius: 3px;
+  color: #d0d4ec;
+  padding: 2px 4px;
+  font-size: 11px;
+  font-family: inherit;
+  box-sizing: border-box;
+}

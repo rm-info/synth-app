@@ -31,13 +31,22 @@ export default function PatchPicker({
   currentPatchId,
   bibClipboard,
   bibSelectedIds = [],
+  bibCollapsedFolders,
   activeTab,
   onLoadPatch,
   onOpenInLibrary,
   onDragStart,
+  onToggleBibFolderCollapsed,
   headerExtra,
 }) {
-  const [collapsedFolders, setCollapsedFolders] = useState(new Set())
+  // bibCollapsedFolders : array persisté depuis le reducer global (fix 4).
+  // Fallback sur un Set local pour la rétrocompatiblité (PatchPicker utilisé
+  // sans la prop — ex. tests ou embeddings futurs).
+  const [localCollapsed, setLocalCollapsed] = useState(new Set())
+  const collapsedFolders = useMemo(
+    () => bibCollapsedFolders ? new Set(bibCollapsedFolders) : localCollapsed,
+    [bibCollapsedFolders, localCollapsed]
+  )
   const [contextMenu, setContextMenu] = useState(null)
 
   const orderedItems = useMemo(
@@ -65,12 +74,17 @@ export default function PatchPicker({
   }, [contextMenu])
 
   const toggleFolder = (folderId) => {
-    setCollapsedFolders((prev) => {
-      const next = new Set(prev)
-      if (next.has(folderId)) next.delete(folderId)
-      else next.add(folderId)
-      return next
-    })
+    if (onToggleBibFolderCollapsed) {
+      onToggleBibFolderCollapsed(folderId)
+    } else {
+      // Fallback local (pas de prop reducer disponible)
+      setLocalCollapsed((prev) => {
+        const next = new Set(prev)
+        if (next.has(folderId)) next.delete(folderId)
+        else next.add(folderId)
+        return next
+      })
+    }
   }
 
   const handlePatchClick = (patch) => {
