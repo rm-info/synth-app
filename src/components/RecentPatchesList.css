@@ -1,0 +1,66 @@
+/* iter-K phase-2.f11 : LRU recents en sidebar Composer collapsed.
+   Liste verticale compacte, chips draggable vers la timeline. */
+
+.recent-patches-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 6px 2px;
+  align-items: center;
+  border-top: 1px solid #3a3a5a;
+  margin-top: 4px;
+  width: 100%;
+  /* Limite la hauteur pour ne pas pousser le bouton popover hors viewport.
+     Scroll vertical si > 10 items × ~24 px (rarement, max = 10). */
+  max-height: 60vh;
+  overflow-y: auto;
+  overflow-x: hidden;
+  flex-shrink: 1;
+  min-height: 0;
+}
+
+.recent-patches-header {
+  font-size: 9px;
+  color: #5a5a7a;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: 2px;
+  user-select: none;
+}
+
+.recent-patches-empty {
+  font-size: 11px;
+  color: #4a4a6a;
+  padding: 2px;
+  text-align: center;
+  user-select: none;
+}
+
+.recent-patch-item {
+  width: 30px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: color-mix(in srgb, var(--chip-color) 12%, #1a1a2e);
+  border: 1px solid color-mix(in srgb, var(--chip-color) 35%, transparent);
+  border-radius: 3px;
+  cursor: grab;
+  padding: 1px;
+  box-sizing: border-box;
+  flex-shrink: 0;
+}
+
+.recent-patch-item:hover {
+  border-color: var(--chip-color);
+}
+
+.recent-patch-item:active {
+  cursor: grabbing;
+}
+
+.recent-patch-item .patch-thumbnail {
+  display: block;
+  width: 100%;
+  height: 100%;
+}

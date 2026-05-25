@@ -462,12 +462,25 @@
   background: #1a1a2e;
   border: 1px solid #2a2a4a;
   border-radius: 8px;
-  overflow: hidden;
   display: flex;
   flex-direction: column;
   align-items: center;
   padding-top: 10px;
   gap: 10px;
+  /* iter-K phase-2.f11 : position:relative pour ancrer le popover
+     Bibliothèque, overflow:visible pour qu'il déborde à droite (pattern
+     identique à .designer-sidebar.is-collapsed). */
+  position: relative;
+  overflow: visible;
+}
+/* iter-K phase-2.f11 : tous les boutons icônes du Composer collapsed
+   passent à 30×30 pour rester cohérents avec le Designer collapsed. */
+.composer-sidebar.is-collapsed .sidebar-toggle,
+.composer-sidebar.is-collapsed .designer-collapsed-section-btn,
+.composer-aside.is-collapsed .sidebar-toggle,
+.composer-aside.is-collapsed .designer-collapsed-section-btn {
+  width: 30px;
+  height: 30px;
 }
 
 /* Titre vertical sous le bouton quand la sidebar est fermée. `writing-mode:

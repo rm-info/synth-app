@@ -12,6 +12,7 @@ import PropertiesPanel from './components/PropertiesPanel'
 import Spectrogram from './components/Spectrogram'
 import SidebarResizer from './components/SidebarResizer'
 import PopupResizer from './components/PopupResizer'
+import RecentPatchesList from './components/RecentPatchesList'
 import SavePatchDialog from './components/SavePatchDialog'
 import DeleteUsageWarningDialog from './components/DeleteUsageWarningDialog'
 import {
@@ -79,6 +80,7 @@ function App() {
     designerSidebarWidth, designerSidebarCollapsed,
     bibHierarchyMode, bibDisplayMode, bibCurrentFolderId, bibPopupWidth,
     bibSelectedIds, bibSelectionAnchor, bibCollapsedFolders,
+    recentPatchIds,
     patchCounter, clipCounter, folderCounter, trackCounter,
     clipboard, measureClipboard, bibClipboard, history, notification,
     pendingDeleteWarning,
@@ -562,6 +564,7 @@ function App() {
           bibCurrentFolderId,
           bibCollapsedFolders,
           bibPopupWidth,
+          recentPatchIds,
           // F.4.4.3 : état d'exploration Designer persisté de bout en bout.
           // Chaque presse-touche dispatch un SET_EDITOR_TEST_NOTE qui re-tire
           // ce useEffect → setItem(localStorage). Coût acceptable :
@@ -584,6 +587,7 @@ function App() {
     composerBankWidth, composerAsideWidth, composerBankCollapsed, composerAsideCollapsed,
     designerSidebarWidth, designerSidebarCollapsed,
     bibHierarchyMode, bibDisplayMode, bibCurrentFolderId, bibCollapsedFolders, bibPopupWidth,
+    recentPatchIds,
     editor.testTuningSystem, editor.testNoteIndex, editor.testOctave, editor.testFrequency,
     editor.visualCuePattern, editor.visualCueTonic,
   ])
@@ -729,27 +733,6 @@ function App() {
     dispatch({ type: 'SET_COMPOSER_SIDEBAR_WIDTH', payload: { side: 'aside', width: clamped } })
   }, [composerBankWidth])
 
-  const handleToggleBankCollapsed = useCallback(() => {
-    dispatch({
-      type: 'SET_COMPOSER_SIDEBAR_COLLAPSED',
-      payload: { side: 'bank', collapsed: !composerBankCollapsed },
-    })
-  }, [composerBankCollapsed])
-
-  const handleToggleAsideCollapsed = useCallback(() => {
-    dispatch({
-      type: 'SET_COMPOSER_SIDEBAR_COLLAPSED',
-      payload: { side: 'aside', collapsed: !composerAsideCollapsed },
-    })
-  }, [composerAsideCollapsed])
-
-  // iter G phase 1.2 : sidebar gauche du Designer. Pas de contrainte de
-  // max comme dans Composer (la zone main est en flex), donc handleResize
-  // est trivial — un clamp min suffit, le reducer ré-applique.
-  const handleResizeDesignerSidebar = useCallback((width) => {
-    dispatch({ type: 'SET_DESIGNER_SIDEBAR_WIDTH', payload: width })
-  }, [])
-
   // Modal d'export bibliothèque (H.1) : géré en local React (UI éphémère).
   // Forme : null | { scope: { type, id? }, defaultName: string }
   const [exportModal, setExportModal] = useState(null)
@@ -783,6 +766,54 @@ function App() {
       document.removeEventListener('keydown', onEscape)
     }
   }, [libraryPopoverOpen])
+
+  // iter-K phase-2.f11 : popover Bibliothèque pour la sidebar Composer
+  // collapsed (mirror du pattern Designer). Distinct du libraryPopover
+  // Designer pour éviter qu'un onglet partage l'état d'ouverture de l'autre.
+  const [composerLibraryPopoverOpen, setComposerLibraryPopoverOpen] = useState(false)
+  const composerLibraryPopoverRef = useRef(null)
+  const composerLibraryPopoverTriggerRef = useRef(null)
+  useEffect(() => {
+    if (!composerLibraryPopoverOpen) return
+    const onDocClick = (e) => {
+      if (composerLibraryPopoverRef.current?.contains(e.target)) return
+      if (composerLibraryPopoverTriggerRef.current?.contains(e.target)) return
+      setComposerLibraryPopoverOpen(false)
+    }
+    const onEscape = (e) => {
+      if (e.key === 'Escape') setComposerLibraryPopoverOpen(false)
+    }
+    document.addEventListener('mousedown', onDocClick)
+    document.addEventListener('keydown', onEscape)
+    return () => {
+      document.removeEventListener('mousedown', onDocClick)
+      document.removeEventListener('keydown', onEscape)
+    }
+  }, [composerLibraryPopoverOpen])
+
+  const handleToggleBankCollapsed = useCallback(() => {
+    // iter-K phase-2.f11 : ferme le popover Bibliothèque éventuellement
+    // ouvert au moment du toggle (cohérence avec le pattern Designer).
+    setComposerLibraryPopoverOpen(false)
+    dispatch({
+      type: 'SET_COMPOSER_SIDEBAR_COLLAPSED',
+      payload: { side: 'bank', collapsed: !composerBankCollapsed },
+    })
+  }, [composerBankCollapsed])
+
+  const handleToggleAsideCollapsed = useCallback(() => {
+    dispatch({
+      type: 'SET_COMPOSER_SIDEBAR_COLLAPSED',
+      payload: { side: 'aside', collapsed: !composerAsideCollapsed },
+    })
+  }, [composerAsideCollapsed])
+
+  // iter G phase 1.2 : sidebar gauche du Designer. Pas de contrainte de
+  // max comme dans Composer (la zone main est en flex), donc handleResize
+  // est trivial — un clamp min suffit, le reducer ré-applique.
+  const handleResizeDesignerSidebar = useCallback((width) => {
+    dispatch({ type: 'SET_DESIGNER_SIDEBAR_WIDTH', payload: width })
+  }, [])
 
   const handleToggleDesignerCollapsed = useCallback(() => {
     // Fermer le popover Bibliothèque lors d'un toggle : l'état React résiduel
@@ -1633,6 +1664,12 @@ function App() {
     }
   }, [])
 
+  // iter-K phase-2.f11 : ajoute manuellement un patch au LRU recents
+  // (drop depuis le picker vers la liste recents en sidebar Composer collapsed).
+  const onAddPatchToRecents = useCallback((patchId) => {
+    dispatch({ type: 'ADD_PATCH_TO_RECENTS', payload: { patchId } })
+  }, [])
+
   const handleOpenInLibrary = useCallback(({ type, id }) => {
     dispatch({ type: 'OPEN_IN_LIBRARY', payload: { type, id } })
   }, [])
@@ -2039,7 +2076,51 @@ function App() {
                     >
                       <ChevronRight size={14} strokeWidth={2.2} />
                     </button>
-                    <span className="sidebar-collapsed-label">Bibliothèque</span>
+                    {/* iter-K phase-2.f11 : bouton Library qui ouvre le
+                        picker en popover (remplace l'ancien label vertical
+                        "Bibliothèque" — mirror du pattern Designer). */}
+                    <button
+                      type="button"
+                      ref={composerLibraryPopoverTriggerRef}
+                      className={`designer-collapsed-section-btn${composerLibraryPopoverOpen ? ' is-active' : ''}`}
+                      onClick={() => setComposerLibraryPopoverOpen((v) => !v)}
+                      title="Ouvrir la Bibliothèque (flottant)"
+                      aria-label="Ouvrir la Bibliothèque"
+                      aria-expanded={composerLibraryPopoverOpen}
+                    ><Library size={16} strokeWidth={1.9} /></button>
+                    <RecentPatchesList
+                      recentPatchIds={recentPatchIds}
+                      patches={patches}
+                      onDragStart={handleDragStartFromPicker}
+                      onAddToRecents={onAddPatchToRecents}
+                    />
+                    {composerLibraryPopoverOpen && (
+                      <div className="designer-library-popover" ref={composerLibraryPopoverRef} role="dialog" aria-label="Bibliothèque" style={{ width: `${bibPopupWidth}px` }}>
+                        <PatchPicker
+                          patches={patches}
+                          soundFolders={soundFolders}
+                          currentPatchId={currentPatchId}
+                          bibClipboard={bibClipboard}
+                          bibSelectedIds={bibSelectedIds}
+                          bibCollapsedFolders={bibCollapsedFolders}
+                          activeTab="composer"
+                          onLoadPatch={undefined}
+                          onOpenInLibrary={handleOpenInLibrary}
+                          onDragStart={handleDragStartFromPicker}
+                          onToggleBibFolderCollapsed={onToggleBibFolderCollapsed}
+                          headerExtra={
+                            <button
+                              type="button"
+                              className="popover-close-btn"
+                              onClick={() => setComposerLibraryPopoverOpen(false)}
+                              title="Fermer la bibliothèque"
+                              aria-label="Fermer"
+                            ><X size={14} strokeWidth={2.2} /></button>
+                          }
+                        />
+                        <PopupResizer currentWidth={bibPopupWidth} onResize={setBibPopupWidth} />
+                      </div>
+                    )}
                   </>
                 ) : (
                   <>

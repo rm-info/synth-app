@@ -28,7 +28,9 @@ export const MAX_TRACKS = 16
 export const POINTS_RESOLUTION = 600
 // Largeur minimale (= par défaut) des sidebars du Composer en px. Utilisée
 // aussi comme taille initiale : l'utilisateur peut seulement élargir.
-export const COMPOSER_SIDEBAR_MIN_WIDTH = 300
+// iter-K phase-2.f11 : aligné sur DESIGNER_SIDEBAR_MIN_WIDTH (200) pour
+// cohérence visuelle entre les deux onglets.
+export const COMPOSER_SIDEBAR_MIN_WIDTH = 200
 // Espace horizontal réservé au layout Composer hors colonnes (2×padding + 2×gap
 // de .composer-layout). Utilisé pour calculer le max dynamique des sidebars.
 export const COMPOSER_LAYOUT_CHROME = 48
@@ -36,7 +38,9 @@ export const COMPOSER_LAYOUT_CHROME = 48
 export const COMPOSER_MAIN_MIN_WIDTH = 200
 // Largeur d'une sidebar en mode collapsed : juste assez pour le bouton
 // de restauration. Utilisée comme override de la CSS var depuis App.
-export const COMPOSER_SIDEBAR_COLLAPSED_WIDTH = 32
+// iter-K phase-2.f11 : passe de 32 → 36 pour loger des icônes 30×30
+// (cohérent avec DESIGNER_SIDEBAR_COLLAPSED_WIDTH).
+export const COMPOSER_SIDEBAR_COLLAPSED_WIDTH = 36
 
 // Sidebar gauche du Designer (iter G phase 1.2). Min calibré sur le
 // minimum lisible de la Bibliothèque + boutons Actions empilés ; défaut
@@ -236,6 +240,12 @@ export function loadPersistedState() {
       bibPopupWidth: typeof parsed.bibPopupWidth === 'number'
         ? Math.max(320, Math.min(parsed.bibPopupWidth, 1200))
         : 480,
+      // iter-K phase-2.f11 : liste LRU des derniers patches utilisés
+      // (max 10). Filtrée aux strings ; les IDs orphelins sont nettoyés
+      // au prochain ADD_PATCH_TO_RECENTS / DELETE_PATCH / DELETE_BIB_ITEMS.
+      recentPatchIds: Array.isArray(parsed.recentPatchIds)
+        ? parsed.recentPatchIds.filter(id => typeof id === 'string').slice(0, 10)
+        : [],
       activeTab: ['library', 'composer', 'designer'].includes(parsed.activeTab)
         ? parsed.activeTab
         : 'designer',
@@ -391,6 +401,10 @@ export function buildInitialState() {
     bibCurrentFolderId: persisted?.bibCurrentFolderId ?? null,
     bibCollapsedFolders: persisted?.bibCollapsedFolders ?? [],
     bibPopupWidth: persisted?.bibPopupWidth ?? 480,
+    // iter-K phase-2.f11 : LRU des patches récemment utilisés en timeline.
+    // Mis à jour à chaque ADD_CLIP avec patchId, ainsi qu'à un drop manuel
+    // sur la liste (ADD_PATCH_TO_RECENTS). Cleané sur suppression de patch.
+    recentPatchIds: persisted?.recentPatchIds ?? [],
     defaultClipDuration: DEFAULT_CLIP_DURATION,
     // Mode d'affichage des durées dans les boutons (E.6.1).
     // 'solfège' : ♩ ♪ 𝅘𝅥𝅯 etc. / 'fraction' : 1 1/2 1/4 etc. (réf. = noire).
@@ -428,6 +442,13 @@ export function buildInitialState() {
   if (initialState.bibCurrentFolderId !== null && !validFolderIds.has(initialState.bibCurrentFolderId)) {
     initialState.bibCurrentFolderId = null
   }
+
+  // iter-K phase-2.f11 : nettoie les IDs orphelins du LRU (patches supprimés
+  // hors de l'app, ou format localStorage corrompu).
+  const validPatchIds = new Set(initialState.patches.map(p => p.id))
+  initialState.recentPatchIds = (initialState.recentPatchIds || [])
+    .filter(id => validPatchIds.has(id))
+    .slice(0, 10)
 
   return initialState
 }
@@ -526,6 +547,13 @@ export function reducer(state, action) {
       const finalDuration = duration ?? state.defaultClipDuration
       const newCounter = state.clipCounter + 1
       const newId = `clip-${newCounter}`
+      // iter-K phase-2.f11 : update LRU recents. Le patch doit exister (sinon
+      // c'est un ADD_CLIP avec patchId invalide — laisse la liste intacte).
+      const existingRecents = state.recentPatchIds || []
+      const patchExists = patchId && state.patches.some(p => p.id === patchId)
+      const nextRecents = patchExists
+        ? [patchId, ...existingRecents.filter(id => id !== patchId)].slice(0, 10)
+        : existingRecents
       return {
         ...state,
         clipCounter: newCounter,
@@ -549,6 +577,7 @@ export function reducer(state, action) {
         // etc. sans clic intermédiaire (cohérence avec duplicate/paste).
         selectedClipIds: [newId],
         lastAnchorClipId: newId,
+        recentPatchIds: nextRecents,
       }
     }
     case 'REMOVE_CLIP': {
@@ -1173,6 +1202,8 @@ export function reducer(state, action) {
         ...state,
         patches: state.patches.filter((p) => p.id !== patchId),
         currentPatchId: state.currentPatchId === patchId ? null : state.currentPatchId,
+        // iter-K phase-2.f11 : retire le patch supprimé du LRU recents.
+        recentPatchIds: (state.recentPatchIds || []).filter(id => id !== patchId),
       }
     }
     case 'IMPORT_LIBRARY': {
@@ -1769,10 +1800,28 @@ export function reducer(state, action) {
         currentPatchId: newCurrentPatchId,
         bibSelectedIds: [],
         bibSelectionAnchor: null,
+        // iter-K phase-2.f11 : nettoie le LRU des patches supprimés.
+        recentPatchIds: (state.recentPatchIds || []).filter(id => !allowedPatchIds.has(id)),
         pendingDeleteWarning: blockedPatches.length > 0
           ? { blockedPatches, freedCount }
           : null,
       }
+    }
+    case 'ADD_PATCH_TO_RECENTS': {
+      // iter-K phase-2.f11 : ajoute manuellement un patchId au LRU recents
+      // (drag-drop depuis le picker vers la liste recents en mode collapsed).
+      // Non undoable.
+      const { patchId } = action.payload
+      if (!patchId || typeof patchId !== 'string') return state
+      if (!state.patches.find(p => p.id === patchId)) return state
+      const existing = state.recentPatchIds || []
+      const filtered = existing.filter(id => id !== patchId)
+      const next = [patchId, ...filtered].slice(0, 10)
+      // Évite un re-render inutile si le patchId est déjà en tête.
+      if (existing.length > 0 && existing[0] === patchId && existing.length === next.length) {
+        return state
+      }
+      return { ...state, recentPatchIds: next }
     }
     case 'CLEAR_PENDING_DELETE_WARNING': {
       return { ...state, pendingDeleteWarning: null }
