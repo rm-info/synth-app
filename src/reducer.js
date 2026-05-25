@@ -1494,6 +1494,38 @@ export function reducer(state, action) {
     case 'CLEAR_BIB_SELECTION': {
       return { ...state, bibSelectedIds: [], bibSelectionAnchor: null }
     }
+    case 'OPEN_IN_LIBRARY': {
+      const { type, id } = action.payload
+      let parentFolderId = null
+      if (type === 'patch') {
+        const patch = state.patches.find(p => p.id === id)
+        if (patch) parentFolderId = patch.folderId ?? null
+      } else if (type === 'folder') {
+        const folder = state.soundFolders.find(f => f.id === id)
+        if (folder) parentFolderId = folder.parentId ?? null
+      }
+      return {
+        ...state,
+        activeTab: 'library',
+        bibCurrentFolderId: parentFolderId,
+        bibHierarchyMode: 'nav',
+        bibSelectedIds: [{ type, id }],
+        bibSelectionAnchor: { type, id },
+        pendingDeleteWarning: null,
+      }
+    }
+    case 'GO_TO_COMPOSER_WITH_CLIPS': {
+      const { patchIds } = action.payload
+      const clipIds = (state.clips || [])
+        .filter(c => patchIds.includes(c.patchId))
+        .map(c => c.id)
+      return {
+        ...state,
+        activeTab: 'composer',
+        selectedClipIds: clipIds,
+        pendingDeleteWarning: null,
+      }
+    }
     case 'SET_BIB_POPUP_WIDTH': {
       const w = Math.max(320, Math.min(action.payload, 1200))
       return { ...state, bibPopupWidth: w }
