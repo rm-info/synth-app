@@ -1618,9 +1618,10 @@ function App() {
 
   const handleDragStartFromPicker = useCallback((e, type, id) => {
     e.stopPropagation()
-    const dragItems = [{ type, id }]
-    e.dataTransfer.effectAllowed = 'move'
-    e.dataTransfer.setData('application/x-patchbank-drag', JSON.stringify(dragItems))
+    // Patches : copyMove pour matcher dropEffect='copy' du Timeline (Composer).
+    // Folders : move (pas de drop target externe).
+    e.dataTransfer.effectAllowed = type === 'patch' ? 'copyMove' : 'move'
+    e.dataTransfer.setData('application/x-patchbank-drag', JSON.stringify({ type, id }))
     if (type === 'patch') {
       e.dataTransfer.setData('text/plain', id)
     }
