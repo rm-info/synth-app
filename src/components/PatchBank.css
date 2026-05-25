@@ -48,6 +48,7 @@
   min-width: 0;
   flex-wrap: wrap;
   gap: 6px 8px;
+  min-height: 28px; /* phase-2.f6 : matche la hauteur des toolbars pour centrer le count */
 }
 
 /* Slot du bouton de réduction (chevron / X) — fixé en haut à droite
@@ -78,6 +79,9 @@
   font-family: monospace;
   font-size: 0.75rem;
   color: #5a5a7a;
+  line-height: 1;       /* phase-2.f6 : neutralise la line-box héritée */
+  display: inline-flex; /* phase-2.f6 : centre verticalement dans header-main */
+  align-items: center;
 }
 
 .folder-add-btn {

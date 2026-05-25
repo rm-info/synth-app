@@ -352,8 +352,11 @@ function PatchBank({
     const body = bodyRef.current
     const rect = body.getBoundingClientRect()
     return {
-      x: clientX - rect.left + body.scrollLeft,
-      y: clientY - rect.top + body.scrollTop,
+      // phase-2.f6 : clamp >= 0 pour que le lasso initié depuis la padding du panel
+      // (au-dessus ou à gauche du body) commence à la bordure du body, pas en coordonnée
+      // négative hors de l'overlay rendu dans le body.
+      x: Math.max(0, clientX - rect.left + body.scrollLeft),
+      y: Math.max(0, clientY - rect.top + body.scrollTop),
     }
   }
 
@@ -361,7 +364,9 @@ function PatchBank({
     if (e.button !== 0) return
     if (e.target.closest('[data-bib-item-id]')) return
     if (e.target.closest('.bib-toolbar')) return
+    if (e.target.closest('.bib-action-toolbar')) return
     if (e.target.closest('.bib-breadcrumb')) return
+    if (e.target.closest('.sound-bank-header')) return
     if (!bodyRef.current) return
     const { x, y } = pointToContentSpace(e.clientX, e.clientY)
     const newLasso = { x0: x, y0: y, x1: x, y1: y }
@@ -1094,7 +1099,7 @@ function PatchBank({
 
   if (totalCount === 0 && soundFolders.length === 0) {
     return (
-      <aside ref={asideRef} tabIndex={-1} className="sound-bank-panel">
+      <aside ref={asideRef} tabIndex={-1} className="sound-bank-panel" onMouseDown={handleBodyMouseDown}>
         {renderHeader()}
         {renderBreadcrumb()}
         <p className="sound-bank-empty">
@@ -1105,13 +1110,12 @@ function PatchBank({
   }
 
   return (
-    <aside ref={asideRef} tabIndex={-1} className="sound-bank-panel">
+    <aside ref={asideRef} tabIndex={-1} className="sound-bank-panel" onMouseDown={handleBodyMouseDown}>
       {renderHeader()}
       {renderBreadcrumb()}
       <div
         ref={bodyRef}
         className="sound-bank-body"
-        onMouseDown={handleBodyMouseDown}
         onContextMenu={(e) => {
           if (e.target.closest('[data-bib-item-id]')) return  // gère l'item lui-même
           e.preventDefault()
