@@ -1552,7 +1552,7 @@ export function reducer(state, action) {
     }
     case 'PASTE_BIB_CLIPBOARD': {
       if (!state.bibClipboard) return state
-      const { targetFolderId } = action.payload
+      const { targetFolderId = null } = action.payload
       const { mode, items } = state.bibClipboard
 
       if (wouldCreateCycle(items, targetFolderId, state.soundFolders)) {
@@ -1593,7 +1593,7 @@ export function reducer(state, action) {
       }
     }
     case 'MOVE_BIB_ITEMS': {
-      const { items, targetFolderId } = action.payload
+      const { items, targetFolderId = null } = action.payload
       if (items.length === 0) return state
       if (wouldCreateCycle(items, targetFolderId, state.soundFolders)) {
         return {
