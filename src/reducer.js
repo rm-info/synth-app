@@ -1660,7 +1660,7 @@ const LIBRARY_UNDOABLE = new Set([
 ])
 
 const COMPOSER_FIELDS = ['clips', 'numMeasures', 'bpm', 'a4Ref', 'xEdoN', 'selectedClipIds', 'tracks']
-const DESIGNER_FIELDS = ['patches', 'soundFolders', 'editor']
+const DESIGNER_FIELDS = ['patches', 'editor']
 
 // Champs de preview test du Designer — exclus des snapshots undo.
 // Le clavier piano ne sert qu'à tester les sons : aucune raison
