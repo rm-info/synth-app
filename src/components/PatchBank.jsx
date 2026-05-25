@@ -1,20 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { ListTree, Folder, List, LayoutList, LayoutGrid } from 'lucide-react'
-import { getDescendantFolderIds } from '../reducer'
-
-function countDescendants(folderId, soundFolders, patches) {
-  const ids = new Set([folderId])
-  let changed = true
-  while (changed) {
-    changed = false
-    for (const f of soundFolders) {
-      if (f.parentId && ids.has(f.parentId) && !ids.has(f.id)) {
-        ids.add(f.id); changed = true
-      }
-    }
-  }
-  return patches.filter(p => ids.has(p.folderId)).length
-}
+import { getDescendantFolderIds, countFolderContents } from '../reducer'
 import { nextAvailableFolderName } from '../lib/folderNames.js'
 import BibBreadcrumb from './BibBreadcrumb'
 import './PatchBank.css'
@@ -305,7 +291,7 @@ function PatchBank({
     const isDragging = dragItem?.type === 'folder' && dragItem?.id === folder.id
     const isDetails = bibDisplayMode === 'details'
     const descendantCount = isDetails
-      ? countDescendants(folder.id, soundFolders, patches)
+      ? countFolderContents(folder.id, soundFolders, patches).patchCount
       : null
 
     return (
