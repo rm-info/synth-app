@@ -1,5 +1,5 @@
 import { useRef, useState, useCallback, useEffect, useImperativeHandle, useMemo } from 'react'
-import { Plus, Save, SaveAll, Undo2, Redo2, Upload, Download, Sliders, X } from 'lucide-react'
+import { Plus, Save, SaveAll, Undo2, Redo2, Sliders, X } from 'lucide-react'
 import { pointsToPeriodicWave, MIN_ATTACK } from '../audio'
 import useWindowSize from '../hooks/useWindowSize'
 import FreqInput from './FreqInput'
@@ -268,9 +268,6 @@ function WaveformEditor({
   canRedo,
   onUndo,
   onRedo,
-  onExport,
-  canExport,
-  onImport,
   analyserRef,
   activeVoicesCountRef,
   ref,
@@ -1835,22 +1832,6 @@ function WaveformEditor({
               ><Redo2 size={16} strokeWidth={2} /></button>
             </>
           )}
-          <div className="actions-mini-divider" aria-hidden="true" />
-          <button
-            type="button"
-            className="actions-icon-btn"
-            onClick={onImport}
-            title="Importer une bibliothèque"
-            aria-label="Importer une bibliothèque"
-          ><Upload size={16} strokeWidth={2} /></button>
-          <button
-            type="button"
-            className="actions-icon-btn"
-            onClick={onExport}
-            disabled={!canExport}
-            title={canExport ? 'Exporter la bibliothèque' : 'Bibliothèque vide'}
-            aria-label="Exporter la bibliothèque"
-          ><Download size={16} strokeWidth={2} /></button>
         </div>
       )
     }
@@ -1906,24 +1887,6 @@ function WaveformEditor({
               ><Redo2 size={18} strokeWidth={2} /></button>
             </div>
           )}
-          {/* Groupe 3 : import / export bibliothèque (placeholders G.2.2) */}
-          <div className="designer-actions-group">
-            <button
-              type="button"
-              className="actions-icon-btn"
-              onClick={onImport}
-              title="Importer une bibliothèque"
-              aria-label="Importer une bibliothèque"
-            ><Upload size={18} strokeWidth={2} /></button>
-            <button
-              type="button"
-              className="actions-icon-btn"
-              onClick={onExport}
-              disabled={!canExport}
-              title={canExport ? 'Exporter la bibliothèque' : 'Bibliothèque vide'}
-              aria-label="Exporter la bibliothèque"
-            ><Download size={18} strokeWidth={2} /></button>
-          </div>
         </div>
         <div className="save-message-slot">
           {saveMessage && <span className="save-message">{saveMessage}</span>}

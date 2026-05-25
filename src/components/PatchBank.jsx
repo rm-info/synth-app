@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import {
   ListTree, Folder, List, LayoutList, LayoutGrid,
-  FolderPlus, Edit3, Copy, Scissors, Clipboard, Trash2, Download, Upload,
+  FolderPlus, Edit3, Copy, Scissors, Clipboard, Trash2, Download, Upload, Undo2, Redo2,
 } from 'lucide-react'
 import { getDescendantFolderIds, countFolderContents } from '../reducer'
 import { nextAvailableFolderName } from '../lib/folderNames.js'
@@ -114,6 +114,10 @@ function PatchBank({
   isFullTab = false,
   onDeleteItems,
   onImportLibrary,
+  onUndoLibrary,
+  onRedoLibrary,
+  canUndoLibrary = false,
+  canRedoLibrary = false,
 }) {
   const asideRef = useRef(null)
   const isFocusedRef = useRef(false)
@@ -957,15 +961,24 @@ function PatchBank({
           )}
         </div>
         <div className="bib-toolbar-spacer" />
-        <button
-          type="button"
-          className="bib-new-folder-btn"
-          onClick={handleCreateFolder}
-          title="Nouveau dossier"
-        >+ Dossier</button>
       </div>
       {isFullTab && (
         <div className="bib-action-toolbar">
+          <button
+            type="button"
+            className="bib-action-btn"
+            title="Annuler (Ctrl+Z)"
+            disabled={!canUndoLibrary}
+            onClick={onUndoLibrary}
+          ><Undo2 size={14} /></button>
+          <button
+            type="button"
+            className="bib-action-btn"
+            title="Rétablir (Ctrl+Y)"
+            disabled={!canRedoLibrary}
+            onClick={onRedoLibrary}
+          ><Redo2 size={14} /></button>
+          <div className="bib-action-separator" />
           <button
             type="button"
             className="bib-action-btn"

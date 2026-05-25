@@ -19,8 +19,9 @@
   /* v1.0.2 : structure en deux niveaux pour que le bouton de réduction
      (`headerExtra`) reste pinné top-right quoi qu'il arrive — même
      quand le contenu principal (titre + count + Dossier) wrappe à
-     plusieurs lignes par manque de largeur. */
-  align-items: flex-start;
+     plusieurs lignes par manque de largeur.
+     phase-2.f3 : center pour aligner le count avec les icônes de toolbar. */
+  align-items: center;
   gap: 8px;
   /* v1.0.4 : override de l'héritage `line-height: 145%` venu de
      :root (index.css) qui se propage comme valeur calculée fixe
@@ -117,6 +118,9 @@
   overflow-y: auto;
   min-height: 0;
   position: relative;
+  /* phase-2.f3 : padding latéral porté par le body pour que la zone
+     cliquable (lasso) couvre toute la largeur, même hors items. */
+  padding: 0 8px;
 }
 
 .bib-lasso {
@@ -549,7 +553,6 @@
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
   gap: 8px;
-  padding: 0 8px;
 }
 .tile {
   background: rgba(255, 255, 255, 0.04);

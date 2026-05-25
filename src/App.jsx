@@ -1520,6 +1520,7 @@ function App() {
     dispatch({ type: 'SET_NOTIFICATION', payload: { message, type, timestamp: Date.now() } })
   }
 
+  // eslint-disable-next-line no-unused-vars -- conservé pour usage futur (export tout)
   const handleExportAll = () => {
     if (patches.length === 0) {
       notify('Rien à exporter', 'error')
@@ -1646,12 +1647,16 @@ function App() {
   const handleRedoComposer = useCallback(() => dispatch({ type: 'REDO_COMPOSER' }), [])
   const handleUndoDesigner = useCallback(() => dispatch({ type: 'UNDO_DESIGNER' }), [])
   const handleRedoDesigner = useCallback(() => dispatch({ type: 'REDO_DESIGNER' }), [])
+  const handleUndoLibrary = useCallback(() => dispatch({ type: 'UNDO_LIBRARY' }), [])
+  const handleRedoLibrary = useCallback(() => dispatch({ type: 'REDO_LIBRARY' }), [])
   const dismissNotification = useCallback(() => dispatch({ type: 'SET_NOTIFICATION', payload: null }), [])
 
   const composerCanUndo = history.composer.past.length > 0
   const composerCanRedo = history.composer.future.length > 0
   const designerCanUndo = history.designer.past.length > 0
   const designerCanRedo = history.designer.future.length > 0
+  const libraryCanUndo = history.library.past.length > 0
+  const libraryCanRedo = history.library.future.length > 0
 
   const editorActions = useMemo(() => ({
     setPoints: (pts) => dispatch({ type: 'SET_EDITOR_POINTS', payload: pts }),
@@ -1728,6 +1733,11 @@ function App() {
             onPaste={onPasteBibClipboard}
             onDeleteItems={onDeleteBibItems}
             isFullTab={true}
+            onImportLibrary={handleImportClick}
+            onUndoLibrary={handleUndoLibrary}
+            onRedoLibrary={handleRedoLibrary}
+            canUndoLibrary={libraryCanUndo}
+            canRedoLibrary={libraryCanRedo}
           />
         </main>
       )}
@@ -1754,9 +1764,6 @@ function App() {
         canRedo={designerCanRedo}
         onUndo={handleUndoDesigner}
         onRedo={handleRedoDesigner}
-        onExport={handleExportAll}
-        canExport={patches.length > 0}
-        onImport={handleImportClick}
         analyserRef={analyserRef}
         activeVoicesCountRef={activeVoicesCountRef}
       >
@@ -1814,7 +1821,7 @@ function App() {
                         : <Play size={14} strokeWidth={2.2} fill="currentColor" />}
                     </button>
                     {libraryPopoverOpen && (
-                      <div className="designer-library-popover" ref={libraryPopoverRef} role="dialog" aria-label="Bibliothèque" style={{ width: `${bibPopupWidth}px`, position: 'relative' }}>
+                      <div className="designer-library-popover" ref={libraryPopoverRef} role="dialog" aria-label="Bibliothèque" style={{ width: `${bibPopupWidth}px` }}>
                         {/* G.2.7 : le titre "Bibliothèque" est porté par
                             PatchBank lui-même (h3 du sound-bank-header).
                             Le bouton close est passé via headerExtra pour
