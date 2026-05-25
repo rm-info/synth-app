@@ -87,6 +87,7 @@ function PatchBank({
   // contextMenu: null | { type: 'folder'|'patch', id: string, clientX, clientY }
 
   const [lasso, setLasso] = useState(null)
+  const lassoRef = useRef(null)
   const bodyRef = useRef(null)
 
   useEffect(() => {
@@ -234,64 +235,96 @@ function PatchBank({
   }, [])
 
   // --- Lasso selection ---
+  // Coords stockées en content-space (container-relative + scrollTop) pour
+  // que la rect reste alignée si l'utilisateur scrolle pendant le drag.
+
+  const pointToContentSpace = (clientX, clientY) => {
+    const body = bodyRef.current
+    const rect = body.getBoundingClientRect()
+    return {
+      x: clientX - rect.left + body.scrollLeft,
+      y: clientY - rect.top + body.scrollTop,
+    }
+  }
 
   const handleBodyMouseDown = (e) => {
-    if (e.button !== 0) return  // gauche uniquement
-    // Seulement si clic dans zone vide (pas sur un item, ni toolbar, ni breadcrumb)
+    if (e.button !== 0) return
     if (e.target.closest('[data-bib-item-id]')) return
     if (e.target.closest('.bib-toolbar')) return
     if (e.target.closest('.bib-breadcrumb')) return
     if (!bodyRef.current) return
-    const rect = bodyRef.current.getBoundingClientRect()
-    const x = e.clientX - rect.left
-    const y = e.clientY - rect.top
-    setLasso({ x0: x, y0: y, x1: x, y1: y })
+    const { x, y } = pointToContentSpace(e.clientX, e.clientY)
+    const newLasso = { x0: x, y0: y, x1: x, y1: y }
+    lassoRef.current = newLasso
+    setLasso(newLasso)
   }
 
-  const handleBodyMouseMove = (e) => {
+  // Listeners window-level pendant un lasso actif :
+  // - mousemove pour suivre la souris même hors du body
+  // - mouseup pour finaliser même si le relâche est hors window
+  useEffect(() => {
     if (!lasso) return
-    if (!bodyRef.current) return
-    const rect = bodyRef.current.getBoundingClientRect()
-    setLasso(prev => ({ ...prev, x1: e.clientX - rect.left, y1: e.clientY - rect.top }))
-  }
-
-  const handleBodyMouseUp = () => {
-    if (!lasso) return
-    // Si rect minuscule (clic sans drag), clear selection
-    if (Math.abs(lasso.x1 - lasso.x0) < 3 && Math.abs(lasso.y1 - lasso.y0) < 3) {
-      if (onClearSelection) onClearSelection()
-      setLasso(null)
-      return
+    const onMove = (e) => {
+      if (!bodyRef.current) return
+      const { x, y } = pointToContentSpace(e.clientX, e.clientY)
+      setLasso(prev => {
+        if (!prev) return null
+        const next = { ...prev, x1: x, y1: y }
+        lassoRef.current = next
+        return next
+      })
     }
-    const lassoRect = {
-      left: Math.min(lasso.x0, lasso.x1),
-      top: Math.min(lasso.y0, lasso.y1),
-      right: Math.max(lasso.x0, lasso.x1),
-      bottom: Math.max(lasso.y0, lasso.y1),
-    }
-    if (!bodyRef.current) {
-      setLasso(null)
-      return
-    }
-    const containerRect = bodyRef.current.getBoundingClientRect()
-    const selected = []
-    for (const el of bodyRef.current.querySelectorAll('[data-bib-item-id]')) {
-      const r = el.getBoundingClientRect()
-      const x0 = r.left - containerRect.left
-      const x1 = r.right - containerRect.left
-      const y0 = r.top - containerRect.top
-      const y1 = r.bottom - containerRect.top
-      if (x1 >= lassoRect.left && x0 <= lassoRect.right &&
-          y1 >= lassoRect.top && y0 <= lassoRect.bottom) {
-        selected.push({
-          type: el.dataset.bibItemType,
-          id: el.dataset.bibItemId,
-        })
+    const onUp = () => {
+      const current = lassoRef.current
+      if (!current) { setLasso(null); return }
+      if (Math.abs(current.x1 - current.x0) < 3 && Math.abs(current.y1 - current.y0) < 3) {
+        onClearSelection?.()
+        lassoRef.current = null
+        setLasso(null)
+        return
       }
+      const lassoRect = {
+        left: Math.min(current.x0, current.x1),
+        top: Math.min(current.y0, current.y1),
+        right: Math.max(current.x0, current.x1),
+        bottom: Math.max(current.y0, current.y1),
+      }
+      if (!bodyRef.current) {
+        setLasso(null)
+        return
+      }
+      const containerRect = bodyRef.current.getBoundingClientRect()
+      const scrollLeft = bodyRef.current.scrollLeft
+      const scrollTop = bodyRef.current.scrollTop
+      const selected = []
+      for (const el of bodyRef.current.querySelectorAll('[data-bib-item-id]')) {
+        const r = el.getBoundingClientRect()
+        const x0 = r.left - containerRect.left + scrollLeft
+        const x1 = r.right - containerRect.left + scrollLeft
+        const y0 = r.top - containerRect.top + scrollTop
+        const y1 = r.bottom - containerRect.top + scrollTop
+        if (x1 >= lassoRect.left && x0 <= lassoRect.right &&
+            y1 >= lassoRect.top && y0 <= lassoRect.bottom) {
+          selected.push({
+            type: el.dataset.bibItemType,
+            id: el.dataset.bibItemId,
+          })
+        }
+      }
+      onSelectItems?.(selected, 'set')
+      lassoRef.current = null
+      setLasso(null)
     }
-    onSelectItems?.(selected, 'set')
-    setLasso(null)
-  }
+    window.addEventListener('mousemove', onMove)
+    window.addEventListener('mouseup', onUp)
+    return () => {
+      window.removeEventListener('mousemove', onMove)
+      window.removeEventListener('mouseup', onUp)
+    }
+    // Listeners re-bind si lasso passe null↔non-null. Pas de dépendance sur
+    // lasso lui-même pendant un drag (les deltas viennent du ref).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [lasso === null, onClearSelection, onSelectItems])
 
   // --- Build tree ---
 
@@ -741,9 +774,6 @@ function PatchBank({
         ref={bodyRef}
         className="sound-bank-body"
         onMouseDown={handleBodyMouseDown}
-        onMouseMove={handleBodyMouseMove}
-        onMouseUp={handleBodyMouseUp}
-        style={{ position: 'relative' }}
       >
         {renderBody()}
         {lasso && (
