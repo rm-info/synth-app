@@ -40,17 +40,10 @@ export default function SavePatchDialog({
   onCancel,
   onCreateFolder,
 }) {
-  const initialFolderId = currentPatch?.folderId ?? bibCurrentFolderId ?? null
-
   const [name, setName] = useState('')
-  const [folderId, setFolderId] = useState(initialFolderId)
+  const [folderId, setFolderId] = useState(null)
   const [dropdownOpen, setDropdownOpen] = useState(false)
-  const [openedFolders, setOpenedFolders] = useState(() => {
-    const set = new Set()
-    const path = buildPathToRoot(initialFolderId, soundFolders)
-    for (const node of path) set.add(node.id)
-    return set
-  })
+  const [openedFolders, setOpenedFolders] = useState(() => new Set())
   const [creatingFolder, setCreatingFolder] = useState(false)
   const [newFolderName, setNewFolderName] = useState('')
 
@@ -60,14 +53,15 @@ export default function SavePatchDialog({
     const baseName = currentPatch
       ? nextAvailableFolderName(currentPatch.name, patches.map(p => ({ name: p.name })))
       : nextAvailableFolderName('Nouveau patch', patches.map(p => ({ name: p.name })))
+    const folderIdInit = currentPatch?.folderId ?? bibCurrentFolderId ?? null
     setName(baseName)
-    setFolderId(initialFolderId)
+    setFolderId(folderIdInit)
     setDropdownOpen(false)
     setCreatingFolder(false)
     setNewFolderName('')
     setOpenedFolders(() => {
       const set = new Set()
-      const path = buildPathToRoot(initialFolderId, soundFolders)
+      const path = buildPathToRoot(folderIdInit, soundFolders)
       for (const node of path) set.add(node.id)
       return set
     })
@@ -78,11 +72,15 @@ export default function SavePatchDialog({
   useEffect(() => {
     if (!open) return
     const onKey = (e) => {
-      if (e.key === 'Escape') { e.preventDefault(); onCancel?.() }
+      if (e.key !== 'Escape') return
+      // Si sous-flow nouveau dossier ouvert, laisser l'input gérer
+      if (creatingFolder) return
+      e.preventDefault()
+      onCancel?.()
     }
     document.addEventListener('keydown', onKey, true)
     return () => document.removeEventListener('keydown', onKey, true)
-  }, [open, onCancel])
+  }, [open, onCancel, creatingFolder])
 
   const trail = useMemo(() => buildPathToRoot(folderId, soundFolders), [folderId, soundFolders])
   const flatTree = useMemo(
