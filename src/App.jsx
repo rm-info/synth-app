@@ -73,6 +73,7 @@ function App() {
     durationMode, selectedClipIds, composerFlash, lastAnchorClipId,
     composerBankWidth, composerAsideWidth, composerBankCollapsed, composerAsideCollapsed,
     designerSidebarWidth, designerSidebarCollapsed,
+    bibHierarchyMode, bibDisplayMode, bibCurrentFolderId, bibPopupWidth,
     patchCounter, clipCounter, folderCounter, trackCounter,
     clipboard, measureClipboard, history, notification,
   } = state
@@ -540,6 +541,10 @@ function App() {
           composerAsideCollapsed,
           designerSidebarWidth,
           designerSidebarCollapsed,
+          bibHierarchyMode,
+          bibDisplayMode,
+          bibCurrentFolderId,
+          bibPopupWidth,
           // F.4.4.3 : état d'exploration Designer persisté de bout en bout.
           // Chaque presse-touche dispatch un SET_EDITOR_TEST_NOTE qui re-tire
           // ce useEffect → setItem(localStorage). Coût acceptable :
@@ -561,6 +566,7 @@ function App() {
     durationMode, activeTab, patchCounter, clipCounter, folderCounter, trackCounter,
     composerBankWidth, composerAsideWidth, composerBankCollapsed, composerAsideCollapsed,
     designerSidebarWidth, designerSidebarCollapsed,
+    bibHierarchyMode, bibDisplayMode, bibCurrentFolderId, bibPopupWidth,
     editor.testTuningSystem, editor.testNoteIndex, editor.testOctave, editor.testFrequency,
     editor.visualCuePattern, editor.visualCueTonic,
   ])
@@ -652,6 +658,23 @@ function App() {
   }, [])
   const setSpectrogramMode = useCallback((mode) => {
     dispatch({ type: 'SET_SPECTROGRAM_MODE', payload: mode })
+  }, [])
+
+  // eslint-disable-next-line no-unused-vars
+  const setBibHierarchyMode = useCallback((mode) => {
+    dispatch({ type: 'SET_BIB_HIERARCHY_MODE', payload: mode })
+  }, [])
+  // eslint-disable-next-line no-unused-vars
+  const setBibDisplayMode = useCallback((mode) => {
+    dispatch({ type: 'SET_BIB_DISPLAY_MODE', payload: mode })
+  }, [])
+  // eslint-disable-next-line no-unused-vars
+  const setBibCurrentFolder = useCallback((folderId) => {
+    dispatch({ type: 'SET_BIB_CURRENT_FOLDER', payload: folderId })
+  }, [])
+  // eslint-disable-next-line no-unused-vars
+  const setBibPopupWidth = useCallback((w) => {
+    dispatch({ type: 'SET_BIB_POPUP_WIDTH', payload: w })
   }, [])
 
   // Max dynamique : chaque sidebar ne doit pas rogner la zone centrale en

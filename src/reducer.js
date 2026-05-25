@@ -228,6 +228,10 @@ export function loadPersistedState() {
       spectrogramPeakHold:
         typeof parsed.spectrogramPeakHold === 'boolean' ? parsed.spectrogramPeakHold : false,
       spectrogramMode: parsed.spectrogramMode === 'live' ? 'live' : 'static',
+      bibHierarchyMode: parsed.bibHierarchyMode === 'tree' ? 'tree' : 'nav',
+      bibDisplayMode: ['list', 'details', 'tiles'].includes(parsed.bibDisplayMode) ? parsed.bibDisplayMode : 'list',
+      bibCurrentFolderId: typeof parsed.bibCurrentFolderId === 'string' ? parsed.bibCurrentFolderId : null,
+      bibPopupWidth: typeof parsed.bibPopupWidth === 'number' && parsed.bibPopupWidth >= 320 ? parsed.bibPopupWidth : 480,
       activeTab: parsed.activeTab === 'composer' ? 'composer' : 'designer',
       durationMode: parsed.durationMode === 'fraction' ? 'fraction' : 'solfège',
       composerBankWidth: typeof parsed.composerBankWidth === 'number' ? parsed.composerBankWidth : null,
@@ -318,7 +322,7 @@ export function loadPersistedState() {
 
 export function buildInitialState() {
   const persisted = loadPersistedState()
-  return {
+  const initialState = {
     // Composer (champ undoable)
     clips: persisted?.clips ?? [],
     numMeasures: persisted?.numMeasures ?? DEFAULT_NUM_MEASURES,
@@ -375,6 +379,10 @@ export function buildInitialState() {
     spectrogramDbScale: persisted?.spectrogramDbScale ?? false,
     spectrogramPeakHold: persisted?.spectrogramPeakHold ?? false,
     spectrogramMode: persisted?.spectrogramMode ?? 'static',
+    bibHierarchyMode: persisted?.bibHierarchyMode ?? 'nav',
+    bibDisplayMode: persisted?.bibDisplayMode ?? 'list',
+    bibCurrentFolderId: persisted?.bibCurrentFolderId ?? null,
+    bibPopupWidth: persisted?.bibPopupWidth ?? 480,
     defaultClipDuration: DEFAULT_CLIP_DURATION,
     // Mode d'affichage des durées dans les boutons (E.6.1).
     // 'solfège' : ♩ ♪ 𝅘𝅥𝅯 etc. / 'fraction' : 1 1/2 1/4 etc. (réf. = noire).
@@ -397,6 +405,14 @@ export function buildInitialState() {
     },
     notification: null,
   }
+
+  // Valide que bibCurrentFolderId pointe sur un folder existant ; sinon null.
+  const validFolderIds = new Set(initialState.soundFolders.map(f => f.id))
+  if (initialState.bibCurrentFolderId !== null && !validFolderIds.has(initialState.bibCurrentFolderId)) {
+    initialState.bibCurrentFolderId = null
+  }
+
+  return initialState
 }
 
 // === Helpers ===
@@ -1414,6 +1430,22 @@ export function reducer(state, action) {
     }
     case 'SET_SPECTROGRAM_MODE': {
       return { ...state, spectrogramMode: action.payload === 'live' ? 'live' : 'static' }
+    }
+    case 'SET_BIB_HIERARCHY_MODE': {
+      const mode = action.payload === 'tree' ? 'tree' : 'nav'
+      return { ...state, bibHierarchyMode: mode }
+    }
+    case 'SET_BIB_DISPLAY_MODE': {
+      const mode = ['list', 'details', 'tiles'].includes(action.payload) ? action.payload : 'list'
+      return { ...state, bibDisplayMode: mode }
+    }
+    case 'SET_BIB_CURRENT_FOLDER': {
+      // Vide aussi la sélection (per spec : cleared sur change de folder)
+      return { ...state, bibCurrentFolderId: action.payload, bibSelectedIds: [], bibSelectionAnchor: null }
+    }
+    case 'SET_BIB_POPUP_WIDTH': {
+      const w = Math.max(320, Math.min(action.payload, 1200))
+      return { ...state, bibPopupWidth: w }
     }
     case 'SET_DEFAULT_CLIP_DURATION': {
       return { ...state, defaultClipDuration: action.payload }
