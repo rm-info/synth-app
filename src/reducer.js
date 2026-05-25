@@ -409,6 +409,10 @@ export function buildInitialState() {
     bibSelectedIds: [],
     bibSelectionAnchor: null,
 
+    // Avertissement suppression partielle (transient, non persisté).
+    // Porté jusqu'à ce que le modal DeleteUsageWarningDialog le consomme.
+    pendingDeleteWarning: null,
+
     history: {
       designer: { past: [], future: [] },
       composer: { past: [], future: [] },
@@ -1623,6 +1627,74 @@ export function reducer(state, action) {
           folderIds.has(f.id) ? { ...f, parentId: targetFolderId } : f
         ),
       }
+    }
+    case 'DELETE_BIB_ITEMS': {
+      const { items } = action.payload
+      if (!items || items.length === 0) return state
+
+      const countUsage = (patchId) =>
+        (state.clips || []).filter(c => c.patchId === patchId).length
+
+      const blockedPatches = []
+      const allowedPatchIds = new Set()
+      const allowedFolderIds = new Set()
+
+      for (const item of items) {
+        if (item.type === 'patch') {
+          const usage = countUsage(item.id)
+          if (usage > 0) {
+            const patch = state.patches.find(p => p.id === item.id)
+            if (patch) blockedPatches.push({ id: item.id, name: patch.name, usageCount: usage })
+          } else if (state.patches.find(p => p.id === item.id)) {
+            allowedPatchIds.add(item.id)
+          }
+        } else if (item.type === 'folder') {
+          const folder = state.soundFolders.find(f => f.id === item.id)
+          if (!folder) continue
+          const result = countFolderContents(item.id, state.soundFolders, state.patches)
+          const blockedDescendants = result.patchIds.filter(pid => countUsage(pid) > 0)
+          if (blockedDescendants.length > 0) {
+            // Folder entier bloqué (atomicity) : tous les patches bloqués remontent
+            for (const pid of blockedDescendants) {
+              const p = state.patches.find(pp => pp.id === pid)
+              if (p) blockedPatches.push({ id: pid, name: p.name, usageCount: countUsage(pid) })
+            }
+          } else {
+            // Folder libre : marque tout son sous-arbre comme supprimable
+            allowedFolderIds.add(item.id)
+            const descendantFolderIds = getDescendantFolderIds(item.id, state.soundFolders)
+            for (const fid of descendantFolderIds) allowedFolderIds.add(fid)
+            for (const pid of result.patchIds) allowedPatchIds.add(pid)
+          }
+        }
+      }
+
+      // freedCount = items directement demandés qui ont été effectivement supprimés
+      const freedCount = items.filter(item => {
+        if (item.type === 'patch') return allowedPatchIds.has(item.id)
+        if (item.type === 'folder') return allowedFolderIds.has(item.id)
+        return false
+      }).length
+
+      // currentPatchId : si supprimé, set à null
+      const newCurrentPatchId = allowedPatchIds.has(state.currentPatchId)
+        ? null
+        : state.currentPatchId
+
+      return {
+        ...state,
+        patches: state.patches.filter(p => !allowedPatchIds.has(p.id)),
+        soundFolders: state.soundFolders.filter(f => !allowedFolderIds.has(f.id)),
+        currentPatchId: newCurrentPatchId,
+        bibSelectedIds: [],
+        bibSelectionAnchor: null,
+        pendingDeleteWarning: blockedPatches.length > 0
+          ? { blockedPatches, freedCount }
+          : null,
+      }
+    }
+    case 'CLEAR_PENDING_DELETE_WARNING': {
+      return { ...state, pendingDeleteWarning: null }
     }
 
     default:
