@@ -1170,14 +1170,14 @@ export function reducer(state, action) {
       }
     }
     case 'CREATE_FOLDER': {
-      const { name } = action.payload
+      const { name, parentId = null } = action.payload
       const newCounter = state.folderCounter + 1
       return {
         ...state,
         folderCounter: newCounter,
         soundFolders: [
           ...state.soundFolders,
-          { id: `folder-${newCounter}`, name, parentId: null },
+          { id: `folder-${newCounter}`, name, parentId },
         ],
       }
     }

@@ -80,7 +80,8 @@ function PatchBank({
 
   const handleCreateFolder = () => {
     const name = nextAvailableFolderName('Nouveau dossier', soundFolders)
-    onCreateFolder(name)
+    const parentId = bibHierarchyMode === 'nav' ? (bibCurrentFolderId ?? null) : null
+    onCreateFolder(name, parentId)
   }
 
   const handleDeleteFolder = (folder) => {

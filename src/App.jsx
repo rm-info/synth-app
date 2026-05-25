@@ -1394,8 +1394,8 @@ function App() {
     dispatch({ type: 'RENAME_PATCH', payload: { patchId, name: newName } })
   }, [])
 
-  const handleCreateFolder = useCallback((name) => {
-    dispatch({ type: 'CREATE_FOLDER', payload: { name } })
+  const handleCreateFolder = useCallback((name, parentId = null) => {
+    dispatch({ type: 'CREATE_FOLDER', payload: { name, parentId } })
   }, [])
 
   const handleRenameFolder = useCallback((folderId, name) => {
@@ -1710,7 +1710,7 @@ function App() {
                           onSetHierarchyMode={setBibHierarchyMode}
                           onSetDisplayMode={setBibDisplayMode}
                           onSetCurrentFolder={setBibCurrentFolder}
-                          onNotify={(message, type) => dispatch({ type: 'SET_NOTIFICATION', payload: { message, type, timestamp: Date.now() } })}
+                          onNotify={notify}
                           headerExtra={
                             <button
                               type="button"
@@ -1747,7 +1747,7 @@ function App() {
                       onSetHierarchyMode={setBibHierarchyMode}
                       onSetDisplayMode={setBibDisplayMode}
                       onSetCurrentFolder={setBibCurrentFolder}
-                      onNotify={(message, type) => dispatch({ type: 'SET_NOTIFICATION', payload: { message, type, timestamp: Date.now() } })}
+                      onNotify={notify}
                       headerExtra={
                         <button
                           type="button"
@@ -1933,7 +1933,7 @@ function App() {
                       onSetHierarchyMode={setBibHierarchyMode}
                       onSetDisplayMode={setBibDisplayMode}
                       onSetCurrentFolder={setBibCurrentFolder}
-                      onNotify={(message, type) => dispatch({ type: 'SET_NOTIFICATION', payload: { message, type, timestamp: Date.now() } })}
+                      onNotify={notify}
                       headerExtra={
                         <button
                           type="button"

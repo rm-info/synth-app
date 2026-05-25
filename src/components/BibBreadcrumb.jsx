@@ -25,7 +25,8 @@ function pathFromTrail(trail) {
 function parsePath(pathStr, soundFolders) {
   const cleaned = pathStr.trim().replace(/^\/+|\/+$/g, '')
   if (cleaned === '' || cleaned.toLowerCase() === 'root') return null
-  const segments = cleaned.split('/')
+  const segments = cleaned.split('/').filter(s => s.length > 0)
+  if (segments.length === 0) return null
   let parentId = null
   for (const seg of segments) {
     const match = soundFolders.find(f =>
@@ -68,7 +69,7 @@ export default function BibBreadcrumb({ currentFolderId, soundFolders, onNavigat
             if (e.key === 'Enter') { e.preventDefault(); commitEdit() }
             else if (e.key === 'Escape') { e.preventDefault(); setEditing(false) }
           }}
-          onBlur={() => setEditing(false)}
+          onBlur={commitEdit}
           autoFocus
         />
       </div>
