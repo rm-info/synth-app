@@ -1,4 +1,5 @@
 import { SOUND_COLORS } from './audio'
+import { wouldCreateCycle, duplicateItemsToFolder } from './lib/bibTransfer.js'
 import {
   DEFAULT_A4,
   DEFAULT_X_EDO_N,
@@ -367,6 +368,7 @@ export function buildInitialState() {
 
     clipboard: null,
     measureClipboard: null,
+    bibClipboard: null,
 
     zoomH: DEFAULT_ZOOM_H,
     activeTab: persisted?.activeTab ?? 'designer',
@@ -1534,6 +1536,88 @@ export function reducer(state, action) {
       return { ...state, notification: action.payload }
     }
 
+    // ----- Bibliothèque clipboard (iter K) -----
+    case 'COPY_BIB_ITEMS': {
+      const { items } = action.payload
+      if (items.length === 0) return state
+      return { ...state, bibClipboard: { mode: 'copy', items: [...items] } }
+    }
+    case 'CUT_BIB_ITEMS': {
+      const { items } = action.payload
+      if (items.length === 0) return state
+      return { ...state, bibClipboard: { mode: 'cut', items: [...items] } }
+    }
+    case 'CLEAR_BIB_CLIPBOARD': {
+      return { ...state, bibClipboard: null }
+    }
+    case 'PASTE_BIB_CLIPBOARD': {
+      if (!state.bibClipboard) return state
+      const { targetFolderId } = action.payload
+      const { mode, items } = state.bibClipboard
+
+      if (wouldCreateCycle(items, targetFolderId, state.soundFolders)) {
+        return {
+          ...state,
+          notification: {
+            message: 'Impossible : un dossier ne peut pas être collé dans lui-même ou un de ses sous-dossiers.',
+            type: 'error',
+            timestamp: Date.now(),
+          },
+        }
+      }
+
+      if (mode === 'cut') {
+        const patchIds = new Set(items.filter(i => i.type === 'patch').map(i => i.id))
+        const folderIds = new Set(items.filter(i => i.type === 'folder').map(i => i.id))
+        return {
+          ...state,
+          patches: state.patches.map(p =>
+            patchIds.has(p.id) ? { ...p, folderId: targetFolderId } : p
+          ),
+          soundFolders: state.soundFolders.map(f =>
+            folderIds.has(f.id) ? { ...f, parentId: targetFolderId } : f
+          ),
+          bibClipboard: null,
+        }
+      } else {
+        // mode === 'copy'
+        const result = duplicateItemsToFolder(items, targetFolderId, state)
+        return {
+          ...state,
+          patches: [...state.patches, ...result.newPatches],
+          soundFolders: [...state.soundFolders, ...result.newFolders],
+          patchCounter: result.patchCounterAfter,
+          folderCounter: result.folderCounterAfter,
+          bibClipboard: null,
+        }
+      }
+    }
+    case 'MOVE_BIB_ITEMS': {
+      const { items, targetFolderId } = action.payload
+      if (items.length === 0) return state
+      if (wouldCreateCycle(items, targetFolderId, state.soundFolders)) {
+        return {
+          ...state,
+          notification: {
+            message: 'Impossible : un dossier ne peut pas être déplacé dans lui-même ou un de ses sous-dossiers.',
+            type: 'error',
+            timestamp: Date.now(),
+          },
+        }
+      }
+      const patchIds = new Set(items.filter(i => i.type === 'patch').map(i => i.id))
+      const folderIds = new Set(items.filter(i => i.type === 'folder').map(i => i.id))
+      return {
+        ...state,
+        patches: state.patches.map(p =>
+          patchIds.has(p.id) ? { ...p, folderId: targetFolderId } : p
+        ),
+        soundFolders: state.soundFolders.map(f =>
+          folderIds.has(f.id) ? { ...f, parentId: targetFolderId } : f
+        ),
+      }
+    }
+
     default:
       return state
   }
@@ -1561,6 +1645,8 @@ const DESIGNER_UNDOABLE = new Set([
   'SET_EDITOR_ADSR', 'SET_EDITOR_ADSR_AND_AMP', 'APPLY_EDITOR_PRESET', 'RESET_EDITOR',
   'SET_EDITOR_VISUAL_CUE_PATTERN', 'SET_EDITOR_VISUAL_CUE_TONIC',
   'IMPORT_LIBRARY',
+  'PASTE_BIB_CLIPBOARD',
+  'MOVE_BIB_ITEMS',
 ])
 
 const COMPOSER_FIELDS = ['clips', 'numMeasures', 'bpm', 'a4Ref', 'xEdoN', 'selectedClipIds', 'tracks']
