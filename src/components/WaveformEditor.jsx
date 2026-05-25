@@ -257,6 +257,7 @@ function WaveformEditor({
   onSavePatch,
   onUpdatePatch,
   onRequestNew,
+  onRequestSavePopup,
   nextPatchName,
   currentPatch,
   patches,
@@ -1054,6 +1055,16 @@ function WaveformEditor({
       return
     }
 
+    // Si onRequestSavePopup est dispo : on délègue au popup côté App
+    if (onRequestSavePopup) {
+      onRequestSavePopup({
+        patchData: buildPayload(''),  // name sera surchargé par le popup
+        sourcePatch: currentPatch,    // null si canvas vierge
+      })
+      return
+    }
+
+    // Fallback : comportement actuel (sera retiré une fois le popup branché)
     const proposedName = currentPatch
       ? nextAvailableName(`Copie de ${currentPatch.name}`, patches ?? [])
       : defaultName
