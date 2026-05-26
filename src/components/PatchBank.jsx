@@ -94,12 +94,8 @@ function filterOutDescendants(items, soundFolders, patches) {
 function formatDate(ts) {
   if (!ts) return '—'
   const d = new Date(ts)
-  const now = new Date()
-  const sameYear = d.getFullYear() === now.getFullYear()
   const pad = (n) => String(n).padStart(2, '0')
-  return sameYear
-    ? `${pad(d.getDate())}/${pad(d.getMonth() + 1)}`
-    : `${pad(d.getDate())}/${pad(d.getMonth() + 1)}/${String(d.getFullYear()).slice(2)}`
+  return `${pad(d.getDate())}/${pad(d.getMonth() + 1)}/${d.getFullYear()} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`
 }
 
 function PatchBank({

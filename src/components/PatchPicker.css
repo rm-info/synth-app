@@ -90,8 +90,11 @@
   transform: rotate(90deg);
 }
 .patch-picker-folder-icon {
+  width: 14px;
   font-size: 0.8rem;
   flex-shrink: 0;
+  display: inline-flex;
+  justify-content: center;
 }
 .patch-picker-folder-name {
   flex: 1;
@@ -137,7 +140,7 @@
 }
 .patch-picker-chip-dot-wrap {
   width: 14px;
-  display: flex;
+  display: inline-flex;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;

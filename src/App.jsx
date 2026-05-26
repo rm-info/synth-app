@@ -1737,8 +1737,8 @@ function App() {
           title: 'Abandonner les modifications ?',
           message: "Le patch courant a des modifications non sauvegardées. Charger ce patch et perdre vos modifs ?",
           variant: 'danger',
-          confirmLabel: 'Abandonner',
-          cancelLabel: "Continuer l'édition",
+          confirmLabel: 'Abandonner et ouvrir',
+          cancelLabel: "Annuler",
           onConfirm: () => {
             dispatch({ type: 'SET_CURRENT_PATCH_ID', payload: patchId })
             dispatch({ type: 'SET_ACTIVE_TAB', payload: 'designer' })
