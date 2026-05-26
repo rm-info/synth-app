@@ -506,9 +506,8 @@
   background: rgba(255, 255, 255, 0.04);
   color: #d0d4ec;
 }
-.bib-updir .folder-icon {
-  font-size: 14px;
-}
+/* .folder-icon hérite directement de la règle de base (.folder-icon { font-size: 0.85rem })
+   pour matcher la taille des icônes des autres dossiers. */
 
 /* === Mode Details === */
 

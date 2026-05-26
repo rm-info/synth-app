@@ -157,11 +157,11 @@ export default function PatchPicker({
 
   return (
     <aside className="patch-picker">
-      <header className="patch-picker-header">
+      <div className="patch-picker-header">
         <div className="designer-actions-header">Bibliothèque</div>
         <span className="patch-picker-count">{patches.length}</span>
         {headerExtra && <div className="patch-picker-header-toggle">{headerExtra}</div>}
-      </header>
+      </div>
       <ul className="patch-picker-list">
         {orderedItems.length === 0
           ? <li className="patch-picker-empty">Aucun patch</li>
