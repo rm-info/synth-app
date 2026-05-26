@@ -1460,10 +1460,12 @@ function Timeline({
                       })
                     }}
                     onDoubleClick={(e) => {
+                      console.log('[clip-debug] onDoubleClick fired', { clipId: clip.id, patchId: clip.patchId, hasHandler: !!onEditClipPatch })
                       e.stopPropagation()
                       onEditClipPatch?.(clip.patchId)
                     }}
                     onContextMenu={(e) => {
+                      console.log('[clip-debug] onContextMenu fired', { clipId: clip.id, patchId: clip.patchId })
                       e.preventDefault()
                       e.stopPropagation()
                       setClipContextMenu({
