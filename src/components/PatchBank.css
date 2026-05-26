@@ -494,13 +494,12 @@
 .bib-updir {
   display: flex;
   align-items: center;
-  gap: 6px;
-  padding: 4px 8px;
-  margin: 0 8px;
+  gap: 4px;
+  padding: 5px 8px;
   color: #8a8fa8;
   cursor: pointer;
   font-style: italic;
-  border-radius: 3px;
+  border-radius: 6px;
   user-select: none;
 }
 .bib-updir:hover {

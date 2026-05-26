@@ -218,6 +218,9 @@
 }
 /* Header global "Outils" en haut de la sidebar ouverte. */
 .designer-sidebar-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
   padding: 8px 10px 6px;
   border-bottom: 1px solid #3a3a5a;
   flex-shrink: 0;

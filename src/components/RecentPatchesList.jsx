@@ -48,7 +48,7 @@ export default function RecentPatchesList({
       onDragOver={handleDragOver}
       onDrop={handleDrop}
     >
-      <div className="recent-patches-header" title="Patches récents">
+      <div className="recent-patches-header" title="Derniers patches utilisés">
         <Clock size={12} />
       </div>
       {items.length === 0 && (

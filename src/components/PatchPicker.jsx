@@ -158,7 +158,7 @@ export default function PatchPicker({
   return (
     <aside className="patch-picker">
       <header className="patch-picker-header">
-        <h3>Bibliothèque</h3>
+        <div className="designer-actions-header">Bibliothèque</div>
         <span className="patch-picker-count">{patches.length}</span>
         {headerExtra && <div className="patch-picker-header-toggle">{headerExtra}</div>}
       </header>

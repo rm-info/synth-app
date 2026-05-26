@@ -1902,6 +1902,16 @@ function App() {
                   <>
                     <header className="designer-sidebar-header">
                       <h3>Outils</h3>
+                      <button
+                        type="button"
+                        className="sidebar-toggle sidebar-toggle-inline"
+                        onClick={handleToggleDesignerCollapsed}
+                        title="Réduire le panneau latéral"
+                        aria-label="Réduire le panneau latéral"
+                        aria-expanded={true}
+                      >
+                        <ChevronLeft size={14} strokeWidth={2.2} />
+                      </button>
                     </header>
                     <section className="sidebar-section sidebar-library">
                       <PatchPicker
@@ -1916,22 +1926,9 @@ function App() {
                         onOpenInLibrary={handleOpenInLibrary}
                         onDragStart={handleDragStartFromPicker}
                         onToggleBibFolderCollapsed={onToggleBibFolderCollapsed}
-                        headerExtra={
-                          <button
-                            type="button"
-                            className="sidebar-toggle sidebar-toggle-inline"
-                            onClick={handleToggleDesignerCollapsed}
-                            title="Réduire le panneau latéral"
-                            aria-label="Réduire le panneau latéral"
-                            aria-expanded={true}
-                          >
-                            <ChevronLeft size={14} strokeWidth={2.2} />
-                          </button>
-                        }
                       />
                     </section>
                     <section className="sidebar-section sidebar-actions">
-                      <div className="sidebar-section-label">Actions</div>
                       {renderActions()}
                       <MiniPlayer
                         isPlaying={playback.isPlaying}
