@@ -165,12 +165,14 @@ function Timeline({
   onCutMeasure,
   onPasteMeasures,
   hasMeasureClipboard,
+  onEditClipPatch,
 }) {
   const wrapperRef = useRef(null)
   const gridRef = useRef(null)
   const dropZoneRef = useRef(null)
   const visualizerCanvasRef = useRef(null)
   const [contextMenu, setContextMenu] = useState(null)
+  const [clipContextMenu, setClipContextMenu] = useState(null) // { clipId, patchId, clientX, clientY }
   const [dragOverTrackId, setDragOverTrackId] = useState(null)
   const [renamingTrackId, setRenamingTrackId] = useState(null)
   const [renameValue, setRenameValue] = useState('')
@@ -192,6 +194,16 @@ function Timeline({
     window.addEventListener('keydown', handler, true) // capture phase
     return () => window.removeEventListener('keydown', handler, true)
   }, [contextMenu])
+
+  // Échap ferme le menu contextuel de clip
+  useEffect(() => {
+    if (!clipContextMenu) return
+    const handler = (e) => {
+      if (e.key === 'Escape') { e.preventDefault(); setClipContextMenu(null) }
+    }
+    document.addEventListener('keydown', handler, true)
+    return () => document.removeEventListener('keydown', handler, true)
+  }, [clipContextMenu])
 
   // --- Interaction clip (drag / resize-left / resize-right) ---
   // interactionRef : mutable, contient l'état live pendant l'interaction
@@ -1437,7 +1449,7 @@ function Timeline({
                       backgroundColor: patch.color + '33',
                       borderColor: patch.color,
                     }}
-                    title={`${formatClipNote(clip, xEdoN)} — ${patch.name} — mesure ${clip.measure}, beat ${clip.beat} — Clic droit pour retirer`}
+                    title={`${formatClipNote(clip, xEdoN)} — ${patch.name} — mesure ${clip.measure}, beat ${clip.beat} — Dbl-clic pour éditer le patch`}
                     onMouseDown={(e) => {
                       if (e.button !== 0) return
                       // Ctrl/Cmd+mousedown démarre une session : devient
@@ -1447,10 +1459,19 @@ function Timeline({
                         ctrlAtStart: e.ctrlKey || e.metaKey,
                       })
                     }}
+                    onDoubleClick={(e) => {
+                      e.stopPropagation()
+                      onEditClipPatch?.(clip.patchId)
+                    }}
                     onContextMenu={(e) => {
                       e.preventDefault()
                       e.stopPropagation()
-                      onRemoveClip(clip.id)
+                      setClipContextMenu({
+                        clipId: clip.id,
+                        patchId: clip.patchId,
+                        clientX: e.clientX,
+                        clientY: e.clientY,
+                      })
                     }}
                   >
                     <div
@@ -1584,7 +1605,7 @@ function Timeline({
       )}
       {patches.length > 0 && hasNoClips && (
         <p className="timeline-hint">
-          Glissez-déposez un patch depuis la banque pour placer un clip. Clic droit pour retirer.
+          Glissez-déposez un patch depuis la banque pour placer un clip. Double-clic pour éditer dans Designer, clic droit pour options.
           Ctrl + molette pour zoomer.
         </p>
       )}
@@ -1637,6 +1658,40 @@ function Timeline({
                 Coller ici
               </button>
             )}
+          </div>
+        </>
+      )}
+
+      {clipContextMenu && (
+        <>
+          <div
+            className="context-menu-backdrop"
+            onMouseDown={() => setClipContextMenu(null)}
+            onContextMenu={(e) => { e.preventDefault(); setClipContextMenu(null) }}
+          />
+          <div
+            className="timeline-context-menu"
+            style={{ left: `${clipContextMenu.clientX}px`, top: `${clipContextMenu.clientY}px` }}
+          >
+            <button
+              type="button"
+              onClick={() => {
+                onEditClipPatch?.(clipContextMenu.patchId)
+                setClipContextMenu(null)
+              }}
+            >
+              Éditer le patch dans Designer
+            </button>
+            <div className="context-menu-separator" />
+            <button
+              type="button"
+              onClick={() => {
+                onRemoveClip(clipContextMenu.clipId)
+                setClipContextMenu(null)
+              }}
+            >
+              Retirer le clip
+            </button>
           </div>
         </>
       )}
