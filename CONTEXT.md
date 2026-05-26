@@ -4273,6 +4273,29 @@ clavier 22 cases, octave selector, boutons save, message slot).
   keydown, sidebars → PatchPicker, CONTEXT.md.
   Spec + plan dans `docs/superpowers/{specs,plans}/2026-05-25-bibliotheque-multi-mode-phase-2.md`.
 
+### Itération K phase 3 (Thème clair/sombre) — clôturée 2026-05-26
+
+- ✅ **Phase 3** (2026-05-26) — Mode clair sélectionnable, en plus du
+  thème sombre historique. Bouton soleil/lune (Lucide `Sun`/`Moon`,
+  rempli) dans la barre `Tabs` à droite, visible sur les 3 onglets.
+  `state.theme` (`'dark' | 'light'`, défaut `dark`) persisté dans
+  localStorage via la même clé `synth-app-state`. `App.jsx` propage
+  vers `<html data-theme=…>` et émet un `CustomEvent('themechange')`.
+  Refonte de `src/index.css` en palette sémantique double-thème
+  (`--surface-bg`, `--text-default`, `--accent`, `--canvas-bg`, etc.) —
+  cyan `#00d4ff` → `#0095c0` en light pour contraste AAA. Migration
+  des ~22 CSS de composants vers les variables (sed batch sur ~25
+  couleurs structurelles). Pour les canvas (`Timeline`, `Spectrogram`,
+  `WaveformEditor`), nouveau helper `src/lib/themeColor.js` qui lit
+  `getComputedStyle(:root).getPropertyValue('--xxx')` en runtime ;
+  listeners `themechange` dans Spectrogram + WaveformEditor pour
+  forcer un redraw (Timeline tourne déjà en RAF continu). Couleurs
+  identitaires hardcodées : touches piano blanches/noires (convention
+  culturelle), tuple `--playhead-rgb` exposé pour composer `rgba()`
+  à intensité variable. Couleurs sémantiques ad hoc (jaune warning
+  `#ffc600`, violet biblio `#c084fc`, magenta cued `#e832e2`) laissées
+  inchangées : palette light choisie pour rester lisible avec elles.
+
 ### Backlog général (à caser quand pertinent)
 
 - **Adaptation UI résolutions intermédiaires [924×668..1740×900]**
@@ -4295,7 +4318,6 @@ clavier 22 cases, octave selector, boutons save, message slot).
   AnalyserNode existant dans usePlayback) — gardé en backlog depuis
   iter I phase 1.
 - Bouton "Vider la banque" (avec undo)
-- Toggle thème clair/sombre
 - Améliorations contrastes (passe 2)
 - Section stats (nb mesures, nb clips, durée totale)
 - Migration timeline DOM → Canvas (perf à grand nombre de clips)
