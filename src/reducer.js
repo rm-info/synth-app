@@ -1158,6 +1158,7 @@ export function reducer(state, action) {
         release: patchData.release ?? DEFAULT_ADSR.release,
         defaultTuningSystem: patchData.defaultTuningSystem ?? '12-TET',
         folderId,
+        updatedAt: Date.now(),
       }
 
       // SAVE_PATCH non-undoable, mais on rewrite les snapshots LIBRARY
@@ -1195,6 +1196,7 @@ export function reducer(state, action) {
                 // Si patchData.defaultTuningSystem absent (rétro-compat
                 // call site oublié), on préserve la valeur existante.
                 defaultTuningSystem: patchData.defaultTuningSystem ?? p.defaultTuningSystem ?? '12-TET',
+                updatedAt: Date.now(),
               }
             : p,
         ),
@@ -1223,7 +1225,7 @@ export function reducer(state, action) {
       const { patchId, name } = action.payload
       return {
         ...state,
-        patches: state.patches.map((p) => (p.id === patchId ? { ...p, name } : p)),
+        patches: state.patches.map((p) => (p.id === patchId ? { ...p, name, updatedAt: Date.now() } : p)),
       }
     }
     case 'CREATE_FOLDER': {

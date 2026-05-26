@@ -1879,6 +1879,7 @@ function App() {
             onPaste={onPasteBibClipboard}
             onDeleteItems={onDeleteBibItems}
             isFullTab={true}
+            clips={clips}
             onImportLibrary={handleImportClick}
             onUndoLibrary={handleUndoLibrary}
             onRedoLibrary={handleRedoLibrary}

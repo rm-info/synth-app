@@ -91,6 +91,17 @@ function filterOutDescendants(items, soundFolders, patches) {
   })
 }
 
+function formatDate(ts) {
+  if (!ts) return '—'
+  const d = new Date(ts)
+  const now = new Date()
+  const sameYear = d.getFullYear() === now.getFullYear()
+  const pad = (n) => String(n).padStart(2, '0')
+  return sameYear
+    ? `${pad(d.getDate())}/${pad(d.getMonth() + 1)}`
+    : `${pad(d.getDate())}/${pad(d.getMonth() + 1)}/${String(d.getFullYear()).slice(2)}`
+}
+
 function PatchBank({
   patches,
   soundFolders,
@@ -132,6 +143,7 @@ function PatchBank({
   onRedoLibrary,
   canUndoLibrary = false,
   canRedoLibrary = false,
+  clips,
 }) {
   const asideRef = useRef(null)
   const isFocusedRef = useRef(false)
@@ -162,6 +174,14 @@ function PatchBank({
     if (!bibClipboard || bibClipboard.mode !== 'cut') return new Set()
     return new Set(bibClipboard.items.map(i => `${i.type}:${i.id}`))
   }, [bibClipboard])
+
+  const patchUsageCount = useMemo(() => {
+    const map = new Map()
+    for (const c of (clips || [])) {
+      map.set(c.patchId, (map.get(c.patchId) ?? 0) + 1)
+    }
+    return map
+  }, [clips])
 
   // Fix 1 : parent pour la création inline de dossier.
   const folderCreateParentId = useMemo(() => {
@@ -691,7 +711,26 @@ function PatchBank({
           <>
             <span className="chip-name">{patch.name}</span>
             {isDetails && (
-              <span className="chip-meta-tuning">{patch.defaultTuningSystem ?? '—'}</span>
+              <>
+                <PatchThumbnail
+                  points={patch.points}
+                  color={patch.color}
+                  width={42}
+                  height={16}
+                />
+                <span className="chip-meta-tuning" title="Système d'accordage">
+                  {patch.defaultTuningSystem ?? '—'}
+                </span>
+                <span className="chip-meta-updatedAt" title="Dernière modification">
+                  {patch.updatedAt ? formatDate(patch.updatedAt) : '—'}
+                </span>
+                <span
+                  className="chip-meta-usage"
+                  title={`Utilisé dans ${patchUsageCount.get(patch.id) ?? 0} clip(s) du Composer`}
+                >
+                  {patchUsageCount.get(patch.id) ?? 0}×
+                </span>
+              </>
             )}
             <button
               type="button"

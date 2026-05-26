@@ -514,7 +514,7 @@
 
 .sound-chip.is-details {
   display: grid;
-  grid-template-columns: 12px 1fr 60px auto;
+  grid-template-columns: 12px 1fr 42px 60px auto auto auto;
   gap: 6px;
   align-items: center;
   padding: 7px 8px;
@@ -535,6 +535,17 @@
   height: 12px;
   border-radius: 2px;
   border: 1px solid rgba(255,255,255,0.1);
+}
+.sound-chip.is-details .chip-meta-updatedAt,
+.sound-chip.is-details .chip-meta-usage {
+  font-size: 10px;
+  color: var(--text-secondary);
+  font-family: monospace;
+  white-space: nowrap;
+}
+.sound-chip.is-details .chip-meta-usage {
+  text-align: right;
+  min-width: 24px;
 }
 
 .folder-row.is-details {
