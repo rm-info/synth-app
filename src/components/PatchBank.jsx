@@ -2,11 +2,13 @@ import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import {
   ListTree, Folder, List, LayoutList, LayoutGrid,
   FolderPlus, Edit3, Copy, Scissors, Clipboard, Trash2, Download, Upload, Undo2, Redo2,
+  CheckSquare, Eraser,
 } from 'lucide-react'
 import { getDescendantFolderIds, countFolderContents } from '../reducer'
 import { nextAvailableFolderName } from '../lib/folderNames.js'
 import BibBreadcrumb from './BibBreadcrumb'
 import BibContextMenu from './BibContextMenu'
+import ConfirmDialog from './ConfirmDialog'
 import PatchThumbnail from './PatchThumbnail'
 import './PatchBank.css'
 
@@ -146,6 +148,8 @@ function PatchBank({
 
   const [contextMenu, setContextMenu] = useState(null)
   // contextMenu: null | { type: 'folder'|'patch', id: string, clientX, clientY }
+
+  const [confirmingClearLibrary, setConfirmingClearLibrary] = useState(false)
 
   const [lasso, setLasso] = useState(null)
   const lassoRef = useRef(null)
@@ -568,6 +572,16 @@ function PatchBank({
         else if (item.type === 'folder') {
           if (bibHierarchyMode === 'nav') onSetCurrentFolder?.(item.id)
           else toggleFolder(item.id)
+        }
+      } else if ((e.ctrlKey || e.metaKey) && e.key === 'a') {
+        consume()
+        const orderedList = getOrderedItemList({
+          hierarchyMode: bibHierarchyMode,
+          currentFolderId: bibCurrentFolderId,
+          soundFolders, patches, collapsedFolders,
+        })
+        if (orderedList.length > 0) {
+          onSelectItems?.(orderedList, 'set')
         }
       }
     }
@@ -1161,6 +1175,19 @@ function PatchBank({
           ><Clipboard size={14} /></button>
           <button
             type="button"
+            className="bib-action-btn"
+            title="Sélectionner tout (Ctrl+A)"
+            onClick={() => {
+              const orderedList = getOrderedItemList({
+                hierarchyMode: bibHierarchyMode,
+                currentFolderId: bibCurrentFolderId,
+                soundFolders, patches, collapsedFolders,
+              })
+              if (orderedList.length > 0) onSelectItems?.(orderedList, 'set')
+            }}
+          ><CheckSquare size={14} /></button>
+          <button
+            type="button"
             className="bib-action-btn delete"
             title="Supprimer (Suppr)"
             disabled={bibSelectedIds.length === 0}
@@ -1195,6 +1222,13 @@ function PatchBank({
               }
             }}
           ><Download size={14} /></button>
+          <div className="bib-action-separator" />
+          <button
+            type="button"
+            className="bib-action-btn delete"
+            title="Vider la bibliothèque"
+            onClick={() => setConfirmingClearLibrary(true)}
+          ><Eraser size={14} /></button>
         </div>
       )}
       {headerExtra && <div className="sound-bank-header-toggle">{headerExtra}</div>}
@@ -1219,6 +1253,23 @@ function PatchBank({
         <p className="sound-bank-empty">
           Aucun patch. Dessinez-en un dans l&apos;onglet Designer.
         </p>
+        <ConfirmDialog
+          open={confirmingClearLibrary}
+          title="Vider la bibliothèque ?"
+          message="Tous les patches et dossiers seront supprimés. Les patches utilisés dans le Composer seront conservés. Cette action peut être annulée via Ctrl+Z."
+          confirmLabel="Vider"
+          cancelLabel="Annuler"
+          variant="danger"
+          onConfirm={() => {
+            const allTopLevelItems = [
+              ...soundFolders.filter(f => f.parentId === null).map(f => ({ type: 'folder', id: f.id })),
+              ...patches.filter(p => p.folderId === null).map(p => ({ type: 'patch', id: p.id })),
+            ]
+            onDeleteItems?.(allTopLevelItems)
+            setConfirmingClearLibrary(false)
+          }}
+          onCancel={() => setConfirmingClearLibrary(false)}
+        />
       </aside>
     )
   }
@@ -1276,6 +1327,14 @@ function PatchBank({
         onExportFolder={onExportFolder}
         onExportPatch={onExportPatch}
         onNewFolder={handleCreateFolder}
+        onSelectAll={() => {
+          const orderedList = getOrderedItemList({
+            hierarchyMode: bibHierarchyMode,
+            currentFolderId: bibCurrentFolderId,
+            soundFolders, patches, collapsedFolders,
+          })
+          if (orderedList.length > 0) onSelectItems?.(orderedList, 'set')
+        }}
         clipboardHasItems={!!bibClipboard && bibClipboard.items.length > 0}
         folderHasAnyPatch={(id) => {
           const desc = getDescendantFolderIds(id, soundFolders)
@@ -1283,6 +1342,23 @@ function PatchBank({
           return patches.some(p => ids.has(p.folderId))
         }}
         selectionSize={bibSelectedIds.length}
+      />
+      <ConfirmDialog
+        open={confirmingClearLibrary}
+        title="Vider la bibliothèque ?"
+        message="Tous les patches et dossiers seront supprimés. Les patches utilisés dans le Composer seront conservés. Cette action peut être annulée via Ctrl+Z."
+        confirmLabel="Vider"
+        cancelLabel="Annuler"
+        variant="danger"
+        onConfirm={() => {
+          const allTopLevelItems = [
+            ...soundFolders.filter(f => f.parentId === null).map(f => ({ type: 'folder', id: f.id })),
+            ...patches.filter(p => p.folderId === null).map(p => ({ type: 'patch', id: p.id })),
+          ]
+          onDeleteItems?.(allTopLevelItems)
+          setConfirmingClearLibrary(false)
+        }}
+        onCancel={() => setConfirmingClearLibrary(false)}
       />
     </aside>
   )

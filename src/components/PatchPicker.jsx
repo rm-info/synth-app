@@ -149,7 +149,10 @@ export default function PatchPicker({
         data-bib-item-type="patch"
         title={patch.name}
       >
-        <span className="patch-picker-chip-dot" />
+        <span className="patch-picker-chip-chevron-placeholder" />
+        <span className="patch-picker-chip-dot-wrap">
+          <span className="patch-picker-chip-dot" />
+        </span>
         <span className="patch-picker-chip-name">{patch.name}</span>
       </li>
     )

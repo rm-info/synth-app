@@ -3,7 +3,7 @@ import { useEffect } from 'react'
 export default function BibContextMenu({
   menu, onClose,
   onRename, onCopy, onCut, onPaste, onDelete,
-  onExportFolder, onExportPatch, onNewFolder,
+  onExportFolder, onExportPatch, onNewFolder, onSelectAll,
   clipboardHasItems,
   folderHasAnyPatch,
   selectionSize = 1,
@@ -88,6 +88,9 @@ export default function BibContextMenu({
           <>
             <button className="bib-ctx-item" onClick={() => { onNewFolder(); onClose() }}>
               Nouveau dossier
+            </button>
+            <button className="bib-ctx-item" onClick={() => { onSelectAll?.(); onClose() }}>
+              Sélectionner tout <span className="shortcut">Ctrl+A</span>
             </button>
             <button
               className="bib-ctx-item"

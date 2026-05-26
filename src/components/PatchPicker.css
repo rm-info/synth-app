@@ -103,8 +103,8 @@
 .patch-picker-chip {
   display: flex;
   align-items: center;
-  gap: 6px;
-  padding: 4px 8px;
+  gap: 5px;
+  padding: 4px 6px;
   border-radius: 4px;
   background: color-mix(in srgb, var(--chip-color) 12%, var(--surface-bg));
   border: 1px solid color-mix(in srgb, var(--chip-color) 30%, transparent);
@@ -130,6 +130,17 @@
 .patch-picker-chip.is-cut {
   opacity: 0.4;
   font-style: italic;
+}
+.patch-picker-chip-chevron-placeholder {
+  width: 10px;
+  flex-shrink: 0;
+}
+.patch-picker-chip-dot-wrap {
+  width: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
 }
 .patch-picker-chip-dot {
   width: 7px;
