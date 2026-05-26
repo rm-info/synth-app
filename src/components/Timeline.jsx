@@ -165,14 +165,13 @@ function Timeline({
   onCutMeasure,
   onPasteMeasures,
   hasMeasureClipboard,
-  onEditClipPatch,
 }) {
   const wrapperRef = useRef(null)
   const gridRef = useRef(null)
   const dropZoneRef = useRef(null)
   const visualizerCanvasRef = useRef(null)
   const [contextMenu, setContextMenu] = useState(null)
-  const [clipContextMenu, setClipContextMenu] = useState(null) // { clipId, patchId, clientX, clientY }
+  const [clipContextMenu, setClipContextMenu] = useState(null) // { clipId, clientX, clientY }
   const [dragOverTrackId, setDragOverTrackId] = useState(null)
   const [renamingTrackId, setRenamingTrackId] = useState(null)
   const [renameValue, setRenameValue] = useState('')
@@ -1449,7 +1448,7 @@ function Timeline({
                       backgroundColor: patch.color + '33',
                       borderColor: patch.color,
                     }}
-                    title={`${formatClipNote(clip, xEdoN)} — ${patch.name} — mesure ${clip.measure}, beat ${clip.beat} — Dbl-clic pour éditer le patch`}
+                    title={`${formatClipNote(clip, xEdoN)} — ${patch.name} — mesure ${clip.measure}, beat ${clip.beat}`}
                     onMouseDown={(e) => {
                       if (e.button !== 0) return
                       // Ctrl/Cmd+mousedown démarre une session : devient
@@ -1459,16 +1458,11 @@ function Timeline({
                         ctrlAtStart: e.ctrlKey || e.metaKey,
                       })
                     }}
-                    onDoubleClick={(e) => {
-                      e.stopPropagation()
-                      onEditClipPatch?.(clip.patchId)
-                    }}
                     onContextMenu={(e) => {
                       e.preventDefault()
                       e.stopPropagation()
                       setClipContextMenu({
                         clipId: clip.id,
-                        patchId: clip.patchId,
                         clientX: e.clientX,
                         clientY: e.clientY,
                       })
@@ -1673,16 +1667,6 @@ function Timeline({
             className="timeline-context-menu"
             style={{ left: `${clipContextMenu.clientX}px`, top: `${clipContextMenu.clientY}px` }}
           >
-            <button
-              type="button"
-              onClick={() => {
-                onEditClipPatch?.(clipContextMenu.patchId)
-                setClipContextMenu(null)
-              }}
-            >
-              Éditer le patch dans Designer
-            </button>
-            <div className="context-menu-separator" />
             <button
               type="button"
               onClick={() => {

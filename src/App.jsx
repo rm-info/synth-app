@@ -2303,7 +2303,6 @@ function App() {
                   onCutMeasure={handleCutMeasure}
                   onPasteMeasures={handlePasteMeasures}
                   hasMeasureClipboard={!!measureClipboard}
-                  onEditClipPatch={handleLoadPatch}
                 />
               </div>
               <div className={`composer-aside${composerAsideCollapsed ? ' is-collapsed' : ''}`}>
