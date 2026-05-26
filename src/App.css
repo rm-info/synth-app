@@ -216,6 +216,30 @@
   color: #ff4466;
   border-color: #ff4466;
 }
+/* Header global "Outils" en haut de la sidebar ouverte. */
+.designer-sidebar-header {
+  padding: 8px 10px 6px;
+  border-bottom: 1px solid #3a3a5a;
+  flex-shrink: 0;
+}
+.designer-sidebar-header h3 {
+  margin: 0;
+  font-size: 0.9rem;
+  color: #d0d4ec;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-weight: 600;
+}
+/* Sous-titre de section dans la sidebar (ex : "Actions"). */
+.sidebar-section-label {
+  font-size: 0.7rem;
+  color: #a0a0c0;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-weight: 600;
+  margin-bottom: 6px;
+  padding: 6px 10px 0;
+}
 /* Zone Bibliothèque : prend tout l'espace vertical disponible. */
 .designer-sidebar .sidebar-library {
   flex: 1;

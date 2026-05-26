@@ -1900,6 +1900,9 @@ function App() {
                   </>
                 ) : (
                   <>
+                    <header className="designer-sidebar-header">
+                      <h3>Outils</h3>
+                    </header>
                     <section className="sidebar-section sidebar-library">
                       <PatchPicker
                         patches={patches}
@@ -1928,6 +1931,7 @@ function App() {
                       />
                     </section>
                     <section className="sidebar-section sidebar-actions">
+                      <div className="sidebar-section-label">Actions</div>
                       {renderActions()}
                       <MiniPlayer
                         isPlaying={playback.isPlaying}
