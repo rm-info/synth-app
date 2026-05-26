@@ -15,6 +15,7 @@ import PopupResizer from './components/PopupResizer'
 import RecentPatchesList from './components/RecentPatchesList'
 import SavePatchDialog from './components/SavePatchDialog'
 import DeleteUsageWarningDialog from './components/DeleteUsageWarningDialog'
+import ConfirmDialog from './components/ConfirmDialog'
 import {
   reducer,
   withUndo,
@@ -98,6 +99,16 @@ function App() {
   // lecture synchrone au drop (qui se passe hors rendu React).
   const pressedNoteKeyRef = useRef(null)
   const [pressedNoteKey, setPressedNoteKey] = useState(null)
+
+  // ConfirmDialog : états pour remplacer window.confirm() natif.
+  // Forme : null | { title, message, variant, confirmLabel, cancelLabel, onConfirm }
+  // Déclaré en tête de composant car utilisé dans useCallback définis plus bas.
+  const [confirmDialog, setConfirmDialog] = useState(null)
+  const openConfirm = useCallback(({ title, message, variant = 'default', confirmLabel, cancelLabel, onConfirm }) => {
+    setConfirmDialog({ title, message, variant, confirmLabel, cancelLabel, onConfirm })
+  }, [])
+  const closeConfirm = useCallback(() => setConfirmDialog(null), [])
+
   // Vrai pendant qu'un drag HTML5 est en cours (drag depuis la banque vers
   // la timeline). Permet au keyup d'ignorer le cas où l'utilisateur vient de
   // drop une note sous touche maintenue — le drop est déjà passé.
@@ -173,6 +184,37 @@ function App() {
       }[activeTab]
       const action = isUndo ? undoAction : redoAction
       if (action) dispatch({ type: action })
+    }
+    window.addEventListener('keydown', handler)
+    return () => window.removeEventListener('keydown', handler)
+  }, [activeTab])
+
+  // Raccourcis clavier Designer : Ctrl+S (save), Ctrl+Alt+S (save as), Ctrl+Alt+N (new).
+  // Gating actif : ne fire que si activeTab === 'designer'.
+  useEffect(() => {
+    const handler = (e) => {
+      if (activeTab !== 'designer') return
+      const ctrl = e.ctrlKey || e.metaKey
+      if (!ctrl) return
+      const target = e.target
+      const tag = target?.tagName
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return
+      if (target?.isContentEditable) return
+      const key = e.key.toLowerCase()
+      if (key === 's' && !e.altKey && !e.shiftKey) {
+        e.preventDefault()
+        document.dispatchEvent(new CustomEvent('designer:save-shortcut'))
+        return
+      }
+      if (key === 's' && e.altKey) {
+        e.preventDefault()
+        document.dispatchEvent(new CustomEvent('designer:save-as-shortcut'))
+        return
+      }
+      if (key === 'n' && e.altKey) {
+        e.preventDefault()
+        document.dispatchEvent(new CustomEvent('designer:new-shortcut'))
+      }
     }
     window.addEventListener('keydown', handler)
     return () => window.removeEventListener('keydown', handler)
@@ -663,10 +705,17 @@ function App() {
     if (trackClips.length > 0) {
       const name = track?.name || trackId
       const n = trackClips.length
-      if (!window.confirm(`Supprimer la piste "${name}" et ses ${n} clip${n > 1 ? 's' : ''} ?`)) return
+      openConfirm({
+        title: 'Supprimer la piste ?',
+        message: `Supprimer la piste "${name}" et ses ${n} clip${n > 1 ? 's' : ''} ?`,
+        variant: 'danger',
+        confirmLabel: 'Supprimer',
+        onConfirm: () => dispatch({ type: 'DELETE_TRACK', payload: { trackId } }),
+      })
+      return
     }
     dispatch({ type: 'DELETE_TRACK', payload: { trackId } })
-  }, [tracks, clips])
+  }, [tracks, clips, openConfirm])
 
   const setDefaultClipDuration = useCallback((v) => {
     dispatch({ type: 'SET_DEFAULT_CLIP_DURATION', payload: v })
@@ -1184,6 +1233,19 @@ function App() {
       }
     }
 
+    const doRemove = () => {
+      dispatch({
+        type: 'REMOVE_LAST_MEASURE',
+        payload: { toDeleteIds: toDelete, toTruncate },
+      })
+      if (toTruncate.length > 0 && toDelete.length === 0) {
+        dispatch({
+          type: 'SET_COMPOSER_FLASH',
+          payload: `${toTruncate.length} clip${toTruncate.length > 1 ? 's tronqués' : ' tronqué'}`,
+        })
+      }
+    }
+
     if (toDelete.length > 0) {
       const dN = toDelete.length
       const tN = toTruncate.length
@@ -1192,21 +1254,18 @@ function App() {
       const msg = tN > 0
         ? `${dN} clip${dS} ${verb} et ${tN} tronqué${tN > 1 ? 's' : ''}. Continuer ?`
         : `${dN} clip${dS} ${verb}. Continuer ?`
-      if (!window.confirm(msg)) return
-    }
-
-    dispatch({
-      type: 'REMOVE_LAST_MEASURE',
-      payload: { toDeleteIds: toDelete, toTruncate },
-    })
-
-    if (toTruncate.length > 0 && toDelete.length === 0) {
-      dispatch({
-        type: 'SET_COMPOSER_FLASH',
-        payload: `${toTruncate.length} clip${toTruncate.length > 1 ? 's tronqués' : ' tronqué'}`,
+      openConfirm({
+        title: 'Supprimer des clips ?',
+        message: msg,
+        variant: 'danger',
+        confirmLabel: 'Continuer',
+        onConfirm: doRemove,
       })
+      return
     }
-  }, [numMeasures, clips])
+
+    doRemove()
+  }, [numMeasures, clips, openConfirm])
 
   // Helper : construit un splitPart en récupérant les champs de note depuis
   // le clip source (le clip qu'on split conserve sa hauteur).
@@ -1272,20 +1331,33 @@ function App() {
       }
     }
 
+    const doDelete = () => {
+      dispatch({
+        type: 'DELETE_MEASURE',
+        payload: { measure: measureNum, deletedIds, truncated, splitParts },
+      })
+    }
+
     if (deletedIds.length > 0 || truncated.length > 0) {
       const dN = deletedIds.length
       const tN = truncated.length
       const parts = []
       if (dN > 0) parts.push(`${dN} clip${dN > 1 ? 's supprimés' : ' supprimé'}`)
       if (tN > 0) parts.push(`${tN} tronqué${tN > 1 ? 's' : ''}`)
-      if (dN > 0 && !window.confirm(`Supprimer la mesure ${measureNum} ? ${parts.join(', ')}.`)) return
+      if (dN > 0) {
+        openConfirm({
+          title: `Supprimer la mesure ${measureNum} ?`,
+          message: `${parts.join(', ')}.`,
+          variant: 'danger',
+          confirmLabel: 'Supprimer',
+          onConfirm: doDelete,
+        })
+        return
+      }
     }
 
-    dispatch({
-      type: 'DELETE_MEASURE',
-      payload: { measure: measureNum, deletedIds, truncated, splitParts },
-    })
-  }, [numMeasures, clips])
+    doDelete()
+  }, [numMeasures, clips, openConfirm])
 
   const handleInsertMeasures = useCallback((measureNum, position, count) => {
     const beatPosition = position === 'before'
@@ -1511,10 +1583,17 @@ function App() {
     if (folderPatchIds.size > 0) {
       const folder = soundFolders.find((f) => f.id === folderId)
       const name = folder ? folder.name : folderId
-      if (!window.confirm(`Supprimer le dossier "${name}" et ses ${folderPatchIds.size} patch(es) ?`)) return
+      openConfirm({
+        title: 'Supprimer le dossier ?',
+        message: `Supprimer le dossier "${name}" et ses ${folderPatchIds.size} patch(es) ?`,
+        variant: 'danger',
+        confirmLabel: 'Supprimer',
+        onConfirm: () => dispatch({ type: 'DELETE_FOLDER', payload: { folderId } }),
+      })
+      return
     }
     dispatch({ type: 'DELETE_FOLDER', payload: { folderId } })
-  }, [clips, patches, soundFolders, activeTab])
+  }, [clips, patches, soundFolders, activeTab, openConfirm])
 
   const onMoveBibItems = useCallback((items, targetFolderId) => {
     dispatch({ type: 'MOVE_BIB_ITEMS', payload: { items, targetFolderId } })
@@ -1654,15 +1733,23 @@ function App() {
       if (currentPatchId === patchId && activeTab === 'designer') return
       const dirty = editorRef.current?.isDirty?.() ?? false
       if (dirty && currentPatchId !== patchId) {
-        const ok = window.confirm(
-          "Modifications non sauvegardées dans l'éditeur. Charger ce patch et perdre vos modifs ?",
-        )
-        if (!ok) return
+        openConfirm({
+          title: 'Abandonner les modifications ?',
+          message: "Le patch courant a des modifications non sauvegardées. Charger ce patch et perdre vos modifs ?",
+          variant: 'danger',
+          confirmLabel: 'Abandonner',
+          cancelLabel: "Continuer l'édition",
+          onConfirm: () => {
+            dispatch({ type: 'SET_CURRENT_PATCH_ID', payload: patchId })
+            dispatch({ type: 'SET_ACTIVE_TAB', payload: 'designer' })
+          },
+        })
+        return
       }
       dispatch({ type: 'SET_CURRENT_PATCH_ID', payload: patchId })
       dispatch({ type: 'SET_ACTIVE_TAB', payload: 'designer' })
     },
-    [currentPatchId, activeTab],
+    [currentPatchId, activeTab, openConfirm],
   )
 
   const handleDragStartFromPicker = useCallback((e, type, id) => {
@@ -1762,10 +1849,7 @@ function App() {
             soundFolders={soundFolders}
             currentPatchId={currentPatchId}
             activeTab={activeTab}
-            onLoadPatch={(id) => {
-              handleLoadPatch(id)
-              dispatch({ type: 'SET_ACTIVE_TAB', payload: 'designer' })
-            }}
+            onLoadPatch={handleLoadPatch}
             onRenamePatch={handleRenamePatch}
             onDeletePatch={handleDeletePatch}
             onCreateFolder={handleCreateFolder}
@@ -2335,6 +2419,20 @@ function App() {
         warning={pendingDeleteWarning}
         onGoToComposer={handleGoToComposerWithClips}
         onClose={handleCloseDeleteWarning}
+      />
+
+      <ConfirmDialog
+        open={confirmDialog !== null}
+        title={confirmDialog?.title}
+        message={confirmDialog?.message}
+        confirmLabel={confirmDialog?.confirmLabel}
+        cancelLabel={confirmDialog?.cancelLabel}
+        variant={confirmDialog?.variant}
+        onConfirm={() => {
+          confirmDialog?.onConfirm?.()
+          closeConfirm()
+        }}
+        onCancel={closeConfirm}
       />
     </div>
   )

@@ -27,6 +27,7 @@ import {
   systemSupportsVisualCues,
 } from '../lib/visualCues'
 import { themeColor } from '../lib/themeColor'
+import ConfirmDialog from './ConfirmDialog'
 import './WaveformEditor.css'
 
 const POINTS_RESOLUTION = 600
@@ -278,6 +279,8 @@ function WaveformEditor({
   const [draftAdsr, setDraftAdsr] = useState(null)
   const [draftAmp, setDraftAmp] = useState(null)
   const [draftFreq, setDraftFreq] = useState(null)
+  // Confirmation "abandonner modifs" pour handleNew
+  const [confirmNewOpen, setConfirmNewOpen] = useState(false)
 
   const points = draftPoints ?? editor.points
   const amplitude = draftAmp ?? editor.amplitude
@@ -1091,12 +1094,47 @@ function WaveformEditor({
   const handleNew = () => {
     const dirty = !patchFieldsEqual(stateSnapshotRef.current, referenceRef.current)
     if (dirty) {
-      const ok = window.confirm('Modifications non sauvegardées, continuer ?')
-      if (!ok) return
+      setConfirmNewOpen(true)
+      return
     }
     stopAllInstrumentNotes()
     onRequestNew?.()
   }
+
+  const doNew = () => {
+    setConfirmNewOpen(false)
+    stopAllInstrumentNotes()
+    onRequestNew?.()
+  }
+
+  // Raccourcis clavier Designer : CustomEvents dispatchés par App.jsx.
+  // On utilise des refs stables pour éviter de re-enregistrer les listeners
+  // à chaque render (les fonctions const sont re-créées à chaque render).
+  const handleSaveAsNewRef = useRef(handleSaveAsNew)
+  const handleUpdateRef = useRef(handleUpdate)
+  const handleNewRef = useRef(handleNew)
+  const currentPatchRef = useRef(currentPatch)
+  handleSaveAsNewRef.current = handleSaveAsNew
+  handleUpdateRef.current = handleUpdate
+  handleNewRef.current = handleNew
+  currentPatchRef.current = currentPatch
+
+  useEffect(() => {
+    const onSave = () => {
+      if (currentPatchRef.current) handleUpdateRef.current()
+      else handleSaveAsNewRef.current()
+    }
+    const onSaveAs = () => handleSaveAsNewRef.current()
+    const onNew = () => handleNewRef.current()
+    document.addEventListener('designer:save-shortcut', onSave)
+    document.addEventListener('designer:save-as-shortcut', onSaveAs)
+    document.addEventListener('designer:new-shortcut', onNew)
+    return () => {
+      document.removeEventListener('designer:save-shortcut', onSave)
+      document.removeEventListener('designer:save-as-shortcut', onSaveAs)
+      document.removeEventListener('designer:new-shortcut', onNew)
+    }
+  }, [])
 
   const attackPx = (attack / ADSR_MAX_MS) * ADSR_SEGMENT_PX
   const holdPx = (hold / ADSR_MAX_MS) * ADSR_SEGMENT_PX
@@ -2061,7 +2099,21 @@ function WaveformEditor({
     )
   }
 
-  return children({ renderCanvasArea, renderParamsArea, renderAdsrArea, renderActions })
+  return (
+    <>
+      {children({ renderCanvasArea, renderParamsArea, renderAdsrArea, renderActions })}
+      <ConfirmDialog
+        open={confirmNewOpen}
+        title="Nouveau patch ?"
+        message="Modifications non sauvegardées, continuer ?"
+        confirmLabel="Continuer"
+        cancelLabel="Annuler"
+        variant="danger"
+        onConfirm={doNew}
+        onCancel={() => setConfirmNewOpen(false)}
+      />
+    </>
+  )
 }
 
 export default WaveformEditor

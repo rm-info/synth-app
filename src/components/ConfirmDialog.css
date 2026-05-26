@@ -1,0 +1,67 @@
+.confirm-dialog-backdrop {
+  position: fixed;
+  inset: 0;
+  background: var(--backdrop-bg, rgba(0, 0, 0, 0.5));
+  z-index: 1500;
+}
+
+.confirm-dialog {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 380px;
+  background: var(--surface-bg);
+  border: 1px solid var(--surface-border-strong);
+  border-radius: 8px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+  padding: 20px;
+  z-index: 1501;
+  font-family: system-ui, sans-serif;
+  color: var(--text-strong);
+}
+
+.confirm-dialog h4 {
+  margin: 0 0 12px;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.confirm-dialog-message {
+  margin: 0 0 16px;
+  font-size: 12px;
+  color: var(--text-default);
+  line-height: 1.5;
+}
+
+.confirm-dialog-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.confirm-dialog-btn {
+  background: var(--surface-bg);
+  border: 1px solid var(--surface-border-strong);
+  color: var(--text-strong);
+  padding: 6px 14px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 12px;
+}
+
+.confirm-dialog-btn:hover {
+  background: var(--surface-border);
+}
+
+.confirm-dialog-btn.primary {
+  background: var(--accent-bg-strong);
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.confirm-dialog-btn.primary.danger {
+  background: rgba(248, 113, 113, 0.15);
+  border-color: #f87171;
+  color: #f87171;
+}
