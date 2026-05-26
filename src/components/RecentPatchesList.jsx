@@ -1,4 +1,5 @@
 import { useCallback } from 'react'
+import { Clock } from 'lucide-react'
 import PatchThumbnail from './PatchThumbnail'
 import './RecentPatchesList.css'
 
@@ -47,7 +48,9 @@ export default function RecentPatchesList({
       onDragOver={handleDragOver}
       onDrop={handleDrop}
     >
-      <div className="recent-patches-header">Récents</div>
+      <div className="recent-patches-header" title="Patches récents">
+        <Clock size={12} />
+      </div>
       {items.length === 0 && (
         <div className="recent-patches-empty">∅</div>
       )}

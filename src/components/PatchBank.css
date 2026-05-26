@@ -544,6 +544,10 @@
   gap: 6px;
   align-items: center;
 }
+/* En nav mode, pas de chevron → première colonne (16px) supprimée */
+.folder-row.is-details.is-nav {
+  grid-template-columns: 16px 1fr auto auto auto;
+}
 .folder-row.is-details .folder-meta-count {
   font-size: 10px;
   color: #8a8fa8;

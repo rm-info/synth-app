@@ -402,6 +402,8 @@ function PatchBank({
     if (e.target.closest('.bib-action-toolbar')) return
     if (e.target.closest('.bib-breadcrumb')) return
     if (e.target.closest('.sound-bank-header')) return
+    // Évite de démarrer un lasso quand on clique dans le menu contextuel (Fix rename).
+    if (e.target.closest('.bib-context-menu') || e.target.closest('.bib-context-backdrop')) return
     if (!bodyRef.current) return
     const { x, y } = pointToContentSpace(e.clientX, e.clientY)
     const newLasso = { x0: x, y0: y, x1: x, y1: y }
@@ -414,6 +416,9 @@ function PatchBank({
   // - mouseup pour finaliser même si le relâche est hors window
   useEffect(() => {
     if (!lasso) return
+    // Bloque la sélection texte du navigateur pendant un drag de lasso.
+    document.body.style.userSelect = 'none'
+    document.body.style.webkitUserSelect = 'none'
     const onMove = (e) => {
       if (!bodyRef.current) return
       const { x, y } = pointToContentSpace(e.clientX, e.clientY)
@@ -472,6 +477,9 @@ function PatchBank({
     return () => {
       window.removeEventListener('mousemove', onMove)
       window.removeEventListener('mouseup', onUp)
+      // Restaure la sélection texte.
+      document.body.style.userSelect = ''
+      document.body.style.webkitUserSelect = ''
     }
     // Listeners re-bind si lasso passe null↔non-null. Pas de dépendance sur
     // lasso lui-même pendant un drag (les deltas viennent du ref).
@@ -695,15 +703,18 @@ function PatchBank({
     const isDragging = dragItem?.type === 'folder' && dragItem?.id === folder.id
     const isSelected = bibSelectedIds.some(s => s.type === 'folder' && s.id === folder.id)
     const isDetails = bibDisplayMode === 'details'
-    const descendantCount = isDetails
-      ? countFolderContents(folder.id, soundFolders, patches).patchCount
+    // badge = patches directs uniquement (pas les sous-dossiers)
+    const directPatchCount = childPatches.length
+    // meta-count = patches dans les descendants uniquement (exclut les patches directs)
+    const descendantOnlyPatches = isDetails
+      ? countFolderContents(folder.id, soundFolders, patches).patchCount - directPatchCount
       : null
     const isCut = cutItemKeys.has(`folder:${folder.id}`)
 
     return (
       <li key={folder.id} className={`folder-item ${isDragging ? 'is-dragging' : ''}`}>
         <div
-          className={`folder-row ${isDetails ? 'is-details' : ''} ${isDropTarget ? 'is-drop-target' : ''} ${isSelected ? 'is-selected' : ''} ${isCut ? 'is-cut' : ''}`}
+          className={`folder-row ${isDetails ? 'is-details' : ''} ${isNavMode ? 'is-nav' : ''} ${isDropTarget ? 'is-drop-target' : ''} ${isSelected ? 'is-selected' : ''} ${isCut ? 'is-cut' : ''}`}
           style={{ marginLeft: `${depth * 16}px` }}
           draggable={!isEditing}
           onDragStart={(e) => handleDragStartInternal(e, 'folder', folder.id)}
@@ -743,7 +754,7 @@ function PatchBank({
           {/* En tree mode, le chevron est un bouton séparé pour le toggle expand.
               Clic sur le chevron ne propage pas à la row (sélection).
               En nav mode, on entre dans le folder via double-clic → chevron inutile. */}
-          {isNavMode ? <span className="folder-chevron" /> : (
+          {!isNavMode && (
             <span
               className={`folder-chevron ${isExpanded ? 'is-expanded' : ''}`}
               onClick={(e) => { e.stopPropagation(); toggleFolder(folder.id) }}
@@ -768,9 +779,9 @@ function PatchBank({
           ) : (
             <>
               <span className="folder-name">{folder.name}</span>
-              <span className="folder-badge" title="Patches directs">{childPatches.length + childFolders.length}</span>
-              {isDetails && descendantCount !== null && (
-                <span className="folder-meta-count" title="Patches dans le sous-arbre">{descendantCount}</span>
+              <span className="folder-badge" title="Patches dans ce dossier">{directPatchCount}</span>
+              {isDetails && descendantOnlyPatches !== null && (
+                <span className="folder-meta-count" title="Patches dans les sous-dossiers">{descendantOnlyPatches}</span>
               )}
               <button
                 type="button"

@@ -20,10 +20,10 @@
 }
 
 .recent-patches-header {
-  font-size: 9px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   color: #5a5a7a;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
   margin-bottom: 2px;
   user-select: none;
 }
