@@ -1451,6 +1451,7 @@ function Timeline({
                     }}
                     title={`${formatClipNote(clip, xEdoN)} — ${patch.name} — mesure ${clip.measure}, beat ${clip.beat} — Dbl-clic pour éditer le patch`}
                     onMouseDown={(e) => {
+                      console.log('[clip-debug] onMouseDown fired', { button: e.button, clipId: clip.id })
                       if (e.button !== 0) return
                       // Ctrl/Cmd+mousedown démarre une session : devient
                       // duplication si l'utilisateur drag au-delà du seuil,
@@ -1458,6 +1459,15 @@ function Timeline({
                       startInteraction(e, clip, 'drag', allLaidOut, {
                         ctrlAtStart: e.ctrlKey || e.metaKey,
                       })
+                    }}
+                    onMouseUp={(e) => {
+                      console.log('[clip-debug] onMouseUp fired', { button: e.button, clipId: clip.id })
+                    }}
+                    onClick={(e) => {
+                      console.log('[clip-debug] onClick fired', { detail: e.detail, clipId: clip.id })
+                    }}
+                    onAuxClick={(e) => {
+                      console.log('[clip-debug] onAuxClick fired', { button: e.button, clipId: clip.id })
                     }}
                     onDoubleClick={(e) => {
                       console.log('[clip-debug] onDoubleClick fired', { clipId: clip.id, patchId: clip.patchId, hasHandler: !!onEditClipPatch })
