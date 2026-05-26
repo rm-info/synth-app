@@ -20,19 +20,25 @@ Contraintes volontaires :
 - Pas de TypeScript
 - Pas de state manager (un seul `useReducer` global dans `App.jsx`)
 - Pas de framework UI (CSS manuscrit)
-- Pas de routing (app monobloc à deux onglets)
+- Pas de routing (app monobloc à trois onglets)
 - Pas de backend
 
 ## Architecture
 
-L'app est un monobloc à deux onglets :
+L'app est un monobloc à trois onglets autonomes (pile undo dédiée par
+onglet, routing Ctrl+Z par `activeTab`) :
 
+- **Bibliothèque** : explorateur des patches type file-explorer
+  (5 combinaisons d'affichage Tree/Nav × List/Details/Tiles, multi-
+  sélection, clipboard Copier/Couper/Coller, drag-and-drop, popup
+  d'enregistrement avec folder picker, toggle thème clair/sombre).
 - **Designer** : dessin de la forme d'onde, édition de l'enveloppe AHDSR
   (4 handles draggables), preview polyphonique via clavier visuel adapté
   au système musical choisi.
 - **Composer** : timeline multipiste (mute/solo/volume par piste),
   placement de clips par drag depuis la bibliothèque ou raccourcis
-  clavier, export WAV PCM 16-bit stéréo.
+  clavier, export WAV PCM 16-bit stéréo. Liste LRU des 10 derniers
+  patches utilisés en sidebar collapsed.
 
 La source de vérité projet est `CONTEXT.md` à la racine : modèle de
 données, composants, décisions architecturales, itérations livrées,

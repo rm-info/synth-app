@@ -2,7 +2,7 @@
 
 > Suivi des idées, pistes et dettes techniques reportées.
 > Tenu par l'archi. Source de vérité pour ce qui n'est pas encore planifié.
-> Dernière mise à jour : 2026-04-25.
+> Dernière mise à jour : 2026-05-26.
 
 ## État global de l'itération F (réf. CONTEXT.md pour le détail)
 
@@ -297,7 +297,6 @@ avec un diagnostic profiling.
 
 ### UX / thème
 
-- Toggle thème clair / sombre.
 - Améliorations contrastes (passe 2).
 - Section stats (nb mesures, nb clips, durée totale).
 
@@ -367,7 +366,12 @@ en classe.
 
 ### Interactions diverses
 
-- Bouton **"Vider la banque"** (avec undo).
+- **Menu contextuel clip enrichi** (Composer Timeline) : actuellement
+  un seul item "Retirer le clip". Pistes pour itération future : mute
+  clip, duplicate clip, copy/cut/paste clip, set clip color manuelle,
+  ouvrir patch source dans la bibliothèque (différent d'"éditer dans
+  Designer" qu'on a explicitement écarté pour garder la séparation
+  patch ≠ clip). Cf. iter-K phase-2.f23.
 - Flèches haut/bas dans `FreqInput` pour incréments fins.
 - **Annulation drag par Échap** (selon ressenti utilisateur).
 - **Édition précise amplitude + ADSR** dans le Designer. Aujourd'hui

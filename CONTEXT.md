@@ -436,7 +436,9 @@ synth-app/
         ├── PopupResizer.jsx + .css            # poignée resize du popup (K.1.12)
         ├── PatchPicker.jsx + .css            # sidebar lightweight (K.2.6)
         ├── SavePatchDialog.jsx + .css        # modal popup save patch (K.2.7)
-        └── DeleteUsageWarningDialog.jsx + .css # modal warning patches utilisés (K.2.8)
+        ├── DeleteUsageWarningDialog.jsx + .css # modal warning patches utilisés (K.2.8)
+        ├── ConfirmDialog.jsx + .css          # modal confirmation générique (K.2.f16)
+        └── RecentPatchesList.jsx + .css      # LRU 10 derniers patches Composer (K.2.f11)
 ```
 
 ### Layout
@@ -4272,6 +4274,79 @@ clavier 22 cases, octave selector, boutons save, message slot).
   tab, PatchBank toolbar d'actions, right-click sync + retrait Ctrl+Z
   keydown, sidebars → PatchPicker, CONTEXT.md.
   Spec + plan dans `docs/superpowers/{specs,plans}/2026-05-25-bibliotheque-multi-mode-phase-2.md`.
+
+### Itération K phase 2 follow-up fixes (2026-05-25 → 2026-05-26)
+
+23 commits de fixes/improvements après la livraison de la phase 2,
+issus de tests utilisateur successifs. Documenté en détail dans le
+git log (`fix(iter-K/phase-2.fN)`). Liste compactée :
+
+- **f1 skipUndo additive** — helper `patchLibrarySnapshotsAdditive`
+  appliqué à `CREATE_FOLDER(skipUndo)` et `SAVE_PATCH` pour préserver
+  les ajouts à travers tous les undos LIBRARY (anciens snapshots
+  patchés rétroactivement).
+- **f2 drag patch→timeline** (critical) — `effectAllowed = 'copyMove'`
+  pour les patches matche le `dropEffect='copy'` du Timeline.
+- **f3 layout/toolbar** — library full-screen, retrait dup "+ Dossier",
+  patch count center, lasso lateral margins, Designer header
+  export/import retirés, Library toolbar Import + Undo/Redo,
+  PopupResizer overflow.
+- **f4 lasso/clipboard/context** — Ctrl+V tree mode résout selon
+  sélection, getOrderedItemList sort sync, lasso Ctrl/Shift mode 'add',
+  Rename/Export disabled multi-select, Export fallback dossier courant,
+  ".." double-click only, breadcrumb ligne dédiée, Details padding.
+- **f5 SavePatchDialog auto-select** — folder créé via popup auto-
+  sélectionné dans le picker.
+- **f6 count vertical center + lasso cadre extérieur** — onMouseDown
+  déplacé du body vers aside, `pointToContentSpace` clamp à 0+, count
+  `inline-flex` + `min-height: 28px` sur header-main.
+- **f7 padding asymétrique toolbars** — `padding: 0 8px` (sans bottom)
+  pour aligner visuellement count avec icônes.
+- **f8 polish biblio** — hide chevron nav, retirer crayon, user-select
+  none, breadcrumb root hover, retirer carré couleur, Trash2 icon,
+  tooltips counts.
+- **f9 logic biblio** — Nouveau dossier popup inline + parent tree
+  mode, F2 tile rename, toggle List highlight tree+tiles, persist
+  `bibCollapsedFolders` + auto-expand nav→tree, drop sur patches.
+- **f10 Designer sidebar** — persist state F5 + séparation visuelle
+  Bibliothèque/Actions.
+- **f11 Composer sidebar + LRU** — min-width 200 (aligné Designer),
+  bouton picker en mode plié (popover comme Designer), nouveau
+  composant `RecentPatchesList` avec miniature waveform.
+- **f12 retest fixes** — right-click rename débloqué (guard menu dans
+  handleBodyMouseDown), chevron span retiré, lasso text userSelect
+  globalisé, counters folder (badge=direct patches, meta=descendants
+  only), Clock icon pour Récents.
+- **f13 sidebar Designer "Outils"** — header global + sous-titre
+  "Actions".
+- **f14 sidebar uniformity** — chevron au niveau header global,
+  dup Actions retirée, PatchPicker header div vs h3 cohérent avec
+  Actions.
+- **f15 updir alignment + patch-picker-header sans border** —
+  `.bib-updir` icon override retirée, header sans `border-bottom`.
+- **f16 Designer shortcuts + ConfirmDialog** — Ctrl+S/+Alt+S/+Alt+N,
+  composant `ConfirmDialog` réutilisable, remplacement de 6 `confirm()`
+  natifs.
+- **f17 Batch B Biblio** — pastilles alignment (wrapper 14px width),
+  bouton "Vider la bibliothèque" avec ConfirmDialog danger, Ctrl+A +
+  bouton "Sélectionner tout" + entrée menu contextuel.
+- **f18 PatchPicker borders indentées** — `marginLeft` au lieu de
+  `paddingLeft` (cohérent avec PatchBank).
+- **f19 Composer édit clip dans Designer** (corrigé en f23 : mauvaise
+  interprétation initiale, le menu contextuel clip et le double-click
+  ont été retirés ; uniquement "Retirer le clip" reste).
+- **f20 mode Détail enrichi** — `[pastille] [nom] [thumbnail] [tuning]
+  [updatedAt] [usage count] [poubelle]`. Nouveau field `patch.updatedAt`
+  (timestamp set sur SAVE_PATCH, UPDATE_PATCH, RENAME_PATCH).
+- **f21 ajustements** — date format DD/MM/YYYY HH:MM:SS, modal labels
+  "Annuler" / "Abandonner et ouvrir", widths icon/dot wrappers unifiés
+  à 14px.
+- **f22 vrai Composer édit patch** — sur PatchPicker (sidebar Composer)
+  : double-click load avec garde unsaved-changes, entrée menu
+  contextuel "Éditer dans Designer" (conditionnel Composer + patch).
+- **f23 clip menu cleanup** — retrait onDoubleClick et "Éditer le
+  patch" du menu contextuel clip (patch ≠ clip, séparation propre).
+  Menu clip = uniquement "Retirer le clip".
 
 ### Itération K phase 3 (Thème clair/sombre) — clôturée 2026-05-26
 
