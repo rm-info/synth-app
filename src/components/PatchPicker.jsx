@@ -181,6 +181,17 @@ export default function PatchPicker({
             className="patch-picker-context-menu"
             style={{ left: contextMenu.clientX, top: contextMenu.clientY }}
           >
+            {activeTab === 'composer' && contextMenu.type === 'patch' && (
+              <button
+                className="patch-picker-ctx-item"
+                onClick={() => {
+                  onLoadPatch?.(contextMenu.id)
+                  setContextMenu(null)
+                }}
+              >
+                Éditer dans Designer
+              </button>
+            )}
             <button
               className="patch-picker-ctx-item"
               onClick={() => {

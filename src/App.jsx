@@ -2207,7 +2207,7 @@ function App() {
                           bibSelectedIds={bibSelectedIds}
                           bibCollapsedFolders={bibCollapsedFolders}
                           activeTab="composer"
-                          onLoadPatch={undefined}
+                          onLoadPatch={handleLoadPatch}
                           onOpenInLibrary={handleOpenInLibrary}
                           onDragStart={handleDragStartFromPicker}
                           onToggleBibFolderCollapsed={onToggleBibFolderCollapsed}
@@ -2235,7 +2235,7 @@ function App() {
                       bibSelectedIds={bibSelectedIds}
                       bibCollapsedFolders={bibCollapsedFolders}
                       activeTab="composer"
-                      onLoadPatch={undefined}
+                      onLoadPatch={handleLoadPatch}
                       onOpenInLibrary={handleOpenInLibrary}
                       onDragStart={handleDragStartFromPicker}
                       onToggleBibFolderCollapsed={onToggleBibFolderCollapsed}
