@@ -1,23 +1,150 @@
-:root {
+/* ===================================================================
+   Synth App — Palette thématique (iter-K phase-3.f15)
+   ===================================================================
+   Deux thèmes pilotés par l'attribut `data-theme` sur <html>, posé
+   depuis App.jsx via un effet qui suit state.theme (persisté en
+   localStorage via la clé `synth-app-state`).
+
+   Convention de nommage :
+   - --app-bg, --surface-bg, --surface-elevated     : fonds (3 niveaux)
+   - --surface-border, --surface-border-strong      : bordures (2 niveaux)
+   - --text-default, --text-secondary, --text-strong: textes (3 niveaux)
+   - --accent (+ déclinaisons --accent-bright,      : couleur d'accent
+     --accent-bg-light/medium/strong/overlay/soft)    cyan, utilisée
+                                                      pour focus, hover,
+                                                      sélections, courbes.
+   - --success, --danger (+ leurs *-dark)           : sémantique boutons
+                                                      (Play / Stop / etc.)
+   - --canvas-bg, --canvas-bg-deep                  : fonds des canvas
+   - --canvas-grid-*, --canvas-text-*               : éléments dessinés
+                                                      en JS via le helper
+                                                      themeColor() dans
+                                                      lib/themeColor.js.
+   - --hover-bg, --shadow-strong                    : interactions
+
+   Les canvas JS (Timeline, Spectrogram, WaveformEditor) écoutent un
+   CustomEvent 'themechange' pour se redrawer (helper relit la CSS var).
+   =================================================================== */
+
+:root,
+:root[data-theme='dark'] {
+  --app-bg: #0f0f1a;
+  --surface-bg: #1a1a2e;
+  --surface-elevated: #14141f;
+  --surface-border: #2a2a4a;
+  --surface-border-strong: #3a3a5a;
+
+  --text-default: #e0e0e0;
+  --text-secondary: #a0a0c0;
+  --text-strong: #d0d4ec;
+  --text-muted: #d0d0e0;
+
+  --accent: #00d4ff;
+  --accent-bright: #80efff;
+  --accent-bg-faint: rgba(0, 212, 255, 0.06);
+  --accent-bg-light: rgba(0, 212, 255, 0.1);
+  --accent-bg-medium: rgba(0, 212, 255, 0.12);
+  --accent-bg-strong: rgba(0, 212, 255, 0.18);
+  --accent-bg-overlay: rgba(0, 212, 255, 0.2);
+  --accent-bg-soft: rgba(0, 212, 255, 0.3);
+
+  --success: #4ade80;
+  --success-dark: #22c55e;
+  --danger: #ff4466;
+  --danger-dark: #e63355;
+
+  --hover-bg: #2a2a4a;
+  --shadow-strong: 0 8px 24px rgba(0, 0, 0, 0.45);
+  --shadow-soft: 0 2px 8px rgba(0, 0, 0, 0.3);
+
+  --canvas-bg: #1a1a2e;
+  --canvas-bg-deep: #0a0a1a;
+  --canvas-grid-primary: #3a3a5a;
+  --canvas-grid-secondary: #2a2a4a;
+  --canvas-grid-tertiary: #33335a;
+  --canvas-text-primary: #8a8fa8;
+  --canvas-text-secondary: #7a7e96;
+  --canvas-marker: #ffffff;
+
+  /* Tuple RGB du playhead (vert success) — exposé séparément pour que
+     Timeline.jsx puisse composer rgba(var, alpha) à intensité variable.
+     Garder synchro avec --success. */
+  --playhead-rgb: 74, 222, 128;
+
+  /* Input fields, breadcrumb bg : fond inset, plus sombre que la
+     surface en dark, plus clair que la surface en light. */
+  --input-bg: #0e0e1e;
+
   --text: #6b6375;
+  --text-h: #f3f4f6;
+  --bg: #16171d;
+  --border: #2e303a;
+  --code-bg: #1f2028;
+
+  color-scheme: dark;
+}
+
+:root[data-theme='light'] {
+  --app-bg: #f4f5f7;
+  --surface-bg: #ffffff;
+  --surface-elevated: #ffffff;
+  --surface-border: #d4d7de;
+  --surface-border-strong: #b8bcc6;
+
+  --text-default: #1a1a2e;
+  --text-secondary: #5a5e70;
+  --text-strong: #0a0a1a;
+  --text-muted: #3a3e50;
+
+  /* Cyan plus foncé : #00d4ff sur blanc tombe à ~1.5:1 (illisible).
+     #0095c0 = même teinte, contraste 4.5:1 sur blanc. */
+  --accent: #0095c0;
+  --accent-bright: #00b3e0;
+  --accent-bg-faint: rgba(0, 149, 192, 0.06);
+  --accent-bg-light: rgba(0, 149, 192, 0.1);
+  --accent-bg-medium: rgba(0, 149, 192, 0.15);
+  --accent-bg-strong: rgba(0, 149, 192, 0.22);
+  --accent-bg-overlay: rgba(0, 149, 192, 0.25);
+  --accent-bg-soft: rgba(0, 149, 192, 0.3);
+
+  --success: #16a34a;
+  --success-dark: #15803d;
+  --danger: #dc2626;
+  --danger-dark: #991b1b;
+
+  --hover-bg: #eaecf0;
+  --shadow-strong: 0 8px 24px rgba(15, 23, 42, 0.15);
+  --shadow-soft: 0 2px 8px rgba(15, 23, 42, 0.08);
+
+  --canvas-bg: #fafbfc;
+  --canvas-bg-deep: #eef0f4;
+  --canvas-grid-primary: #c8ccd4;
+  --canvas-grid-secondary: #e0e3e8;
+  --canvas-grid-tertiary: #eaedf2;
+  --canvas-text-primary: #5a5e70;
+  --canvas-text-secondary: #7a7e90;
+  --canvas-marker: #1a1a2e;
+
+  --playhead-rgb: 22, 163, 74;
+
+  --input-bg: #f0f2f5;
+
+  --text: #4a4854;
   --text-h: #08060d;
   --bg: #fff;
   --border: #e5e4e7;
   --code-bg: #f4f3ec;
-  --accent: #aa3bff;
-  --accent-bg: rgba(170, 59, 255, 0.1);
-  --accent-border: rgba(170, 59, 255, 0.5);
-  --social-bg: rgba(244, 243, 236, 0.5);
-  --shadow:
-    rgba(0, 0, 0, 0.1) 0 10px 15px -3px, rgba(0, 0, 0, 0.05) 0 4px 6px -2px;
 
+  color-scheme: light;
+}
+
+:root {
   --sans: system-ui, 'Segoe UI', Roboto, sans-serif;
   --heading: system-ui, 'Segoe UI', Roboto, sans-serif;
   --mono: ui-monospace, Consolas, monospace;
 
   font: 18px/145% var(--sans);
   letter-spacing: 0.18px;
-  color-scheme: light dark;
   color: var(--text);
   background: var(--bg);
   font-synthesis: none;
@@ -27,26 +154,6 @@
 
   @media (max-width: 1024px) {
     font-size: 16px;
-  }
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --text: #9ca3af;
-    --text-h: #f3f4f6;
-    --bg: #16171d;
-    --border: #2e303a;
-    --code-bg: #1f2028;
-    --accent: #c084fc;
-    --accent-bg: rgba(192, 132, 252, 0.15);
-    --accent-border: rgba(192, 132, 252, 0.5);
-    --social-bg: rgba(47, 48, 58, 0.5);
-    --shadow:
-      rgba(0, 0, 0, 0.4) 0 10px 15px -3px, rgba(0, 0, 0, 0.25) 0 4px 6px -2px;
-  }
-
-  #social .button-icon {
-    filter: invert(1) brightness(2);
   }
 }
 

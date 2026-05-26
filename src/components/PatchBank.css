@@ -1,8 +1,8 @@
 .sound-bank-panel {
   display: flex;
   flex-direction: column;
-  background: #1a1a2e;
-  border: 1px solid #3a3a5a;
+  background: var(--surface-bg);
+  border: 1px solid var(--surface-border-strong);
   border-radius: 8px;
   padding: 12px;
   min-width: 200px;
@@ -33,7 +33,7 @@
   line-height: 1.2;
   margin-bottom: 10px;
   padding-bottom: 8px;
-  border-bottom: 1px solid #3a3a5a;
+  border-bottom: 1px solid var(--surface-border-strong);
   flex-shrink: 0;
 }
 
@@ -63,7 +63,7 @@
 .sound-bank-header h3 {
   margin: 0;
   font-size: 0.85rem;
-  color: #a0a0c0;
+  color: var(--text-secondary);
   text-transform: uppercase;
   letter-spacing: 0.05em;
   font-weight: 600;
@@ -78,7 +78,7 @@
 .sound-bank-count {
   font-family: monospace;
   font-size: 0.75rem;
-  color: #5a5a7a;
+  color: var(--text-secondary);
   line-height: 1;       /* phase-2.f6 : neutralise la line-box héritée */
   display: inline-flex; /* phase-2.f6 : centre verticalement dans header-main */
   align-items: center;
@@ -96,9 +96,9 @@
   display: inline-flex;
   align-items: center;
   background: rgba(100, 100, 160, 0.2);
-  border: 1px solid #4a4a6a;
+  border: 1px solid var(--surface-border-strong);
   border-radius: 4px;
-  color: #a0a0c0;
+  color: var(--text-secondary);
   font-size: 0.7rem;
   padding: 0 8px;
   cursor: pointer;
@@ -107,12 +107,12 @@
 }
 .folder-add-btn:hover {
   background: rgba(100, 100, 160, 0.35);
-  border-color: #6a6a8a;
+  border-color: var(--text-secondary);
 }
 
 .sound-bank-empty {
   margin: 0;
-  color: #8a8fa8;
+  color: var(--text-secondary);
   font-size: 0.8rem;
   font-style: italic;
 }
@@ -128,8 +128,8 @@
 }
 
 .bib-lasso {
-  border: 1px dashed #00d4ff;
-  background: rgba(0, 212, 255, 0.08);
+  border: 1px dashed var(--accent);
+  background: var(--accent-bg-faint);
   pointer-events: none;
   z-index: 10;
 }
@@ -155,22 +155,22 @@
   gap: 4px;
   padding: 5px 8px;
   border-radius: 6px;
-  background: rgba(80, 80, 120, 0.15);
+  background: transparent;
   border: 1px solid transparent;
-  color: #c0c0d8;
+  color: var(--text-default);
   font-size: 0.8rem;
   cursor: pointer;
   user-select: none;
   transition: background 0.12s, border-color 0.15s;
 }
 .folder-row:hover {
-  background: rgba(80, 80, 120, 0.28);
-  border-color: #4a4a6a;
+  background: var(--hover-bg);
+  border-color: var(--surface-border-strong);
 }
 .folder-row.is-drop-target {
-  background: rgba(0, 212, 255, 0.12);
-  border-color: #00d4ff;
-  box-shadow: 0 0 6px rgba(0, 212, 255, 0.25);
+  background: var(--accent-bg-medium);
+  border-color: var(--accent);
+  box-shadow: 0 0 6px var(--accent-bg-overlay);
 }
 
 .folder-item.is-dragging > .folder-row {
@@ -179,7 +179,7 @@
 
 .folder-chevron {
   font-size: 0.55rem;
-  color: #7a7a9a;
+  color: var(--text-secondary);
   transition: transform 0.15s;
   flex-shrink: 0;
   width: 12px;
@@ -204,8 +204,9 @@
 .folder-badge {
   font-family: monospace;
   font-size: 0.65rem;
-  color: #6a6a8a;
-  background: rgba(60, 60, 90, 0.4);
+  color: var(--text-secondary);
+  background: transparent;
+  border: 1px solid var(--surface-border);
   border-radius: 8px;
   padding: 0 5px;
   line-height: 1.4;
@@ -234,9 +235,9 @@
   gap: 6px;
   padding: 5px 8px;
   border-radius: 6px;
-  background: color-mix(in srgb, var(--chip-color) 12%, #1a1a2e);
+  background: color-mix(in srgb, var(--chip-color) 12%, var(--surface-bg));
   border: 1px solid color-mix(in srgb, var(--chip-color) 35%, transparent);
-  color: #d0d0e0;
+  color: var(--text-muted);
   font-size: 0.8rem;
   cursor: grab;
   user-select: none;
@@ -253,7 +254,7 @@
 }
 
 .sound-bank-list .sound-chip.is-current {
-  background: color-mix(in srgb, var(--chip-color) 22%, #1a1a2e);
+  background: color-mix(in srgb, var(--chip-color) 22%, var(--surface-bg));
   border-color: var(--chip-color);
   box-shadow: 0 0 0 1px var(--chip-color), 0 0 8px color-mix(in srgb, var(--chip-color) 50%, transparent);
 }
@@ -278,7 +279,7 @@
 }
 
 .sound-chip .chip-info {
-  color: #9aa2b8;
+  color: var(--text-secondary);
   font-size: 0.7rem;
   font-family: monospace;
 }
@@ -318,7 +319,7 @@
 .sound-chip .chip-delete:hover,
 .folder-row .chip-delete:hover {
   background: rgba(255, 68, 102, 0.2);
-  color: #ff4466;
+  color: var(--danger);
 }
 
 .sound-chip .chip-rename-input {
@@ -327,7 +328,7 @@
   background: rgba(0, 0, 0, 0.3);
   border: 1px solid var(--chip-color);
   border-radius: 4px;
-  color: #e0e0e0;
+  color: var(--text-default);
   font-size: 0.8rem;
   font-family: inherit;
   padding: 2px 6px;
@@ -341,34 +342,34 @@
   flex: 1;
   min-width: 0;
   background: rgba(0, 0, 0, 0.3);
-  border: 1px solid #6a6a8a;
+  border: 1px solid var(--text-secondary);
   border-radius: 4px;
-  color: #e0e0e0;
+  color: var(--text-default);
   font-size: 0.8rem;
   font-family: inherit;
   padding: 2px 6px;
   outline: none;
 }
 .folder-row .chip-rename-input:focus {
-  box-shadow: 0 0 4px #6a6a8a;
+  box-shadow: 0 0 4px var(--text-secondary);
 }
 
 /* Drop root zone shown during drag */
 .drop-root-zone {
   margin-top: 6px;
   padding: 8px;
-  border: 1px dashed #4a4a6a;
+  border: 1px dashed var(--surface-border-strong);
   border-radius: 6px;
   text-align: center;
   font-size: 0.7rem;
-  color: #6a6a8a;
+  color: var(--text-secondary);
   transition: background 0.12s, border-color 0.15s, color 0.15s;
   flex-shrink: 0;
 }
 .drop-root-zone.is-active {
-  background: rgba(0, 212, 255, 0.08);
-  border-color: #00d4ff;
-  color: #00d4ff;
+  background: var(--accent-bg-faint);
+  border-color: var(--accent);
+  color: var(--accent);
 }
 
 /* Responsive : sur petit écran, la sidebar bascule en bandeau horizontal */
@@ -397,8 +398,8 @@
 .bib-context-menu {
   position: fixed;
   z-index: 1000;
-  background: #1a1a2e;
-  border: 1px solid #3a3a5a;
+  background: var(--surface-bg);
+  border: 1px solid var(--surface-border-strong);
   border-radius: 4px;
   padding: 4px 0;
   min-width: 200px;
@@ -410,7 +411,7 @@
   border: none;
   text-align: left;
   padding: 6px 14px;
-  color: #d0d4ec;
+  color: var(--text-strong);
   cursor: pointer;
   font-family: inherit;
   font-size: 12px;
@@ -420,10 +421,10 @@
   gap: 8px;
 }
 .bib-ctx-item:hover:not(:disabled) {
-  background: #2a2a4a;
+  background: var(--surface-border);
 }
 .bib-ctx-item:disabled {
-  color: #4a4a6a;
+  color: var(--surface-border-strong);
   cursor: not-allowed;
 }
 .bib-ctx-item.delete {
@@ -434,11 +435,11 @@
 }
 .bib-ctx-item .shortcut {
   font-size: 10px;
-  color: #8a8fa8;
+  color: var(--text-secondary);
 }
 .bib-ctx-sep {
   height: 1px;
-  background: #2a2a4a;
+  background: var(--surface-border);
   margin: 4px 0;
 }
 
@@ -450,14 +451,14 @@
 }
 .bib-toggle-group {
   display: flex;
-  background: #1a1a2e;
-  border: 1px solid #3a3a5a;
+  background: var(--surface-bg);
+  border: 1px solid var(--surface-border-strong);
   border-radius: 4px;
   padding: 1px;
 }
 .bib-toggle-btn {
   background: transparent;
-  color: #a8acc4;
+  color: var(--text-secondary);
   border: none;
   padding: 4px 7px;
   cursor: pointer;
@@ -467,28 +468,28 @@
   align-items: center;
 }
 .bib-toggle-btn:hover {
-  background: #2a2a4a;
-  color: #d0d4ec;
+  background: var(--surface-border);
+  color: var(--text-strong);
 }
 .bib-toggle-btn.is-active {
   background: #003a4a;
-  color: #00d4ff;
+  color: var(--accent);
 }
 .bib-toolbar-spacer {
   flex: 1;
 }
 .bib-new-folder-btn {
-  background: #1a1a2e;
-  color: #a8acc4;
-  border: 1px solid #3a3a5a;
+  background: var(--surface-bg);
+  color: var(--text-secondary);
+  border: 1px solid var(--surface-border-strong);
   border-radius: 4px;
   padding: 4px 10px;
   font-size: 11px;
   cursor: pointer;
 }
 .bib-new-folder-btn:hover {
-  background: #2a2a4a;
-  color: #d0d4ec;
+  background: var(--surface-border);
+  color: var(--text-strong);
 }
 
 .bib-updir {
@@ -496,7 +497,7 @@
   align-items: center;
   gap: 4px;
   padding: 5px 8px;
-  color: #8a8fa8;
+  color: var(--text-secondary);
   cursor: pointer;
   font-style: italic;
   border-radius: 6px;
@@ -504,7 +505,7 @@
 }
 .bib-updir:hover {
   background: rgba(255, 255, 255, 0.04);
-  color: #d0d4ec;
+  color: var(--text-strong);
 }
 /* .folder-icon hérite directement de la règle de base (.folder-icon { font-size: 0.85rem })
    pour matcher la taille des icônes des autres dossiers. */
@@ -525,7 +526,7 @@
 }
 .sound-chip.is-details .chip-meta-tuning {
   font-size: 10px;
-  color: #8a8fa8;
+  color: var(--text-secondary);
   overflow: hidden;
   text-overflow: ellipsis;
 }
@@ -548,8 +549,9 @@
 }
 .folder-row.is-details .folder-meta-count {
   font-size: 10px;
-  color: #8a8fa8;
-  background: rgba(255,255,255,0.06);
+  color: var(--text-secondary);
+  background: transparent;
+  border: 1px solid var(--surface-border);
   padding: 1px 6px;
   border-radius: 8px;
 }
@@ -563,7 +565,7 @@
 }
 .tile {
   background: rgba(255, 255, 255, 0.04);
-  border: 1px solid #2a2a4a;
+  border: 1px solid var(--surface-border);
   border-radius: 4px;
   padding: 6px;
   cursor: pointer;
@@ -578,25 +580,25 @@
   background: rgba(255, 255, 255, 0.08);
 }
 .tile.is-current {
-  border-color: #00d4ff;
-  background: rgba(0, 212, 255, 0.1);
+  border-color: var(--accent);
+  background: var(--accent-bg-light);
 }
 .tile.is-dragging {
   opacity: 0.4;
 }
 .tile.is-drop-target {
-  border-color: #00d4ff;
-  background: rgba(0, 212, 255, 0.15);
+  border-color: var(--accent);
+  background: var(--accent-bg-medium);
 }
 
 /* Sélection bibliothèque (Task 5) */
 .sound-chip.is-selected,
 .folder-row.is-selected {
-  background: rgba(0, 212, 255, 0.2);
+  background: var(--accent-bg-overlay);
   border: 1px solid rgba(0, 212, 255, 0.5);
 }
 .tile.is-selected {
-  background: rgba(0, 212, 255, 0.15);
+  background: var(--accent-bg-medium);
   border-color: rgba(0, 212, 255, 0.5);
 }
 .sound-chip.is-cut,
@@ -625,15 +627,15 @@
 .tile.is-updir .tile-preview {
   background: rgba(255, 255, 255, 0.05);
   font-size: 18px;
-  color: #d0d4ec;
+  color: var(--text-strong);
 }
 .tile.is-updir {
-  color: #8a8fa8;
+  color: var(--text-secondary);
   font-style: italic;
 }
 .tile-name {
   font-size: 11px;
-  color: #d0d4ec;
+  color: var(--text-strong);
   word-break: break-word;
   line-height: 1.2;
 }
@@ -650,7 +652,7 @@
 }
 .bib-action-btn {
   background: transparent;
-  color: #a8acc4;
+  color: var(--text-secondary);
   border: 1px solid transparent;
   padding: 5px 7px;
   cursor: pointer;
@@ -661,12 +663,12 @@
   justify-content: center;
 }
 .bib-action-btn:hover:not(:disabled) {
-  background: #2a2a4a;
-  color: #d0d4ec;
-  border-color: #3a3a5a;
+  background: var(--surface-border);
+  color: var(--text-strong);
+  border-color: var(--surface-border-strong);
 }
 .bib-action-btn:disabled {
-  color: #4a4a6a;
+  color: var(--surface-border-strong);
   cursor: not-allowed;
 }
 .bib-action-btn.delete:hover:not(:disabled) {
@@ -677,7 +679,7 @@
 .bib-action-separator {
   width: 1px;
   height: 20px;
-  background: #3a3a5a;
+  background: var(--surface-border-strong);
   margin: 0 4px;
 }
 
@@ -687,38 +689,38 @@
   align-items: center;
   gap: 8px;
   padding: 8px;
-  background: rgba(0, 212, 255, 0.08);
+  background: var(--accent-bg-faint);
   border: 1px solid rgba(0, 212, 255, 0.4);
   border-radius: 4px;
   margin-bottom: 8px;
 }
 .bib-inline-create-label {
   font-size: 11px;
-  color: #8a8fa8;
+  color: var(--text-secondary);
   flex-shrink: 0;
 }
 .bib-inline-create-folder input {
   flex: 1;
-  background: #0e0e1e;
-  border: 1px solid #2a2a4a;
+  background: var(--input-bg);
+  border: 1px solid var(--surface-border);
   border-radius: 4px;
-  color: #d0d4ec;
+  color: var(--text-strong);
   padding: 4px 8px;
   font-size: 12px;
   font-family: inherit;
 }
 .bib-inline-create-folder input:focus {
-  border-color: #00d4ff;
+  border-color: var(--accent);
   outline: none;
 }
 
 /* Fix 2 : input inline rename en mode Tile */
 .tile-rename-input {
   width: 100%;
-  background: #0e0e1e;
-  border: 1px solid #00d4ff;
+  background: var(--input-bg);
+  border: 1px solid var(--accent);
   border-radius: 3px;
-  color: #d0d4ec;
+  color: var(--text-strong);
   padding: 2px 4px;
   font-size: 11px;
   font-family: inherit;

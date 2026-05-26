@@ -26,6 +26,7 @@ import {
   cuedNoteIndices,
   systemSupportsVisualCues,
 } from '../lib/visualCues'
+import { themeColor } from '../lib/themeColor'
 import './WaveformEditor.css'
 
 const POINTS_RESOLUTION = 600
@@ -414,10 +415,10 @@ function WaveformEditor({
     const ctx = canvas.getContext('2d')
     const midY = H / 2
 
-    ctx.fillStyle = '#1a1a2e'
+    ctx.fillStyle = themeColor('canvas-bg')
     ctx.fillRect(0, 0, W, H)
 
-    ctx.strokeStyle = '#2a2a4a'
+    ctx.strokeStyle = themeColor('canvas-grid-secondary')
     ctx.lineWidth = 1
     ctx.beginPath()
     ctx.moveTo(0, midY)
@@ -433,7 +434,7 @@ function WaveformEditor({
     ctx.stroke()
     ctx.setLineDash([])
 
-    ctx.strokeStyle = '#00d4ff'
+    ctx.strokeStyle = themeColor('accent')
     ctx.lineWidth = 2
     ctx.beginPath()
     for (let x = 0; x < W; x++) {
@@ -445,7 +446,7 @@ function WaveformEditor({
     }
     ctx.stroke()
 
-    ctx.strokeStyle = 'rgba(0, 212, 255, 0.3)'
+    ctx.strokeStyle = themeColor('accent-bg-soft')
     ctx.lineWidth = 6
     ctx.beginPath()
     for (let x = 0; x < W; x++) {
@@ -1128,10 +1129,10 @@ function WaveformEditor({
     const ctx = canvas.getContext('2d')
     ctx.setTransform(W / ADSR_W, 0, 0, H / ADSR_H, 0, 0)
 
-    ctx.fillStyle = '#1a1a2e'
+    ctx.fillStyle = themeColor('canvas-bg')
     ctx.fillRect(0, 0, ADSR_W, ADSR_H)
 
-    ctx.strokeStyle = '#2a2a4a'
+    ctx.strokeStyle = themeColor('canvas-grid-secondary')
     ctx.lineWidth = 1
     ctx.beginPath()
     ctx.moveTo(0, ADSR_H - 0.5)
@@ -1141,7 +1142,7 @@ function WaveformEditor({
     // Remplissage : on suit la silhouette logique (ligne plateau à peakY,
     // pas à p1h.y qui est décalé visuellement vers le haut). P2→P3
     // horizontal pour matérialiser la phase sustain, puis release P3→P4.
-    ctx.fillStyle = 'rgba(0, 212, 255, 0.12)'
+    ctx.fillStyle = themeColor('accent-bg-medium')
     ctx.beginPath()
     ctx.moveTo(0, ADSR_H)
     ctx.lineTo(p1.x, peakY)
@@ -1154,7 +1155,7 @@ function WaveformEditor({
     ctx.fill()
 
     // Segments solides : baseline → P1 → plateau peak → P2 (decay).
-    ctx.strokeStyle = '#00d4ff'
+    ctx.strokeStyle = themeColor('accent')
     ctx.lineWidth = 2
     ctx.setLineDash([])
     ctx.beginPath()
@@ -1191,9 +1192,9 @@ function WaveformEditor({
     for (const handle of handles) {
       ctx.beginPath()
       ctx.arc(handle.x * sx, handle.y * sy, ADSR_HANDLE_RADIUS, 0, 2 * Math.PI)
-      ctx.fillStyle = '#ffffff'
+      ctx.fillStyle = themeColor('canvas-marker')
       ctx.fill()
-      ctx.strokeStyle = '#00d4ff'
+      ctx.strokeStyle = themeColor('accent')
       ctx.lineWidth = 1.5
       ctx.stroke()
     }
@@ -1229,6 +1230,19 @@ function WaveformEditor({
       cancelAnimationFrame(raf2)
     }
   }, [drawAdsr, activeTab])
+
+  // iter-K phase-3.f15 : repaint waveform et ADSR au changement de thème.
+  // Les deux canvas ne sont pas en RAF continu — ils se redrawent uniquement
+  // sur changement de props. Sans ce listener, les anciennes couleurs
+  // restent gravées jusqu'à la prochaine édition (point d'onde, ADSR slider).
+  useEffect(() => {
+    const repaint = () => {
+      drawCanvas(pointsRef.current)
+      drawAdsr()
+    }
+    window.addEventListener('themechange', repaint)
+    return () => window.removeEventListener('themechange', repaint)
+  }, [drawCanvas, drawAdsr])
 
   useEffect(() => {
     const container = adsrContainerRef.current

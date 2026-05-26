@@ -1,8 +1,8 @@
 .patch-picker {
   display: flex;
   flex-direction: column;
-  background: #1a1a2e;
-  border: 1px solid #3a3a5a;
+  background: var(--surface-bg);
+  border: 1px solid var(--surface-border-strong);
   border-radius: 8px;
   padding: 10px;
   width: 100%;
@@ -24,7 +24,7 @@
 .patch-picker-count {
   font-family: monospace;
   font-size: 0.75rem;
-  color: #5a5a7a;
+  color: var(--text-secondary);
 }
 .patch-picker-header-toggle {
   display: flex;
@@ -45,7 +45,7 @@
 
 .patch-picker-empty {
   list-style: none;
-  color: #5a5a7a;
+  color: var(--text-secondary);
   font-style: italic;
   text-align: center;
   padding: 20px 8px;
@@ -59,19 +59,19 @@
   gap: 5px;
   padding: 4px 6px;
   border-radius: 4px;
-  background: rgba(80, 80, 120, 0.12);
+  background: transparent;
   border: 1px solid transparent;
-  color: #c0c0d8;
+  color: var(--text-default);
   font-size: 0.78rem;
   cursor: pointer;
   user-select: none;
 }
 .patch-picker-folder-row:hover {
-  background: rgba(80, 80, 120, 0.22);
-  border-color: #3a3a5a;
+  background: var(--hover-bg);
+  border-color: var(--surface-border-strong);
 }
 .patch-picker-folder-row.is-selected {
-  background: rgba(0, 212, 255, 0.18);
+  background: var(--accent-bg-strong);
   border-color: rgba(0, 212, 255, 0.4);
 }
 .patch-picker-folder-row.is-cut {
@@ -80,7 +80,7 @@
 }
 .patch-picker-chevron {
   font-size: 0.55rem;
-  color: #7a7a9a;
+  color: var(--text-secondary);
   transition: transform 0.15s;
   flex-shrink: 0;
   width: 10px;
@@ -106,9 +106,9 @@
   gap: 6px;
   padding: 4px 8px;
   border-radius: 4px;
-  background: color-mix(in srgb, var(--chip-color) 12%, #1a1a2e);
+  background: color-mix(in srgb, var(--chip-color) 12%, var(--surface-bg));
   border: 1px solid color-mix(in srgb, var(--chip-color) 30%, transparent);
-  color: #d0d0e0;
+  color: var(--text-muted);
   font-size: 0.78rem;
   cursor: grab;
   user-select: none;
@@ -119,12 +119,12 @@
 }
 .patch-picker-chip:active { cursor: grabbing; }
 .patch-picker-chip.is-current {
-  background: color-mix(in srgb, var(--chip-color) 22%, #1a1a2e);
+  background: color-mix(in srgb, var(--chip-color) 22%, var(--surface-bg));
   border-color: var(--chip-color);
   box-shadow: 0 0 0 1px var(--chip-color);
 }
 .patch-picker-chip.is-selected:not(.is-current) {
-  background: rgba(0, 212, 255, 0.18);
+  background: var(--accent-bg-strong);
   border-color: rgba(0, 212, 255, 0.4);
 }
 .patch-picker-chip.is-cut {
@@ -153,8 +153,8 @@
 .patch-picker-context-menu {
   position: fixed;
   z-index: 1000;
-  background: #1a1a2e;
-  border: 1px solid #3a3a5a;
+  background: var(--surface-bg);
+  border: 1px solid var(--surface-border-strong);
   border-radius: 4px;
   padding: 4px 0;
   min-width: 180px;
@@ -166,11 +166,11 @@
   border: none;
   text-align: left;
   padding: 6px 14px;
-  color: #d0d4ec;
+  color: var(--text-strong);
   cursor: pointer;
   font-family: inherit;
   font-size: 12px;
 }
 .patch-picker-ctx-item:hover {
-  background: #2a2a4a;
+  background: var(--surface-border);
 }

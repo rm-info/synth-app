@@ -2,8 +2,8 @@
 .too-small-gate {
   position: fixed;
   inset: 0;
-  background: #0f0f1a;
-  color: #e0e0e0;
+  background: var(--app-bg);
+  color: var(--text-default);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -17,7 +17,7 @@
 .too-small-gate-content h1 {
   margin: 0 0 14px;
   font-size: 1.4rem;
-  color: #00d4ff;
+  color: var(--accent);
   font-family: 'Courier New', monospace;
   letter-spacing: 0.02em;
 }

@@ -246,6 +246,7 @@ export function loadPersistedState() {
       recentPatchIds: Array.isArray(parsed.recentPatchIds)
         ? parsed.recentPatchIds.filter(id => typeof id === 'string').slice(0, 10)
         : [],
+      theme: parsed.theme === 'light' ? 'light' : 'dark',
       activeTab: ['library', 'composer', 'designer'].includes(parsed.activeTab)
         ? parsed.activeTab
         : 'designer',
@@ -405,6 +406,9 @@ export function buildInitialState() {
     // Mis à jour à chaque ADD_CLIP avec patchId, ainsi qu'à un drop manuel
     // sur la liste (ADD_PATCH_TO_RECENTS). Cleané sur suppression de patch.
     recentPatchIds: persisted?.recentPatchIds ?? [],
+    // iter-K phase-3.f15 : thème ('dark' | 'light'). Défaut 'dark' pour
+    // ne pas surprendre les utilisateurs existants.
+    theme: persisted?.theme ?? 'dark',
     defaultClipDuration: DEFAULT_CLIP_DURATION,
     // Mode d'affichage des durées dans les boutons (E.6.1).
     // 'solfège' : ♩ ♪ 𝅘𝅥𝅯 etc. / 'fraction' : 1 1/2 1/4 etc. (réf. = noire).
@@ -1476,6 +1480,11 @@ export function reducer(state, action) {
         activeTab: action.payload,
         pendingDeleteWarning: null,
       }
+    }
+    case 'SET_THEME': {
+      const next = action.payload === 'light' ? 'light' : 'dark'
+      if (state.theme === next) return state
+      return { ...state, theme: next }
     }
     case 'SELECT_CLIPS': {
       // Mise à jour de l'anchor : si la sélection devient non-vide, prend le

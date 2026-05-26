@@ -23,11 +23,15 @@
   transition: background 0.1s, border-color 0.1s;
 }
 
+/* iter-K phase-3.f15 : les touches piano-12 gardent leur identité piano
+ * (blanc/noir) dans les deux thèmes. C'est une convention culturelle :
+ * un piano avec touches grises n'est plus un piano. Couleurs hardcodées
+ * en dehors de la palette thématique. */
 .piano-key-white {
   flex: 1;
   min-width: 0;
-  background: #e8e8ef;
-  border: 1px solid #2a2a4a;
+  background: #f5f5f0;
+  border: 1px solid #1a1a1a;
   border-radius: 0 0 4px 4px;
   display: flex;
   align-items: flex-end;
@@ -37,13 +41,13 @@
 }
 
 .piano-key-white:hover {
-  background: #d6d6e0;
+  background: #e2e2dc;
 }
 
 .piano-key-white.is-active {
-  background: #00d4ff;
-  border-color: #00b8e6;
-  color: #1a1a2e;
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
 }
 
 /* Touche en train de jouer (instrument mode) : surbrillance + léger shadow
@@ -51,7 +55,7 @@
 .piano-key-white.is-playing {
   background: #ffe27a;
   border-color: #ffc600;
-  color: #1a1a2e;
+  color: #1a1a1a;
   box-shadow: 0 0 10px rgba(255, 198, 0, 0.6);
 }
 
@@ -75,20 +79,20 @@
   transform: translateX(-50%);
   width: 8.4%; /* ~ 60% de la largeur d'une blanche (100/7 × 0.6) */
   height: 100%;
-  background: #1a1a2e;
-  border: 1px solid #e8e8ef;
+  background: #1a1a1a;
+  border: 1px solid #0a0a0a;
   border-radius: 0 0 3px 3px;
   pointer-events: auto;
   box-shadow: 0 2px 3px rgba(0, 0, 0, 0.4);
 }
 
 .piano-key-black:hover {
-  background: #2a2a4a;
+  background: #2a2a2a;
 }
 
 .piano-key-black.is-active {
-  background: #00d4ff;
-  border-color: #00b8e6;
+  background: var(--accent);
+  border-color: var(--accent);
 }
 
 .piano-key-black.is-playing {
@@ -142,7 +146,7 @@
   justify-content: center;
   border-radius: 3px;
   border: 1px solid hsl(var(--hue), 30%, 22%);
-  color: #1a1a2e;
+  color: var(--surface-bg);
   transition: background 0.1s, border-color 0.1s, transform 0.05s;
 }
 
@@ -163,7 +167,7 @@
 
 .grid24-key-half-dn {
   background: hsl(var(--hue), 50%, 75%);
-  color: #1a1a2e;
+  color: var(--surface-bg);
 }
 .grid24-key-half-dn:hover {
   background: hsl(var(--hue), 60%, 82%);
@@ -183,7 +187,7 @@
  * l'intérieur de la cellule sans modifier le box model — pas de jitter
  * géométrique au changement de sélection. */
 .grid24-key.is-active {
-  box-shadow: inset 0 0 0 3px #00d4ff;
+  box-shadow: inset 0 0 0 3px var(--accent);
 }
 
 /* Surbrillance "en train de jouer" : outline jaune épais (sort vers
@@ -202,7 +206,7 @@
  * glow externe jaune (l'outline jaune s'ajoute par-dessus naturellement,
  * il vient de la règle is-playing ci-dessus). */
 .grid24-key.is-active.is-playing {
-  box-shadow: inset 0 0 0 3px #00d4ff, 0 0 10px rgba(255, 198, 0, 0.6);
+  box-shadow: inset 0 0 0 3px var(--accent), 0 0 10px rgba(255, 198, 0, 0.6);
 }
 
 .grid24-key-label {
@@ -263,13 +267,13 @@
 
 .grid22-key-r0 {
   background: hsl(var(--hue), 60%, 75%);
-  color: #1a1a2e;
+  color: var(--surface-bg);
 }
 .grid22-key-r0:hover { background: hsl(var(--hue), 65%, 82%); }
 
 .grid22-key-r1 {
   background: hsl(var(--hue), 60%, 60%);
-  color: #1a1a2e;
+  color: var(--surface-bg);
 }
 .grid22-key-r1:hover { background: hsl(var(--hue), 65%, 68%); }
 
@@ -286,7 +290,7 @@
 .grid22-key-r3:hover { background: hsl(var(--hue), 65%, 38%); }
 
 .grid22-key.is-active {
-  box-shadow: inset 0 0 0 3px #00d4ff;
+  box-shadow: inset 0 0 0 3px var(--accent);
 }
 
 .grid22-key.is-playing {
@@ -297,7 +301,7 @@
 }
 
 .grid22-key.is-active.is-playing {
-  box-shadow: inset 0 0 0 3px #00d4ff, 0 0 10px rgba(255, 198, 0, 0.6);
+  box-shadow: inset 0 0 0 3px var(--accent), 0 0 10px rgba(255, 198, 0, 0.6);
 }
 
 .grid22-key-label {
@@ -390,7 +394,7 @@
 }
 
 .gridx-key.is-active {
-  box-shadow: inset 0 0 0 3px #00d4ff;
+  box-shadow: inset 0 0 0 3px var(--accent);
 }
 
 .gridx-key.is-playing {
@@ -401,7 +405,7 @@
 }
 
 .gridx-key.is-active.is-playing {
-  box-shadow: inset 0 0 0 3px #00d4ff, 0 0 10px rgba(255, 198, 0, 0.6);
+  box-shadow: inset 0 0 0 3px var(--accent), 0 0 10px rgba(255, 198, 0, 0.6);
 }
 
 .gridx-key.is-cued {
@@ -409,7 +413,7 @@
 }
 
 .gridx-key.is-active.is-cued {
-  box-shadow: inset 0 0 0 3px #00d4ff, 0 0 0 2px #e832e2;
+  box-shadow: inset 0 0 0 3px var(--accent), 0 0 0 2px #e832e2;
 }
 
 .gridx-key.is-cued.is-playing {
@@ -417,7 +421,7 @@
 }
 
 .gridx-key.is-active.is-cued.is-playing {
-  box-shadow: inset 0 0 0 3px #00d4ff, 0 0 0 2px #e832e2, 0 0 10px rgba(255, 198, 0, 0.6);
+  box-shadow: inset 0 0 0 3px var(--accent), 0 0 0 2px #e832e2, 0 0 10px rgba(255, 198, 0, 0.6);
 }
 
 .gridx-key-label {
@@ -450,7 +454,7 @@
  * .is-active.is-playing dédiées (F.3.10) qui posent un inset cyan + glow ;
  * on les étend ici pour superposer le halo magenta. */
 .grid24-key.is-active.is-cued {
-  box-shadow: inset 0 0 0 3px #00d4ff, 0 0 0 2px #e832e2;
+  box-shadow: inset 0 0 0 3px var(--accent), 0 0 0 2px #e832e2;
 }
 
 .grid24-key.is-cued.is-playing {
@@ -458,7 +462,7 @@
 }
 
 .grid24-key.is-active.is-cued.is-playing {
-  box-shadow: inset 0 0 0 3px #00d4ff, 0 0 0 2px #e832e2, 0 0 10px rgba(255, 198, 0, 0.6);
+  box-shadow: inset 0 0 0 3px var(--accent), 0 0 0 2px #e832e2, 0 0 10px rgba(255, 198, 0, 0.6);
 }
 
 /* Piano-12 — l'is-active y change le `background`, pas le box-shadow ;
@@ -483,10 +487,10 @@
   max-width: 40px;
   height: 30px;
   padding: 0;
-  border: 1px solid #4a4a6a;
+  border: 1px solid var(--surface-border-strong);
   border-radius: 4px;
-  background: #1a1a2e;
-  color: #d0d0e0;
+  background: var(--surface-bg);
+  color: var(--text-muted);
   font-size: 0.8rem;
   font-family: monospace;
   font-weight: 500;
@@ -495,31 +499,31 @@
 }
 
 .octave-btn:hover {
-  border-color: #00d4ff;
-  color: #00d4ff;
+  border-color: var(--accent);
+  color: var(--accent);
 }
 
 .octave-btn.is-reference {
-  background: #243a4a;
-  color: #88c0e0;
-  border-color: #3a5a7a;
+  background: var(--accent-bg-light);
+  color: var(--accent);
+  border-color: var(--accent-bg-soft);
 }
 
 .octave-btn.is-reference:hover {
-  color: #00d4ff;
-  border-color: #00d4ff;
+  color: var(--accent);
+  border-color: var(--accent);
 }
 
 .octave-btn.is-active {
-  background: #00d4ff;
-  border-color: #00b8e6;
-  color: #1a1a2e;
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--surface-bg);
   font-weight: 600;
 }
 
 .octave-btn.is-active:hover {
-  background: #00b8e6;
-  color: #1a1a2e;
+  background: var(--accent-bright);
+  color: var(--surface-bg);
 }
 
 /* Variante compacte : boutons plus petits et plus serrés. */

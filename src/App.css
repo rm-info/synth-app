@@ -7,8 +7,8 @@
   height: 100dvh;
   display: flex;
   flex-direction: column;
-  background: #0f0f1a;
-  color: #e0e0e0;
+  background: var(--app-bg);
+  color: var(--text-default);
   overflow: hidden;
 }
 
@@ -60,8 +60,8 @@
   display: flex;
   flex-direction: column;
   min-height: 0;
-  background: #1a1a2e;
-  border: 1px solid #2a2a4a;
+  background: var(--surface-bg);
+  border: 1px solid var(--surface-border);
   border-radius: 8px;
   overflow: hidden;
   position: relative; /* pour la SidebarResizer enfant */
@@ -96,16 +96,16 @@
   height: 1px;
   margin: 4px 0;
   border: none;
-  background: #3a3a5a;
+  background: var(--surface-border-strong);
 }
 .designer-collapsed-section-btn {
   width: 28px;
   height: 28px;
   padding: 0;
-  border: 1px solid #3a3a5a;
+  border: 1px solid var(--surface-border-strong);
   border-radius: 6px;
-  background: #1a1a2e;
-  color: #a0a0c0;
+  background: var(--surface-bg);
+  color: var(--text-secondary);
   cursor: pointer;
   font-size: 0.95rem;
   display: flex;
@@ -114,14 +114,14 @@
   transition: background 0.15s, color 0.15s, border-color 0.15s;
 }
 .designer-collapsed-section-btn:hover:not(:disabled) {
-  background: #2a2a4a;
-  color: #00d4ff;
-  border-color: #00d4ff;
+  background: var(--surface-border);
+  color: var(--accent);
+  border-color: var(--accent);
 }
 .designer-collapsed-section-btn.is-active {
-  background: rgba(0, 212, 255, 0.18);
-  border-color: #00d4ff;
-  color: #00d4ff;
+  background: var(--accent-bg-strong);
+  border-color: var(--accent);
+  color: var(--accent);
 }
 .designer-collapsed-section-btn:disabled {
   opacity: 0.4;
@@ -130,23 +130,23 @@
 /* Play/Stop en mode réduit : reprend les couleurs du MiniPlayer (vert /
    rouge actif). */
 .mini-play-btn-collapsed {
-  background: #4ade80;
-  color: #0f0f1a;
-  border-color: #4ade80;
+  background: var(--success);
+  color: var(--app-bg);
+  border-color: var(--success);
 }
 .mini-play-btn-collapsed:hover:not(:disabled) {
-  background: #22c55e;
-  border-color: #22c55e;
-  color: #0f0f1a;
+  background: var(--success-dark);
+  border-color: var(--success-dark);
+  color: var(--app-bg);
 }
 .mini-play-btn-collapsed.playing {
-  background: #ff4466;
-  border-color: #ff4466;
+  background: var(--danger);
+  border-color: var(--danger);
   color: #fff;
 }
 .mini-play-btn-collapsed.playing:hover {
-  background: #e63355;
-  border-color: #e63355;
+  background: var(--danger-dark);
+  border-color: var(--danger-dark);
   color: #fff;
 }
 
@@ -166,8 +166,8 @@
      + margin ~12px). */
   max-width: calc(100vw - 60px);
   max-height: min(80dvh, 600px);
-  background: #1a1a2e;
-  border: 1px solid #3a3a5a;
+  background: var(--surface-bg);
+  border: 1px solid var(--surface-border-strong);
   border-radius: 8px;
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
   display: flex;
@@ -200,10 +200,10 @@
   width: 22px;
   height: 22px;
   padding: 0;
-  border: 1px solid #3a3a5a;
+  border: 1px solid var(--surface-border-strong);
   border-radius: 4px;
   background: transparent;
-  color: #a0a0c0;
+  color: var(--text-secondary);
   cursor: pointer;
   font-size: 1rem;
   line-height: 1;
@@ -212,9 +212,9 @@
   justify-content: center;
 }
 .popover-close-btn:hover {
-  background: #2a2a4a;
-  color: #ff4466;
-  border-color: #ff4466;
+  background: var(--surface-border);
+  color: var(--danger);
+  border-color: var(--danger);
 }
 /* Header global "Outils" en haut de la sidebar ouverte. */
 .designer-sidebar-header {
@@ -222,13 +222,13 @@
   align-items: center;
   justify-content: space-between;
   padding: 8px 10px 6px;
-  border-bottom: 1px solid #3a3a5a;
+  border-bottom: 1px solid var(--surface-border-strong);
   flex-shrink: 0;
 }
 .designer-sidebar-header h3 {
   margin: 0;
   font-size: 0.9rem;
-  color: #d0d4ec;
+  color: var(--text-strong);
   text-transform: uppercase;
   letter-spacing: 0.05em;
   font-weight: 600;
@@ -236,7 +236,7 @@
 /* Sous-titre de section dans la sidebar (ex : "Actions"). */
 .sidebar-section-label {
   font-size: 0.7rem;
-  color: #a0a0c0;
+  color: var(--text-secondary);
   text-transform: uppercase;
   letter-spacing: 0.05em;
   font-weight: 600;
@@ -262,7 +262,7 @@
 /* Zone Actions + Play : séparée de la Bibliothèque par une ligne franche. */
 .designer-sidebar .sidebar-actions {
   flex: 0 0 auto;
-  border-top: 1px solid #3a3a5a;
+  border-top: 1px solid var(--surface-border-strong);
 }
 /* Le .designer-actions-panel n'a plus à gérer son propre border-top
    (absorbé par .sidebar-actions). Le .mini-player non plus. */
@@ -271,7 +271,7 @@
 }
 .sidebar-actions > .mini-player {
   border: none;
-  border-top: 1px solid #2a2a4a;
+  border-top: 1px solid var(--surface-border);
   border-radius: 0;
   background: transparent;
 }
@@ -323,8 +323,8 @@
 .designer-mobile-item {
   display: flex;
   flex-direction: column;
-  background: #14141f;
-  border: 1px solid #3a3a5a;
+  background: var(--surface-elevated);
+  border: 1px solid var(--surface-border-strong);
   border-radius: 8px;
   overflow: hidden;
   flex-shrink: 0;
@@ -343,7 +343,7 @@
   padding: 10px 14px;
   border: none;
   background: transparent;
-  color: #d0d0e0;
+  color: var(--text-muted);
   font-size: 0.9rem;
   font-weight: 600;
   letter-spacing: 0.02em;
@@ -353,11 +353,11 @@
   transition: background 0.15s, color 0.15s;
 }
 .designer-mobile-header:hover {
-  background: rgba(0, 212, 255, 0.06);
-  color: #00d4ff;
+  background: var(--accent-bg-faint);
+  color: var(--accent);
 }
 .designer-mobile-item.is-expanded .designer-mobile-header {
-  border-bottom: 1px solid #2a2a4a;
+  border-bottom: 1px solid var(--surface-border);
 }
 .designer-mobile-chevron {
   flex-shrink: 0;
@@ -455,10 +455,10 @@
   width: 22px;
   height: 22px;
   padding: 0;
-  border: 1px solid #3a3a5a;
+  border: 1px solid var(--surface-border-strong);
   border-radius: 4px;
-  background: #1a1a2e;
-  color: #a0a0c0;
+  background: var(--surface-bg);
+  color: var(--text-secondary);
   cursor: pointer;
   display: flex;
   align-items: center;
@@ -467,9 +467,9 @@
   flex-shrink: 0;
 }
 .sidebar-toggle:hover {
-  background: #2a2a4a;
-  color: #00d4ff;
-  border-color: #00d4ff;
+  background: var(--surface-border);
+  color: var(--accent);
+  border-color: var(--accent);
 }
 /* Icone : centrage typographique propre (les chevrons ◀ ▶ ont des métriques
    asymétriques, un <span> dédié permet un micro-ajustement). */
@@ -486,8 +486,8 @@
    a le look d'un panneau réduit. Bouton collé en haut. */
 .composer-sidebar.is-collapsed,
 .composer-aside.is-collapsed {
-  background: #1a1a2e;
-  border: 1px solid #2a2a4a;
+  background: var(--surface-bg);
+  border: 1px solid var(--surface-border);
   border-radius: 8px;
   display: flex;
   flex-direction: column;
@@ -517,7 +517,7 @@
   writing-mode: vertical-rl;
   text-orientation: mixed;
   font-size: 0.8rem;
-  color: #a0a0c0;
+  color: var(--text-secondary);
   text-transform: uppercase;
   letter-spacing: 0.08em;
   user-select: none;

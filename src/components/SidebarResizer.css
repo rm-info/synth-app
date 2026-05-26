@@ -13,7 +13,7 @@
 .sidebar-resizer-left  { left: -5px;  }
 
 .sidebar-resizer:hover {
-  background: rgba(0, 212, 255, 0.25);
+  background: var(--accent-bg-overlay);
 }
 
 .sidebar-resizer:active {

@@ -3,8 +3,8 @@
   flex-direction: column;
   width: 100%;
   height: 100%;
-  background: #14141f;
-  border: 1px solid #3a3a5a;
+  background: var(--surface-elevated);
+  border: 1px solid var(--surface-border-strong);
   border-radius: 8px;
   padding: 12px;
   min-width: 0;
@@ -18,7 +18,7 @@
   gap: 12px;
   margin-bottom: 8px;
   padding-bottom: 6px;
-  border-bottom: 1px solid #3a3a5a;
+  border-bottom: 1px solid var(--surface-border-strong);
 }
 
 .spectrogram-controls {
@@ -27,9 +27,9 @@
 }
 
 .spectrogram-toggle {
-  background: #1f1f30;
-  color: #a8acc4;
-  border: 1px solid #3a3a5a;
+  background: transparent;
+  color: var(--text-secondary);
+  border: 1px solid var(--surface-border-strong);
   border-radius: 4px;
   padding: 4px 10px;
   font-size: 0.85em;
@@ -39,20 +39,20 @@
 }
 
 .spectrogram-toggle:hover {
-  background: #2a2a4a;
-  color: #d0d4ec;
+  background: var(--hover-bg);
+  color: var(--text-strong);
 }
 
 .spectrogram-toggle.is-active {
-  background: #003a4a;
-  color: #00d4ff;
-  border-color: #00d4ff;
+  background: var(--accent-bg-strong);
+  color: var(--accent);
+  border-color: var(--accent);
 }
 
 .spectrogram-header h3 {
   margin: 0;
   font-size: 0.8rem;
-  color: #a0a0c0;
+  color: var(--text-secondary);
   text-transform: uppercase;
   letter-spacing: 0.05em;
   font-weight: 600;
@@ -62,8 +62,8 @@
   flex: 1;
   min-height: 200px;
   min-width: 0;
-  background: #0a0a1a;
-  border: 1px solid #2a2a4a;
+  background: var(--canvas-bg-deep);
+  border: 1px solid var(--surface-border);
   border-radius: 6px;
   overflow: hidden;
 }

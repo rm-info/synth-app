@@ -3,8 +3,8 @@
   align-items: center;
   gap: 12px;
   padding: 8px 16px;
-  background: #1a1a2e;
-  border: 1px solid #2a2a4a;
+  background: var(--surface-bg);
+  border: 1px solid var(--surface-border);
   border-radius: 8px;
   flex-wrap: wrap;
 }
@@ -26,21 +26,21 @@
   border-radius: 6px;
   font-size: 0.85rem;
   font-weight: 600;
-  background: #4ade80;
-  color: #0f0f1a;
+  background: var(--success);
+  color: var(--app-bg);
   cursor: pointer;
   transition: background 0.15s, transform 0.1s, opacity 0.15s;
 }
 .toolbar .transport-btn:hover:not(:disabled) {
-  background: #22c55e;
+  background: var(--success-dark);
   transform: scale(1.02);
 }
 .toolbar .transport-btn.playing {
-  background: #ff4466;
+  background: var(--danger);
   color: #fff;
 }
 .toolbar .transport-btn.playing:hover:not(:disabled) {
-  background: #e63355;
+  background: var(--danger-dark);
 }
 .toolbar .transport-btn:disabled {
   opacity: 0.35;
@@ -51,7 +51,7 @@
 .toolbar .toolbar-secondary {
   padding: 6px 12px;
   background: transparent;
-  border: 1px solid #5a5a7a;
+  border: 1px solid var(--text-secondary);
   color: #8a8aaa;
   border-radius: 6px;
   font-size: 0.8rem;
@@ -59,8 +59,8 @@
   transition: border-color 0.15s, color 0.15s;
 }
 .toolbar .toolbar-secondary:hover:not(:disabled) {
-  border-color: #ff4466;
-  color: #ff4466;
+  border-color: var(--danger);
+  color: var(--danger);
 }
 .toolbar .toolbar-secondary:disabled {
   opacity: 0.35;
@@ -90,7 +90,7 @@
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  color: #a0a0c0;
+  color: var(--text-secondary);
   font-size: 0.75rem;
   font-weight: 600;
   letter-spacing: 0.05em;
@@ -99,10 +99,10 @@
 .bpm-input {
   width: 56px;
   padding: 4px 6px;
-  border: 1px solid #3a3a5a;
+  border: 1px solid var(--surface-border-strong);
   border-radius: 4px;
-  background: #1a1a2e;
-  color: #e0e0e0;
+  background: var(--surface-bg);
+  color: var(--text-default);
   font-family: monospace;
   font-size: 0.85rem;
   text-align: center;
@@ -110,8 +110,8 @@
 }
 
 .bpm-input:focus {
-  border-color: #00d4ff;
-  background: #0f0f1a;
+  border-color: var(--accent);
+  background: var(--app-bg);
 }
 
 .a4-control {
@@ -119,7 +119,7 @@
   align-items: center;
   gap: 6px;
   margin-left: 14px;
-  color: #a0a0c0;
+  color: var(--text-secondary);
   font-size: 0.75rem;
   font-weight: 600;
   letter-spacing: 0.05em;
@@ -128,10 +128,10 @@
 .a4-input {
   width: 48px;
   padding: 4px 6px;
-  border: 1px solid #3a3a5a;
+  border: 1px solid var(--surface-border-strong);
   border-radius: 4px;
-  background: #1a1a2e;
-  color: #e0e0e0;
+  background: var(--surface-bg);
+  color: var(--text-default);
   font-family: monospace;
   font-size: 0.85rem;
   text-align: center;
@@ -139,12 +139,12 @@
 }
 
 .a4-input:focus {
-  border-color: #00d4ff;
-  background: #0f0f1a;
+  border-color: var(--accent);
+  background: var(--app-bg);
 }
 
 .a4-unit {
-  color: #6a6a8a;
+  color: var(--text-secondary);
   font-weight: 400;
   font-size: 0.7rem;
   letter-spacing: 0;
@@ -157,7 +157,7 @@
   align-items: center;
   gap: 6px;
   margin-left: 14px;
-  color: #a0a0c0;
+  color: var(--text-secondary);
   font-size: 0.75rem;
   font-weight: 600;
   letter-spacing: 0.05em;
@@ -166,10 +166,10 @@
 .xedo-input {
   width: 42px;
   padding: 4px 6px;
-  border: 1px solid #3a3a5a;
+  border: 1px solid var(--surface-border-strong);
   border-radius: 4px;
-  background: #1a1a2e;
-  color: #e0e0e0;
+  background: var(--surface-bg);
+  color: var(--text-default);
   font-family: monospace;
   font-size: 0.85rem;
   text-align: center;
@@ -177,8 +177,8 @@
 }
 
 .xedo-input:focus {
-  border-color: #00d4ff;
-  background: #0f0f1a;
+  border-color: var(--accent);
+  background: var(--app-bg);
 }
 
 .tuning-control {
@@ -186,7 +186,7 @@
   align-items: center;
   gap: 6px;
   margin-left: 14px;
-  color: #a0a0c0;
+  color: var(--text-secondary);
   font-size: 0.75rem;
   font-weight: 600;
   letter-spacing: 0.05em;
@@ -198,10 +198,10 @@
    * reste en backlog. */
   max-width: 220px;
   padding: 4px 6px;
-  border: 1px solid #3a3a5a;
+  border: 1px solid var(--surface-border-strong);
   border-radius: 4px;
-  background: #1a1a2e;
-  color: #e0e0e0;
+  background: var(--surface-bg);
+  color: var(--text-default);
   font-family: monospace;
   font-size: 0.8rem;
   outline: none;
@@ -209,12 +209,12 @@
 }
 
 .tuning-select:focus {
-  border-color: #00d4ff;
-  background: #0f0f1a;
+  border-color: var(--accent);
+  background: var(--app-bg);
 }
 
 .duration-control-label {
-  color: #a0a0c0;
+  color: var(--text-secondary);
   font-size: 0.75rem;
   font-weight: 600;
   letter-spacing: 0.05em;
@@ -227,23 +227,23 @@
   height: 26px;
   padding: 0 6px;
   margin-left: 4px;
-  border: 1px solid #3a3a5a;
+  border: 1px solid var(--surface-border-strong);
   border-radius: 4px;
-  background: #1a1a2e;
-  color: #a0a0c0;
+  background: var(--surface-bg);
+  color: var(--text-secondary);
   font-family: monospace;
   font-size: 0.85rem;
   cursor: pointer;
   transition: background 0.1s, border-color 0.1s, color 0.1s;
 }
 .duration-mode-toggle:hover {
-  border-color: #00d4ff;
-  color: #00d4ff;
+  border-color: var(--accent);
+  color: var(--accent);
 }
 
 .clipboard-hint {
   font-size: 0.65rem;
-  color: #7a7a9a;
+  color: var(--text-secondary);
   font-style: italic;
   white-space: nowrap;
 }
@@ -251,8 +251,8 @@
 .zoom-h-section,
 .zoom-v-section,
 .history-section {
-  background: #14141f;
-  border: 1px solid #2a2a4a;
+  background: var(--surface-elevated);
+  border: 1px solid var(--surface-border);
   border-radius: 6px;
   padding: 4px 8px;
 }
@@ -263,7 +263,7 @@
   border: none;
   border-radius: 4px;
   background: transparent;
-  color: #c0c0e0;
+  color: var(--text-default);
   font-size: 1.05rem;
   line-height: 1;
   cursor: pointer;
@@ -273,8 +273,8 @@
   transition: background 0.12s, color 0.12s;
 }
 .history-btn:hover:not(:disabled) {
-  background: #2a2a4a;
-  color: #00d4ff;
+  background: var(--surface-border);
+  color: var(--accent);
 }
 .history-btn:disabled {
   opacity: 0.3;
@@ -283,7 +283,7 @@
 
 .toolbar-flash {
   font-size: 0.78rem;
-  color: #4ade80;
+  color: var(--success);
   font-style: italic;
   padding: 4px 10px;
   background: rgba(74, 222, 128, 0.1);
@@ -299,8 +299,8 @@
   align-items: center;
   gap: 4px;
   font-size: 0.72rem;
-  color: #1a1a2e;
-  background: #00d4ff;
+  color: var(--surface-bg);
+  background: var(--accent);
   border-radius: 4px;
   padding: 3px 10px;
   font-family: monospace;
@@ -324,7 +324,7 @@
   font-family: monospace;
   font-size: 0.8rem;
   font-weight: 600;
-  color: #1a1a2e;
+  color: var(--surface-bg);
   background: #ffc600;
   padding: 3px 10px;
   border-radius: 4px;
@@ -337,7 +337,7 @@
 }
 
 .zoom-label {
-  color: #7a7a9a;
+  color: var(--text-secondary);
   font-size: 0.7rem;
   font-weight: 600;
   text-transform: uppercase;
@@ -351,7 +351,7 @@
   border: none;
   border-radius: 4px;
   background: transparent;
-  color: #c0c0e0;
+  color: var(--text-default);
   font-size: 0.95rem;
   line-height: 1;
   cursor: pointer;
@@ -362,8 +362,8 @@
   transition: background 0.12s, color 0.12s;
 }
 .zoom-step:hover:not(:disabled) {
-  background: #2a2a4a;
-  color: #00d4ff;
+  background: var(--surface-border);
+  color: var(--accent);
 }
 .zoom-step:disabled {
   opacity: 0.35;
@@ -372,7 +372,7 @@
 
 .zoom-slider {
   width: 140px;
-  accent-color: #00d4ff;
+  accent-color: var(--accent);
   height: 4px;
   cursor: pointer;
 }
@@ -383,7 +383,7 @@
 .zoom-value {
   font-family: monospace;
   font-size: 0.7rem;
-  color: #7a7a9a;
+  color: var(--text-secondary);
   min-width: 42px;
   text-align: right;
 }

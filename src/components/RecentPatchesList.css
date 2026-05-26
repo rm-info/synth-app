@@ -7,7 +7,7 @@
   gap: 4px;
   padding: 6px 2px;
   align-items: center;
-  border-top: 1px solid #3a3a5a;
+  border-top: 1px solid var(--surface-border-strong);
   margin-top: 4px;
   width: 100%;
   /* Limite la hauteur pour ne pas pousser le bouton popover hors viewport.
@@ -23,14 +23,14 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  color: #5a5a7a;
+  color: var(--text-secondary);
   margin-bottom: 2px;
   user-select: none;
 }
 
 .recent-patches-empty {
   font-size: 11px;
-  color: #4a4a6a;
+  color: var(--surface-border-strong);
   padding: 2px;
   text-align: center;
   user-select: none;
@@ -42,7 +42,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  background: color-mix(in srgb, var(--chip-color) 12%, #1a1a2e);
+  background: color-mix(in srgb, var(--chip-color) 12%, var(--surface-bg));
   border: 1px solid color-mix(in srgb, var(--chip-color) 35%, transparent);
   border-radius: 3px;
   cursor: grab;

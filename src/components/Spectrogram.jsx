@@ -1,5 +1,6 @@
 import { useRef, useEffect, useCallback } from 'react'
 import { pointsToHarmonics } from '../audio'
+import { themeColor } from '../lib/themeColor'
 import './Spectrogram.css'
 
 const FREQ_MIN = 16
@@ -54,10 +55,10 @@ function freqToX(freq, plotW) {
 
 function drawYGrid(ctx, plotX, plotY, plotW, plotH, dbScale) {
   const ticks = dbScale ? Y_TICKS_DB : Y_TICKS_LINEAR
-  ctx.strokeStyle = '#2a2a4a'
+  ctx.strokeStyle = themeColor('canvas-grid-secondary')
   ctx.lineWidth = 1
   ctx.setLineDash([4, 4])
-  ctx.fillStyle = '#8a8fa8'
+  ctx.fillStyle = themeColor('canvas-text-primary')
   ctx.font = '10px system-ui, sans-serif'
   ctx.textAlign = 'right'
   ctx.textBaseline = 'middle'
@@ -75,7 +76,7 @@ function drawYGrid(ctx, plotX, plotY, plotW, plotH, dbScale) {
   // Minor ticks (sans labels) traversant le plot ; pattern dash plus
   // fin et couleur légèrement plus claire pour rester subordonné aux
   // majors visuellement.
-  ctx.strokeStyle = '#33335a'
+  ctx.strokeStyle = themeColor('canvas-grid-tertiary')
   ctx.setLineDash([2, 4])
   for (const ratio of Y_TICKS_MINOR_RATIOS) {
     const y = plotY + plotH - ratio * plotH
@@ -149,6 +150,15 @@ function Spectrogram({
     }
   }, [mode])
 
+  // iter-K phase-3.f15 : force redraw au changement de thème (sinon la cache
+  // static ne déclenche jamais de repaint et le canvas reste figé sur les
+  // anciennes couleurs jusqu'à la prochaine édition d'onde).
+  useEffect(() => {
+    const invalidate = () => { stateRef.current.lastPoints = null }
+    window.addEventListener('themechange', invalidate)
+    return () => window.removeEventListener('themechange', invalidate)
+  }, [])
+
   const drawStatic = useCallback(() => {
     const canvas = canvasRef.current
     if (!canvas) return false
@@ -158,7 +168,7 @@ function Spectrogram({
     const ctx = canvas.getContext('2d')
     const { points, frequency, dbScale } = propsRef.current
 
-    ctx.fillStyle = '#1a1a2e'
+    ctx.fillStyle = themeColor('canvas-bg')
     ctx.fillRect(0, 0, W, H)
 
     const plotX = PADDING_LEFT
@@ -167,10 +177,10 @@ function Spectrogram({
     const plotH = H - PADDING_TOP - PADDING_BOTTOM
     if (plotW <= 0 || plotH <= 0) return false
 
-    ctx.strokeStyle = '#2a2a4a'
+    ctx.strokeStyle = themeColor('canvas-grid-secondary')
     ctx.lineWidth = 1
     ctx.setLineDash([4, 4])
-    ctx.fillStyle = '#8a8fa8'
+    ctx.fillStyle = themeColor('canvas-text-primary')
     ctx.font = '10px system-ui, sans-serif'
     ctx.textAlign = 'center'
     ctx.textBaseline = 'top'
@@ -186,7 +196,7 @@ function Spectrogram({
 
     drawYGrid(ctx, plotX, plotY, plotW, plotH, dbScale)
 
-    ctx.strokeStyle = '#3a3a5a'
+    ctx.strokeStyle = themeColor('canvas-grid-primary')
     ctx.beginPath()
     ctx.moveTo(plotX, plotY + plotH + 0.5)
     ctx.lineTo(plotX + plotW, plotY + plotH + 0.5)
@@ -194,7 +204,7 @@ function Spectrogram({
 
     const hasSignal = points.some((v) => v !== 0)
     if (!hasSignal) {
-      ctx.fillStyle = '#7a7e96'
+      ctx.fillStyle = themeColor('canvas-text-secondary')
       ctx.font = 'italic 12px system-ui, sans-serif'
       ctx.textAlign = 'center'
       ctx.textBaseline = 'middle'
@@ -209,7 +219,7 @@ function Spectrogram({
     }
     if (maxMag <= 0) return true
 
-    ctx.fillStyle = '#00d4ff'
+    ctx.fillStyle = themeColor('accent')
     for (let k = 1; k < magnitudes.length; k++) {
       const f = k * frequency
       if (f > FREQ_MAX) break
@@ -240,7 +250,7 @@ function Spectrogram({
     const ctx = canvas.getContext('2d')
     const { analyserRef, dbScale, peakHold } = propsRef.current
 
-    ctx.fillStyle = '#1a1a2e'
+    ctx.fillStyle = themeColor('canvas-bg')
     ctx.fillRect(0, 0, W, H)
 
     const plotX = PADDING_LEFT
@@ -249,10 +259,10 @@ function Spectrogram({
     const plotH = H - PADDING_TOP - PADDING_BOTTOM
     if (plotW <= 0 || plotH <= 0) return false
 
-    ctx.strokeStyle = '#2a2a4a'
+    ctx.strokeStyle = themeColor('canvas-grid-secondary')
     ctx.lineWidth = 1
     ctx.setLineDash([4, 4])
-    ctx.fillStyle = '#8a8fa8'
+    ctx.fillStyle = themeColor('canvas-text-primary')
     ctx.font = '10px system-ui, sans-serif'
     ctx.textAlign = 'center'
     ctx.textBaseline = 'top'
@@ -268,7 +278,7 @@ function Spectrogram({
 
     drawYGrid(ctx, plotX, plotY, plotW, plotH, dbScale)
 
-    ctx.strokeStyle = '#3a3a5a'
+    ctx.strokeStyle = themeColor('canvas-grid-primary')
     ctx.beginPath()
     ctx.moveTo(plotX, plotY + plotH + 0.5)
     ctx.lineTo(plotX + plotW, plotY + plotH + 0.5)
@@ -282,7 +292,7 @@ function Spectrogram({
     // avant la première note alors que l'état logique est identique.
     const analyser = analyserRef?.current
     if (!analyser) {
-      ctx.strokeStyle = '#00d4ff'
+      ctx.strokeStyle = themeColor('accent')
       ctx.lineWidth = 1.5
       ctx.beginPath()
       ctx.moveTo(plotX, plotY + plotH)
@@ -332,7 +342,7 @@ function Spectrogram({
       }
     }
 
-    ctx.strokeStyle = '#00d4ff'
+    ctx.strokeStyle = themeColor('accent')
     ctx.lineWidth = 1.5
     ctx.beginPath()
     for (let x = 0; x < plotW; x++) {
@@ -346,14 +356,14 @@ function Spectrogram({
     // stroke() ci-dessus (Canvas2D ne clear pas le path après stroke).
     // On le ferme manuellement vers les coins bas pour former un polygone
     // fermé, puis on fill.
-    ctx.fillStyle = 'rgba(0, 212, 255, 0.2)'
+    ctx.fillStyle = themeColor('accent-bg-overlay')
     ctx.lineTo(plotX + plotW - 1, plotY + plotH)
     ctx.lineTo(plotX, plotY + plotH)
     ctx.closePath()
     ctx.fill()
 
     if (peakHold) {
-      ctx.strokeStyle = '#80efff'
+      ctx.strokeStyle = themeColor('accent-bright')
       ctx.lineWidth = 1
       ctx.beginPath()
       for (let x = 0; x < plotW; x++) {

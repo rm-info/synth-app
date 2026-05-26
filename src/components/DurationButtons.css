@@ -10,8 +10,8 @@
 .duration-buttons-coefs {
   display: flex;
   gap: 2px;
-  background: #1a1a2e;
-  border: 1px solid #3a3a5a;
+  background: var(--surface-bg);
+  border: 1px solid var(--surface-border-strong);
   border-radius: 6px;
   padding: 2px;
   flex-wrap: wrap;
@@ -24,8 +24,8 @@
   padding: 0 6px;
   border: 1px solid transparent;
   border-radius: 4px;
-  background: #2a2a4a;
-  color: #c0c0e0;
+  background: var(--surface-border);
+  color: var(--text-default);
   font-family: monospace;
   font-size: 0.78rem;
   font-weight: 500;
@@ -44,20 +44,20 @@
 
 .dur-btn:hover:not(:disabled) {
   background: #3a3a6a;
-  border-color: #00d4ff;
-  color: #00d4ff;
+  border-color: var(--accent);
+  color: var(--accent);
 }
 
 .dur-btn.is-active {
-  background: #00d4ff;
+  background: var(--accent);
   border-color: #00b8e6;
-  color: #1a1a2e;
+  color: var(--surface-bg);
   font-weight: 600;
 }
 
 .dur-btn.is-active:hover:not(:disabled) {
   background: #00b8e6;
-  color: #1a1a2e;
+  color: var(--surface-bg);
 }
 
 .dur-btn:disabled {

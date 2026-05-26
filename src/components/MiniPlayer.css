@@ -11,8 +11,8 @@
   height: 36px;
   border-radius: 50%;
   border: none;
-  background: #4ade80;
-  color: #0f0f1a;
+  background: var(--success);
+  color: var(--app-bg);
   font-size: 0.9rem;
   cursor: pointer;
   display: flex;
@@ -22,15 +22,15 @@
   transition: background 0.15s, transform 0.1s;
 }
 .mini-play-btn:hover:not(:disabled) {
-  background: #22c55e;
+  background: var(--success-dark);
   transform: scale(1.05);
 }
 .mini-play-btn.playing {
-  background: #ff4466;
+  background: var(--danger);
   color: #fff;
 }
 .mini-play-btn.playing:hover {
-  background: #e63355;
+  background: var(--danger-dark);
 }
 .mini-play-btn:disabled {
   opacity: 0.35;
@@ -38,6 +38,10 @@
   transform: none;
 }
 
+/* iter-K phase-3.f15 : fond clair vert pâle dans les deux thèmes (le
+ * gradient utilise --playhead-rgb pour suivre la teinte success du
+ * thème courant). Texte sombre lisible sur ce fond — plus de text-shadow
+ * noir qui détonnait sur fond clair. */
 .mini-progress-bar {
   flex: 1;
   min-width: 0;
@@ -46,22 +50,21 @@
   align-items: center;
   justify-content: center;
   position: relative;
-  border: 1px solid #3a4a5a;
+  border: 1px solid var(--surface-border-strong);
   border-radius: 6px;
   overflow: hidden;
   background: linear-gradient(
     to right,
-    rgba(74, 222, 128, 0.4) 0%,
-    rgba(74, 222, 128, 0.4) var(--progress, 0%),
-    rgba(74, 222, 128, 0.06) var(--progress, 0%),
-    rgba(74, 222, 128, 0.06) 100%
+    rgba(var(--playhead-rgb), 0.4) 0%,
+    rgba(var(--playhead-rgb), 0.4) var(--progress, 0%),
+    rgba(var(--playhead-rgb), 0.06) var(--progress, 0%),
+    rgba(var(--playhead-rgb), 0.06) 100%
   );
 }
 
 .mini-progress-text {
   font-family: monospace;
   font-size: 0.8rem;
-  color: #e0f4e0;
-  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
+  color: var(--text-strong);
   z-index: 1;
 }

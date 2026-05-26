@@ -8,6 +8,7 @@ import {
 import { BEATS_PER_MEASURE, TRACK_COLORS } from '../reducer'
 import { formatClipNote } from '../lib/clipNote'
 import { DEFAULT_X_EDO_N } from '../lib/tuningSystems'
+import { themeColor } from '../lib/themeColor'
 import './Timeline.css'
 
 const DRAG_THRESHOLD_PX = 5
@@ -1017,11 +1018,13 @@ function Timeline({
 
       const W = canvas.width
       const H = canvas.height
-      ctx2d.fillStyle = '#0a0a1a'
+      ctx2d.fillStyle = themeColor('canvas-bg-deep')
       ctx2d.fillRect(0, 0, W, H)
 
-      // Ligne plate toujours visible (faded)
-      ctx2d.strokeStyle = 'rgba(74, 222, 128, 0.3)'
+      // Ligne plate toujours visible (faded). Le tuple RGB du playhead
+      // vient d'une CSS var (--playhead-rgb) pour suivre le thème courant.
+      const playheadRgb = themeColor('playhead-rgb')
+      ctx2d.strokeStyle = `rgba(${playheadRgb}, 0.3)`
       ctx2d.lineWidth = 2
       ctx2d.beginPath()
       ctx2d.moveTo(0, H / 2)
@@ -1031,7 +1034,7 @@ function Timeline({
       // Signal en overlay si intensity > 0
       const intensity = intensityRef.current
       if (intensity > 0 && lastDataRef.current) {
-        ctx2d.strokeStyle = `rgba(74, 222, 128, ${intensity})`
+        ctx2d.strokeStyle = `rgba(${playheadRgb}, ${intensity})`
         ctx2d.lineWidth = 2
         ctx2d.beginPath()
         const data = lastDataRef.current

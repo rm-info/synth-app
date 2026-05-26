@@ -80,7 +80,7 @@ function App() {
     designerSidebarWidth, designerSidebarCollapsed,
     bibHierarchyMode, bibDisplayMode, bibCurrentFolderId, bibPopupWidth,
     bibSelectedIds, bibSelectionAnchor, bibCollapsedFolders,
-    recentPatchIds,
+    recentPatchIds, theme,
     patchCounter, clipCounter, folderCounter, trackCounter,
     clipboard, measureClipboard, bibClipboard, history, notification,
     pendingDeleteWarning,
@@ -565,6 +565,7 @@ function App() {
           bibCollapsedFolders,
           bibPopupWidth,
           recentPatchIds,
+          theme,
           // F.4.4.3 : état d'exploration Designer persisté de bout en bout.
           // Chaque presse-touche dispatch un SET_EDITOR_TEST_NOTE qui re-tire
           // ce useEffect → setItem(localStorage). Coût acceptable :
@@ -587,10 +588,21 @@ function App() {
     composerBankWidth, composerAsideWidth, composerBankCollapsed, composerAsideCollapsed,
     designerSidebarWidth, designerSidebarCollapsed,
     bibHierarchyMode, bibDisplayMode, bibCurrentFolderId, bibCollapsedFolders, bibPopupWidth,
-    recentPatchIds,
+    recentPatchIds, theme,
     editor.testTuningSystem, editor.testNoteIndex, editor.testOctave, editor.testFrequency,
     editor.visualCuePattern, editor.visualCueTonic,
   ])
+
+  // iter-K phase-3.f15 : propage `theme` à `<html data-theme=…>` pour
+  // activer la palette CSS correspondante. Le CustomEvent 'themechange'
+  // permet aux canvas JS (Timeline, Spectrogram, WaveformEditor) de
+  // redrawer en relisant les CSS vars via lib/themeColor.js — sans cet
+  // event, un draw issu d'une frame d'animation ou d'un ResizeObserver
+  // continuerait de cacher les anciennes couleurs sur sa prochaine itération.
+  useEffect(() => {
+    document.documentElement.dataset.theme = theme
+    window.dispatchEvent(new CustomEvent('themechange', { detail: { theme } }))
+  }, [theme])
 
   // F.8.1.3 : exposition du store sur window en dev pour permettre les tests
   // manuels via la console (ex. `window.__store.dispatch({type:'SET_X_EDO_N',
@@ -1736,7 +1748,12 @@ function App() {
 
   return (
     <div className="app">
-      <Tabs activeTab={activeTab} onChange={setActiveTab} />
+      <Tabs
+        activeTab={activeTab}
+        onChange={setActiveTab}
+        theme={theme}
+        onToggleTheme={() => dispatch({ type: 'SET_THEME', payload: theme === 'light' ? 'dark' : 'light' })}
+      />
 
       {activeTab === 'library' && (
         <main className="library-tab-content">

@@ -11,8 +11,8 @@
   height: 100%;
   box-sizing: border-box;
   padding: 12px;
-  background: #14141f;
-  border: 1px solid #3a3a5a;
+  background: var(--surface-elevated);
+  border: 1px solid var(--surface-border-strong);
   border-radius: 8px;
   font-family: system-ui, -apple-system, sans-serif;
 }
@@ -23,7 +23,7 @@
   justify-content: space-between;
   margin-bottom: 8px;
   padding-bottom: 6px;
-  border-bottom: 1px solid #3a3a5a;
+  border-bottom: 1px solid var(--surface-border-strong);
   flex-shrink: 0;
   gap: 10px;
 }
@@ -47,8 +47,8 @@
   display: inline-flex;
   align-items: center;
   gap: 2px;
-  background: #14141f;
-  border: 1px solid #3a3a5a;
+  background: var(--surface-elevated);
+  border: 1px solid var(--surface-border-strong);
   border-radius: 4px;
   padding: 2px;
 }
@@ -59,7 +59,7 @@
   border: none;
   border-radius: 3px;
   background: transparent;
-  color: #c0c0e0;
+  color: var(--text-default);
   font-size: 1rem;
   line-height: 1;
   cursor: pointer;
@@ -70,8 +70,8 @@
   padding: 0;
 }
 .we-history-btn:hover:not(:disabled) {
-  background: #2a2a4a;
-  color: #00d4ff;
+  background: var(--surface-border);
+  color: var(--accent);
 }
 .we-history-btn:disabled {
   opacity: 0.3;
@@ -88,24 +88,24 @@
   user-select: none;
   padding: 3px 8px;
   border-radius: 4px;
-  border: 1px solid #3a3a5a;
-  background: #1a1a2e;
+  border: 1px solid var(--surface-border-strong);
+  background: var(--surface-bg);
   flex-shrink: 0;
   transition: border-color 0.15s, color 0.15s;
 }
 .spectro-toggle:hover {
-  border-color: #00d4ff;
-  color: #00d4ff;
+  border-color: var(--accent);
+  color: var(--accent);
 }
 .spectro-toggle input {
-  accent-color: #00d4ff;
+  accent-color: var(--accent);
   margin: 0;
 }
 
 .we-area-title {
   margin: 0;
   font-size: 0.8rem;
-  color: #a0a0c0;
+  color: var(--text-secondary);
   text-transform: uppercase;
   letter-spacing: 0.05em;
   font-weight: 600;
@@ -136,17 +136,17 @@
 
 .presets button {
   padding: 4px 10px;
-  border: 1px solid #3a3a5a;
+  border: 1px solid var(--surface-border-strong);
   border-radius: 6px;
-  background: #2a2a4a;
-  color: #c0c0e0;
+  background: var(--surface-border);
+  color: var(--text-default);
   cursor: pointer;
   font-size: 0.75rem;
   transition: background 0.15s, border-color 0.15s;
 }
 .presets button:hover {
   background: #3a3a6a;
-  border-color: #00d4ff;
+  border-color: var(--accent);
 }
 
 .canvas-container {
@@ -167,9 +167,9 @@
   width: 100%;
   height: 100%;
   border-radius: 8px;
-  border: 1px solid #4a4a6a;
+  border: 1px solid var(--surface-border-strong);
   cursor: crosshair;
-  background: #1a1a2e;
+  background: var(--surface-bg);
   box-sizing: border-box;
 }
 
@@ -255,7 +255,7 @@
   font-size: 0.72rem;
   text-transform: uppercase;
   letter-spacing: 0.06em;
-  color: #8a8fa8;
+  color: var(--text-secondary);
   font-weight: 600;
   line-height: 1;
   flex-shrink: 0;
@@ -286,17 +286,17 @@
 }
 
 .control-group label {
-  color: #a0a0c0;
+  color: var(--text-secondary);
   font-size: 0.85rem;
 }
 
 .control-group strong {
-  color: #00d4ff;
+  color: var(--accent);
 }
 
 .control-group input[type='range'] {
   width: 100%;
-  accent-color: #00d4ff;
+  accent-color: var(--accent);
   height: 6px;
 }
 
@@ -304,7 +304,7 @@
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  color: #a0a0c0;
+  color: var(--text-secondary);
   font-size: 0.85rem;
   min-width: 0;
   flex-wrap: wrap;
@@ -313,10 +313,10 @@
 .freq-input {
   width: 90px;
   padding: 4px 6px;
-  border: 1px solid #4a4a6a;
+  border: 1px solid var(--surface-border-strong);
   border-radius: 4px;
-  background: #1a1a2e;
-  color: #00d4ff;
+  background: var(--surface-bg);
+  color: var(--accent);
   font-family: monospace;
   font-weight: 600;
   font-size: 0.85rem;
@@ -324,12 +324,12 @@
   outline: none;
 }
 .freq-input:focus {
-  border-color: #00d4ff;
-  background: #0f0f1a;
+  border-color: var(--accent);
+  background: var(--app-bg);
 }
 
 .freq-unit {
-  color: #00d4ff;
+  color: var(--accent);
   font-weight: 600;
   font-size: 0.85rem;
 }
@@ -340,7 +340,7 @@
 }
 
 .system-label {
-  color: #a0a0c0;
+  color: var(--text-secondary);
   font-size: 0.85rem;
 }
 
@@ -374,7 +374,7 @@
   font-size: 0.72rem;
   text-transform: uppercase;
   letter-spacing: 0.06em;
-  color: #8a8fa8;
+  color: var(--text-secondary);
   font-weight: 600;
 }
 /* Le ShortLabelSelect prend 100% de son champ (cohérent avec le
@@ -425,19 +425,19 @@
   gap: 8px;
   width: 100%;
   padding: 10px 14px;
-  border: 1px solid #4a4a6a;
+  border: 1px solid var(--surface-border-strong);
   border-radius: 6px;
   background: rgba(0, 212, 255, 0.05);
-  color: #d0d0e0;
+  color: var(--text-muted);
   font-size: 0.85rem;
   font-weight: 500;
   cursor: pointer;
   transition: background 0.15s, border-color 0.15s, color 0.15s;
 }
 .instrument-collapse-trigger:hover {
-  background: rgba(0, 212, 255, 0.15);
-  border-color: #00d4ff;
-  color: #00d4ff;
+  background: var(--accent-bg-medium);
+  border-color: var(--accent);
+  color: var(--accent);
 }
 
 /* Modale centrée des paramètres du système musical. Backdrop fixed
@@ -461,8 +461,8 @@
   max-width: 480px;
   /* v1.2.3 : 100vh → 100dvh (cf. App.css). */
   max-height: calc(100dvh - 40px);
-  background: #1a1a2e;
-  border: 1px solid #3a3a5a;
+  background: var(--surface-bg);
+  border: 1px solid var(--surface-border-strong);
   border-radius: 10px;
   box-shadow: 0 16px 48px rgba(0, 0, 0, 0.5);
   display: flex;
@@ -474,13 +474,13 @@
   align-items: center;
   justify-content: space-between;
   padding: 14px 18px;
-  border-bottom: 1px solid #3a3a5a;
+  border-bottom: 1px solid var(--surface-border-strong);
   flex-shrink: 0;
 }
 .instrument-modal-header h3 {
   margin: 0;
   font-size: 0.95rem;
-  color: #d0d0e0;
+  color: var(--text-muted);
   letter-spacing: 0.02em;
   font-weight: 600;
 }
@@ -488,10 +488,10 @@
   width: 22px;
   height: 22px;
   padding: 0;
-  border: 1px solid #3a3a5a;
+  border: 1px solid var(--surface-border-strong);
   border-radius: 4px;
   background: transparent;
-  color: #a0a0c0;
+  color: var(--text-secondary);
   cursor: pointer;
   display: flex;
   align-items: center;
@@ -499,9 +499,9 @@
   flex-shrink: 0;
 }
 .instrument-modal-close:hover {
-  background: #2a2a4a;
-  color: #ff4466;
-  border-color: #ff4466;
+  background: var(--surface-border);
+  color: var(--danger);
+  border-color: var(--danger);
 }
 .instrument-modal-body {
   padding: 18px;
@@ -543,10 +543,10 @@
   margin-top: 8px;
   width: 100%;
   padding: 10px 14px;
-  border: 1px solid #00d4ff;
+  border: 1px solid var(--accent);
   border-radius: 8px;
-  background: rgba(0, 212, 255, 0.08);
-  color: #00d4ff;
+  background: var(--accent-bg-faint);
+  color: var(--accent);
   font-size: 0.95rem;
   font-weight: 600;
   cursor: pointer;
@@ -554,7 +554,7 @@
   transition: background 0.15s, transform 0.05s;
 }
 .free-test-btn:hover {
-  background: rgba(0, 212, 255, 0.18);
+  background: var(--accent-bg-strong);
 }
 .free-test-btn:active,
 .free-test-btn.is-active {
@@ -562,7 +562,7 @@
   transform: scale(0.98);
 }
 .free-test-shortcut {
-  color: #8a8fa8;
+  color: var(--text-secondary);
   font-weight: 400;
   font-size: 0.8em;
   margin-left: 4px;
@@ -570,10 +570,10 @@
 
 .tuning-system-select {
   padding: 5px 8px;
-  border: 1px solid #4a4a6a;
+  border: 1px solid var(--surface-border-strong);
   border-radius: 6px;
-  background: #1a1a2e;
-  color: #d0d0e0;
+  background: var(--surface-bg);
+  color: var(--text-muted);
   font-size: 0.8rem;
   cursor: pointer;
   font-family: inherit;
@@ -582,7 +582,7 @@
 
 .tuning-system-select:focus {
   outline: none;
-  border-color: #00d4ff;
+  border-color: var(--accent);
 }
 
 /* F.8.3.2 : input X-EDO côté Designer (visible quand testTuningSystem ===
@@ -595,7 +595,7 @@
   align-items: center;
   gap: 6px;
   margin-top: 6px;
-  color: #a0a0c0;
+  color: var(--text-secondary);
   font-size: 0.8rem;
   font-weight: 600;
 }
@@ -607,10 +607,10 @@
   box-sizing: border-box;
   min-height: 32px;
   padding: 5px 6px;
-  border: 1px solid #4a4a6a;
+  border: 1px solid var(--surface-border-strong);
   border-radius: 6px;
-  background: #1a1a2e;
-  color: #d0d0e0;
+  background: var(--surface-bg);
+  color: var(--text-muted);
   font-family: monospace;
   font-size: 0.8rem;
   line-height: 1.4;
@@ -619,7 +619,7 @@
 }
 
 .xedo-input-designer:focus {
-  border-color: #00d4ff;
+  border-color: var(--accent);
 }
 
 /* F.8.3.3 : bannière de bascule X-EDO N=12/24 → 12-TET / 24-tet-equal.
@@ -631,8 +631,8 @@
 .x-edo-banner {
   margin-bottom: 6px;
   padding: 6px 10px;
-  background: rgba(0, 212, 255, 0.08);
-  border: 1px solid rgba(0, 212, 255, 0.3);
+  background: var(--accent-bg-faint);
+  border: 1px solid var(--accent-bg-soft);
   border-radius: 4px;
   color: #c0d8e8;
   font-size: 0.78rem;
@@ -647,7 +647,7 @@
   background: none;
   border: none;
   padding: 0;
-  color: #00d4ff;
+  color: var(--accent);
   font: inherit;
   cursor: pointer;
   text-decoration: underline;
@@ -658,7 +658,7 @@
 }
 
 .x-edo-banner-link:focus-visible {
-  outline: 2px solid #00d4ff;
+  outline: 2px solid var(--accent);
   outline-offset: 2px;
   border-radius: 2px;
 }
@@ -680,7 +680,7 @@
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  color: #a0a0c0;
+  color: var(--text-secondary);
   font-size: 0.85rem;
 }
 
@@ -696,7 +696,7 @@
   padding: 1px 8px;
   border-radius: 3px;
   background: #ffc600;
-  color: #1a1a2e;
+  color: var(--surface-bg);
   font-size: 0.65rem;
   font-weight: 700;
   letter-spacing: 0.08em;
@@ -723,7 +723,7 @@
 }
 .designer-actions-header {
   font-size: 0.7rem;
-  color: #a0a0c0;
+  color: var(--text-secondary);
   text-transform: uppercase;
   letter-spacing: 0.08em;
   font-weight: 600;
@@ -759,10 +759,10 @@
   width: 34px;
   height: 34px;
   padding: 0;
-  border: 1px solid #3a3a5a;
+  border: 1px solid var(--surface-border-strong);
   border-radius: 6px;
-  background: #1a1a2e;
-  color: #a0a0c0;
+  background: var(--surface-bg);
+  color: var(--text-secondary);
   cursor: pointer;
   display: flex;
   align-items: center;
@@ -771,17 +771,17 @@
   transition: background 0.15s, color 0.15s, border-color 0.15s;
 }
 .actions-icon-btn:hover {
-  background: #2a2a4a;
-  color: #00d4ff;
-  border-color: #00d4ff;
+  background: var(--surface-border);
+  color: var(--accent);
+  border-color: var(--accent);
 }
 .actions-icon-btn.update-btn-icon {
-  color: #4ade80;
-  border-color: #4ade80;
+  color: var(--success);
+  border-color: var(--success);
 }
 .actions-icon-btn.update-btn-icon:hover {
   background: rgba(74, 222, 128, 0.18);
-  color: #4ade80;
+  color: var(--success);
 }
 .actions-icon-btn.save-btn-icon {
   color: #c084fc;
@@ -796,17 +796,17 @@
   cursor: not-allowed;
 }
 .actions-icon-btn:disabled:hover {
-  background: #1a1a2e;
-  color: #a0a0c0;
-  border-color: #3a3a5a;
+  background: var(--surface-bg);
+  color: var(--text-secondary);
+  border-color: var(--surface-border-strong);
 }
 
 .new-btn {
   padding: 8px 14px;
-  border: 1px solid #5a5a7a;
+  border: 1px solid var(--text-secondary);
   border-radius: 8px;
   background: transparent;
-  color: #a0a0c0;
+  color: var(--text-secondary);
   font-size: 0.85rem;
   font-weight: 600;
   cursor: pointer;
@@ -814,17 +814,17 @@
 }
 
 .new-btn:hover {
-  border-color: #00d4ff;
-  color: #00d4ff;
-  background: rgba(0, 212, 255, 0.08);
+  border-color: var(--accent);
+  color: var(--accent);
+  background: var(--accent-bg-faint);
 }
 
 .update-btn {
   padding: 8px 16px;
-  border: 1px solid #4ade80;
+  border: 1px solid var(--success);
   border-radius: 8px;
   background: rgba(74, 222, 128, 0.15);
-  color: #4ade80;
+  color: var(--success);
   font-size: 0.85rem;
   font-weight: 600;
   cursor: pointer;
@@ -898,14 +898,14 @@
   width: 100%;
   height: 100%;
   border-radius: 6px;
-  border: 1px solid #4a4a6a;
+  border: 1px solid var(--surface-border-strong);
   /* Curseur géré inline en JS (default → grab → grabbing selon hover/drag,
    * F.3.13.2). Le crosshair par défaut donnait l'impression qu'on dessinait
    * sur tout le canvas, alors que seuls les handles sont interactifs. */
   cursor: default;
   user-select: none;
   touch-action: none;
-  background: #1a1a2e;
+  background: var(--surface-bg);
   box-sizing: border-box;
 }
 
@@ -916,9 +916,9 @@
 .adsr-tooltip {
   position: absolute;
   pointer-events: none;
-  background: #2a2a4a;
-  color: #d0d0e0;
-  border: 1px solid #4a4a6a;
+  background: var(--surface-border);
+  color: var(--text-muted);
+  border: 1px solid var(--surface-border-strong);
   border-radius: 4px;
   padding: 3px 8px;
   font-size: 0.7rem;
@@ -957,7 +957,7 @@
 }
 
 .adsr-slider strong {
-  color: #00d4ff;
+  color: var(--accent);
   font-weight: 600;
 }
 
@@ -968,7 +968,7 @@
   font-family: inherit;
   font-size: inherit;
   font-weight: 600;
-  color: #00d4ff;
+  color: var(--accent);
   background: transparent;
   border: 1px solid transparent;
   border-radius: 3px;
@@ -980,17 +980,17 @@
 }
 
 .adsr-value-input:hover {
-  border-color: #3a3a5a;
+  border-color: var(--surface-border-strong);
 }
 
 .adsr-value-input:focus {
-  border-color: #00d4ff;
-  background: #0f0f1a;
+  border-color: var(--accent);
+  background: var(--app-bg);
 }
 
 .adsr-slider input[type='range'] {
   width: 100%;
-  accent-color: #00d4ff;
+  accent-color: var(--accent);
   height: 4px;
   cursor: pointer;
 }

@@ -1,8 +1,8 @@
 .properties-panel {
   display: flex;
   flex-direction: column;
-  background: #1a1a2e;
-  border: 1px solid #2a2a4a;
+  background: var(--surface-bg);
+  border: 1px solid var(--surface-border);
   border-radius: 8px;
   padding: 12px;
   min-width: 220px;
@@ -19,13 +19,13 @@
   justify-content: space-between;
   margin-bottom: 10px;
   padding-bottom: 8px;
-  border-bottom: 1px solid #2a2a4a;
+  border-bottom: 1px solid var(--surface-border);
 }
 
 .properties-header h3 {
   margin: 0;
   font-size: 0.85rem;
-  color: #a0a0c0;
+  color: var(--text-secondary);
   text-transform: uppercase;
   letter-spacing: 0.05em;
   font-weight: 600;
@@ -42,8 +42,8 @@
   min-width: 20px;
   height: 20px;
   padding: 0 6px;
-  background: #00d4ff;
-  color: #0f0f1a;
+  background: var(--accent);
+  color: var(--app-bg);
   border-radius: 10px;
   font-size: 0.7rem;
   font-weight: 700;
@@ -70,8 +70,8 @@
   font-size: 0.85rem;
 }
 .properties-toggle:hover {
-  background: #2a2a4a;
-  color: #00d4ff;
+  background: var(--surface-border);
+  color: var(--accent);
 }
 
 .properties-body {
@@ -81,14 +81,14 @@
 
 .properties-empty {
   margin: 0;
-  color: #8a8fa8;
+  color: var(--text-secondary);
   font-size: 0.8rem;
   font-style: italic;
 }
 
 .properties-multi {
   margin: 0 0 6px 0;
-  color: #e0e0ff;
+  color: var(--text-default);
   font-size: 0.85rem;
   font-weight: 600;
 }
@@ -107,15 +107,15 @@
 
 .clip-editor .field-label {
   font-size: 0.7rem;
-  color: #9aa2b8;
+  color: var(--text-secondary);
   text-transform: uppercase;
   letter-spacing: 0.04em;
 }
 
 .clip-editor .field-input {
-  background: #0f0f1a;
-  color: #e0e0ff;
-  border: 1px solid #4a4a6a;
+  background: var(--app-bg);
+  color: var(--text-default);
+  border: 1px solid var(--surface-border-strong);
   border-radius: 4px;
   padding: 6px 8px;
   font-size: 0.82rem;
@@ -125,12 +125,12 @@
 }
 .clip-editor .field-input:focus {
   outline: none;
-  border-color: #00d4ff;
+  border-color: var(--accent);
 }
 
 .clip-editor .field-readonly {
   background: transparent;
-  color: #e0e0ff;
+  color: var(--text-default);
   font-size: 0.82rem;
   font-family: monospace;
 }
@@ -144,7 +144,7 @@
   align-items: center;
   gap: 6px;
   margin-top: 4px;
-  color: #9aa2b8;
+  color: var(--text-secondary);
   font-size: 0.78rem;
   font-weight: 600;
 }
@@ -152,10 +152,10 @@
 .xedo-input-properties {
   width: 48px;
   padding: 4px 6px;
-  border: 1px solid #4a4a6a;
+  border: 1px solid var(--surface-border-strong);
   border-radius: 4px;
-  background: #0f0f1a;
-  color: #e0e0ff;
+  background: var(--app-bg);
+  color: var(--text-default);
   font-family: monospace;
   font-size: 0.82rem;
   text-align: center;
@@ -163,7 +163,7 @@
 }
 
 .xedo-input-properties:focus {
-  border-color: #00d4ff;
+  border-color: var(--accent);
 }
 
 /* --- Éditeur de note (mini-clavier compact + octave + affichage Hz) --- */
@@ -176,19 +176,19 @@
 .note-editor-display {
   font-size: 0.78rem;
   font-family: monospace;
-  color: #e0e0ff;
+  color: var(--text-default);
 }
 
 .note-editor-hz {
-  color: #9aa2b8;
+  color: var(--text-secondary);
 }
 
 .note-editor-free {
   display: flex;
   align-items: center;
   gap: 4px;
-  background: #0f0f1a;
-  border: 1px solid #4a4a6a;
+  background: var(--app-bg);
+  border: 1px solid var(--surface-border-strong);
   border-radius: 4px;
   padding: 6px 8px;
 }
@@ -197,7 +197,7 @@
   flex: 1;
   background: transparent;
   border: none;
-  color: #e0e0ff;
+  color: var(--text-default);
   font-family: monospace;
   font-size: 0.82rem;
   outline: none;
@@ -205,7 +205,7 @@
 }
 
 .note-editor-unit {
-  color: #9aa2b8;
+  color: var(--text-secondary);
   font-size: 0.78rem;
   font-family: monospace;
 }
@@ -223,17 +223,26 @@
   flex-shrink: 0;
 }
 
+/* iter-K phase-3.f15 : boutons d'action sur clip — fond transparent,
+ * bordure sémantique (rouge/violet/cyan), pour rester cohérents avec le
+ * reste du panneau (plus de fond foncé arbitraire qui détonne en light). */
 .clip-delete-btn {
   margin-top: 8px;
   padding: 7px 10px;
-  background: #2a1a1f;
-  color: #ff6b8a;
-  border: 1px solid #5a2a3a;
+  background: transparent;
+  color: var(--danger);
+  border: 1px solid var(--danger);
   border-radius: 4px;
   font-size: 0.8rem;
   cursor: pointer;
   font-family: inherit;
+  transition: background 0.12s, color 0.12s;
 }
+.clip-delete-btn:hover {
+  background: var(--danger);
+  color: #fff;
+}
+
 .split-buttons {
   display: flex;
   gap: 6px;
@@ -243,19 +252,19 @@
 .clip-split-btn {
   flex: 1;
   padding: 6px 8px;
-  background: #1a1a2a;
+  background: transparent;
   color: #c084fc;
-  border: 1px solid #3a2a5a;
+  border: 1px solid #c084fc;
   border-radius: 4px;
   font-size: 0.8rem;
   font-weight: 600;
   cursor: pointer;
   font-family: inherit;
-  transition: background 0.12s, border-color 0.12s;
+  transition: background 0.12s, color 0.12s;
 }
 .clip-split-btn:hover:not(:disabled) {
-  background: #2a1a3a;
-  border-color: #c084fc;
+  background: #c084fc;
+  color: #fff;
 }
 .clip-split-btn:disabled {
   opacity: 0.35;
@@ -265,28 +274,22 @@
 .clip-merge-btn {
   margin-top: 4px;
   padding: 7px 10px;
-  background: #1a2a2a;
-  color: #00d4ff;
-  border: 1px solid #2a4a5a;
+  background: transparent;
+  color: var(--accent);
+  border: 1px solid var(--accent);
   border-radius: 4px;
   font-size: 0.8rem;
   cursor: pointer;
   font-family: inherit;
-  transition: background 0.12s, border-color 0.12s;
+  transition: background 0.12s, color 0.12s;
 }
 .clip-merge-btn:hover:not(:disabled) {
-  background: #1a3a3a;
-  border-color: #00d4ff;
+  background: var(--accent);
+  color: var(--surface-bg);
 }
 .clip-merge-btn:disabled {
   opacity: 0.35;
   cursor: not-allowed;
-}
-
-.clip-delete-btn:hover {
-  background: #3a1a24;
-  border-color: #8a3a4a;
-  color: #ff8ca5;
 }
 
 /* Bottom-sheet collapsible sur petit/moyen écran */

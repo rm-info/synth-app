@@ -10,18 +10,18 @@
   left: 50%;
   transform: translate(-50%, -50%);
   width: 400px;
-  background: #1a1a2e;
-  border: 1px solid #3a3a5a;
+  background: var(--surface-bg);
+  border: 1px solid var(--surface-border-strong);
   border-radius: 8px;
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
   padding: 20px;
   z-index: 1501;
   font-family: system-ui, sans-serif;
-  color: #d0d4ec;
+  color: var(--text-strong);
 }
 .save-dialog h4 {
   margin: 0 0 14px;
-  color: #d0d4ec;
+  color: var(--text-strong);
   font-size: 14px;
   font-weight: 600;
 }
@@ -31,24 +31,24 @@
 .save-dialog-label {
   display: block;
   font-size: 11px;
-  color: #8a8fa8;
+  color: var(--text-secondary);
   text-transform: uppercase;
   letter-spacing: 0.05em;
   margin-bottom: 4px;
 }
 .save-dialog-input {
   width: 100%;
-  background: #0e0e1e;
-  border: 1px solid #2a2a4a;
+  background: var(--input-bg);
+  border: 1px solid var(--surface-border);
   border-radius: 4px;
-  color: #d0d4ec;
+  color: var(--text-strong);
   padding: 6px 8px;
   font-size: 12px;
   font-family: inherit;
   box-sizing: border-box;
 }
 .save-dialog-input:focus {
-  border-color: #00d4ff;
+  border-color: var(--accent);
   outline: none;
 }
 .save-dialog-warning {
@@ -57,27 +57,27 @@
   color: #f5c542;
 }
 .save-dialog-breadcrumb {
-  background: #0e0e1e;
-  border: 1px solid #2a2a4a;
+  background: var(--input-bg);
+  border: 1px solid var(--surface-border);
   border-radius: 4px;
   padding: 6px 8px;
   font-family: ui-monospace, monospace;
   font-size: 12px;
-  color: #d0d4ec;
+  color: var(--text-strong);
   cursor: pointer;
   display: flex;
   align-items: center;
   gap: 4px;
 }
-.save-dialog-seg { color: #00d4ff; padding: 1px 4px; border-radius: 2px; }
-.save-dialog-seg.current { color: #d0d4ec; }
-.save-dialog-sep { color: #4a4a6a; }
+.save-dialog-seg { color: var(--accent); padding: 1px 4px; border-radius: 2px; }
+.save-dialog-seg.current { color: var(--text-strong); }
+.save-dialog-sep { color: var(--surface-border-strong); }
 .save-dialog-spacer { flex: 1; }
-.save-dialog-caret { color: #8a8fa8; }
+.save-dialog-caret { color: var(--text-secondary); }
 
 .save-dialog-dropdown {
-  background: #0e0e1e;
-  border: 1px solid #2a2a4a;
+  background: var(--input-bg);
+  border: 1px solid var(--surface-border);
   border-radius: 4px;
   padding: 4px 0;
   margin-top: 4px;
@@ -92,14 +92,14 @@
   align-items: center;
   gap: 6px;
 }
-.save-dialog-tree-item:hover { background: rgba(0, 212, 255, 0.1); }
+.save-dialog-tree-item:hover { background: var(--accent-bg-light); }
 .save-dialog-tree-item.selected {
-  background: rgba(0, 212, 255, 0.2);
-  color: #00d4ff;
+  background: var(--accent-bg-overlay);
+  color: var(--accent);
 }
 .save-dialog-chevron {
   font-size: 0.55rem;
-  color: #7a7a9a;
+  color: var(--text-secondary);
   transition: transform 0.15s;
   width: 10px;
   text-align: center;
@@ -111,8 +111,8 @@
 
 .save-dialog-new-folder-btn {
   background: transparent;
-  color: #8a8fa8;
-  border: 1px dashed #3a3a5a;
+  color: var(--text-secondary);
+  border: 1px dashed var(--surface-border-strong);
   border-radius: 4px;
   padding: 4px 8px;
   font-size: 11px;
@@ -121,8 +121,8 @@
   margin-bottom: 12px;
 }
 .save-dialog-new-folder-btn:hover {
-  color: #d0d4ec;
-  border-color: #00d4ff;
+  color: var(--text-strong);
+  border-color: var(--accent);
 }
 .save-dialog-new-folder {
   margin-bottom: 12px;
@@ -135,25 +135,25 @@
   margin-top: 16px;
 }
 .save-dialog-btn {
-  background: #1a1a2e;
-  border: 1px solid #3a3a5a;
-  color: #d0d4ec;
+  background: var(--surface-bg);
+  border: 1px solid var(--surface-border-strong);
+  color: var(--text-strong);
   padding: 6px 14px;
   border-radius: 4px;
   cursor: pointer;
   font-size: 12px;
 }
 .save-dialog-btn:hover:not(:disabled) {
-  background: #2a2a4a;
+  background: var(--surface-border);
 }
 .save-dialog-btn:disabled {
-  color: #4a4a6a;
+  color: var(--surface-border-strong);
   cursor: not-allowed;
 }
 .save-dialog-btn.primary {
   background: #003a4a;
-  border-color: #00d4ff;
-  color: #00d4ff;
+  border-color: var(--accent);
+  color: var(--accent);
 }
 .save-dialog-btn.primary:hover:not(:disabled) {
   background: #004a5a;
