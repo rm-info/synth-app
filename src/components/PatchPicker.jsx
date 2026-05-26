@@ -118,7 +118,7 @@ export default function PatchPicker({
         >
           <div
             className={`patch-picker-folder-row ${isSelected ? 'is-selected' : ''} ${isCut ? 'is-cut' : ''}`}
-            style={{ paddingLeft: `${depth * 12 + 4}px` }}
+            style={{ marginLeft: `${depth * 12}px` }}
             onClick={() => toggleFolder(folder.id)}
             onContextMenu={(e) => handleContextMenu(e, 'folder', folder.id)}
             data-bib-item-id={folder.id}
@@ -139,7 +139,7 @@ export default function PatchPicker({
       <li
         key={`patch:${patch.id}`}
         className={`patch-picker-chip ${isCurrent ? 'is-current' : ''} ${isSelected ? 'is-selected' : ''} ${isCut ? 'is-cut' : ''}`}
-        style={{ '--chip-color': patch.color, paddingLeft: `${depth * 12 + 4}px` }}
+        style={{ '--chip-color': patch.color, marginLeft: `${depth * 12}px` }}
         draggable
         onDragStart={(e) => onDragStart?.(e, 'patch', patch.id)}
         onClick={() => handlePatchClick(patch)}
