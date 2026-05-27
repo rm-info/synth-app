@@ -392,6 +392,9 @@ export function buildInitialState() {
     // header. Persisté en localStorage. Validation contre tracks à
     // l'hydratation (cf. plus bas).
     selectedTrackId: persisted?.selectedTrackId ?? null,
+    // iter-L phase-1.6 : overlay raccourcis (Ctrl+K). State runtime, non
+    // persisté (toujours fermé au boot). Toggle via SET_SHORTCUTS_OVERLAY.
+    shortcutsOverlayOpen: false,
 
     zoomH: DEFAULT_ZOOM_H,
     activeTab: persisted?.activeTab ?? 'designer',
@@ -1517,6 +1520,11 @@ export function reducer(state, action) {
         selectedClipIds: ids,
         lastAnchorClipId: ids.length > 0 ? ids[ids.length - 1] : state.lastAnchorClipId,
       }
+    }
+    case 'SET_SHORTCUTS_OVERLAY': {
+      const next = !!action.payload
+      if (state.shortcutsOverlayOpen === next) return state
+      return { ...state, shortcutsOverlayOpen: next }
     }
     case 'SET_SELECTED_TRACK_ID': {
       // iter-L phase-1.4.b : track active du Composer. Non-undoable, persisté

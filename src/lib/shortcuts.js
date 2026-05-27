@@ -142,6 +142,14 @@ export const SHORTCUTS = [
   // Global (multi-onglet)
   // ============================================================
   {
+    id: 'global-shortcuts',
+    contexts: ['global'],
+    label: 'Raccourcis',
+    description: "Ouvre l'overlay des raccourcis clavier du contexte actif.",
+    keys: { primary: 'Ctrl/Cmd+K', alternative: null, display: 'Ctrl+K' },
+    anchor: 'header-shortcuts-button',
+  },
+  {
     id: 'global-undo',
     contexts: ['global'],
     label: 'Annuler',

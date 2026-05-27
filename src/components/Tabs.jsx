@@ -1,6 +1,7 @@
 // lucide-react est déjà utilisée par App.jsx (ChevronLeft/Right, Library, Play, etc.) ;
-// on s'appuie sur la même dépendance pour les icônes de toggle thème.
-import { Moon, Sun } from 'lucide-react'
+// on s'appuie sur la même dépendance pour les icônes de toggle thème +
+// bouton raccourcis (Keyboard, iter-L phase-1.6).
+import { Moon, Sun, Keyboard } from 'lucide-react'
 import './Tabs.css'
 
 const TABS = [
@@ -13,7 +14,7 @@ const TABS = [
 // Source de vérité : `version` de package.json.
 const APP_VERSION = typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : 'dev'
 
-function Tabs({ activeTab, onChange, theme, onToggleTheme }) {
+function Tabs({ activeTab, onChange, theme, onToggleTheme, shortcutsOverlayOpen, onToggleShortcuts }) {
   const isLight = theme === 'light'
   return (
     <nav className="tabs" role="tablist">
@@ -42,6 +43,20 @@ function Tabs({ activeTab, onChange, theme, onToggleTheme }) {
         title={isLight ? 'Passer en mode sombre' : 'Passer en mode clair'}
       >
         {isLight ? <Moon size={16} fill="currentColor" strokeWidth={0} /> : <Sun size={16} fill="currentColor" strokeWidth={1.5} />}
+      </button>
+      {/* iter-L phase-1.6 : bouton Keyboard = toggle overlay raccourcis.
+          État actif quand overlay ouvert. data-anchor pour que l'overlay
+          ancre son propre raccourci Ctrl+K dessus (récursion contrôlée). */}
+      <button
+        type="button"
+        className={`shortcuts-toggle${shortcutsOverlayOpen ? ' is-active' : ''}`}
+        onClick={onToggleShortcuts}
+        aria-label={shortcutsOverlayOpen ? 'Fermer les raccourcis' : 'Afficher les raccourcis'}
+        aria-pressed={!!shortcutsOverlayOpen}
+        title="Raccourcis (Ctrl+K)"
+        data-anchor="header-shortcuts-button"
+      >
+        <Keyboard size={16} strokeWidth={1.8} />
       </button>
       <div className="tabs-version" title={`Version ${APP_VERSION}`}>
         v{APP_VERSION}

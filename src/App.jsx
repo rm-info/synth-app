@@ -16,6 +16,7 @@ import RecentPatchesList from './components/RecentPatchesList'
 import SavePatchDialog from './components/SavePatchDialog'
 import DeleteUsageWarningDialog from './components/DeleteUsageWarningDialog'
 import ConfirmDialog from './components/ConfirmDialog'
+import ShortcutsOverlay from './components/ShortcutsOverlay'
 import {
   reducer,
   withUndo,
@@ -85,7 +86,7 @@ function App() {
     recentPatchIds, theme,
     patchCounter, clipCounter, folderCounter, trackCounter,
     clipboard, measureClipboard, bibClipboard, history, notification,
-    pendingDeleteWarning,
+    pendingDeleteWarning, shortcutsOverlayOpen,
   } = state
 
   const editorRef = useRef(null)
@@ -160,6 +161,32 @@ function App() {
     const t = setTimeout(() => dispatch({ type: 'SET_NOTIFICATION', payload: null }), 4500)
     return () => clearTimeout(t)
   }, [notification])
+
+  // iter-L phase-1.6 : Ctrl+K toggle overlay raccourcis. preventDefault
+  // impératif (Ctrl+K = focus barre d'adresse Firefox/Chrome). Skip si
+  // une modale est ouverte (DOM heuristic : tout backdrop `*-backdrop`
+  // visible ; l'overlay lui-même n'en a pas, sa fermeture reste pilotable).
+  const setShortcutsOverlay = useCallback((open) => {
+    dispatch({ type: 'SET_SHORTCUTS_OVERLAY', payload: open })
+  }, [])
+
+  useEffect(() => {
+    const handler = (e) => {
+      if (!matchesShortcut(e, 'global-shortcuts')) return
+      const target = e.target
+      const tag = target?.tagName
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return
+      if (target?.isContentEditable) return
+      // Skip si modale ouverte (focus ailleurs, ne pas surcharger).
+      // Pattern de detection : tout backdrop visible — couvre Modal.jsx,
+      // ConfirmDialog, SavePatchDialog, DeleteUsageWarningDialog.
+      if (document.querySelector('.modal-backdrop, .confirm-dialog-backdrop, .save-dialog-backdrop, .delete-warning-backdrop')) return
+      e.preventDefault()
+      setShortcutsOverlay(!shortcutsOverlayOpen)
+    }
+    window.addEventListener('keydown', handler)
+    return () => window.removeEventListener('keydown', handler)
+  }, [shortcutsOverlayOpen, setShortcutsOverlay])
 
   useEffect(() => {
     const handler = (e) => {
@@ -1881,6 +1908,13 @@ function App() {
         onChange={setActiveTab}
         theme={theme}
         onToggleTheme={() => dispatch({ type: 'SET_THEME', payload: theme === 'light' ? 'dark' : 'light' })}
+        shortcutsOverlayOpen={shortcutsOverlayOpen}
+        onToggleShortcuts={() => setShortcutsOverlay(!shortcutsOverlayOpen)}
+      />
+      <ShortcutsOverlay
+        isOpen={shortcutsOverlayOpen}
+        onClose={() => setShortcutsOverlay(false)}
+        state={state}
       />
 
       {activeTab === 'library' && (

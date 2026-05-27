@@ -97,6 +97,36 @@
   border-color: var(--surface-border);
 }
 
+/* iter-L phase-1.6 : bouton Keyboard (toggle overlay raccourcis).
+   Calqué sur .theme-toggle pour cohérence visuelle. État actif quand
+   overlay ouvert (highlight accent). */
+.shortcuts-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  margin: auto 4px;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+  flex-shrink: 0;
+}
+.shortcuts-toggle:hover {
+  background: var(--hover-bg);
+  color: var(--accent);
+  border-color: var(--surface-border);
+}
+.shortcuts-toggle.is-active {
+  background: var(--accent-bg-medium);
+  color: var(--accent);
+  border-color: var(--accent);
+}
+
 @media (max-width: 600px) {
   .tabs {
     padding: 0 8px;
