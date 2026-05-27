@@ -46,12 +46,18 @@ function measureTextWidth(display) {
 const TEXT_PADDING_X = 8
 
 // Calcule (textScale, hoverScale) pour qu'un libellé tienne dans un rect
-// donné, le hover restaurant ~la taille naturelle.
+// donné, le hover restaurant la taille naturelle.
+//   textScale = facteur de réduction pour tenir au repos (≤ 1)
+//   hoverScale = 1 / textScale → texte effectif à taille naturelle au hover
+// Plancher hoverScale = 1.5 (emphase modeste même quand le texte rentre
+// naturellement). Pas de plafond : sur les ancres minuscules (clip ghost
+// étroit) le scale peut atteindre 10-30 pour rester lisible — le
+// transform-origin adaptatif évite la sortie de viewport.
 function computeFitScales(rect, display) {
   const naturalW = Math.max(8, measureTextWidth(display))
-  const targetW = Math.max(1, rect.width - TEXT_PADDING_X * 2)
+  const targetW = Math.max(8, rect.width - TEXT_PADDING_X * 2)
   const textScale = Math.min(1, targetW / naturalW)
-  const hoverScale = Math.min(5, Math.max(1.5, 1 / textScale))
+  const hoverScale = Math.max(1.5, 1 / textScale)
   return { textScale, hoverScale }
 }
 
@@ -120,13 +126,16 @@ function ShortcutsOverlay({ isOpen, onClose, state }) {
   if (!isOpen) return null
 
   const activeTab = state.activeTab
-  // Entrées visibles : contexte actif + global, filtre condition.
-  const visible = SHORTCUTS.filter((s) => {
-    const ctxMatch = s.contexts.includes('global') || s.contexts.includes(activeTab)
-    if (!ctxMatch) return false
-    if (s.condition && !s.condition(state)) return false
-    return true
-  })
+  // Entrées visibles : tous les raccourcis du contexte actif + globaux.
+  // Le champ `condition` de SHORTCUTS n'est PAS appliqué ici : on veut
+  // afficher tous les libellés pour que l'utilisateur sache que le
+  // raccourci existe (même quand le bouton sous-jacent est disabled).
+  // L'absence de la cible DOM (ex. composer-merge-button qui n'apparaît
+  // qu'avec une multi-sélection) suffit à masquer naturellement le
+  // libellé.
+  const visible = SHORTCUTS.filter((s) =>
+    s.contexts.includes('global') || s.contexts.includes(activeTab)
+  )
 
   // Groupe par anchor id, hors composite 'per-key' (designer-notes rendu par
   // touche, plus bas). composer-notes-contiguous (composite 'live') est
@@ -147,38 +156,53 @@ function ShortcutsOverlay({ isOpen, onClose, state }) {
     if (!pos.found) continue
     const display = items.map((s) => s.keys.display).filter(Boolean).join(' / ')
     if (!display) continue
-    // Détection raccourci inactif : si l'élément ancre est un bouton avec
-    // attribut `disabled`, on grise l'étiquette. Source de vérité = DOM
-    // (évite de dupliquer dans shortcuts.js des conditions complexes
-    // comme canMerge / canSplit / canUndo).
-    const isDisabled = pos.element?.disabled === true
-      || pos.element?.getAttribute?.('aria-disabled') === 'true'
-    labels.push({ key: anchorId, display, rect: pos, disabled: isDisabled })
+    labels.push({ key: anchorId, display, rect: pos })
   }
 
-  // Per-key composite : touches notes Designer. Loop sur le keyboardMap
-  // du système actif, une étiquette mini par touche QWERTY mappée.
+  // Per-key composite : une étiquette par enfant [data-anchor-key] du
+  // conteneur anchored. Dispatch selon l'id pour gérer les deux variantes :
+  //   - designer-notes : mapping QWERTY system-dependent (data-anchor-key
+  //     = noteIndex, on traduit en code clavier via getKeyboardMap)
+  //   - composer-duration-base/coef : data-anchor-key directement le digit
+  //     du raccourci (1..7 pour bases, 8/9/0 pour coefs) — display = key.
+  // Dédup par parent anchor pour éviter de re-itérer le même conteneur
+  // (composer-duration-base et -coef partagent composer-duration-buttons).
   const perKeyLabels = []
-  if (activeTab === 'designer') {
-    const hasDesignerNotes = visible.some((s) => s.id === 'designer-notes')
-    if (hasDesignerNotes) {
+  const processedAnchors = new Set()
+  for (const s of visible) {
+    if (s.composite !== 'per-key') continue
+    const anchorId = getAnchor(s, state)
+    if (!anchorId || processedAnchors.has(anchorId)) continue
+    processedAnchors.add(anchorId)
+    const positions = getAnchoredKeyPositions(anchorId)
+
+    if (s.id === 'designer-notes') {
       const sys = getTuningSystem(state.editor?.testTuningSystem ?? '12-TET')
       const xEdoN = state.xEdoN
       const useShift = state.editor?.testTuningSystem === 'x-edo' && xEdoN >= 44
       const keyboardMap = useShift
         ? xEdoShiftedKeyboardMapForN(xEdoN)
         : getKeyboardMap(sys, xEdoN)
-      if (keyboardMap) {
-        const positions = getAnchoredKeyPositions('designer-keyboard')
-        for (const [code, idx] of Object.entries(keyboardMap)) {
-          const p = positions[String(idx)]
-          if (!p) continue
-          perKeyLabels.push({
-            key: `designer-notes-${code}`,
-            display: keyCodeLabel(code),
-            rect: p,
-          })
-        }
+      if (!keyboardMap) continue
+      for (const [code, idx] of Object.entries(keyboardMap)) {
+        const p = positions[String(idx)]
+        if (!p) continue
+        perKeyLabels.push({
+          key: `${s.id}-${code}`,
+          display: keyCodeLabel(code),
+          rect: p,
+        })
+      }
+    } else {
+      // Cas générique : le data-anchor-key value est aussi le display.
+      // Couvre composer-duration-base/coef ; extensible à de futurs
+      // composites per-key où chaque touche a sa propre étiquette.
+      for (const [k, p] of Object.entries(positions)) {
+        perKeyLabels.push({
+          key: `${anchorId}-${k}`,
+          display: k,
+          rect: p,
+        })
       }
     }
   }
@@ -219,13 +243,13 @@ function ShortcutsOverlay({ isOpen, onClose, state }) {
       {banner && (
         <div className="shortcuts-overlay-banner" role="status">{banner}</div>
       )}
-      {allLabels.map(({ key, display, rect, disabled }) => {
+      {allLabels.map(({ key, display, rect }) => {
         const { textScale, hoverScale } = computeFitScales(rect, display)
         const transformOrigin = computeTransformOrigin(rect, hoverScale)
         return (
           <div
             key={key}
-            className={`shortcuts-overlay-fit${disabled ? ' is-disabled' : ''}`}
+            className="shortcuts-overlay-fit"
             style={{
               left: rect.left,
               top: rect.top,

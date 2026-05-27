@@ -60,6 +60,8 @@ function DurationButtons({ duration, mode, onChange, disabled, dataAnchor }) {
       <div className="duration-buttons-bases">
         {DURATION_BASES.map((b) => {
           const isActive = b.value === activeBase
+          // iter-L overlay : data-anchor-key = chiffre du raccourci clavier
+          // (Numpad N ou Shift+Digit N). rank 1..7 pour les bases.
           return (
             <button
               key={b.value}
@@ -70,6 +72,7 @@ function DurationButtons({ duration, mode, onChange, disabled, dataAnchor }) {
               title={baseTitle(b)}
               aria-label={b.name}
               aria-pressed={isActive}
+              data-anchor-key={String(b.rank)}
             >
               {baseLabel(b)}
             </button>
@@ -80,6 +83,8 @@ function DurationButtons({ duration, mode, onChange, disabled, dataAnchor }) {
         {DURATION_COEFS.map((c) => {
           const isActive = c.value === activeCoef
           const valid = isValidCoef(activeBase ?? currentBase, c.value)
+          // Coefs : rank 8/9/10 → digits 8/9/0 (Numpad0 et Shift+Digit0 = rank 10).
+          const digit = c.rank === 10 ? '0' : String(c.rank)
           return (
             <button
               key={c.value}
@@ -94,6 +99,7 @@ function DurationButtons({ duration, mode, onChange, disabled, dataAnchor }) {
               }
               aria-label={c.name}
               aria-pressed={isActive}
+              data-anchor-key={digit}
             >
               {coefLabel(c)}
             </button>

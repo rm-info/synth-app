@@ -296,6 +296,7 @@ export const SHORTCUTS = [
     description: "Définit la base de durée par défaut (1 = ronde → 7 = triple croche).",
     keys: { primary: 'Numpad1-7', alternative: 'Shift+Digit1-7', display: '1-7 (Numpad ou Shift+Digit)' },
     anchor: 'composer-duration-buttons',
+    composite: 'per-key',
   },
   {
     id: 'composer-duration-coef',
@@ -304,6 +305,7 @@ export const SHORTCUTS = [
     description: 'Applique un coefficient à la durée par défaut (8 = ×1.25, 9 = pointé, 0 = double-pointé).',
     keys: { primary: 'Numpad8-0', alternative: 'Shift+Digit8-0', display: '8/9/0 (Numpad ou Shift+Digit)' },
     anchor: 'composer-duration-buttons',
+    composite: 'per-key',
   },
   {
     id: 'composer-copy',
