@@ -1763,6 +1763,7 @@ function WaveformEditor({
                 onContextMenu={(e) => e.preventDefault()}
                 title="Tester le son à la fréquence courante (touche s)"
                 aria-pressed={freeNoteActive}
+                data-anchor="designer-test-free-button"
               >
                 Test <span className="free-test-shortcut">(s)</span>
               </button>
@@ -1790,14 +1791,14 @@ function WaveformEditor({
                   libellé "Octaves". Le clavier remplit ensuite l'espace
                   vertical disponible (we-keyboard-area est flex:1). La ligne
                   Note est ancrée en bas (margin-top:auto). */}
-              <div className="we-octave-row">
+              <div className="we-octave-row" data-anchor="designer-octave-selector">
                 <span className="we-octave-label">Octaves</span>
                 <OctaveSelector
                   octave={testOctave}
                   onSelectOctave={editorActions.setTestOctave}
                 />
               </div>
-              <div className="we-keyboard-area">
+              <div className="we-keyboard-area" data-anchor="designer-keyboard">
                 <PianoKeyboard
                   tuningSystem={testTuningSystem}
                   xEdoN={xEdoN}
@@ -1845,6 +1846,7 @@ function WaveformEditor({
             onClick={handleNew}
             title="Nouveau patch (réinitialise l'éditeur)"
             aria-label="Nouveau"
+            data-anchor="designer-new-button"
           ><Plus size={17} strokeWidth={2} /></button>
           {currentPatch && (
             <button
@@ -1853,6 +1855,7 @@ function WaveformEditor({
               onClick={handleUpdate}
               title="Mettre à jour le patch courant"
               aria-label="Mettre à jour"
+              data-anchor="designer-save-button"
             ><Save size={16} strokeWidth={2} /></button>
           )}
           <button
@@ -1861,6 +1864,7 @@ function WaveformEditor({
             onClick={handleSaveAsNew}
             title={currentPatch ? 'Enregistrer comme nouveau patch' : 'Sauvegarder le patch'}
             aria-label="Enregistrer comme nouveau"
+            data-anchor="designer-save-as-button"
           ><SaveAll size={16} strokeWidth={2} /></button>
           {/* Mini-séparateur entre les 3 sous-groupes (cohérent avec le mode
               ouvert qui sépare patch / historique / import-export). */}
@@ -1874,6 +1878,7 @@ function WaveformEditor({
                 disabled={!canUndo}
                 title="Annuler (Ctrl+Z)"
                 aria-label="Annuler"
+                data-anchor="global-undo-button-designer"
               ><Undo2 size={16} strokeWidth={2} /></button>
               <button
                 type="button"
@@ -1882,6 +1887,7 @@ function WaveformEditor({
                 disabled={!canRedo}
                 title="Rétablir (Ctrl+Shift+Z)"
                 aria-label="Rétablir"
+                data-anchor="global-redo-button-designer"
               ><Redo2 size={16} strokeWidth={2} /></button>
             </>
           )}
@@ -1901,6 +1907,7 @@ function WaveformEditor({
               onClick={handleNew}
               title="Nouveau patch (réinitialise l'éditeur)"
               aria-label="Nouveau patch"
+              data-anchor="designer-new-button"
             ><Plus size={19} strokeWidth={2} /></button>
             {currentPatch && (
               <button
@@ -1909,6 +1916,7 @@ function WaveformEditor({
                 onClick={handleUpdate}
                 title="Mettre à jour le patch courant"
                 aria-label="Mettre à jour"
+                data-anchor="designer-save-button"
               ><Save size={18} strokeWidth={2} /></button>
             )}
             <button
@@ -1917,6 +1925,7 @@ function WaveformEditor({
               onClick={handleSaveAsNew}
               title={currentPatch ? 'Enregistrer comme nouveau patch' : 'Sauvegarder le patch'}
               aria-label="Enregistrer comme nouveau"
+              data-anchor="designer-save-as-button"
             ><SaveAll size={18} strokeWidth={2} /></button>
           </div>
           {/* Groupe 2 : historique Designer */}
@@ -1929,6 +1938,7 @@ function WaveformEditor({
                 disabled={!canUndo}
                 title="Annuler (Ctrl+Z)"
                 aria-label="Annuler"
+                data-anchor="global-undo-button-designer"
               ><Undo2 size={18} strokeWidth={2} /></button>
               <button
                 type="button"
@@ -1937,6 +1947,7 @@ function WaveformEditor({
                 disabled={!canRedo}
                 title="Rétablir (Ctrl+Shift+Z)"
                 aria-label="Rétablir"
+                data-anchor="global-redo-button-designer"
               ><Redo2 size={18} strokeWidth={2} /></button>
             </div>
           )}

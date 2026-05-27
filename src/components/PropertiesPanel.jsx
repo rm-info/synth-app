@@ -289,6 +289,7 @@ function ClipEditor({ clip, patches, tracks, durationMode, a4Ref, xEdoN, onSetXE
           onClick={() => onSplitClips?.(2)}
           disabled={!canSplit2}
           title={canSplit2 ? 'Diviser par 2 (Ctrl+D)' : 'Durée non divisible par 2'}
+          data-anchor="composer-split2-button"
         >
           ÷2
         </button>
@@ -298,6 +299,7 @@ function ClipEditor({ clip, patches, tracks, durationMode, a4Ref, xEdoN, onSetXE
           onClick={() => onSplitClips?.(3)}
           disabled={!canSplit3}
           title={canSplit3 ? 'Diviser par 3 (Ctrl+Shift+D)' : 'Durée non divisible par 3'}
+          data-anchor="composer-split3-button"
         >
           ÷3
         </button>
@@ -307,6 +309,7 @@ function ClipEditor({ clip, patches, tracks, durationMode, a4Ref, xEdoN, onSetXE
         type="button"
         className="clip-delete-btn"
         onClick={() => onRemoveClip(clip.id)}
+        data-anchor="composer-delete-button"
       >
         Supprimer ce clip
       </button>
@@ -467,6 +470,7 @@ function MultiClipEditor({
         type="button"
         className="clip-delete-btn"
         onClick={() => onDeleteSelected?.()}
+        data-anchor="composer-delete-button"
       >
         Supprimer la sélection
       </button>
@@ -478,6 +482,7 @@ function MultiClipEditor({
           onClick={() => onSplitClips?.(2)}
           disabled={!canSplit2}
           title={canSplit2 ? 'Diviser par 2 (Ctrl+D)' : 'Durée non divisible par 2'}
+          data-anchor="composer-split2-button"
         >
           ÷2
         </button>
@@ -487,6 +492,7 @@ function MultiClipEditor({
           onClick={() => onSplitClips?.(3)}
           disabled={!canSplit3}
           title={canSplit3 ? 'Diviser par 3 (Ctrl+Shift+D)' : 'Durée non divisible par 3'}
+          data-anchor="composer-split3-button"
         >
           ÷3
         </button>
@@ -496,6 +502,7 @@ function MultiClipEditor({
           onClick={() => onMergeClips?.()}
           disabled={!mergeStatus?.canMerge}
           title={mergeStatus?.canMerge ? 'Fusionner (Ctrl+M)' : mergeStatus?.reason}
+          data-anchor="composer-merge-button"
         >
           Fusionner
         </button>

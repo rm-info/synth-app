@@ -1009,6 +1009,7 @@ function PatchBank({
             onDragOver={handleDragOverRoot}
             onDragLeave={handleDragLeave}
             onDrop={handleDropOnRoot}
+            data-anchor="library-item-list"
           >
           {bibCurrentFolderId !== null && (
             <div
@@ -1050,6 +1051,7 @@ function PatchBank({
             onDragOver={handleDragOverRoot}
             onDragLeave={handleDragLeave}
             onDrop={handleDropOnRoot}
+            data-anchor="library-item-list"
           >
             {bibCurrentFolderId !== null && (
               <li
@@ -1161,6 +1163,7 @@ function PatchBank({
             title="Annuler (Ctrl+Z)"
             disabled={!canUndoLibrary}
             onClick={onUndoLibrary}
+            data-anchor="global-undo-button-library"
           ><Undo2 size={14} /></button>
           <button
             type="button"
@@ -1168,6 +1171,7 @@ function PatchBank({
             title="Rétablir (Ctrl+Y)"
             disabled={!canRedoLibrary}
             onClick={onRedoLibrary}
+            data-anchor="global-redo-button-library"
           ><Redo2 size={14} /></button>
           <div className="bib-action-separator" />
           <button
@@ -1189,6 +1193,7 @@ function PatchBank({
                 : soundFolders.find(f => f.id === item.id)?.name
               if (name) startEdit(item.id, name)
             }}
+            data-anchor="library-rename-button"
           ><Edit3 size={14} /></button>
           <button
             type="button"
@@ -1196,6 +1201,7 @@ function PatchBank({
             title="Copier (Ctrl+C)"
             disabled={bibSelectedIds.length === 0}
             onClick={handleCopy}
+            data-anchor="library-copy-button"
           ><Copy size={14} /></button>
           <button
             type="button"
@@ -1203,6 +1209,7 @@ function PatchBank({
             title="Couper (Ctrl+X)"
             disabled={bibSelectedIds.length === 0}
             onClick={handleCut}
+            data-anchor="library-cut-button"
           ><Scissors size={14} /></button>
           <button
             type="button"
@@ -1210,6 +1217,7 @@ function PatchBank({
             title="Coller (Ctrl+V)"
             disabled={!bibClipboard || bibClipboard.items.length === 0}
             onClick={handlePaste}
+            data-anchor="library-paste-button"
           ><Clipboard size={14} /></button>
           <button
             type="button"
@@ -1223,6 +1231,7 @@ function PatchBank({
               })
               if (orderedList.length > 0) onSelectItems?.(orderedList, 'set')
             }}
+            data-anchor="library-select-all-button"
           ><CheckSquare size={14} /></button>
           <button
             type="button"
@@ -1230,6 +1239,7 @@ function PatchBank({
             title="Supprimer (Suppr)"
             disabled={bibSelectedIds.length === 0}
             onClick={handleDeleteSelected}
+            data-anchor="library-delete-button"
           ><Trash2 size={14} /></button>
           <div className="bib-action-separator" />
           {onImportLibrary && (

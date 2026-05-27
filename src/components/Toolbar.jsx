@@ -113,6 +113,7 @@ function Toolbar({
           duration={defaultClipDuration}
           mode={durationMode}
           onChange={onSetDefaultClipDuration}
+          dataAnchor="composer-duration-buttons"
         />
         <button
           type="button"
@@ -176,6 +177,7 @@ function Toolbar({
           onClick={onCopy}
           disabled={!hasSelection}
           title="Copier les clips sélectionnés (Ctrl+C)"
+          data-anchor="composer-copy-button"
         >
           Copier
         </button>
@@ -185,6 +187,7 @@ function Toolbar({
           onClick={onCut}
           disabled={!hasSelection}
           title="Couper les clips sélectionnés (Ctrl+X)"
+          data-anchor="composer-cut-button"
         >
           Couper
         </button>
@@ -201,6 +204,7 @@ function Toolbar({
           disabled={!canUndo}
           aria-label="Annuler"
           title="Annuler (Ctrl+Z)"
+          data-anchor="global-undo-button-composer"
         >⟲</button>
         <button
           type="button"
@@ -209,6 +213,7 @@ function Toolbar({
           disabled={!canRedo}
           aria-label="Rétablir"
           title="Rétablir (Ctrl+Shift+Z)"
+          data-anchor="global-redo-button-composer"
         >⟳</button>
       </div>
 
@@ -217,6 +222,7 @@ function Toolbar({
           <span
             className={`toolbar-octave${testOctave === 4 ? ' is-reference' : ''}`}
             title="Octave courante — Shift seul = +1, Ctrl seul = −1"
+            data-anchor="composer-octave-indicator"
           >
             Octave : <strong>{testOctave}</strong>
           </span>

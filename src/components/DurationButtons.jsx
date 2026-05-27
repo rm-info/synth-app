@@ -16,7 +16,9 @@ import './DurationButtons.css'
 // - mode: 'solfège' | 'fraction' — affichage des labels
 // - onChange(newDuration): appelé avec la nouvelle durée effective
 // - disabled: bool — toute la rangée grisée
-function DurationButtons({ duration, mode, onChange, disabled }) {
+// - dataAnchor: string optionnel — valeur de data-anchor posée sur le conteneur
+//   (cf. iter-L convention overlay raccourcis). N'affecte le rendu que si fourni.
+function DurationButtons({ duration, mode, onChange, disabled, dataAnchor }) {
   const { base: activeBase, coef: activeCoef } = deriveBaseAndCoef(duration)
   const currentBase = activeBase ?? 1 // base de référence pour tester la validité
 
@@ -54,7 +56,7 @@ function DurationButtons({ duration, mode, onChange, disabled }) {
     : `${c.name} (${c.fraction})`
 
   return (
-    <div className="duration-buttons" role="group" aria-label="Durée">
+    <div className="duration-buttons" role="group" aria-label="Durée" data-anchor={dataAnchor}>
       <div className="duration-buttons-bases">
         {DURATION_BASES.map((b) => {
           const isActive = b.value === activeBase
