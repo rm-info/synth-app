@@ -10,12 +10,18 @@ divisions micro-tonales en passant par le maqâm égyptien de
 
 ## Philosophie
 
-L'app est pensée pour trois publics simultanément : le prof qui
-illustre un concept en classe, l'élève qui découvre la théorie
-par l'oreille, le curieux qui explore par plaisir intellectuel.
-Aucun parcours n'est imposé : pas de modale d'accueil, pas de
-mode "débutant" ou "avancé". Tout est **proposé**, rien n'est
-**forcé** — ni dans la pédagogie, ni dans la technique.
+L'app a la prétention d'être pensée pour tout type de public :
+prof qui illustre un concept en classe, élève qui découvre par
+l'oreille, amateur autodidacte, simple curieux. À deux
+exceptions près, par construction : les personnes sourdes et
+les personnes aveugles, pour qui un instrument qui se dessine
+à l'œil et s'écoute à l'oreille n'a plus tellement de sens.
+On en est bien désolé.
+
+Aucun parcours n'est imposé pour autant : pas de modale
+d'accueil, pas de mode "débutant" ou "avancé". Tout est
+**proposé**, rien n'est **forcé** — ni dans la pédagogie, ni
+dans la technique.
 
 Le minimalisme est revendiqué. Pas de framework UI, pas de
 dépendance audio externe : l'app tient dans un onglet de
