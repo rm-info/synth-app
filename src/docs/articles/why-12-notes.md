@@ -99,8 +99,8 @@ D'autres traditions ont fait des choix différents :
   octave** (des quarts de ton) — la pratique vivante des
   maqâmât y ajoute souvent des inflexions plus fines ;
 - la musique classique indienne se réfère à un cadre théorique
-  de **22 *shrutis*** par octave, aux intervalles inégaux par
-  construction ;
+  de **22 hauteurs** par octave — les *shrutis* — aux intervalles
+  inégaux par construction ;
 - le **gamelan** javanais ignore complètement le découpage
   occidental : ses échelles *slendro* et *pelog* comptent
   respectivement 5 et 7 notes, accordées sur des rapports qui
