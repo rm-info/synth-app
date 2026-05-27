@@ -36,10 +36,16 @@ function getMeasureCtx() {
 // inter-fontes (system-ui rend différemment selon l'OS) et la baseline-
 // height des inline boxes qui peut excéder le `line-height` numérique.
 const LINE_HEIGHT_PX = 18
-const PADDING_X = 8
-const PADDING_Y = 8
+// Padding au repos : minimal — la boîte épouse l'ancre, le texte au repos
+// doit occuper presque toute la surface (sinon il est inutilement rétréci).
+// 2px de chaque côté = juste assez pour ne pas coller au bord visuel.
+const REST_PADDING_X = 2
+const REST_PADDING_Y = 2
+// Padding au hover : plus généreux pour la lisibilité, le texte revient à
+// sa taille naturelle dans une boîte qui a de la marge.
+const HOVER_PADDING_X = 12
+const HOVER_PADDING_Y = 10
 // Marge de respiration au bord du viewport quand le hover déplace la boîte.
-// Empêche les étiquettes d'être collées au bord (lisibilité + esthétique).
 const EDGE_MARGIN = 16
 
 // Mesure les dimensions naturelles d'un display, en gérant le wrapping
@@ -71,17 +77,18 @@ function measureContentBox(display) {
 //   uniforme — la forme de la boîte sort de celle de l'ancre).
 function computeFitDims(rect, display) {
   const { naturalW, naturalH } = measureContentBox(display)
-  const targetW = Math.max(4, rect.width - PADDING_X * 2)
-  const targetH = Math.max(4, rect.height - PADDING_Y * 2)
-  const scaleX = targetW / naturalW
-  const scaleY = targetH / naturalH
+  // Au repos : padding minimal, le texte occupe presque toute la boîte.
+  const restTargetW = Math.max(4, rect.width - REST_PADDING_X * 2)
+  const restTargetH = Math.max(4, rect.height - REST_PADDING_Y * 2)
+  const scaleX = restTargetW / naturalW
+  const scaleY = restTargetH / naturalH
   const textScale = Math.min(1, scaleX, scaleY)
 
-  // Dimensions cibles au hover : contenu naturel + padding. Si le rest
-  // est déjà plus grand (texte court sur grand bouton), on conserve le
-  // rest (pas de rétrécissement à l'hover).
-  const hoverW = Math.max(rect.width, Math.ceil(naturalW + PADDING_X * 2))
-  const hoverH = Math.max(rect.height, Math.ceil(naturalH + PADDING_Y * 2))
+  // Au hover : padding plus généreux pour la lisibilité. Si le rest est
+  // déjà plus grand (texte court sur grand bouton), on conserve le rest
+  // (pas de rétrécissement).
+  const hoverW = Math.max(rect.width, Math.ceil(naturalW + HOVER_PADDING_X * 2))
+  const hoverH = Math.max(rect.height, Math.ceil(naturalH + HOVER_PADDING_Y * 2))
 
   // Détermine la position cible au hover : si la croissance dans une
   // direction sortirait du viewport, on ancre l'edge opposé. Décision
