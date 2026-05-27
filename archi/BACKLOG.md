@@ -2,7 +2,327 @@
 
 > Suivi des idées, pistes et dettes techniques reportées.
 > Tenu par l'archi. Source de vérité pour ce qui n'est pas encore planifié.
-> Dernière mise à jour : 2026-05-26.
+> Dernière mise à jour : 2026-05-27.
+
+> Note : itérations G-K closes côté implémenteur (cf. CONTEXT.md).
+> Prochaine itération cadrée : **Iteration L (Documentation)** — voir
+> section dédiée ci-dessous. Les sections "Aide à l'utilisation" et
+> "Matériel pédagogique" du backlog général (et la question "Système
+> de modes") sont **absorbées par Iteration L**.
+
+---
+
+## Iteration L (Documentation) — cadrée 2026-05-26
+
+### Vue d'ensemble
+
+Production de la documentation utilisateur (manuel, vulgarisation,
+référence, parcours d'orientation) **sans modifier l'app principale**.
+Trois entrypoints additifs : un onglet Documentation, deux boutons
+d'aide contextuelle dans le header.
+
+Slogan directeur (validé en session) : **"compatible 3 publics
+(prof / élève / curieux), n'impose rien, propose tout"**. Conséquences :
+pas de modale d'onboarding au premier démarrage, pas de "mode global"
+qui modifie l'app, pas de parcours linéaire forcé. Tout est *additif*
+et *skippable*.
+
+### Architecture (3 entrypoints additifs)
+
+1. **4e onglet "Documentation"** (à côté de Bibliothèque/Designer/Composer)
+   - Sidebar TOC + zone contenu central
+   - Rendu Markdown (renderer maison, voir Décisions de design)
+   - Persistance de l'état de lecture (section ouverte + scroll) au
+     changement d'onglet (sessionStorage probablement)
+   - Liens internes `<DocLink target="onglet:ancre-element">` qui :
+     navigation simple vers l'onglet cible **+** highlight visuel
+     temporaire (halo/flash) de l'élément référencé
+
+2. **Bouton Raccourcis** dans le header, icône `Keyboard` (Lucide)
+   - Raccourci clavier toggle : **Ctrl+K**
+   - Ouvre une **couche transparente semi-opaque par-dessus tout**,
+     avec **étiquettes flottantes ancrées sur les éléments d'UI**
+     qu'elles pilotent (un raccourci = une étiquette positionnée
+     au-dessus de son référent visuel)
+   - Localisée à l'onglet actif (on ne montre que les raccourcis du
+     contexte courant)
+   - Fermeture : ESC + croix close en évidence haut-droite
+   - Navigation onglet bloquée tant que l'overlay est ouvert
+   - Toggle rapide via Ctrl+K = workflow "lever le voile 1 seconde
+     pour vérifier ce qu'il y a dessous"
+
+3. **Bouton Tour** dans le header, icône `Compass` (Lucide)
+   - Raccourci clavier démarrage : **Ctrl+J**
+   - Démarre le tour de l'**onglet actif** (diaporama d'info-bulles
+     localisées sur les éléments d'UI)
+   - **Progress bar header-overlay** : pendant le tour, la barre
+     `Tabs` est masquée et remplacée par une progress bar cliquable
+     (étapes navigables, ESC pour quitter, croix close en évidence
+     haut-droite)
+   - Navigation onglet bloquée pendant le tour (la progress bar
+     recouvre les boutons d'onglet, par construction)
+   - **Tour stateless** du point de vue utilisateur : snapshot/restore
+     de tout état UI modifié par le tour (sidebars ouvertes,
+     dropdowns, patches chargés temporairement, etc.)
+   - Fin de tour : "Continuer vers X, Y ou Z ? (ESC pour quitter)" —
+     pas d'ordre canonique imposé, l'utilisateur choisit la suite à
+     chaque fin
+   - Info-bulles compactes : titre 3-5 mots + 1-2 phrases courtes.
+     Bouton optionnel "En savoir plus" → ouvre l'article doc
+     correspondant (seul mécanisme app→doc qu'on s'autorise,
+     considéré comme intra-doc puisque le Tour fait partie de la doc)
+
+### Principes structurels (figés)
+
+1. **App principale (Bibliothèque/Designer/Composer) inchangée**.
+2. **3 entrypoints additifs** : onglet Documentation + bouton
+   Raccourcis + bouton Tour. Pas de `?` saupoudrés dans l'app.
+3. **Tout est localisé à l'onglet actif** (Tour, Overlay).
+4. **Un raccourci a un référent visuel** dans l'UI :
+   - soit un **bouton** (pour les actions abstraites : Ctrl+Z, Ctrl+S…)
+   - soit un **objet manipulé** (pour les manipulations directes :
+     ↑↓/←→ sur clip sélectionné, touches notes qui placent un clip,
+     drag-like)
+   - cas dégénéré (raccourci sans bouton ni objet) : **promouvoir
+     son feedback visuel en élément permanent** (cas Espace Sustain :
+     l'info affichée actuellement à l'appui devient un indicateur
+     visible avec toggle). Sinon → soit ajouter un bouton, soit
+     retirer le raccourci.
+5. **Tour stateless du point de vue utilisateur** (snapshot/restore).
+6. **Pas de modale au premier démarrage** (découverte par visibilité
+   des entrypoints).
+7. **Pas d'ordre canonique des tours** (à chaque fin : "Continuer
+   vers X, Y ou Z ?").
+8. **Mutualisation** :
+   - une table déclarative `src/lib/shortcuts.js` source de vérité,
+     handlers refactorés pour la consommer
+   - un attribut `data-anchor` unique posé sur les éléments d'UI,
+     consommé par Tour + Overlay + DocLink/highlight
+   - contenus Markdown source unique, rendus par un mini-renderer
+     maison (titres, paragraphes, listes, code inline, liens
+     `<DocLink>`, images)
+
+### Carte des contenus
+
+Sont **générés** (pas à rédiger comme texte autonome) :
+- ~~A.1 Liste des raccourcis~~ → générée depuis `shortcuts.js`
+- ~~D.10 Parcours découverte de l'app~~ → absorbé par le Tour
+
+À **rédiger** (10 items) :
+- **A.2 Tempéraments** — 14 fiches courtes (origine, époque,
+  particularité acoustique, source citable)
+- **A.4 Limites connues** — résolutions supportées, anti-aliasing
+  haute fréquence, etc.
+- **B.5 Guide par onglet** — Bibliothèque, Designer, Composer
+  (3 articles)
+- **B.6 Recettes** — exporter en WAV, créer un patch et le réutiliser,
+  comparer deux tempéraments A/B, export pour distribution en classe…
+- **C.7 Glossaire technique** — harmonique, DFT, période, ADSR,
+  attaque/sustain, A4, Hz, octave
+- **C.8 Glossaire musical** — comma syntonique vs pythagoricien,
+  quinte pure vs tempérée, EDO, méantone, shruti, maqâm, raga,
+  gamelan
+- **C.9 Articles longs vulgarisés** — "pourquoi 12 notes ?",
+  "qu'est-ce qu'un tempérament et pourquoi en a-t-on inventé
+  plusieurs ?", "ce que tu entends quand tu dessines une forme
+  d'onde", "pourquoi le piano n'est pas juste"
+- **D.11 Démos écoutables** — compos `.osa` pré-chargées dans un
+  dossier "Démos" + textes d'accompagnement (option L.6)
+- **D.12 Exercices guidés** — format à inventer après retour terrain
+  (option L.7)
+- **E.13 À propos** — pourquoi cette app, philosophie, version,
+  crédits, lien repo
+
+### Plan en phases
+
+| Phase | Contenu |
+|---|---|
+| **L.0** | **Audit raccourcis** (rapport d'inventaire par agent dev, aucune modif code). Liste exhaustive raccourci/action/fichier:ligne/contexte/bouton-équivalent/catégorie d'ancrage. Sert de base aux décisions L.1. |
+| **L.1** | Table `shortcuts.js` complète + refacto handlers (consommation de la table) + convention `data-anchor` posée sur les éléments + utilitaire `getAnchoredPosition` + composant `ShortcutsOverlay` (couche transparente, étiquettes flottantes) + bouton header (`Keyboard`) + Ctrl+K toggle + ESC + croix close + corrections UI issues de L.0 (boutons ajoutés / promotions visuelles type Espace Sustain). |
+| **L.2** | 4e onglet **Documentation** : squelette layout TOC + zone contenu, renderer Markdown maison, persistance lecture, contenus initiaux minimaux (À propos, Raccourcis auto, 1 article témoin pour valider rendu). |
+| **L.3** | Composant `<DocLink>` consommé par le renderer + utilitaire `highlightElement` réutilisant les ancres de L.1. Navigation simple vers l'onglet cible + halo temporaire sur l'élément. |
+| **L.4** | Bouton Tour header (`Compass`) + Ctrl+J démarrage + composant `Tour.jsx` (positionnement dynamique, info-bulle pointée, snapshot/restore, ESC + croix) + progress bar header-overlay cliquable (recouvre `Tabs`) + chaînage "Continuer vers X, Y ou Z ?" + tours déclarés par onglet (`src/lib/tours/{library,designer,composer,documentation}.js`). |
+| **L.5** | Rédaction des contenus restants (peut commencer en parallèle dès L.2). |
+| **L.6** *(option)* | Démos écoutables : dossier "Démos" pré-chargé + boutons "Écouter" dans les articles qui chargent une compo. |
+| **L.7** *(option)* | Exercices guidés. Format à inventer après retour terrain (prof réel ou simulé). Pas en V1. |
+
+**Sortie de L.4** = V1 fonctionnelle. L.5 enrichit les contenus
+sans toucher au code. L.6/L.7 différables sans bloquer.
+
+### Décisions de design figées (session 2026-05-26)
+
+- **Renderer Markdown** : maison, minimaliste, ~200 lignes (titres,
+  paragraphes, listes, code inline, `<DocLink>`, images). Pas de
+  lib externe.
+- **Tour : navigation linéaire** avec progress bar cliquable
+  (sauts d'étape possibles). ESC + croix pour quitter.
+- **Tour : scope onglet actif** + proposition de chaînage en fin
+  ("Continuer vers X, Y ou Z ?"), pas d'ordre canonique.
+- **Position des boutons** dans le header : à droite près du
+  numéro de version. Ordre proposé `[Soleil/Lune] [Keyboard]
+  [Compass] v1.x.x`.
+- **Source unique des raccourcis** : table déclarative consommée
+  par les handlers. Refacto fait dès L.1 (pas de dette).
+- **Découvrabilité initiale** : pure visibilité des entrypoints
+  (icônes parlantes + tooltip natif au survol). Pas de halo
+  "découvre-moi" automatique.
+- **Overlay raccourcis** : pas de groupement "onglet/global" (le
+  principe "un raccourci = un référent visuel" rend la catégorie
+  "globaux" non nécessaire). Pour les actions sur sélection
+  (Composer clips), ancrage sur la sélection si présente, sur la
+  zone parent sinon (label "clip sélectionné").
+- **Multi-raccourcis sur même ancre** : étiquette compacte avec
+  modifieurs ("↑↓ ±1 / Shift ±10") si le cas se présente vraiment.
+- **Pas de `?` saupoudrés** dans l'app (seul mécanisme app→doc :
+  "En savoir plus" dans les info-bulles du Tour, considéré
+  intra-doc).
+
+### Spécifications L.1 (arbitrées 2026-05-27)
+
+Suite à l'arbitrage des orphelins identifiés dans
+`archi/L0-audit-raccourcis.md`. Détails de mise en œuvre dans
+`archi/L1-prompt.md` (prompt destiné au dev).
+
+**O1 — Espace sustain Designer** : pastille `Sustain` permanente
+dans la zone d'indicateurs Designer (remplace le badge SUSTAIN
+éphémère). Trois états : inactif / actif (Espace maintenue) /
+verrouillé. **Clic = toggle sustain verrouillé** (équivalent
+pédale verrouillable d'un piano numérique). L'overlay L.1 ancrera
+l'étiquette `Espace` dessus.
+
+**O2 — Ctrl+V Composer** : nouveau bouton `Coller (Ctrl+V)`
+cliquable dans la toolbar Composer (à côté de Copier/Couper).
+Désactivé visuellement si `clipboard === null`. Sémantique du
+clic = colle sur l'**anchor halo** (cf. O5) si présent, sinon au
+**début de la piste sélectionnée** (cf. nouveau concept ci-dessous),
+sinon fallback piste 0. Le hint texte actuel "Ctrl+V ou clic droit
+pour coller" est supprimé (devenu redondant). L'overlay L.1 ancrera
+l'étiquette `Ctrl+V` sur le bouton.
+
+**O3 — Esc clipboard Bibliothèque** : comportement Esc inchangé
+(clipboard d'abord, sélection au second appui). Ajout d'un chip
+`📋 N éléments` dans la toolbar PatchBank, visible quand
+`bibClipboard.items.length > 0`, avec `×` cliquable pour vider
+explicitement. Le chip rend lisible le séquencement Esc. L'overlay
+L.1 ancrera l'étiquette `Esc` sur le chip.
+
+**O4 — Touche note maintenue pendant drag (C17)** : **REPORTÉ**
+au sujet "UX ajout de clips Composer" (cf. section dédiée
+ci-dessous). Pas de modification UI en L.1, pas d'entrée dans la
+table SHORTCUTS, pas d'ancre. Statu quo.
+
+**O5 — Anchor placement contigu (C18)** : halo subtil ton-sur-ton
+sur le clip identifié par `lastAnchorClipId`. Style sobre (liseré
+fin, opacité réduite, couleur accent UI), choix nuance laissé au
+dev. Visible en permanence quand un anchor est défini, disparaît
+si l'anchor est supprimé. L'overlay L.1 ancrera l'étiquette
+"touches notes = placement contigu après ancre" sur ce halo (ou
+sur le conteneur timeline avec libellé adapté si pas d'anchor).
+
+**Nouveau concept — Piste sélectionnée Composer** : state
+`composer.selectedTrackId` (string | null), persisté en
+localStorage, mis à jour au dernier clic utilisateur (clic clip,
+clic header track, clic zone vide piste). Signifiant visuel :
+outline subtil sur le header de la piste active. Sert au fallback
+O2 et probablement à d'autres usages futurs (cf. sujet UX
+ci-dessous).
+
+**Cas-limites exclus de l'overlay** (ergo standard, l'utilisateur
+les connaît via les conventions OS) :
+- C2 Esc Composer désélectionner
+- B7 Esc Bibliothèque vider sélection (au second appui)
+- B9 Enter Bibliothèque ouvrir patch/folder
+- PatchBank ↑↓ navigation et Shift+↑↓ extension sélection
+
+**Corrections textuelles incluses en L.1** :
+- CP1 tooltip obsolète `"Octave courante — Shift seul = +1, Ctrl
+  seul = −1"` (Composer Toolbar) → remplacer par
+  `"Octave courante — PageUp/PageDown ±1"`.
+- CP2 incohérence Ctrl+Y vs Ctrl+Shift+Z → uniformiser tous les
+  tooltips Rétablir sur **Ctrl+Shift+Z** (PatchBank ajusté ;
+  Composer/Designer déjà OK). Les deux raccourcis restent
+  fonctionnels (handler `App.jsx:172` inchangé).
+
+**Asymétrie Designer/Composer PageUp/Down** : non corrigée. Designer
+ancre sur OctaveSelector (11 boutons), Composer ancre sur l'indicateur
+"Octave : N" passif. Pas d'OctaveSelector ajouté en Composer (l'octave
+Composer = pré-hauteur de placement, pas clavier joué, 11 boutons en
+toolbar serait du bruit). L'overlay accepte un ancrage **objet** sur
+un indicateur de valeur d'état.
+
+**Autres décisions techniques de L.1** (consolidées du cadrage
+2026-05-26) :
+- **Touches notes Designer** : étiquettes générées sur les touches
+  visuelles du clavier piano, avec détection du système actif
+  (mappings QWERTY varient par système). Logique d'overlay
+  composite — chaque touche du clavier visuel reçoit un
+  `data-anchor-key="<code>"` pour positionnement.
+- **Ancrage clips Composer** (↑↓ Shift+↑↓ ←→ Shift+←→) : étiquettes
+  s'ancrent sur le clip sélectionné dans la timeline (ou la zone
+  parent label "clip sélectionné" si pas de sélection). Multi-
+  raccourcis sur même ancre = étiquette compacte combinée
+  (`↑↓ ±1 / Shift+↑↓ ±10`).
+- **Ctrl+J démarrage Tour (L.4)** : `preventDefault()` pour bloquer
+  le raccourci navigateur (téléchargements). Même posture que Ctrl+K
+  (focus barre adresse) et Ctrl+S (save page) déjà interceptés.
+
+### Workflow archi/implémenteur pour Iteration L
+
+1. ✅ Cadrage architecture — 2026-05-26.
+2. ✅ **L.0 audit** livré par le dev — `archi/L0-audit-raccourcis.md`
+   (commit `a70c714`).
+3. ✅ Session archi d'arbitrage des orphelins — 2026-05-27. Décisions
+   consignées dans la section "Spécifications L.1 (arbitrées
+   2026-05-27)" ci-dessus.
+4. ✅ Prompt **L.1** rédigé — `archi/L1-prompt.md` (2026-05-27).
+5. ⏳ Implémentation L.1 → L.4, prompts successifs.
+6. ⏳ L.5 rédaction des contenus (peut commencer en parallèle).
+7. ⏳ L.6/L.7 décidés selon le rythme et le retour terrain.
+
+---
+
+## UX ajout de clips Composer (session dédiée — spawned par L.1)
+
+Sujet identifié lors de l'arbitrage L.1 (2026-05-27). Les gestes
+implicites d'écriture / d'ajout de clips en Composer manquent de
+signifiants visuels et de cohérence ergonomique. À cadrer dans
+une session dédiée, idéalement après L.4 (V1 doc livrée) — la doc
+fera probablement remonter d'autres frictions à intégrer au
+cadrage.
+
+**Concernés** (non exhaustif) :
+
+- **Touche note maintenue pendant drag (C17, orphelin O4 différé)** :
+  pendant un drag de patch depuis la banque ou le PatchPicker,
+  maintenir une touche de note override la hauteur du clip déposé.
+  Badge `♪ XN` éphémère dans la Toolbar Composer, invisible avant
+  l'appui. Geste totalement implicite sans la doc. Options
+  ouvertes : promouvoir le badge en élément permanent ou conditionnel
+  au drag, retirer le raccourci, ou intégrer dans un workflow plus
+  large d'ajout de clips.
+- **Drag depuis la banque / PatchPicker** : feedback de position
+  pendant le drag, ghosting prévisualisation, snap visuels.
+- **PatchPicker (Composer)** : ouvert à droite du clic, pas
+  d'indication "voici le patch courant / le patch pré-sélectionné".
+- **Création d'un clip "vierge"** : on ne peut pas créer un clip
+  vide sans drag depuis la banque, alors que la mécanique de
+  placement contigu (C18) suppose qu'on en a un comme ancre. Cycle
+  amorce-then-extend asymétrique.
+- **Notion "piste sélectionnée"** : introduite en L.1 pour le
+  fallback du bouton Coller. À généraliser et exploiter (placement
+  par défaut sur la piste active ? raccourci pour basculer entre
+  pistes ?).
+- **Multi-clip écriture mélodique au clavier (C18)** : la mécanique
+  cœur de E.4. Halo anchor ajouté en L.1, mais le workflow complet
+  (frappe au clavier → ligne mélodique se construit) mériterait
+  d'être pensé end-to-end avec retour terrain.
+
+L'idée : retour utilisateur (prof ou élève en situation réelle)
+sur "comment veux-tu écrire une mélodie au clavier ?", puis design
+cohérent englobant ces gestes. Out of scope avant la livraison V1
+doc.
+
+---
 
 ## État global de l'itération F (réf. CONTEXT.md pour le détail)
 
