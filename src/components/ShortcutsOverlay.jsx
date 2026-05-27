@@ -6,27 +6,6 @@ import { getKeyboardMap, getTuningSystem } from '../lib/tuningSystems'
 import { xEdoShiftedKeyboardMapForN } from '../lib/xEdoLayouts'
 import './ShortcutsOverlay.css'
 
-// Transforme un libellé "Ctrl+Shift+Z" en forme compacte "⌃⇧Z" pour le
-// rendering overlay. La table SHORTCUTS garde la forme verbose pour la
-// future page Documentation (lisibilité hors-contexte). Symboles
-// conventionnels macOS — reconnus universellement par les apps modernes
-// (Figma, VSCode, Notion, etc.).
-const COMPACT_MODIFIERS = [
-  [/Ctrl\+/g, '⌃'],
-  [/Cmd\+/g, '⌘'],
-  [/Alt\+/g, '⌥'],
-  [/Shift\+/g, '⇧'],
-]
-function compactDisplay(display) {
-  if (!display) return display
-  // Les libellés composite genre "(touches du clavier)" ou "— mapping live —"
-  // restent intacts (ils ne suivent pas la forme Modifier+Key).
-  if (display.startsWith('(') || display.startsWith('—')) return display
-  let out = display
-  for (const [re, sym] of COMPACT_MODIFIERS) out = out.replace(re, sym)
-  return out
-}
-
 // Petit décodeur QWERTY pour les composite "touches notes Designer".
 // Suffit pour les codes effectivement présents dans les mappings courants.
 function keyCodeLabel(code) {
@@ -197,7 +176,7 @@ function ShortcutsOverlay({ isOpen, onClose, state }) {
   for (const [anchorId, items] of groups.entries()) {
     const pos = getAnchoredPosition(anchorId)
     if (!pos.found) continue
-    const display = items.map((s) => compactDisplay(s.keys.display)).filter(Boolean).join(' / ')
+    const display = items.map((s) => s.keys.display).filter(Boolean).join(' / ')
     positioned.push({ key: anchorId, display, pos })
   }
 
