@@ -1,8 +1,8 @@
-/* iter-L phase-1.5 : overlay "lever le voile" des raccourcis clavier.
-   Couche transparente plein écran avec étiquettes flottantes ancrées sur
-   les éléments d'UI via data-anchor (cf. src/lib/getAnchoredPosition.js).
-   La barre Tabs reste visible derrière le backdrop mais perceptiblement
-   désactivée (l'overlay capture les clics). */
+/* iter-L phase-1.5 (révisé post-feedback) : overlay "lever le voile" des
+   raccourcis clavier. Chaque libellé occupe exactement le rect de son ancre
+   via data-anchor. Texte réduit (CSS scale) pour tenir dans la boîte ; au
+   survol, la boîte scale → texte à taille naturelle, lisible. Pas de
+   collision possible par construction. */
 
 .shortcuts-overlay {
   position: fixed;
@@ -27,46 +27,69 @@
   align-items: center;
   justify-content: center;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
-  z-index: 9001;
+  z-index: 9100;
 }
 .shortcuts-overlay-close:hover {
   background: var(--surface-bg);
 }
 
-.shortcuts-overlay-label {
+/* Bandeau pédagogique en haut quand un raccourci composite n'a pas
+   d'ancre concrète (placement contigu sans clip ancre sélectionné). */
+.shortcuts-overlay-banner {
   position: fixed;
-  pointer-events: none;
-  z-index: 9001;
-  /* Smart placement 4-quadrants : top/left calculés en JS (cf.
-     ShortcutsOverlay.jsx pickPlacement). Pas de transform — la boîte
-     est positionnée par son coin haut-gauche sur le rect estimé. */
+  top: 14px;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 8px 16px;
+  background: var(--surface-elevated);
+  border: 1px solid var(--surface-border-strong);
+  border-radius: 6px;
+  color: var(--text-primary);
+  font-size: 0.78rem;
+  z-index: 9050;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.45);
 }
-.shortcuts-overlay-label kbd {
-  display: inline-block;
-  padding: 3px 8px;
-  background: #ffc600;
+
+/* Étiquette ajustée : boîte au rect exact de l'ancre, texte scale pour
+   tenir. transform-origin: center pour que le hover zoom déplie autour
+   du centre du bouton (préservant l'ancrage visuel). */
+.shortcuts-overlay-fit {
+  position: fixed;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 198, 0, 0.92);
   color: #1a1a1a;
-  border-radius: 4px;
+  border: 1px solid rgba(0, 0, 0, 0.22);
+  border-radius: 3px;
+  pointer-events: auto;
+  cursor: pointer;
+  overflow: hidden;
+  z-index: 9001;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.35);
+  transform-origin: center center;
+  /* z-index transition retardée pour que la boîte zoomée reste devant
+     pendant l'animation. */
+  transition: transform 0.16s ease-out, box-shadow 0.16s, z-index 0s 0.16s;
+}
+.shortcuts-overlay-fit:hover {
+  transform: scale(var(--hover-scale, 2.5));
+  overflow: visible;
+  z-index: 9100;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.55);
+  transition: transform 0.16s ease-out, box-shadow 0.16s, z-index 0s;
+}
+
+.shortcuts-overlay-fit-text {
   font-family: system-ui, -apple-system, sans-serif;
-  font-size: 0.72rem;
+  font-size: 0.85rem;
   font-weight: 700;
   white-space: nowrap;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.55);
-  border: 1px solid rgba(0, 0, 0, 0.2);
-}
-
-/* Étiquettes composite (touches notes Designer, placement contigu Composer)
-   centrées sur la touche / l'ancre. translate(-50%,-50%) au lieu de
-   (-50%, 0) pour centrer verticalement. */
-.shortcuts-overlay-label-composite {
-  transform: translate(-50%, -50%);
-}
-
-/* Variante compacte pour les étiquettes de touches du clavier visuel
-   (designer-notes), qui peuvent être nombreuses (jusqu'à ~40 en X-EDO 40).
-   Doivent rester lisibles sans dominer chaque touche visuellement. */
-.shortcuts-overlay-label-small kbd {
-  padding: 1px 5px;
-  font-size: 0.62rem;
-  border-radius: 3px;
+  pointer-events: none;
+  line-height: 1;
+  transform: scale(var(--text-scale, 1));
+  transform-origin: center center;
+  /* Lettrage légèrement resserré pour gagner un peu en compacité sans
+     déformer (les fonts système ont souvent une advance assez généreuse). */
+  letter-spacing: -0.02em;
 }

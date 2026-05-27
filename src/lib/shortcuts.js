@@ -238,7 +238,7 @@ export const SHORTCUTS = [
     description: 'Joue les notes du système musical actif. Le mapping QWERTY varie selon le système et la valeur N (X-EDO).',
     keys: { primary: '(touches du clavier)', alternative: null, display: '— mapping live —' },
     anchor: 'designer-keyboard',
-    composite: true,
+    composite: 'per-key',
   },
 
   // ============================================================
@@ -364,9 +364,9 @@ export const SHORTCUTS = [
     contexts: ['composer'],
     label: 'Placement contigu',
     description: "Place un clip après l'ancre (dernier clip touché), à la note pressée, dans son système musical.",
-    keys: { primary: '(touches du clavier au relâchement)', alternative: null, display: '— mapping live —' },
+    keys: { primary: '(touches du clavier au relâchement)', alternative: null, display: 'touches notes' },
     anchor: 'composer-anchor-clip',
-    composite: true,
+    composite: 'live',
   },
 
   // ============================================================
