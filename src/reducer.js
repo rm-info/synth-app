@@ -1457,9 +1457,27 @@ export function reducer(state, action) {
       return { ...state, editor: { ...state.editor, points, preset } }
     }
     case 'RESET_EDITOR': {
+      // iter-L follow-up : préserve l'état d'exploration Designer (test* +
+      // visualCue*) — c'est lié à l'utilisateur (système musical choisi,
+      // octave, etc.), pas au patch en cours. Symétrique avec
+      // HYDRATE_EDITOR_FROM_PATCH qui ne touche jamais ces champs. Sans
+      // cette préservation, "Nouveau patch" (Ctrl+Alt+N) ramenait le
+      // système à 12-TET, l'octave à 4, etc., même si l'utilisateur
+      // explorait un autre tempérament — comportement non attendu.
+      const { testTuningSystem, testNoteIndex, testOctave, testFrequency,
+        visualCuePattern, visualCueTonic } = state.editor
       return {
         ...state,
-        editor: { ...DEFAULT_EDITOR, points: [...DEFAULT_EDITOR.points] },
+        editor: {
+          ...DEFAULT_EDITOR,
+          points: [...DEFAULT_EDITOR.points],
+          testTuningSystem,
+          testNoteIndex,
+          testOctave,
+          testFrequency,
+          visualCuePattern,
+          visualCueTonic,
+        },
         currentPatchId: null,
       }
     }
