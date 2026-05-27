@@ -386,6 +386,34 @@ header Keyboard (toggle, icône Lucide) + raccourci global Ctrl+K
 `selectedTrackId`. Aucune modification de comportement métier hors des
 ajouts ci-dessus.
 
+**Itération L (Documentation) — phase 2 livrée le 2026-05-27**.
+Squelette fonctionnel du 4e onglet **Documentation** (à droite de
+Bibliothèque / Designer / Composer). Cinq sous-commits : (2.1)
+nouvel onglet `documentation` dans Tabs + state `doc.currentArticleId`
+/ `doc.scrollPositions` (sessionStorage `synth-app-doc-session`) +
+prefs sidebar `docSidebarCollapsed` / `docSidebarWidth` (localStorage)
++ actions `SET_CURRENT_ARTICLE` / `SET_ARTICLE_SCROLL` /
+`TOGGLE_DOC_SIDEBAR` / `SET_DOC_SIDEBAR_WIDTH` ; (2.2) renderer
+Markdown maison `src/lib/markdown.js` (~200 lignes, deux passes :
+blocs ligne-par-ligne + inline scan/flush) + composant
+`MarkdownRenderer.jsx` (H1-H4, paragraphes, listes ord/non-ord +
+imbrication, code inline/block, gras/italique, liens, images,
+`<DocLink>` parsé mais inerte en L.2 — TODO L.3) — zéro dépendance
+npm ; (2.3) layout `DocumentationTab.jsx` avec sidebar TOC
+collapsible/resizable (calqué Designer/Composer) + zone contenu
+scrollable + restauration de scroll par article au switch
+(débounce 200 ms à la sauvegarde) ; (2.4) page "Raccourcis clavier"
+auto-générée depuis `SHORTCUTS` (`ShortcutsReference.jsx`, groupage
+Global / Designer / Composer / Bibliothèque, DL/DT/DD avec `<kbd>`)
++ dispatch `entry.type === 'generated'` ; (2.5) stubs articles "À
+propos" (~50 mots) et "Pourquoi 12 notes ?" (~30 mots) avec
+placeholders explicites, fichier de test exhaustif
+`_renderer-test.md` (toutes features V1, image SVG inline data URI)
++ table TOC `src/docs/index.js` à 4 entrées. La rédaction réelle
+des stubs est confiée à un agent rédacteur dédié (cf.
+`writer/CLAUDE.md`) sur un prompt séparé. Aucun nouveau npm,
+aucun impact sur les 3 autres onglets.
+
 **Release v1.0.0-1.0.4** (2026-05-20) — Premier déploiement prod. Sortie
 du 0.x exploratoire après 7 itérations majeures (A→G) stables.
 Branding : titre commercial **On_Synth_App** (jeu de mots « on s'en
@@ -436,9 +464,18 @@ synth-app/
     │   ├── osaFormat.js      # format binaire .osa (encode/decode/validate)
     │   ├── libraryTransfer.js # transformations état ↔ payload .osa
     │   ├── folderNames.js    # nextAvailableFolderName partagé (extraction H.1.4)
-    │   └── bibTransfer.js               # wouldCreateCycle + duplicateItemsToFolder (K.1.7)
+    │   ├── bibTransfer.js               # wouldCreateCycle + duplicateItemsToFolder (K.1.7)
+    │   ├── shortcuts.js      # table déclarative + matchesShortcut / getAnchor (iter-L phase-1.1)
+    │   ├── getAnchoredPosition.js # résolution viewport rect d'un [data-anchor] (iter-L phase-1.5)
+    │   └── markdown.js       # parser Markdown maison + AST (iter-L phase-2.2)
+    ├── docs/                 # contenu de l'onglet Documentation (iter-L phase-2)
+    │   ├── index.js          # table DOC_TOC + sources .md importées via ?raw
+    │   └── articles/         # fichiers Markdown bundled au build
+    │       ├── about.md             # stub L.2.5 (rédaction confiée à writer/)
+    │       ├── why-12-notes.md      # stub L.2.5 (rédaction confiée à writer/)
+    │       └── _renderer-test.md    # validation visuelle des features V1 (à retirer en L.5)
     └── components/
-        ├── Tabs.jsx + .css                    # bascule Designer / Composer
+        ├── Tabs.jsx + .css                    # bascule Bibliothèque / Designer / Composer / Documentation
         ├── PatchBank.jsx + .css               # banque de patches partagée
         ├── WaveformEditor.jsx + .css          # éditeur ondes / patch (Designer)
         ├── Spectrogram.jsx + .css             # spectrogramme statique (Designer)
@@ -467,7 +504,11 @@ synth-app/
         ├── SavePatchDialog.jsx + .css        # modal popup save patch (K.2.7)
         ├── DeleteUsageWarningDialog.jsx + .css # modal warning patches utilisés (K.2.8)
         ├── ConfirmDialog.jsx + .css          # modal confirmation générique (K.2.f16)
-        └── RecentPatchesList.jsx + .css      # LRU 10 derniers patches Composer (K.2.f11)
+        ├── RecentPatchesList.jsx + .css      # LRU 10 derniers patches Composer (K.2.f11)
+        ├── ShortcutsOverlay.jsx + .css       # overlay raccourcis "lever le voile" Ctrl+K (iter-L phase-1.5)
+        ├── DocumentationTab.jsx + .css       # layout TOC + zone contenu de l'onglet Documentation (iter-L phase-2.3)
+        ├── MarkdownRenderer.jsx + .css       # rendu AST Markdown maison → JSX (iter-L phase-2.2)
+        └── ShortcutsReference.jsx + .css     # article généré "Raccourcis clavier" depuis SHORTCUTS (iter-L phase-2.4)
 ```
 
 ### Layout
@@ -552,9 +593,20 @@ type Clip = {                     // placement timeline + hauteur
 //   patchCounter, clipCounter, folderCounter, trackCounter,
 //   composerBankWidth, composerAsideWidth,
 //   composerBankCollapsed, composerAsideCollapsed,
+//   docSidebarWidth, docSidebarCollapsed (iter-L phase-2.1),
 //   editorTestTuningSystem, editorTestNoteIndex, editorTestOctave,
 //   editorTestFrequency, editorVisualCuePattern, editorVisualCueTonic,
 //   selectedTrackId (iter-L phase-1.4.b) }
+//
+// Persistance auxiliaire (sessionStorage, clé "synth-app-doc-session",
+// iter-L phase-2.1) — position de lecture de l'onglet Documentation :
+// { currentArticleId: string | null,  // article ouvert
+//   scrollPositions: { [articleId]: number }  // scroll top par article
+// }
+// Scopé session navigateur : à chaque ouverture, on retombe sur
+// l'article par défaut ('about'). Décorrélé du localStorage métier
+// pour ne pas polluer le retour du jour suivant.
+//
 // NON persisté (volatile) : selectedClipIds, currentPatchId, zoomH,
 // defaultClipDuration, lastAnchorClipId, composerFlash,
 // shortcutsOverlayOpen (iter-L phase-1.6, runtime uniquement),
@@ -571,6 +623,20 @@ type Clip = {                     // placement timeline + hauteur
 //     de la piste active.
 //   shortcutsOverlayOpen: boolean   // overlay raccourcis (Ctrl+K).
 //     Non persisté (toujours fermé au boot).
+//
+// Champs iter-L phase 2 (onglet Documentation) :
+//   doc.currentArticleId: string | null  // article ouvert dans la TOC.
+//     Hydraté depuis sessionStorage ; défaut 'about' (DEFAULT_DOC_ARTICLE_ID)
+//     au boot. null = page d'accueil TOC (liste). Persisté en sessionStorage.
+//   doc.scrollPositions: { [articleId]: number }  // scroll top par article.
+//     Mis à jour avec un débounce 200 ms côté DocumentationTab.
+//     Persisté en sessionStorage. Restauré au switch d'article.
+//   docSidebarCollapsed: boolean  // état réduit de la sidebar TOC.
+//     Persisté en localStorage (préférence UX longue durée).
+//   docSidebarWidth: number  // largeur en px de la sidebar TOC.
+//     Min DOC_SIDEBAR_MIN_WIDTH (180), défaut DOC_SIDEBAR_DEFAULT_WIDTH
+//     (240). Persisté en localStorage.
+//   activeTab étendu à 'documentation' (4ᵉ valeur possible).
 //
 // État `editor` (Designer, non persisté en bloc) — extrait pertinent :
 //   testTuningSystem, testNoteIndex, testOctave, testFrequency  // preview
@@ -1253,6 +1319,50 @@ Choix non évidents pris pour de bonnes raisons. À ne pas remettre en question
   item avant d'ouvrir le menu. Invariant garanti : "menu = sélection
   courante". Simplifie `handleCopy/Cut/Delete` (plus de fallback
   `contextMenu.id` ajouté en phase 1).
+
+- **Table TOC Documentation = source unique (`src/docs/index.js`)**
+  (iter-L phase-2.3). Tout article qui apparaît dans la sidebar de
+  l'onglet Documentation est déclaré là, ordre du tableau = ordre
+  d'affichage, groupage par champ `section`. Le format est extensible
+  via `type` : `'markdown'` (source brute importée via le suffix `?raw`
+  de Vite) ou `'generated'` (composant React dédié, dispatché par id
+  dans `DocumentationTab`). Le pattern `type` permet d'ajouter un
+  nouveau type d'article (auto-généré depuis un autre registre, ou
+  page interactive) sans changer le contrat des entrées existantes —
+  cohérent avec le pattern d'extension F.3 (registre tempéraments) et
+  L.1 (table SHORTCUTS) : on étend en ajoutant des entrées, pas en
+  modifiant le schéma. Ajouter un article rédigé = ajouter un `.md`
+  + une entrée. Ajouter un article généré = créer le composant +
+  ajouter un cas dans le dispatch + une entrée.
+
+- **Renderer Markdown maison = convention "pas de lib externe"**
+  (iter-L phase-2.2). `src/lib/markdown.js` est un parser ~200 lignes
+  en JS pur (deux passes : blocs ligne-par-ligne, inline scan/flush)
+  qui couvre le sous-ensemble V1 nécessaire à la documentation interne
+  (H1-H4, paragraphes, listes ord/non-ord avec 1 niveau d'imbrication,
+  blockquote, code block fenced, gras/italique, code inline, liens,
+  images, `<DocLink>`). Pas de dépendance npm cohérent avec la
+  posture stack minimale du projet, et la grammaire est volontairement
+  petite — pas de tableaux, footnotes, strikethrough, HTML brut (sauf
+  DocLink intercepté). Limites connues : pas d'escape `\*`, les
+  parenthèses non-encodées dans une URL d'image cassent le regex
+  (workaround : URL-encoder en `%28`/`%29`). Si une fonctionnalité
+  manque pour un futur article, étendre le parser plutôt que d'ajouter
+  remark/markdown-it.
+
+- **Persistance Documentation : double sink localStorage +
+  sessionStorage** (iter-L phase-2.1). Les *préférences UX* de la
+  sidebar TOC (`docSidebarCollapsed`, `docSidebarWidth`) vivent en
+  localStorage avec les autres prefs sidebar — l'utilisateur veut
+  retrouver son réglage au jour suivant. La *position de lecture*
+  (`doc.currentArticleId`, `doc.scrollPositions`) vit en
+  sessionStorage sous une clé dédiée `synth-app-doc-session` — elle
+  est restaurée pendant qu'on bascule entre onglets dans la même
+  session, mais elle est jetée à l'ouverture d'une nouvelle session
+  pour ne pas surprendre l'utilisateur ("pourquoi suis-je au milieu
+  de cet article ?"). Hydratation au boot via `loadDocSession()`
+  défensive (types filtrés silencieusement) ; aucune migration en
+  cas de format inattendu.
 
 ## Contraintes implicites
 
@@ -2120,6 +2230,85 @@ Phases listées ci-dessous dans l'ordre chronologique d'implémentation.
   prochaine candidate).
 
 ## Historique (chronologie inverse)
+
+- **2026-05-27 — Iteration L phase 2 (onglet Documentation)**
+  Squelette fonctionnel du 4e onglet utilisateur. Cinq sous-commits
+  cumulatifs (chacun testable indépendamment) suivis de la doc.
+
+  - **L.2.1 — onglet + state reducer** : `Tabs.jsx` étendu à 4
+    onglets (Bibliothèque / Designer / Composer / **Documentation**)
+    avec `data-anchor="tab-documentation"` (cohérence convention L.1).
+    Nouveau state `doc.{currentArticleId, scrollPositions}` hydraté
+    depuis sessionStorage `synth-app-doc-session` via
+    `loadDocSession()` ; nouvelles prefs `docSidebarCollapsed`,
+    `docSidebarWidth` en localStorage. Actions `SET_CURRENT_ARTICLE`,
+    `SET_ARTICLE_SCROLL`, `TOGGLE_DOC_SIDEBAR`,
+    `SET_DOC_SIDEBAR_WIDTH`. Constantes `DOC_SIDEBAR_*`,
+    `DOC_SESSION_KEY`, `DEFAULT_DOC_ARTICLE_ID = 'about'`. Validation
+    `activeTab` étendue. Commit fonctionnellement neutre côté app
+    principale (placeholder "bientôt").
+  - **L.2.2 — renderer Markdown maison** : `src/lib/markdown.js` =
+    parser ~200 lignes JS pur, deux passes — blocs ligne-par-ligne
+    (BLOCK_BREAK regex pour clore un paragraphe) + inline scan/flush
+    récursif (tokens imbriqués gérés par re-parse de la sous-chaîne).
+    Sous-ensemble V1 : H1-H4, paragraphes, listes ord/non-ord +
+    1 niveau d'imbrication, blockquote, code block fenced avec lang,
+    gras (`**`), italique (`*`), code inline (`` ` ``), liens
+    `[label](href)`, images `![alt](src)`, `<DocLink target="…">…
+    </DocLink>` parsé mais rendu inerte en L.2 (TODO L.3).
+    `MarkdownRenderer.jsx` : `useMemo` sur source, dispatcher
+    `renderBlock` / `renderInline`. CSS `MarkdownRenderer.css` :
+    typographie pédagogique (line-height 1.65, max-width 72ch),
+    palette CSS sémantique. Liens externes `target=_blank` +
+    `rel="noopener noreferrer"` automatiques. Limitations connues :
+    pas d'escape `\*`, parenthèses non-encodées dans une URL
+    d'image cassent le regex (workaround : `%28`/`%29`).
+  - **L.2.3 — layout DocumentationTab** : `DocumentationTab.jsx`
+    avec sidebar TOC collapsible/resizable (pattern Designer/Composer,
+    `--doc-sidebar-width` + `DOC_SIDEBAR_COLLAPSED_WIDTH`) et zone
+    contenu scrollable. Restauration de scroll par article au switch
+    via `setTimeout 0` (attendre le paint) ; sauvegarde au scroll
+    avec débounce 200 ms. Cleanup du timer au switch et à l'unmount
+    pour éviter d'écraser une position fraîchement restaurée. Dispatch
+    sur `entry.type === 'markdown'` → `MarkdownRenderer`. Page
+    d'accueil avec empty-state quand TOC vide ou article null.
+    `src/docs/index.js` créé (DOC_TOC vide à ce stade, format
+    documenté inline). Branché dans `App.jsx` en mount conditionnel
+    (vs `hidden`) : aucun état audio/éditeur à préserver, la lecture
+    vit en sessionStorage.
+  - **L.2.4 — page Raccourcis générée** : `ShortcutsReference.jsx`
+    consomme `SHORTCUTS` de `src/lib/shortcuts.js`, groupe via
+    `primarySection()` en 4 sections (Global / Designer / Composer /
+    Bibliothèque). Layout DL/DT/DD avec `<kbd>` stylisé (cohérence
+    typographique avec `.markdown-renderer` via hérité des classes
+    md-*). Entrées composite affichent le `display` tel quel ("—
+    mapping live —", "1-7 (Numpad ou Shift+Digit)", etc.) — pas de
+    duplication de la logique d'overlay ici. Dispatch
+    `entry.type === 'generated' && id === 'shortcuts'` ajouté dans
+    `DocumentationTab.jsx`. `src/docs/index.js` ajoute l'entrée
+    'shortcuts' (section "Référence").
+  - **L.2.5 — stubs + test renderer** : trois fichiers `.md` créés
+    dans `src/docs/articles/`. `about.md` (~50 mots) et
+    `why-12-notes.md` (~30 mots) avec placeholder explicite "Article
+    en cours de rédaction — un brief séparé est confié à l'agent
+    rédacteur (writer)." — la rédaction réelle est faite séparément
+    par l'agent `writer/` sur un prompt distinct
+    (`archi/L2-redaction-prompt.md`). `_renderer-test.md` exerce
+    toutes les features V1 : H1-H4, paragraphes courts/longs,
+    imbrication de listes, code inline + 2 blocs (js / text), emphase,
+    blockquote, lien externe, image SVG inline (data URI, `url()`
+    encodé en `url%28%29` pour cohabiter avec le regex de lien),
+    DocLink dans le texte. À retirer du dossier ET de l'index en
+    L.5 quand les vrais articles couvrent la même surface en
+    conditions réelles. `src/docs/index.js` finalisé à 4 entrées,
+    sections "Le projet" / "Référence" / "Articles".
+
+  Sortie : l'utilisateur ouvre Documentation → voit la TOC à gauche,
+  peut lire "À propos" (stub), "Raccourcis clavier" (généré, exhaustif
+  et à jour), "Test renderer" (validation), "Pourquoi 12 notes ?"
+  (stub). Switch d'onglet → restitue article + scroll dans la même
+  session navigateur. Refresh → revient sur 'about'. Aucun changement
+  dans les 3 autres onglets. Pas de nouvelle dépendance npm.
 
 - **2026-05-27 — Iteration L phase 1 (follow-ups après test utilisateur)**
   Une série de fixes incrémentaux sur la livraison L.1 initiale du
@@ -4666,12 +4855,19 @@ venir L.4). Détails dans `archi/BACKLOG.md` section "Iteration L".
   `composer.selectedTrackId` (persisté). Cf. historique pour le
   détail des sous-commits 1.1 → 1.6.
 
-- ⏳ **L.2** — 4e onglet Documentation (squelette layout TOC + zone
-  contenu, renderer Markdown maison, persistance lecture, contenus
-  initiaux minimaux).
+- ✅ **L.2** (2026-05-27) — 4e onglet Documentation. Cinq sous-commits :
+  (2.1) onglet + state `doc.*` + persistance localStorage (sidebar) +
+  sessionStorage (lecture) ; (2.2) renderer Markdown maison
+  (~200 lignes, zéro dépendance) ; (2.3) layout TOC + zone contenu
+  avec scroll restore par article ; (2.4) page Raccourcis générée
+  depuis `SHORTCUTS` ; (2.5) stubs articles "À propos" / "Pourquoi
+  12 notes ?" (rédaction confiée à l'agent writer/) + fichier de
+  validation `_renderer-test.md`. Cf. historique pour le détail.
 
-- ⏳ **L.3** — Composant `<DocLink>` + utilitaire `highlightElement`
-  (réutilise les ancres L.1).
+- ⏳ **L.3** — Composant `<DocLink>` actif (consommé par le
+  renderer ; navigation cross-onglet + highlight via
+  `highlightElement` qui réutilise les ancres L.1) + utilitaire
+  `highlightElement` (halo temporaire ancré).
 
 - ⏳ **L.4** — Bouton Tour header (`Compass`) + Ctrl+J + composant
   `Tour.jsx` + progress bar header-overlay + tours déclarés.
