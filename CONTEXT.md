@@ -357,6 +357,35 @@ backdrop / Escape / bouton ×. Nouveau hook `useWindowWidth`,
 sous-fonction `renderInstrumentControls()` extraite pour
 réutilisation entre la row directe et la modale.
 
+**Itération L (Documentation) — phase 1 livrée le 2026-05-27**. Fondation
+technique de l'onglet Documentation utilisateur, sans modifier le
+comportement de l'app principale. Six sous-commits : (1.1) table
+déclarative `src/lib/shortcuts.js` source de vérité des raccourcis +
+helpers `matchesShortcut` / `getAnchor` ; (1.2) refacto des handlers
+clavier App / WaveformEditor / PatchBank pour consommer la table ;
+(1.3) convention `data-anchor` posée sur tous les éléments d'UI
+référencés (boutons toolbar Composer + Bibliothèque, OctaveSelector
+Designer, conteneur clavier, boutons Actions panel open/collapsed, etc.) ;
+(1.4) corrections UI dérivées de l'audit L.0 — pastille `Sustain`
+permanente cliquable dans le Designer (verrouillage style pédale piano),
+bouton `Coller` permanent dans la toolbar Composer avec sémantique
+ancre/piste sélectionnée/fallback piste 0, concept `selectedTrackId`
+persisté + signifiant visuel border-left sur le header, chip
+`📋 N éléments` dans la toolbar Bibliothèque (× pour vider), halo subtil
+ton-sur-ton sur le clip ancre Composer (`lastAnchorClipId`), correction
+des tooltips obsolètes CP1 (Octave Composer) et CP2 (Rétablir
+Bibliothèque) ; (1.5) utilitaire `src/lib/getAnchoredPosition.js`
+(résolution viewport rect d'un `[data-anchor]`, multi-élément →
+premier visible) + composant `src/components/ShortcutsOverlay.jsx`
+(couche transparente plein écran, étiquettes flottantes par anchor,
+composite designer-notes / composer-notes-contiguous) ; (1.6) bouton
+header Keyboard (toggle, icône Lucide) + raccourci global Ctrl+K
+(preventDefault, skip form fields, skip si modale ouverte) + state
+`shortcutsOverlayOpen` non persisté. Pose les ancres pour L.3
+(DocLink + highlight) et L.4 (Tour). Nouveau champ persisté
+`selectedTrackId`. Aucune modification de comportement métier hors des
+ajouts ci-dessus.
+
 **Release v1.0.0-1.0.4** (2026-05-20) — Premier déploiement prod. Sortie
 du 0.x exploratoire après 7 itérations majeures (A→G) stables.
 Branding : titre commercial **On_Synth_App** (jeu de mots « on s'en
@@ -524,13 +553,24 @@ type Clip = {                     // placement timeline + hauteur
 //   composerBankWidth, composerAsideWidth,
 //   composerBankCollapsed, composerAsideCollapsed,
 //   editorTestTuningSystem, editorTestNoteIndex, editorTestOctave,
-//   editorTestFrequency, editorVisualCuePattern, editorVisualCueTonic }
+//   editorTestFrequency, editorVisualCuePattern, editorVisualCueTonic,
+//   selectedTrackId (iter-L phase-1.4.b) }
 // NON persisté (volatile) : selectedClipIds, currentPatchId, zoomH,
 // defaultClipDuration, lastAnchorClipId, composerFlash,
+// shortcutsOverlayOpen (iter-L phase-1.6, runtime uniquement),
 // editor.points / amplitude / ADSR / preset (vides au reload, l'éditeur
 // de patch n'est pas restauré ; seuls les champs `test*` et `visualCue*`
 // d'exploration Designer le sont — F.4.4.3), clipboard, measureClipboard,
 // piles undo/redo, settlingTops (Timeline local).
+//
+// Champs iter-L phase 1 :
+//   selectedTrackId: string | null  // piste sélectionnée Composer.
+//     Mise à jour au dernier clic utilisateur (clip / header / zone vide
+//     d'une piste). Persistée. Validation contre tracks à l'hydratation
+//     (reset null si piste introuvable). Reset à null sur DELETE_TRACK
+//     de la piste active.
+//   shortcutsOverlayOpen: boolean   // overlay raccourcis (Ctrl+K).
+//     Non persisté (toujours fermé au boot).
 //
 // État `editor` (Designer, non persisté en bloc) — extrait pertinent :
 //   testTuningSystem, testNoteIndex, testOctave, testFrequency  // preview
@@ -792,6 +832,38 @@ Choix non évidents pris pour de bonnes raisons. À ne pas remettre en question
   malgré cette convention (`'24-tet-cairo-1932'` reste, le coût d'un
   rename global dépasse le bénéfice — ils restent des identifiants
   internes invisibles à l'utilisateur).
+- **Source unique des raccourcis clavier (iter-L phase-1.1)** :
+  `src/lib/shortcuts.js` est le **point d'extension unique** pour les
+  raccourcis clavier. Chaque entrée de `SHORTCUTS` expose
+  `{ id, contexts, label, description, keys: { primary, alternative,
+  display }, anchor, condition?, composite? }`. Les handlers
+  (App.jsx, WaveformEditor.jsx, PatchBank.jsx) consomment via
+  `matchesShortcut(e, id)` plutôt que de comparer e.key/e.code
+  inline. Raison : avant L.1, les conditions étaient dupliquées entre
+  handlers, l'overlay devait re-déduire la liste, et l'ajout/changement
+  d'un raccourci nécessitait de toucher plusieurs fichiers. Avec la
+  table : un seul endroit pour ajouter un raccourci, l'overlay le rend
+  automatiquement, la future page A.1 (Doc / Raccourcis) le génère.
+  Exceptions composites (touches notes Designer / placement contigu
+  Composer) : entrées marquées `composite: true`, le matching reste
+  côté handler (mapping system-dependent via `getKeyboardMap`). Le
+  `NOTE_GUARD_KEYS` (cf. décision F.7.5) reste séparé — c'est un
+  guard transverse, pas une action utilisateur.
+- **Convention `data-anchor` sur les éléments d'UI (iter-L phase-1.3)** :
+  chaque élément d'UI référencé par un raccourci, un futur DocLink
+  (L.3) ou une étape de Tour (L.4) porte un attribut
+  `data-anchor="<id>"`. La valeur correspond au champ `anchor` dans
+  `SHORTCUTS` (ou à des ancres dédiées DocLink/Tour). L'utilitaire
+  `src/lib/getAnchoredPosition.js` résout l'id en rect viewport ;
+  si plusieurs éléments matchent (cas des boutons dupliqués open/
+  collapsed Designer ou des boutons Undo/Redo par onglet), prend le
+  premier visible. Les ancres dynamiques (anchor halo Composer,
+  boutons Undo/Redo selon `activeTab`) sont gérées via `anchor`
+  exprimé comme fonction `(state) => string` dans la table. Les
+  touches du clavier visuel portent en plus un `data-anchor-key=
+  "<noteIndex>"` pour permettre aux overlays composite (étiquettes
+  par touche QWERTY) de se positionner sur la cellule correspondante
+  via `getAnchoredKeyPositions`.
 - **Posture mode note : possession totale du clavier
   alphanumérique (F.7.5)** : hors form-field et hors raccourcis OS
   (Ctrl/Alt/Meta), le mode note "possède" l'ensemble fixe
@@ -1484,6 +1556,19 @@ Phases listées ci-dessous dans l'ordre chronologique d'implémentation.
 ## État actuel
 
 ✅ **Terminé**
+- Iteration L phase 1 (fondation Documentation) : infrastructure pour
+  l'onglet Documentation utilisateur sans modification du comportement
+  métier. Table déclarative `src/lib/shortcuts.js` (source unique des
+  raccourcis), convention `data-anchor` posée sur les éléments d'UI,
+  composant `ShortcutsOverlay` opérationnel via bouton header Keyboard
+  ou Ctrl+K. Promotions UI permanentes : pastille `Sustain` cliquable
+  (verrouillable) dans le Designer, bouton `Coller` dans la toolbar
+  Composer (sémantique ancre/piste sélectionnée/fallback piste 0),
+  chip `📋 N éléments` dans la toolbar Bibliothèque (× pour vider),
+  halo subtil sur le clip ancre Composer, outline subtil sur le header
+  de la piste sélectionnée Composer (nouveau concept `selectedTrackId`
+  persisté). Tooltips CP1/CP2 corrigés (Octave Composer, Rétablir
+  Bibliothèque).
 - Bibliothèque dédiée + 3 sous-apps autonomes (itér K phase 2) : onglet
   Bibliothèque dédié avec full PatchBank + toolbar d'actions icônes,
   sidebars en PatchPicker simplifié, popup SavePatchDialog avec folder
@@ -2035,6 +2120,128 @@ Phases listées ci-dessous dans l'ordre chronologique d'implémentation.
   prochaine candidate).
 
 ## Historique (chronologie inverse)
+
+- **2026-05-27 — Iteration L phase 1 : fondation overlay raccourcis + corrections UI**
+  Mise en place de la couche technique pour l'onglet Documentation
+  utilisateur sans toucher au comportement de l'app principale.
+  Six sous-commits dans l'ordre :
+
+  - **L.1.1** : `src/lib/shortcuts.js` — table déclarative `SHORTCUTS`
+    (28 entrées) + helpers `matchesShortcut(e, id)`, `getAnchor(entry,
+    state)`, `listShortcutsForContext(ctx)`. Couvre tous les raccourcis
+    listés dans `archi/L0-audit-raccourcis.md` sauf exclusions
+    documentées. Tests mentaux en commentaire (pas de runner Vitest
+    installé, cf. CLAUDE.md). Anchors statiques pour la majorité,
+    dynamiques `(state) => string` pour les boutons Undo/Redo
+    contextualisés par onglet et l'indicateur Octave divergent
+    Designer/Composer. Touches notes (Designer + Composer placement
+    contigu) déclarées comme entries composites (mapping live).
+  - **L.1.2** : refacto handlers App.jsx (undo/redo, save/saveAs/new,
+    Delete/Backspace, ↑↓←→, PageUp/Down, durées, Ctrl+CXVMD),
+    WaveformEditor.jsx (Espace sustain, s mode Libre — keydown
+    uniquement, keyup reste e.code direct pour robustesse aux changements
+    de modifier entre keydown/keyup), PatchBank.jsx (Ctrl+CXVA, F2,
+    Delete, Escape clipboard — Esc selection reste inline car ergo
+    standard exclu). Order d'évaluation et guards préservés.
+  - **L.1.3** : pose des attributs `data-anchor` sur les éléments d'UI
+    existants — boutons toolbar Composer (Copier, Couper, Undo, Redo,
+    Octave indicator, DurationButtons via prop dataAnchor), boutons
+    Designer Actions (×2 open + collapsed pour Nouveau, Mettre à jour,
+    Enregistrer, Undo, Redo), test free, conteneur clavier,
+    OctaveSelector Designer, boutons PropertiesPanel (Delete, Merge,
+    Split2, Split3 — en mono ET multi), toolbar Bibliothèque (Undo,
+    Redo, Rename, Copy, Cut, Paste, Select all, Delete), 3 conteneurs
+    sound-bank-tiles/list.
+  - **L.1.4** : cinq corrections UI dérivées de l'audit L.0.
+    **4.a** pastille `Sustain` permanente cliquable dans la
+    we-note-row Designer (remplace l'ancien badge SUSTAIN éphémère) ;
+    trois états inactif/actif/verrouillé, click = toggleSustainLock
+    (équivalent pédale verrouillable de piano numérique). Espace
+    maintenue inchangée ; `spaceHeldRef` tracke l'état physique pour
+    que le déverrouillage n'ait pas d'effet de bord si l'utilisateur
+    tient Espace simultanément. Verrou non persisté (runtime only).
+    **4.b** bouton `Coller` permanent dans la toolbar Composer
+    (sémantique clic = priorité ancre halo → piste sélectionnée →
+    fallback piste 0 ; différent de Ctrl+V qui colle à la souris).
+    Nouveau état `selectedTrackId` persisté, mis à jour au dernier
+    clic utilisateur dans la zone Composer (clip / header / zone vide
+    d'une piste). Signifiant visuel : border-left accent subtil sur
+    le track-header. Validation à l'hydratation contre `tracks` ;
+    reset à null sur DELETE_TRACK de la piste active.
+    **4.c** chip `📋 N éléments` dans la toolbar Bibliothèque,
+    visible quand `bibClipboard.items.length > 0`, × cliquable vide
+    le clipboard (équivalent comportemental d'Esc). Esc comportement
+    inchangé. **4.d** halo subtil ton-sur-ton sur le clip ancre
+    Composer (`lastAnchorClipId`) : box-shadow inset right liseré
+    accent + glow halo réduit. `data-anchor="composer-anchor-clip"`
+    dynamique (suit `lastAnchorClipId`). Nouveau wrapper reducer
+    `clampAnchorToExistingClip` (exécuté entre `applyUndoAware` et
+    `syncAnchorWithSelection`) qui reset `lastAnchorClipId` à null si
+    le clip pointé n'existe plus — couvre DELETE_MEASURE / CUT_MEASURE
+    / DELETE_TRACK / splits de mesure (REMOVE_CLIP, DELETE_SELECTED_CLIPS,
+    CLEAR_TIMELINE géraient déjà la cohérence localement).
+    **4.e** correction des tooltips obsolètes — CP1 indicateur Octave
+    Composer "Shift seul = +1, Ctrl seul = −1" → "PageUp/PageDown ±1"
+    (raccourci retiré en F.3.3), CP2 bouton Rétablir Bibliothèque
+    "Ctrl+Y" → "Ctrl+Shift+Z" (uniformisation cross-onglet ; Ctrl+Y
+    reste fonctionnel via le handler).
+  - **L.1.5** : `src/lib/getAnchoredPosition.js` — résout
+    `getAnchoredPosition(anchorId)` en `{ found, top, left, width,
+    height }` viewport, retourne le premier élément visible si
+    plusieurs candidats. `getAnchoredKeyPositions(parentAnchorId)`
+    indexe les enfants `[data-anchor-key]` du parent (utilisé par la
+    composite touches notes Designer). Stateless, pas de cache.
+    Composant `src/components/ShortcutsOverlay.jsx` — couche fixed
+    plein écran avec backdrop semi-opaque (rgba(0,0,0,0.45)), bouton
+    close en haut à droite (32px+), étiquette par anchor positionnée
+    au-dessus (ou en dessous si trop haut). Multi-raccourcis sur même
+    ancre = libellé combiné via " / ". Composite designer-notes itère
+    sur le keyboardMap du système actif, pose une étiquette compacte
+    par touche QWERTY mappée. Composite composer-notes-contiguous :
+    étiquette sur le halo si présent, sinon bandeau supérieur
+    explicatif. ESC ferme (capture phase pour devancer Esc clipboard
+    Bibliothèque). Re-render au resize / scroll. `data-anchor-key`
+    posés sur les 4 layouts visuels (PianoLayout12 whites + blacks,
+    Grid24Layout, Grid22Bhatkhande, Grid22Sarngadeva, GridXEdoLayout)
+    — valeur = noteIndex stable, le mapping QWERTY → noteIndex est
+    résolu côté overlay. À ce stade, le composant existe mais n'est
+    pas branché.
+  - **L.1.6** : branchement final. Nouvelle entrée SHORTCUTS
+    `global-shortcuts` (Ctrl/Cmd+K), ancrée sur
+    `header-shortcuts-button`. Nouveau bouton header Keyboard dans
+    Tabs.jsx (icône Lucide), classe `.shortcuts-toggle` calquée sur
+    `.theme-toggle`, état actif (highlight accent) quand overlay
+    ouvert. Nouveau state `shortcutsOverlayOpen` au reducer global,
+    action `SET_SHORTCUTS_OVERLAY` (boolean), non persisté. App.jsx
+    ajoute un handler global Ctrl+K (preventDefault impératif, skip
+    form fields, skip si modale ouverte via heuristique DOM des
+    backdrops *-backdrop). Render `<ShortcutsOverlay>` au top-level.
+
+  Modèle de données : `selectedTrackId` (persisté) et
+  `shortcutsOverlayOpen` (volatile) ajoutés au state global.
+  Décisions architecturales mises à jour : `shortcuts.js` comme
+  source unique des raccourcis, convention `data-anchor` pour les
+  éléments d'UI consommés par overlay/Tour/DocLink.
+
+  Aucun changement de comportement métier hors des nouveaux éléments
+  visibles (pastille, bouton Coller, chip clipboard, halo anchor,
+  outline piste sélectionnée, bouton header Keyboard) et du toggle
+  Ctrl+K. Tous les raccourcis pré-existants fonctionnent exactement
+  comme avant. Build vite OK. Lint OK (4 warnings react-hooks
+  pré-existants hors scope L.1).
+
+- **2026-05-27 — L.0 audit raccourcis (rapport)**
+  `archi/L0-audit-raccourcis.md` livré (commit `a70c714`) :
+  inventaire exhaustif des 28 raccourcis d'action de l'app
+  (Global 3, Designer 5, Composer 16, Bibliothèque 9). Catégorisation
+  par ancrage (bouton / objet / dégénéré). 5 orphelins identifiés
+  (Espace sustain Designer, Ctrl+V Composer, Escape clipboard
+  Bibliothèque, touche note maintenue pendant drag, placement
+  contigu). Cas particuliers documentés (tooltip obsolète Octave
+  Composer, incohérence Ctrl+Y vs Ctrl+Shift+Z, mapping notes
+  system-dependent, NOTE_GUARD_KEYS transverse, etc.). Pas de
+  modification de code. Sert de base aux arbitrages de
+  `archi/L1-prompt.md`.
 
 - **2026-05-25 — Itération K phase 2 : Bibliothèque dédiée + 3 sous-apps autonomes**
   Restructure de l'app en 3 sous-applications avec piles undo séparées.
@@ -4370,6 +4577,49 @@ git log (`fix(iter-K/phase-2.fN)`). Liste compactée :
   à intensité variable. Couleurs sémantiques ad hoc (jaune warning
   `#ffc600`, violet biblio `#c084fc`, magenta cued `#e832e2`) laissées
   inchangées : palette light choisie pour rester lisible avec elles.
+
+### Itération L (Documentation) — cadrée 2026-05-26, en cours
+
+Production de la documentation utilisateur (manuel, vulgarisation,
+référence, parcours d'orientation) **sans modifier l'app principale**.
+Trois entrypoints additifs : un onglet Documentation, deux boutons
+d'aide contextuelle dans le header (Raccourcis ✓ livré L.1, Tour à
+venir L.4). Détails dans `archi/BACKLOG.md` section "Iteration L".
+
+- ✅ **L.0** (2026-05-27) — Audit raccourcis. Rapport
+  `archi/L0-audit-raccourcis.md` listant les 28 raccourcis d'action,
+  ancrage (bouton/objet/dégénéré), orphelins à arbitrer.
+
+- ✅ **L.1** (2026-05-27) — Fondation overlay. Table `src/lib/shortcuts.js`
+  (source unique), refacto handlers (App/WaveformEditor/PatchBank),
+  convention `data-anchor` sur les éléments d'UI, utilitaire
+  `getAnchoredPosition`, composant `ShortcutsOverlay`, bouton header
+  Keyboard + raccourci Ctrl+K. Corrections UI dérivées de l'audit
+  (pastille Sustain permanente cliquable, bouton Coller Composer avec
+  fallback piste sélectionnée, chip clipboard Bibliothèque, halo
+  anchor clip Composer, tooltips CP1/CP2). Nouveau concept
+  `composer.selectedTrackId` (persisté). Cf. historique pour le
+  détail des sous-commits 1.1 → 1.6.
+
+- ⏳ **L.2** — 4e onglet Documentation (squelette layout TOC + zone
+  contenu, renderer Markdown maison, persistance lecture, contenus
+  initiaux minimaux).
+
+- ⏳ **L.3** — Composant `<DocLink>` + utilitaire `highlightElement`
+  (réutilise les ancres L.1).
+
+- ⏳ **L.4** — Bouton Tour header (`Compass`) + Ctrl+J + composant
+  `Tour.jsx` + progress bar header-overlay + tours déclarés.
+
+- ⏳ **L.5** — Rédaction des contenus (peut commencer en parallèle dès
+  L.2).
+
+- ⏳ **L.6** *(option)* — Démos écoutables.
+
+- ⏳ **L.7** *(option)* — Exercices guidés.
+
+**Sortie de L.4** = V1 fonctionnelle. L.5 enrichit les contenus sans
+toucher au code.
 
 ### Backlog général (à caser quand pertinent)
 
