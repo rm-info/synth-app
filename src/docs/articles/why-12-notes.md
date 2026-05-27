@@ -94,9 +94,10 @@ de la main humaine.
 
 D'autres traditions ont fait des choix différents :
 
-- la musique arabe enseignée depuis le Congrès du Caire de 1932
-  s'écrit sur une grille de **24 hauteurs par octave** (des
-  quarts de ton, avec des inflexions plus fines selon le maqâm) ;
+- la théorie de la musique arabe, codifiée au Congrès du Caire
+  de 1932, s'organise sur une grille de **24 hauteurs par
+  octave** (des quarts de ton) — la pratique vivante des
+  maqâmât y ajoute souvent des inflexions plus fines ;
 - la musique classique indienne se réfère à un cadre théorique
   de **22 *shrutis*** par octave, aux intervalles inégaux par
   construction ;
