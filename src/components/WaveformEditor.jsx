@@ -21,6 +21,7 @@ import {
 import XEdoInput from './XEdoInput'
 import { xEdoShiftedKeyboardMapForN } from '../lib/xEdoLayouts'
 import { NOTE_GUARD_KEYS } from '../lib/keyboardCandidates'
+import { matchesShortcut } from '../lib/shortcuts'
 import {
   VISUAL_CUE_PATTERNS,
   cuedNoteIndices,
@@ -925,7 +926,7 @@ function WaveformEditor({
       if (isFormField(e.target)) return
 
       // Espace : pédale de sustain (maintenue). preventDefault → pas de scroll.
-      if (e.code === 'Space') {
+      if (matchesShortcut(e, 'designer-sustain')) {
         e.preventDefault()
         if (!e.repeat) instrumentBridgeRef.current?.activateSustain()
         return
@@ -939,7 +940,7 @@ function WaveformEditor({
 
       // Mode Libre (iter G phase 1.3) : 's' déclenche playFree (un seul
       // canal mono, retrigger géré). Pas de noteIndex à fixer.
-      if (testTuningSystem === 'free' && e.code === 'KeyS') {
+      if (testTuningSystem === 'free' && matchesShortcut(e, 'designer-test-free')) {
         e.preventDefault()
         if (!e.repeat) instrumentBridgeRef.current?.playFree()
         return

@@ -42,6 +42,7 @@ import { canMergeClips } from './lib/timelineLayout'
 import { getKeyboardMap, getNoteNames, getTuningSystem } from './lib/tuningSystems'
 import { xEdoShiftedKeyboardMapForN } from './lib/xEdoLayouts'
 import { NOTE_GUARD_KEYS } from './lib/keyboardCandidates'
+import { matchesShortcut } from './lib/shortcuts'
 import {
   DURATION_BASES, DURATION_COEFS,
   deriveBaseAndCoef, effectiveDuration, isValidCoef,
@@ -162,14 +163,12 @@ function App() {
 
   useEffect(() => {
     const handler = (e) => {
-      const ctrl = e.ctrlKey || e.metaKey
-      if (!ctrl) return
       const target = e.target
       const tag = target?.tagName
       if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return
       if (target?.isContentEditable) return
-      const isUndo = e.key.toLowerCase() === 'z' && !e.shiftKey
-      const isRedo = (e.key.toLowerCase() === 'z' && e.shiftKey) || e.key.toLowerCase() === 'y'
+      const isUndo = matchesShortcut(e, 'global-undo')
+      const isRedo = matchesShortcut(e, 'global-redo')
       if (!isUndo && !isRedo) return
       e.preventDefault()
       const undoAction = {
@@ -194,24 +193,21 @@ function App() {
   useEffect(() => {
     const handler = (e) => {
       if (activeTab !== 'designer') return
-      const ctrl = e.ctrlKey || e.metaKey
-      if (!ctrl) return
       const target = e.target
       const tag = target?.tagName
       if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return
       if (target?.isContentEditable) return
-      const key = e.key.toLowerCase()
-      if (key === 's' && !e.altKey && !e.shiftKey) {
+      if (matchesShortcut(e, 'designer-save')) {
         e.preventDefault()
         document.dispatchEvent(new CustomEvent('designer:save-shortcut'))
         return
       }
-      if (key === 's' && e.altKey) {
+      if (matchesShortcut(e, 'designer-save-as')) {
         e.preventDefault()
         document.dispatchEvent(new CustomEvent('designer:save-as-shortcut'))
         return
       }
-      if (key === 'n' && e.altKey) {
+      if (matchesShortcut(e, 'designer-new')) {
         e.preventDefault()
         document.dispatchEvent(new CustomEvent('designer:new-shortcut'))
       }
@@ -222,7 +218,8 @@ function App() {
 
   useEffect(() => {
     const handleKeyDown = (e) => {
-      const isDelete = e.key === 'Delete' || e.key === 'Backspace'
+      const isDelete = matchesShortcut(e, 'composer-delete')
+      // C2 (Escape Composer désélectionner) : ergo standard, hors SHORTCUTS.
       const isEscape = e.key === 'Escape'
       if (!isDelete && !isEscape) return
       if (selectedClipIds.length === 0) return
@@ -249,8 +246,14 @@ function App() {
   // Groupe bloqué si le clip le plus contraint ne peut pas bouger.
   useEffect(() => {
     const handler = (e) => {
-      const isArrow = e.key === 'ArrowUp' || e.key === 'ArrowDown'
-        || e.key === 'ArrowLeft' || e.key === 'ArrowRight'
+      // Quatre raccourcis Composer sur même geste : ↑↓ ±1 demi-ton, Shift+↑↓
+      // ±1 octave, ←→ ±0.125 beat, Shift+←→ ±1 beat. Le matcher filtre
+      // strictement les modifiers (Ctrl/Alt absents → must be off), ce qui
+      // exclut les combos Ctrl+↑/↓ et autres surprises navigateur.
+      const isArrow = matchesShortcut(e, 'composer-pitch-arrow')
+        || matchesShortcut(e, 'composer-pitch-shift')
+        || matchesShortcut(e, 'composer-pos-arrow')
+        || matchesShortcut(e, 'composer-pos-shift')
       if (!isArrow) return
       if (activeTab !== 'composer') return
       if (selectedClipIds.length === 0) return
@@ -352,8 +355,9 @@ function App() {
 
     const onKeyDown = (e) => {
       if (isFormField(e.target)) return
-      if (e.ctrlKey || e.metaKey || e.altKey) return
-      if (e.key !== 'PageUp' && e.key !== 'PageDown') return
+      if (!matchesShortcut(e, 'editor-octave')) return
+      // e.repeat autorisé : maintenir la touche traverse les octaves (pas de
+      // guard ici, contrairement aux notes ou au sustain).
       e.preventDefault()
       const cur = testOctaveRef.current
       if (e.key === 'PageUp' && cur < 10) {
@@ -538,6 +542,11 @@ function App() {
     const onKeyDown = (e) => {
       if (isFormField(e.target)) return
       if (e.repeat) return
+      // Gate via matchesShortcut : exclut Ctrl/Alt/Meta strictement. decodeRank
+      // extrait ensuite le rang numérique (1..10), info dont matchesShortcut
+      // ne dispose pas (le matcher rend un booléen).
+      if (!matchesShortcut(e, 'composer-duration-base')
+        && !matchesShortcut(e, 'composer-duration-coef')) return
       const rank = decodeRank(e)
       if (rank == null) return
 
@@ -1176,32 +1185,33 @@ function App() {
 
   useEffect(() => {
     const handler = (e) => {
-      const ctrl = e.ctrlKey || e.metaKey
-      if (!ctrl) return
       if (activeTab !== 'composer') return
       const target = e.target
       const tag = target?.tagName
       if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return
       if (target?.isContentEditable) return
-      const key = e.key.toLowerCase()
-      if (key === 'c' && selectedClipIds.length > 0) {
+      if (matchesShortcut(e, 'composer-copy') && selectedClipIds.length > 0) {
         e.preventDefault()
         handleCopy()
-      } else if (key === 'x' && selectedClipIds.length > 0) {
+      } else if (matchesShortcut(e, 'composer-cut') && selectedClipIds.length > 0) {
         e.preventDefault()
         handleCut()
-      } else if (key === 'v' && clipboard) {
+      } else if (matchesShortcut(e, 'composer-paste') && clipboard) {
         e.preventDefault()
+        // Ctrl+V : sémantique "coller à la souris" (cf. L0 audit C13).
+        // Le bouton "Coller" L.1.4 utilise une sémantique différente
+        // (ancre/piste sélectionnée).
         const pos = timelineMouseRef.current
         if (pos) handlePaste(pos.absoluteBeat, pos.trackId)
-      } else if (key === 'm' && selectedClipIds.length >= 2) {
+      } else if (matchesShortcut(e, 'composer-merge') && selectedClipIds.length >= 2) {
         e.preventDefault()
         if (mergeStatus.canMerge) handleMergeClips()
-      } else if (key === 'd' && selectedClipIds.length > 0) {
+      } else if (matchesShortcut(e, 'composer-split2') && selectedClipIds.length > 0) {
         e.preventDefault()
-        const divisor = e.shiftKey ? 3 : 2
-        const can = divisor === 2 ? canSplit2 : canSplit3
-        if (can) handleSplitClips(divisor)
+        if (canSplit2) handleSplitClips(2)
+      } else if (matchesShortcut(e, 'composer-split3') && selectedClipIds.length > 0) {
+        e.preventDefault()
+        if (canSplit3) handleSplitClips(3)
       }
     }
     window.addEventListener('keydown', handler)

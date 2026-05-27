@@ -5,6 +5,7 @@ import {
   CheckSquare, Eraser,
 } from 'lucide-react'
 import { getDescendantFolderIds, countFolderContents } from '../reducer'
+import { matchesShortcut } from '../lib/shortcuts'
 import { nextAvailableFolderName } from '../lib/folderNames.js'
 import BibBreadcrumb from './BibBreadcrumb'
 import BibContextMenu from './BibContextMenu'
@@ -535,26 +536,28 @@ function PatchBank({
       // (App.jsx écoute aussi Delete/Escape/Arrow pour la timeline).
       const consume = () => { e.preventDefault(); e.stopPropagation() }
 
-      if ((e.ctrlKey || e.metaKey) && e.key === 'c') {
+      if (matchesShortcut(e, 'library-copy')) {
         consume()
         handleCopy()
-      } else if ((e.ctrlKey || e.metaKey) && e.key === 'x') {
+      } else if (matchesShortcut(e, 'library-cut')) {
         consume()
         handleCut()
-      } else if ((e.ctrlKey || e.metaKey) && e.key === 'v') {
+      } else if (matchesShortcut(e, 'library-paste')) {
         consume()
         handlePaste()
-      } else if (e.key === 'F2' && bibSelectedIds.length === 1) {
+      } else if (matchesShortcut(e, 'library-rename') && bibSelectedIds.length === 1) {
         consume()
         const item = bibSelectedIds[0]
         const name = item.type === 'patch'
           ? patches.find(p => p.id === item.id)?.name
           : soundFolders.find(f => f.id === item.id)?.name
         if (name) startEdit(item.id, name)
-      } else if (e.key === 'Delete' || e.key === 'Backspace') {
+      } else if (matchesShortcut(e, 'library-delete')) {
         consume()
         handleDeleteSelected()
       } else if (e.key === 'Escape') {
+        // B6 (vider clipboard) ∈ SHORTCUTS ; B7 (vider sélection) ergo
+        // standard. Mêmes touche, branchement par état du clipboard.
         consume()
         if (bibClipboard) onClearClipboard?.()
         else onClearSelection?.()
@@ -589,7 +592,7 @@ function PatchBank({
           if (bibHierarchyMode === 'nav') onSetCurrentFolder?.(item.id)
           else toggleFolder(item.id)
         }
-      } else if ((e.ctrlKey || e.metaKey) && e.key === 'a') {
+      } else if (matchesShortcut(e, 'library-select-all')) {
         consume()
         const orderedList = getOrderedItemList({
           hierarchyMode: bibHierarchyMode,
