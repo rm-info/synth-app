@@ -2121,6 +2121,71 @@ Phases listées ci-dessous dans l'ordre chronologique d'implémentation.
 
 ## Historique (chronologie inverse)
 
+- **2026-05-27 — Iteration L phase 1 (follow-ups après test utilisateur)**
+  Une série de fixes incrémentaux sur la livraison L.1 initiale du
+  même jour, suite à retours utilisateur.
+
+  - **Ctrl+letter cross-layout** : `matchesShortcut` utilise `e.key`
+    (logique, layout-dependent) au lieu de `e.code` (physique
+    QWERTY) pour les lettres A-Z. Régression AZERTY : la touche Z
+    est physiquement à `e.code === 'KeyW'`, donc Ctrl+Z et Ctrl+A
+    ne fonctionnaient pas. Convention navigateur standard pour les
+    raccourcis app. Les touches notes Designer/Composer restent
+    layout-independent via `getKeyboardMap` + `e.code`.
+  - **Halo anchor refondu en ghost clip externe** : remplacement du
+    `box-shadow inset` à l'intérieur du clip par un rectangle dashed
+    accent positionné juste après le clip ancre, de largeur =
+    `defaultClipDuration`. Visuel "clip fantôme" qui préfigure
+    exactement où la prochaine note de placement contigu (C18) se
+    déposera. `data-anchor="composer-anchor-clip"` déplacé du clip
+    vers le ghost. `pointer-events: none`. Nouveau wrapper reducer
+    `clampAnchorToExistingClip` conservé (toujours utile pour les
+    delete/cut/split de mesure qui rotate les ids).
+  - **Ctrl+V Composer unifié** sur la sémantique du bouton Coller
+    (ancre halo → piste sélectionnée → fallback piste 0). Le clic
+    droit menu "Coller ici" reste le chemin pour le coller-à-la-souris.
+  - **Overlay raccourcis refondu (fit-and-zoom)** : abandon du smart
+    placement 4-quadrants (impossible à scaler dans les zones denses
+    type Designer Actions où 5 boutons 34px reçoivent des labels
+    60-110px). Nouveau pattern : chaque étiquette occupe exactement
+    le rect de son ancre, texte réduit via CSS scale au repos ; au
+    survol, dimensions explicites (width/height/left/top animés via
+    CSS vars) qui épousent le contenu naturel + padding. Pas de
+    collision possible par construction. Mesure réelle du texte via
+    `canvas.measureText` (font matchée), pas char-count heuristique.
+    Wrapping inter-combos (séparateur `\n` entre combinaisons
+    multiples sur même ancre, jamais à l'intérieur d'une combo).
+    Padding repos minimal (2px) / hover généreux (12×10px).
+    Position au hover clampée au viewport (EDGE_MARGIN 16px).
+  - **Capture clavier complète pendant overlay** : remplacement du
+    listener Esc-only par un catch-all keydown en capture phase.
+    Toute touche non-modifier ferme l'overlay et est absorbée
+    (stopPropagation + stopImmediatePropagation) avant d'atteindre
+    les handlers métier. Modificateurs seuls (Shift/Ctrl/Alt/Meta
+    press) laissés passer pour permettre Ctrl+K (capté au K). Keyup
+    aussi absorbé pour éviter sustain résiduel.
+  - **Per-key composite généralisé** : `composite: 'per-key'`
+    appliqué aux durées Composer (composer-duration-base/coef) en
+    plus de designer-notes. `data-anchor-key={digit}` posé sur
+    chaque bouton de durée. L'overlay dispatch selon l'id :
+    designer-notes mapping system-dependent ; composer-duration
+    générique (data-anchor-key value = display). Dédup par parent
+    anchor.
+  - **Bouton Fusionner PropertiesPanel** : aligné sur les boutons
+    Diviser. `.clip-merge-btn` avait `margin-top: 4px` + padding
+    différent ; dans une rangée flex `align-items: stretch`, la
+    margin cross-axis rétrécit l'item. Fix : `flex: 1`, padding
+    6×8 aligné, plus de margin-top.
+  - **RESET_EDITOR préserve les champs test/visualCue** : Ctrl+Alt+N
+    (Nouveau patch) ne remet plus le système musical à 12-TET,
+    l'octave à 4, etc. Symétrique avec HYDRATE_EDITOR_FROM_PATCH
+    qui ne touche jamais ces champs. Seul le contenu de patch
+    (points, amplitude, preset, ADSR) est réinitialisé.
+  - **PageUp/PageDown overlay** mesuré correctement via
+    `canvas.measureText` (l'estimation char-count sous-évaluait
+    les majuscules larges P/U/D/W). Le label rentre désormais
+    dans l'indicateur Octave Composer.
+
 - **2026-05-27 — Iteration L phase 1 : fondation overlay raccourcis + corrections UI**
   Mise en place de la couche technique pour l'onglet Documentation
   utilisateur sans toucher au comportement de l'app principale.
