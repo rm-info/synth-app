@@ -32,9 +32,9 @@ départ, sept octaves plus haut.
 > demi-ton du tempérament égal en compte cent. Soit un peu moins
 > d'un quart de demi-ton. On l'appelle le **comma pythagoricien**.
 
-Ce comma est minuscule à l'œil, mais parfaitement audible à
-l'oreille. Et il a hanté les facteurs d'instruments à hauteur
-fixe pendant deux millénaires.
+Ce comma est minuscule à l'œil, mais une oreille un peu
+exercée l'entend sans peine. Et il a hanté les facteurs
+d'instruments à hauteur fixe pendant deux millénaires.
 
 ## Le problème pratique : où cacher le comma ?
 
