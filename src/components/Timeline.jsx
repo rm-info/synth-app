@@ -158,8 +158,11 @@ function Timeline({
   // la zone Composer (clip / header / zone vide d'une piste).
   selectedTrackId,
   onSelectTrack,
-  // iter-L phase-1.4.d : exposé pour le halo anchor (sera consommé en 4.d).
+  // iter-L phase-1.4.d (révisé) : ghost clip = aperçu de la prochaine
+  // position de placement contigu. Largeur = defaultClipDuration. Porte
+  // data-anchor="composer-anchor-clip" pour l'overlay.
   lastAnchorClipId,
+  defaultClipDuration,
   onAddMeasures,
   onRemoveLastMeasure,
   mousePositionRef,
@@ -1454,15 +1457,9 @@ function Timeline({
                 const top = effectiveTrackYOffset + effectiveLane * trackHeight + 4
                 const height = trackHeight - 8
                 const isSelected = selectedClipIds?.includes(clip.id)
-                // iter-L phase-1.4.d : halo subtil sur le clip ancre
-                // (lastAnchorClipId). Sert de signifiant pour le placement
-                // contigu au clavier (C18). Ancre l'étiquette overlay
-                // composer-anchor-clip / composer-notes-contiguous.
-                const isAnchor = lastAnchorClipId === clip.id
                 const classNames = [
                   'placed-sound',
                   isSelected && 'is-selected',
-                  isAnchor && 'is-anchor',
                   mode === 'drag' && 'is-dragging',
                   (mode === 'resize-left' || mode === 'resize-right') && 'is-resizing',
                   mutedTrackIds.has(clip.trackId) && 'is-track-muted',
@@ -1472,7 +1469,6 @@ function Timeline({
                   <div
                     key={clip.id}
                     data-clip-id={clip.id}
-                    data-anchor={isAnchor ? 'composer-anchor-clip' : undefined}
                     className={classNames}
                     style={{
                       left: `${left}%`,
@@ -1518,6 +1514,38 @@ function Timeline({
                   </div>
                 )
               })}
+              {/* iter-L phase-1.4.d (révisé) : ghost clip = aperçu de la
+                  prochaine position de placement contigu. Position calée sur
+                  la fin du clip ancre (lastAnchorClipId), largeur =
+                  defaultClipDuration. Porte data-anchor="composer-anchor-
+                  clip" (l'overlay y ancre l'étiquette composer-notes-
+                  contiguous). pointer-events: none — purement informatif. */}
+              {(() => {
+                if (!lastAnchorClipId) return null
+                const anchorItem = allLaidOut.find((it) => it.clip.id === lastAnchorClipId)
+                if (!anchorItem) return null
+                const { clip: ac, lane: aLane, trackYOffset: aYOff } = anchorItem
+                const anchorEnd = (ac.measure - 1) * BEATS_PER_MEASURE + ac.beat + ac.duration
+                const ghostStart = Math.round(anchorEnd / 0.125) * 0.125
+                const ghostDur = defaultClipDuration ?? 1
+                const left = (ghostStart / totalBeats) * 100
+                const width = (ghostDur / totalBeats) * 100
+                const top = aYOff + aLane * trackHeight + 4
+                const height = trackHeight - 8
+                return (
+                  <div
+                    className="anchor-ghost"
+                    data-anchor="composer-anchor-clip"
+                    style={{
+                      left: `${left}%`,
+                      width: `${width}%`,
+                      top: `${top}px`,
+                      height: `${height}px`,
+                    }}
+                    aria-hidden="true"
+                  />
+                )
+              })()}
             </div>
 
             {/* Ghost copies pendant Ctrl+drag (duplication) */}

@@ -2370,6 +2370,7 @@ function App() {
                   selectedTrackId={selectedTrackId}
                   onSelectTrack={handleSelectTrack}
                   lastAnchorClipId={lastAnchorClipId}
+                  defaultClipDuration={defaultClipDuration}
                   onAddMeasures={handleAddMeasures}
                   onRemoveLastMeasure={handleRemoveLastMeasure}
                   mousePositionRef={timelineMouseRef}

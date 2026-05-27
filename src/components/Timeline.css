@@ -480,19 +480,21 @@ html[style*="cursor"] * {
   box-shadow: 0 0 10px rgba(255, 255, 255, 0.25);
 }
 
-/* iter-L phase-1.4.d : halo subtil sur le clip ancre (lastAnchorClipId).
-   Le placement contigu au clavier (C18) se fait après ce clip — le
-   liseré droit signale "voici la borne où la prochaine note s'ajoutera".
-   Ton-sur-ton accent avec opacité réduite pour ne pas concurrencer la
-   sélection (border-right plein du clip + box-shadow halo). */
-.placed-sound.is-anchor {
-  box-shadow: inset -2px 0 0 0 var(--accent), 2px 0 6px -2px rgba(98, 184, 184, 0.4);
-}
-.placed-sound.is-anchor.is-selected {
-  /* Sélection + ancre cumulés : l'outline blanc reste primaire,
-     on conserve juste le liseré droit accent (le glow halo est
-     redondant avec celui de is-selected). */
-  box-shadow: inset -2px 0 0 0 var(--accent), 0 0 10px rgba(255, 255, 255, 0.25);
+/* iter-L phase-1.4.d (révisé) : ghost clip = aperçu de la prochaine
+   position de placement contigu (touches notes au clavier, C18). Position
+   = juste après le clip ancre, largeur = defaultClipDuration. Style
+   "fantôme" pour signifier "pas encore posé, mais ça va atterrir ici".
+   pointer-events: none — purement informatif. Z-index sous les
+   placed-sound pour ne pas masquer un clip existant juxtaposé. */
+.anchor-ghost {
+  position: absolute;
+  box-sizing: border-box;
+  border: 1.5px dashed var(--accent);
+  background: var(--accent-bg-medium);
+  border-radius: 4px;
+  opacity: 0.55;
+  pointer-events: none;
+  z-index: 1;
 }
 
 /* Rectangle de zoom Alt+drag (phase 5) */

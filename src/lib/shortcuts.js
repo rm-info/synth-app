@@ -66,8 +66,13 @@ function matchModifiers(e, mods) {
 function matchKey(e, key) {
   if (!key) return false
 
-  // Lettre A-Z (combos type Ctrl+V) → e.code === 'KeyX'.
-  if (/^[A-Z]$/.test(key)) return e.code === `Key${key}`
+  // Lettre A-Z (combos type Ctrl+V) → e.key.toLowerCase() (lettre logique
+  // de la disposition courante). Volontairement layout-dependent : un AZERTY
+  // veut que sa touche "Z" déclenche Ctrl+Z, même si elle est physiquement
+  // sur la position QWERTY-W (e.code === 'KeyW'). Convention navigateur
+  // standard pour les raccourcis app (≠ touches notes Designer/Composer
+  // qui restent layout-independent via getKeyboardMap + e.code).
+  if (/^[A-Z]$/.test(key)) return e.key?.toLowerCase() === key.toLowerCase()
 
   // Range Numpad/Digit (ex. 'Numpad1-7', 'Digit8-0'). Le format est
   // <prefix><start>-<end> avec start/end ∈ [0..9]. Si end < start, on
