@@ -68,6 +68,7 @@ function PianoLayout12({ noteIndex, active, cued, compact, names, handleMouseDow
               aria-label={names[idx]}
               aria-pressed={noteIndex === idx}
               title={compact ? names[idx] : undefined}
+              data-anchor-key={idx}
             >
               {!compact && <span className="piano-key-label">{names[idx]}</span>}
             </button>
@@ -90,6 +91,7 @@ function PianoLayout12({ noteIndex, active, cued, compact, names, handleMouseDow
               title={names[note]}
               aria-label={names[note]}
               aria-pressed={noteIndex === note}
+              data-anchor-key={note}
             />
           )
         })}
@@ -176,6 +178,7 @@ function Grid24Layout({ noteIndex, active, cued, compact, names, handleMouseDown
             aria-label={label}
             aria-pressed={noteIndex === idx}
             title={compact ? label : undefined}
+            data-anchor-key={idx}
           >
             {!compact && <span className="grid24-key-label">{label}</span>}
           </button>
@@ -269,6 +272,7 @@ function Grid22BhatkhandeLayout({ noteIndex, active, cued, compact, names, handl
             aria-label={label}
             aria-pressed={noteIndex === idx}
             title={compact ? label : undefined}
+            data-anchor-key={idx}
           >
             {!compact && <span className="grid22-key-label">{label}</span>}
           </button>
@@ -351,6 +355,7 @@ function Grid22SarngadevaLayout({ noteIndex, active, cued, compact, names, handl
             aria-label={label}
             aria-pressed={noteIndex === idx}
             title={compact ? label : undefined}
+            data-anchor-key={idx}
           >
             {!compact && <span className="grid22-key-label">{label}</span>}
           </button>

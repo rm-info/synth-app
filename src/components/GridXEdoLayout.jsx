@@ -119,6 +119,7 @@ function GridXEdoLayout({
                   aria-label={label}
                   aria-pressed={noteIndex === half.degree}
                   title={compact ? label : undefined}
+                  data-anchor-key={half.degree}
                 >
                   {!compact && <span className="gridx-key-label">{label}</span>}
                 </button>
