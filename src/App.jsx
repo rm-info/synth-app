@@ -1256,11 +1256,10 @@ function App() {
         handleCut()
       } else if (matchesShortcut(e, 'composer-paste') && clipboard) {
         e.preventDefault()
-        // Ctrl+V : sémantique "coller à la souris" (cf. L0 audit C13).
-        // Le bouton "Coller" L.1.4 utilise une sémantique différente
-        // (ancre/piste sélectionnée).
-        const pos = timelineMouseRef.current
-        if (pos) handlePaste(pos.absoluteBeat, pos.trackId)
+        // iter-L follow-up : Ctrl+V unifié sur la sémantique du bouton
+        // (ancre halo → piste sélectionnée → fallback piste 0). Le clic
+        // droit menu "Coller ici" reste pour le coller-à-la-souris.
+        handlePasteFromButton()
       } else if (matchesShortcut(e, 'composer-merge') && selectedClipIds.length >= 2) {
         e.preventDefault()
         if (mergeStatus.canMerge) handleMergeClips()
@@ -1274,7 +1273,7 @@ function App() {
     }
     window.addEventListener('keydown', handler)
     return () => window.removeEventListener('keydown', handler)
-  }, [activeTab, selectedClipIds, clipboard, mergeStatus, canSplit2, canSplit3, handleCopy, handleCut, handlePaste, handleMergeClips, handleSplitClips])
+  }, [activeTab, selectedClipIds, clipboard, mergeStatus, canSplit2, canSplit3, handleCopy, handleCut, handlePasteFromButton, handleMergeClips, handleSplitClips])
 
   const handleClearTimeline = useCallback(() => {
     dispatch({ type: 'CLEAR_TIMELINE' })

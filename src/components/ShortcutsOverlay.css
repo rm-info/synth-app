@@ -36,8 +36,10 @@
 .shortcuts-overlay-label {
   position: fixed;
   pointer-events: none;
-  transform: translate(-50%, 0);
   z-index: 9001;
+  /* Smart placement 4-quadrants : top/left calculés en JS (cf.
+     ShortcutsOverlay.jsx pickPlacement). Pas de transform — la boîte
+     est positionnée par son coin haut-gauche sur le rect estimé. */
 }
 .shortcuts-overlay-label kbd {
   display: inline-block;
