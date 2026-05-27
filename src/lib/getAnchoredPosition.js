@@ -29,7 +29,7 @@ function rectIsVisible(rect) {
 }
 
 function emptyResult() {
-  return { found: false, top: 0, left: 0, width: 0, height: 0 }
+  return { found: false, top: 0, left: 0, width: 0, height: 0, element: null }
 }
 
 // Renvoie la position viewport de l'élément `[data-anchor="<id>"]`.
@@ -58,19 +58,22 @@ export function getAnchoredPosition(anchorId) {
         left: rect.left,
         width: rect.width,
         height: rect.height,
+        element: el,
       }
     }
   }
 
   // Aucun visible — on retourne quand même le premier rect, signalé
   // par found: true si non-dégénéré (le caller décide quoi en faire).
-  const fallbackRect = candidates[0].getBoundingClientRect()
+  const fallback = candidates[0]
+  const fallbackRect = fallback.getBoundingClientRect()
   return {
     found: fallbackRect.width > 0 || fallbackRect.height > 0,
     top: fallbackRect.top,
     left: fallbackRect.left,
     width: fallbackRect.width,
     height: fallbackRect.height,
+    element: fallback,
   }
 }
 

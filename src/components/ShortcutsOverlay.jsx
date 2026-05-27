@@ -19,27 +19,64 @@ function keyCodeLabel(code) {
   return SPECIAL[code] ?? code
 }
 
-// Estimation naturelle de la largeur du texte à font 0.85rem (≈ 13.6px).
-// ~7.5 px par caractère + petite marge (padding interne minimal).
-const NATURAL_CHAR_W = 7.5
-const TEXT_PADDING_X = 4
-function estimateTextWidth(display) {
-  return Math.max(8, (display?.length ?? 1) * NATURAL_CHAR_W)
+// Mesure réelle de la largeur d'un texte via canvas, en matchant la font
+// de .shortcuts-overlay-fit-text (bold 0.85rem ≈ 13.6px, system-ui).
+// Plus fiable qu'une estimation char-count (les majuscules P/U/D/W sont
+// très larges, les chiffres et lettres minces le sont beaucoup moins).
+// Singleton de contexte 2d (canvas off-DOM) pour éviter recréation.
+let _measureCtx = null
+function getMeasureCtx() {
+  if (!_measureCtx) {
+    _measureCtx = document.createElement('canvas').getContext('2d')
+  }
+  // Mesure dans la font effective. 13.6px ≈ 0.85rem à root-em=16px (défaut
+  // navigateur). Les variations à 14/15px (utilisateurs ayant ajusté leur
+  // taille de police par défaut) introduisent une sur/sous-mesure de
+  // ~5-10%, marge absorbée par TEXT_PADDING_X et le cap hoverScale.
+  _measureCtx.font = '700 13.6px system-ui, -apple-system, sans-serif'
+  return _measureCtx
+}
+function measureTextWidth(display) {
+  if (!display) return 8
+  return getMeasureCtx().measureText(display).width
 }
 
-// Calcule le couple (textScale, hoverScale) pour qu'un libellé tienne dans
-// un rect donné, et que le hover restaure ~la taille naturelle.
-//   textScale  = facteur de réduction du texte pour qu'il tienne dans le rect
-//   hoverScale = facteur d'agrandissement de la boîte au survol
-// Caps de sécurité : hoverScale ∈ [1.5, 5] pour éviter les explosions sur
-// les ancres minuscules (clip ghost étroit) ou les emphases excessives sur
-// les ancres déjà larges.
+// Padding interne (gauche + droite) déduit de la largeur disponible avant
+// scale. 8px de chaque côté pour respirer un peu sans coller au bord.
+const TEXT_PADDING_X = 8
+
+// Calcule (textScale, hoverScale) pour qu'un libellé tienne dans un rect
+// donné, le hover restaurant ~la taille naturelle.
 function computeFitScales(rect, display) {
-  const naturalW = estimateTextWidth(display)
+  const naturalW = Math.max(8, measureTextWidth(display))
   const targetW = Math.max(1, rect.width - TEXT_PADDING_X * 2)
   const textScale = Math.min(1, targetW / naturalW)
   const hoverScale = Math.min(5, Math.max(1.5, 1 / textScale))
   return { textScale, hoverScale }
+}
+
+// Calcule transform-origin pour le hover scale de façon que la boîte
+// zoomée ne sorte pas du viewport. Si le centre du bouton est à moins
+// de half-expanded-size du bord, on bascule l'origine vers ce bord —
+// la boîte s'étend alors uniquement vers l'intérieur de l'écran.
+const EDGE_MARGIN = 8
+function computeTransformOrigin(rect, hoverScale) {
+  const expandedHalfW = (rect.width * hoverScale) / 2
+  const expandedHalfH = (rect.height * hoverScale) / 2
+  const centerX = rect.left + rect.width / 2
+  const centerY = rect.top + rect.height / 2
+  const vw = window.innerWidth
+  const vh = window.innerHeight
+
+  let originX = 'center'
+  if (centerX - expandedHalfW < EDGE_MARGIN) originX = 'left'
+  else if (centerX + expandedHalfW > vw - EDGE_MARGIN) originX = 'right'
+
+  let originY = 'center'
+  if (centerY - expandedHalfH < EDGE_MARGIN) originY = 'top'
+  else if (centerY + expandedHalfH > vh - EDGE_MARGIN) originY = 'bottom'
+
+  return `${originX} ${originY}`
 }
 
 // Composant overlay "lever le voile" (iter-L phase 1.5, révisé post-feedback).
@@ -110,7 +147,13 @@ function ShortcutsOverlay({ isOpen, onClose, state }) {
     if (!pos.found) continue
     const display = items.map((s) => s.keys.display).filter(Boolean).join(' / ')
     if (!display) continue
-    labels.push({ key: anchorId, display, rect: pos })
+    // Détection raccourci inactif : si l'élément ancre est un bouton avec
+    // attribut `disabled`, on grise l'étiquette. Source de vérité = DOM
+    // (évite de dupliquer dans shortcuts.js des conditions complexes
+    // comme canMerge / canSplit / canUndo).
+    const isDisabled = pos.element?.disabled === true
+      || pos.element?.getAttribute?.('aria-disabled') === 'true'
+    labels.push({ key: anchorId, display, rect: pos, disabled: isDisabled })
   }
 
   // Per-key composite : touches notes Designer. Loop sur le keyboardMap
@@ -176,17 +219,19 @@ function ShortcutsOverlay({ isOpen, onClose, state }) {
       {banner && (
         <div className="shortcuts-overlay-banner" role="status">{banner}</div>
       )}
-      {allLabels.map(({ key, display, rect }) => {
+      {allLabels.map(({ key, display, rect, disabled }) => {
         const { textScale, hoverScale } = computeFitScales(rect, display)
+        const transformOrigin = computeTransformOrigin(rect, hoverScale)
         return (
           <div
             key={key}
-            className="shortcuts-overlay-fit"
+            className={`shortcuts-overlay-fit${disabled ? ' is-disabled' : ''}`}
             style={{
               left: rect.left,
               top: rect.top,
               width: rect.width,
               height: rect.height,
+              transformOrigin,
               '--text-scale': textScale,
               '--hover-scale': hoverScale,
             }}
