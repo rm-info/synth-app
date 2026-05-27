@@ -1,0 +1,138 @@
+/* MarkdownRenderer.css — typographie pédagogique pour les articles
+   Documentation (iter-L phase-2.2). Cible : lisibilité confortable,
+   espacement aéré, palette sémantique du projet. Le ton se rapproche
+   d'un livre plus que d'une doc API. */
+
+.markdown-renderer {
+  color: var(--text-default);
+  font-size: 0.95rem;
+  line-height: 1.65;
+  max-width: 72ch; /* longueur de ligne confortable pour la lecture */
+  padding: 8px 4px 32px;
+}
+
+/* Titres */
+.markdown-renderer .md-h {
+  color: var(--text-strong);
+  font-weight: 600;
+  line-height: 1.25;
+  margin: 1.6em 0 0.6em;
+}
+.markdown-renderer .md-h:first-child {
+  margin-top: 0;
+}
+.markdown-renderer .md-h1 {
+  font-size: 1.8rem;
+  letter-spacing: -0.01em;
+  margin-bottom: 0.8em;
+}
+.markdown-renderer .md-h2 {
+  font-size: 1.4rem;
+  border-bottom: 1px solid var(--surface-border);
+  padding-bottom: 0.3em;
+}
+.markdown-renderer .md-h3 {
+  font-size: 1.15rem;
+  color: var(--accent);
+}
+.markdown-renderer .md-h4 {
+  font-size: 1rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-secondary);
+}
+
+/* Paragraphes */
+.markdown-renderer .md-p {
+  margin: 0 0 1em;
+}
+
+/* Listes */
+.markdown-renderer .md-ul,
+.markdown-renderer .md-ol {
+  margin: 0 0 1em;
+  padding-left: 1.6em;
+}
+.markdown-renderer .md-li {
+  margin: 0.2em 0;
+}
+.markdown-renderer .md-li > .md-ul,
+.markdown-renderer .md-li > .md-ol {
+  margin: 0.3em 0 0.3em;
+}
+
+/* Blockquote */
+.markdown-renderer .md-blockquote {
+  margin: 1em 0;
+  padding: 0.5em 1em;
+  border-left: 3px solid var(--accent);
+  background: var(--accent-bg-faint);
+  color: var(--text-secondary);
+  font-style: italic;
+}
+
+/* Code inline */
+.markdown-renderer .md-code-inline {
+  font-family: 'Courier New', monospace;
+  font-size: 0.88em;
+  background: var(--surface-border);
+  color: var(--text-strong);
+  padding: 0.1em 0.4em;
+  border-radius: 3px;
+  white-space: nowrap;
+}
+
+/* Code block */
+.markdown-renderer .md-pre {
+  margin: 1em 0;
+  padding: 12px 14px;
+  background: var(--surface-bg);
+  border: 1px solid var(--surface-border);
+  border-radius: 6px;
+  overflow-x: auto;
+  font-size: 0.85rem;
+  line-height: 1.5;
+}
+.markdown-renderer .md-pre .md-code {
+  font-family: 'Courier New', monospace;
+  color: var(--text-default);
+  background: transparent;
+  padding: 0;
+  white-space: pre;
+}
+
+/* Liens */
+.markdown-renderer .md-link {
+  color: var(--accent);
+  text-decoration: none;
+  border-bottom: 1px solid var(--accent-bg-soft);
+  transition: border-color 0.15s, color 0.15s;
+}
+.markdown-renderer .md-link:hover {
+  color: var(--accent-bright);
+  border-bottom-color: var(--accent);
+}
+/* DocLink en L.2 : visuellement identique à un lien classique mais
+   inerte. L.3 ajoutera un comportement de navigation. */
+.markdown-renderer .md-doclink {
+  cursor: pointer;
+}
+
+/* Images */
+.markdown-renderer .md-image {
+  display: block;
+  max-width: 100%;
+  height: auto;
+  margin: 1em 0;
+  border-radius: 4px;
+}
+
+/* Emphase / gras : utiliser les valeurs natives, juste s'assurer du
+   poids du gras dans la palette. */
+.markdown-renderer strong {
+  color: var(--text-strong);
+  font-weight: 700;
+}
+.markdown-renderer em {
+  font-style: italic;
+}
