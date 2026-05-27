@@ -1,0 +1,193 @@
+/* DocumentationTab.css — layout TOC + zone contenu (iter-L phase-2.3).
+   Calqué sur le pattern grid Designer (sidebar collapsible/resizable +
+   main scrollable). */
+
+.documentation-layout {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: var(--doc-sidebar-width, 240px) 1fr;
+  grid-template-rows: 1fr;
+  grid-template-areas: "sidebar main";
+  gap: 12px;
+  padding: 12px;
+}
+
+/* ---------- Sidebar TOC ---------- */
+.doc-sidebar {
+  grid-area: sidebar;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  background: var(--surface-bg);
+  border: 1px solid var(--surface-border);
+  border-radius: 8px;
+  overflow: hidden;
+  position: relative; /* pour SidebarResizer */
+}
+
+.doc-sidebar.is-collapsed {
+  align-items: center;
+  padding: 10px 0;
+  gap: 10px;
+}
+.doc-sidebar.is-collapsed .sidebar-toggle {
+  width: 30px;
+  height: 30px;
+}
+
+.doc-sidebar-vlabel {
+  /* Label vertical en mode collapsed, cohérent avec le pattern Composer
+     ("Propriétés" vertical). writing-mode rotate le texte 90°. */
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  writing-mode: vertical-rl;
+  transform: rotate(180deg);
+  color: var(--text-secondary);
+  font-size: 0.8rem;
+  letter-spacing: 0.06em;
+  user-select: none;
+}
+.doc-sidebar-vlabel svg {
+  transform: rotate(90deg);
+}
+
+.doc-sidebar-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--surface-border);
+  flex-shrink: 0;
+}
+.doc-sidebar-header h3 {
+  margin: 0;
+  font-size: 0.85rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-secondary);
+  font-weight: 600;
+}
+
+.doc-toc {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 8px 0 16px;
+}
+.doc-toc-empty {
+  padding: 16px;
+  color: var(--text-secondary);
+  font-size: 0.85rem;
+  font-style: italic;
+}
+
+.doc-toc-section + .doc-toc-section {
+  margin-top: 14px;
+}
+.doc-toc-section-title {
+  padding: 6px 12px 4px;
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-secondary);
+  opacity: 0.8;
+}
+
+.doc-toc-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.doc-toc-list li {
+  margin: 0;
+}
+
+.doc-toc-item {
+  display: block;
+  width: 100%;
+  text-align: left;
+  background: transparent;
+  border: none;
+  color: var(--text-default);
+  padding: 6px 12px;
+  font-size: 0.88rem;
+  cursor: pointer;
+  border-left: 2px solid transparent;
+  transition: background 0.12s, color 0.12s, border-color 0.12s;
+  line-height: 1.4;
+}
+.doc-toc-item:hover {
+  background: var(--accent-bg-faint);
+  color: var(--text-strong);
+}
+.doc-toc-item.is-active {
+  background: var(--accent-bg-medium);
+  color: var(--accent);
+  border-left-color: var(--accent);
+}
+
+/* ---------- Zone contenu ---------- */
+.doc-content {
+  grid-area: main;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 24px 32px;
+  background: var(--surface-bg);
+  border: 1px solid var(--surface-border);
+  border-radius: 8px;
+}
+
+.doc-home h1 {
+  margin: 0 0 0.6em;
+  color: var(--text-strong);
+  font-size: 1.6rem;
+  font-weight: 600;
+}
+.doc-home p {
+  color: var(--text-secondary);
+  margin: 0 0 1.2em;
+  max-width: 60ch;
+}
+.doc-home-section {
+  margin-top: 1.4em;
+}
+.doc-home-section h3 {
+  margin: 0 0 0.4em;
+  font-size: 0.85rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-secondary);
+  font-weight: 600;
+}
+.doc-home-section ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.doc-home-link {
+  background: transparent;
+  border: none;
+  padding: 4px 0;
+  color: var(--accent);
+  cursor: pointer;
+  font-size: 0.95rem;
+  text-align: left;
+}
+.doc-home-link:hover {
+  text-decoration: underline;
+}
+
+/* Responsive mobile : sidebar passe en accordéon vertical en haut, contenu
+   en dessous. À cadrer plus finement quand un usage mobile est mesuré ;
+   pour V1 on dégrade simplement la grid. */
+@media (max-width: 800px) {
+  .documentation-layout {
+    grid-template-columns: 1fr;
+    grid-template-rows: auto 1fr;
+    grid-template-areas: "sidebar" "main";
+  }
+  .doc-sidebar { max-height: 240px; }
+}

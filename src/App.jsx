@@ -17,6 +17,7 @@ import SavePatchDialog from './components/SavePatchDialog'
 import DeleteUsageWarningDialog from './components/DeleteUsageWarningDialog'
 import ConfirmDialog from './components/ConfirmDialog'
 import ShortcutsOverlay from './components/ShortcutsOverlay'
+import DocumentationTab from './components/DocumentationTab'
 import {
   reducer,
   withUndo,
@@ -1989,16 +1990,20 @@ function App() {
         </main>
       )}
 
-      {/* iter-L phase-2.1 : onglet Documentation — placeholder neutre.
-          Layout TOC + zone contenu vient en L.2.3. Mount conditionnel
-          (vs hidden) : aucun état audio/éditeur à préserver, la lecture
-          vit dans sessionStorage. */}
+      {/* iter-L phase-2.3 : onglet Documentation. Mount conditionnel —
+          aucun état audio/éditeur à préserver, la position de lecture
+          vit en sessionStorage (cf. doc.{currentArticleId,
+          scrollPositions}). */}
       {activeTab === 'documentation' && (
-        <main className="documentation-tab-content">
-          <div className="documentation-placeholder">
-            Documentation — bientôt.
-          </div>
-        </main>
+        <DocumentationTab
+          doc={doc}
+          sidebarCollapsed={docSidebarCollapsed}
+          sidebarWidth={docSidebarWidth}
+          onSetCurrentArticle={(id) => dispatch({ type: 'SET_CURRENT_ARTICLE', payload: id })}
+          onSetArticleScroll={(articleId, scrollTop) => dispatch({ type: 'SET_ARTICLE_SCROLL', payload: { articleId, scrollTop } })}
+          onToggleSidebar={() => dispatch({ type: 'TOGGLE_DOC_SIDEBAR' })}
+          onSetSidebarWidth={(w) => dispatch({ type: 'SET_DOC_SIDEBAR_WIDTH', payload: w })}
+        />
       )}
 
       <WaveformEditor
