@@ -11,11 +11,12 @@ deux ne donne, à elle seule, le dernier mot.
 
 ## Empiler des quintes : l'idée pythagoricienne
 
-L'intuition la plus ancienne nous vient de l'école
-pythagoricienne (vers le VIe siècle av. J.-C.) : deux cordes
-dont les longueurs sont dans le rapport `3:2` sonnent
-particulièrement *consonantes* ensemble. Cet intervalle s'appelle
-une **quinte pure**.
+Le raisonnement qui produit les douze notes a été formalisé,
+pour la première fois à notre connaissance, par l'école
+pythagoricienne (vers le VIe siècle av. J.-C.). Son point de
+départ : deux cordes dont les longueurs sont dans le rapport
+`3:2` sonnent particulièrement *consonantes* ensemble. Cet
+intervalle s'appelle une **quinte pure**.
 
 Si on part d'une note et qu'on monte d'une quinte pure, puis
 d'une autre, puis d'une autre — on parcourt un chemin où chaque
