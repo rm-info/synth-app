@@ -12,11 +12,19 @@
 //                 entrées dans le tableau.
 //   - type      : 'markdown' (rendu via MarkdownRenderer + source brute)
 //                 ou 'generated' (composant React dédié, dispatché par
-//                 DocumentationTab — cf. L.2.4 pour 'shortcuts').
+//                 DocumentationTab — id 'shortcuts' = ShortcutsReference).
 //   - source    : string Markdown brute (uniquement pour type 'markdown').
 //                 Importée via le suffix `?raw` de Vite (zéro plugin
 //                 nécessaire).
 //
-// Les contenus sont posés en L.2.4 (Raccourcis générée) et L.2.5 (stubs
-// rédigés / fichier de test renderer).
-export const DOC_TOC = []
+// Les sources .md sont enrichies en L.2.5 (stubs articles + fichier de
+// test renderer).
+
+export const DOC_TOC = [
+  {
+    id: 'shortcuts',
+    title: 'Raccourcis clavier',
+    section: 'Référence',
+    type: 'generated',
+  },
+]

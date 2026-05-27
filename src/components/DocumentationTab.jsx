@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef } from 'react'
 import { ChevronLeft, ChevronRight, BookOpen } from 'lucide-react'
 import SidebarResizer from './SidebarResizer'
 import MarkdownRenderer from './MarkdownRenderer'
+import ShortcutsReference from './ShortcutsReference'
 import { DOC_TOC } from '../docs/index.js'
 import { DOC_SIDEBAR_COLLAPSED_WIDTH, DOC_SIDEBAR_MIN_WIDTH } from '../reducer'
 import './DocumentationTab.css'
@@ -211,10 +212,16 @@ function renderArticle(entry, sections, onSetCurrentArticle) {
     )
   }
 
-  // Dispatch par type. Pour L.2.3, seul 'markdown' est implémenté.
-  // L.2.4 ajoutera 'generated' (ShortcutsReference).
+  // Dispatch par type :
+  //   - 'markdown'  → MarkdownRenderer + source brute (L.2.3).
+  //   - 'generated' → composant React dédié, dispatché par id (L.2.4).
+  //                   Pour ajouter un nouveau type généré, ajouter un cas
+  //                   ici et un import du composant correspondant.
   if (entry.type === 'markdown') {
     return <MarkdownRenderer source={entry.source} />
+  }
+  if (entry.type === 'generated' && entry.id === 'shortcuts') {
+    return <ShortcutsReference />
   }
   return (
     <div className="doc-home">

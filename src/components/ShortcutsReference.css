@@ -1,0 +1,72 @@
+/* ShortcutsReference.css — page "Raccourcis clavier" générée (iter-L
+   phase-2.4). Hérite des classes md-* de MarkdownRenderer.css pour la
+   cohérence typographique (titres, paragraphes, max-width 72ch),
+   ajoute la liste DL/DT/DD propre aux raccourcis. */
+
+.shortcuts-reference .shortcuts-section + .shortcuts-section {
+  margin-top: 2em;
+}
+
+.shortcuts-reference .shortcuts-section-intro {
+  color: var(--text-secondary);
+  font-style: italic;
+  font-size: 0.88rem;
+}
+
+.shortcuts-reference .shortcuts-list {
+  margin: 0.6em 0 1em;
+  padding: 0;
+}
+
+.shortcuts-row {
+  display: grid;
+  grid-template-columns: 220px 1fr;
+  gap: 12px 18px;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--surface-border);
+  align-items: baseline;
+}
+.shortcuts-row:last-child {
+  border-bottom: none;
+}
+
+.shortcuts-combo {
+  margin: 0;
+  display: flex;
+  align-items: center;
+}
+
+.shortcuts-combo kbd {
+  font-family: 'Courier New', monospace;
+  font-size: 0.82rem;
+  background: var(--surface-border);
+  color: var(--text-strong);
+  border: 1px solid var(--surface-border-strong);
+  border-bottom-width: 2px;
+  border-radius: 4px;
+  padding: 2px 7px;
+  display: inline-block;
+  line-height: 1.3;
+}
+
+.shortcuts-meta {
+  margin: 0;
+}
+.shortcuts-label {
+  font-weight: 600;
+  color: var(--text-strong);
+  font-size: 0.95rem;
+  margin-bottom: 2px;
+}
+.shortcuts-description {
+  color: var(--text-secondary);
+  font-size: 0.88rem;
+  line-height: 1.55;
+}
+
+@media (max-width: 640px) {
+  .shortcuts-row {
+    grid-template-columns: 1fr;
+    gap: 4px;
+  }
+}
