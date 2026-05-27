@@ -50,9 +50,10 @@
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.45);
 }
 
-/* Étiquette ajustée : boîte au rect exact de l'ancre, texte scale pour
-   tenir. transform-origin: center pour que le hover zoom déplie autour
-   du centre du bouton (préservant l'ancrage visuel). */
+/* Étiquette ajustée : boîte au rect exact de l'ancre au repos, dimensions
+   explicites (width/height) au hover qui prennent la taille naturelle du
+   contenu — peut sortir de la forme d'origine (ex. bouton 34×34 → libellé
+   100×22 single-line, ou clip ghost 30×40 → 86×93 multi-ligne wrap). */
 .shortcuts-overlay-fit {
   position: fixed;
   display: flex;
@@ -67,29 +68,47 @@
   overflow: hidden;
   z-index: 9001;
   box-shadow: 0 1px 4px rgba(0, 0, 0, 0.35);
-  transform-origin: center center;
-  /* z-index transition retardée pour que la boîte zoomée reste devant
-     pendant l'animation. */
-  transition: transform 0.16s ease-out, box-shadow 0.16s, z-index 0s 0.16s;
+  /* Position et taille pilotées par les CSS vars setées inline par React.
+     Le :hover change les vars consommées (rest-* → hover-*) sans toucher
+     l'inline (la spécificité du :hover gagne sur la valeur en cascade). */
+  left: var(--rest-left);
+  top: var(--rest-top);
+  width: var(--rest-w);
+  height: var(--rest-h);
+  transition: left 0.16s ease-out, top 0.16s ease-out,
+              width 0.16s ease-out, height 0.16s ease-out,
+              box-shadow 0.16s, z-index 0s 0.16s;
 }
 .shortcuts-overlay-fit:hover {
-  transform: scale(var(--hover-scale, 2.5));
+  left: var(--hover-left);
+  top: var(--hover-top);
+  width: var(--hover-w);
+  height: var(--hover-h);
   overflow: visible;
   z-index: 9100;
   box-shadow: 0 6px 20px rgba(0, 0, 0, 0.55);
-  transition: transform 0.16s ease-out, box-shadow 0.16s, z-index 0s;
+  transition: left 0.16s ease-out, top 0.16s ease-out,
+              width 0.16s ease-out, height 0.16s ease-out,
+              box-shadow 0.16s, z-index 0s;
 }
 
 .shortcuts-overlay-fit-text {
   font-family: system-ui, -apple-system, sans-serif;
   font-size: 0.85rem;
   font-weight: 700;
-  white-space: nowrap;
+  /* pre-line : wrapping au '\n' inséré entre combinaisons (jamais à
+     l'intérieur d'une combo unique grâce au '\n' explicite). Les espaces
+     intra-combo restent inscables (no-break-space serait plus strict mais
+     'pre-line' fonctionne car les seuls split-points sont les \n). */
+  white-space: pre-line;
+  text-align: center;
   pointer-events: none;
-  line-height: 1;
+  line-height: 1.15;
+  letter-spacing: -0.02em;
   transform: scale(var(--text-scale, 1));
   transform-origin: center center;
-  /* Lettrage légèrement resserré pour gagner un peu en compacité sans
-     déformer (les fonts système ont souvent une advance assez généreuse). */
-  letter-spacing: -0.02em;
+  transition: transform 0.16s ease-out;
+}
+.shortcuts-overlay-fit:hover .shortcuts-overlay-fit-text {
+  transform: scale(1);
 }

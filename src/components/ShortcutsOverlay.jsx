@@ -21,68 +21,94 @@ function keyCodeLabel(code) {
 
 // Mesure réelle de la largeur d'un texte via canvas, en matchant la font
 // de .shortcuts-overlay-fit-text (bold 0.85rem ≈ 13.6px, system-ui).
-// Plus fiable qu'une estimation char-count (les majuscules P/U/D/W sont
-// très larges, les chiffres et lettres minces le sont beaucoup moins).
 // Singleton de contexte 2d (canvas off-DOM) pour éviter recréation.
 let _measureCtx = null
 function getMeasureCtx() {
   if (!_measureCtx) {
     _measureCtx = document.createElement('canvas').getContext('2d')
   }
-  // Mesure dans la font effective. 13.6px ≈ 0.85rem à root-em=16px (défaut
-  // navigateur). Les variations à 14/15px (utilisateurs ayant ajusté leur
-  // taille de police par défaut) introduisent une sur/sous-mesure de
-  // ~5-10%, marge absorbée par TEXT_PADDING_X et le cap hoverScale.
   _measureCtx.font = '700 13.6px system-ui, -apple-system, sans-serif'
   return _measureCtx
 }
-function measureTextWidth(display) {
-  if (!display) return 8
-  return getMeasureCtx().measureText(display).width
-}
 
-// Padding interne (gauche + droite) déduit de la largeur disponible avant
-// scale. 8px de chaque côté pour respirer un peu sans coller au bord.
-const TEXT_PADDING_X = 8
-
-// Calcule (textScale, hoverScale) pour qu'un libellé tienne dans un rect
-// donné, le hover restaurant la taille naturelle.
-//   textScale = facteur de réduction pour tenir au repos (≤ 1)
-//   hoverScale = 1 / textScale → texte effectif à taille naturelle au hover
-// Plancher hoverScale = 1.5 (emphase modeste même quand le texte rentre
-// naturellement). Pas de plafond : sur les ancres minuscules (clip ghost
-// étroit) le scale peut atteindre 10-30 pour rester lisible — le
-// transform-origin adaptatif évite la sortie de viewport.
-function computeFitScales(rect, display) {
-  const naturalW = Math.max(8, measureTextWidth(display))
-  const targetW = Math.max(8, rect.width - TEXT_PADDING_X * 2)
-  const textScale = Math.min(1, targetW / naturalW)
-  const hoverScale = Math.max(1.5, 1 / textScale)
-  return { textScale, hoverScale }
-}
-
-// Calcule transform-origin pour le hover scale de façon que la boîte
-// zoomée ne sorte pas du viewport. Si le centre du bouton est à moins
-// de half-expanded-size du bord, on bascule l'origine vers ce bord —
-// la boîte s'étend alors uniquement vers l'intérieur de l'écran.
+// Hauteur de ligne effective pour la font 0.85rem bold. line-height: 1.15
+// en CSS → ~15.6px par ligne. Pour la mesure, on prend 16px (marge).
+const LINE_HEIGHT_PX = 16
+const PADDING_X = 8
+const PADDING_Y = 6
 const EDGE_MARGIN = 8
-function computeTransformOrigin(rect, hoverScale) {
-  const expandedHalfW = (rect.width * hoverScale) / 2
-  const expandedHalfH = (rect.height * hoverScale) / 2
-  const centerX = rect.left + rect.width / 2
-  const centerY = rect.top + rect.height / 2
+
+// Mesure les dimensions naturelles d'un display, en gérant le wrapping
+// inséré au '\n' (entre combinaisons distinctes, jamais à l'intérieur).
+// Retourne { naturalW, naturalH }.
+function measureContentBox(display) {
+  if (!display) return { naturalW: 8, naturalH: LINE_HEIGHT_PX }
+  const ctx = getMeasureCtx()
+  const lines = display.split('\n')
+  let maxW = 0
+  for (const line of lines) {
+    const w = ctx.measureText(line).width
+    if (w > maxW) maxW = w
+  }
+  return {
+    naturalW: Math.max(8, maxW),
+    naturalH: Math.max(LINE_HEIGHT_PX, lines.length * LINE_HEIGHT_PX),
+  }
+}
+
+// Calcule toutes les dimensions du libellé : taille au repos (= rect de
+// l'ancre), taille au hover (= contenu naturel + padding, peut être
+// plus petit OU plus grand que le rest selon la longueur du texte), et
+// position au hover (en cas de proximité bord du viewport, on ancre
+// l'edge le moins spacieux et on étend vers l'edge le plus spacieux).
+//   textScale = facteur de scale CSS du texte au repos (≤ 1)
+//   Au hover, le texte revient à scale 1.0 (taille naturelle) et la
+//   boîte change de width/height (transition explicite, pas un scale
+//   uniforme — la forme de la boîte sort de celle de l'ancre).
+function computeFitDims(rect, display) {
+  const { naturalW, naturalH } = measureContentBox(display)
+  const targetW = Math.max(4, rect.width - PADDING_X * 2)
+  const targetH = Math.max(4, rect.height - PADDING_Y * 2)
+  const scaleX = targetW / naturalW
+  const scaleY = targetH / naturalH
+  const textScale = Math.min(1, scaleX, scaleY)
+
+  // Dimensions cibles au hover : contenu naturel + padding. Si le rest
+  // est déjà plus grand (texte court sur grand bouton), on conserve le
+  // rest (pas de rétrécissement à l'hover).
+  const hoverW = Math.max(rect.width, Math.ceil(naturalW + PADDING_X * 2))
+  const hoverH = Math.max(rect.height, Math.ceil(naturalH + PADDING_Y * 2))
+
+  // Détermine la position cible au hover : si la croissance dans une
+  // direction sortirait du viewport, on ancre l'edge opposé. Décision
+  // par axe indépendante.
   const vw = window.innerWidth
   const vh = window.innerHeight
+  const spaceLeft = rect.left
+  const spaceRight = vw - (rect.left + rect.width)
+  const spaceUp = rect.top
+  const spaceDown = vh - (rect.top + rect.height)
+  const deltaW = hoverW - rect.width
+  const deltaH = hoverH - rect.height
 
-  let originX = 'center'
-  if (centerX - expandedHalfW < EDGE_MARGIN) originX = 'left'
-  else if (centerX + expandedHalfW > vw - EDGE_MARGIN) originX = 'right'
+  // Par défaut : centrer la croissance (gauche/droite et haut/bas
+  // répartis également). Si l'un des côtés n'a pas la place, on bascule
+  // sur l'autre.
+  let hoverLeft = rect.left - deltaW / 2
+  if (hoverLeft < EDGE_MARGIN) hoverLeft = EDGE_MARGIN
+  else if (hoverLeft + hoverW > vw - EDGE_MARGIN) hoverLeft = vw - EDGE_MARGIN - hoverW
 
-  let originY = 'center'
-  if (centerY - expandedHalfH < EDGE_MARGIN) originY = 'top'
-  else if (centerY + expandedHalfH > vh - EDGE_MARGIN) originY = 'bottom'
+  let hoverTop = rect.top - deltaH / 2
+  if (hoverTop < EDGE_MARGIN) hoverTop = EDGE_MARGIN
+  else if (hoverTop + hoverH > vh - EDGE_MARGIN) hoverTop = vh - EDGE_MARGIN - hoverH
 
-  return `${originX} ${originY}`
+  // Évite spaceLeft / spaceRight / spaceUp / spaceDown unused warnings :
+  // ces variables sont utiles si on veut un placement plus subtil à
+  // l'avenir (privilégier le côté avec le plus d'espace plutôt que
+  // recentrer puis clamper).
+  void spaceLeft; void spaceRight; void spaceUp; void spaceDown
+
+  return { textScale, hoverW, hoverH, hoverLeft, hoverTop }
 }
 
 // Composant overlay "lever le voile" (iter-L phase 1.5, révisé post-feedback).
@@ -154,7 +180,12 @@ function ShortcutsOverlay({ isOpen, onClose, state }) {
   for (const [anchorId, items] of groups.entries()) {
     const pos = getAnchoredPosition(anchorId)
     if (!pos.found) continue
-    const display = items.map((s) => s.keys.display).filter(Boolean).join(' / ')
+    // Wrap entre combinaisons (jamais à l'intérieur d'une combo unique).
+    // Multi-shortcut sur même ancre = lignes séparées au rendering ; au
+    // hover, le box prend les dimensions naturelles du contenu multi-ligne
+    // plutôt qu'un long flux horizontal de 250px+ qui forcerait un scale
+    // disproportionné.
+    const display = items.map((s) => s.keys.display).filter(Boolean).join('\n')
     if (!display) continue
     labels.push({ key: anchorId, display, rect: pos })
   }
@@ -244,20 +275,22 @@ function ShortcutsOverlay({ isOpen, onClose, state }) {
         <div className="shortcuts-overlay-banner" role="status">{banner}</div>
       )}
       {allLabels.map(({ key, display, rect }) => {
-        const { textScale, hoverScale } = computeFitScales(rect, display)
-        const transformOrigin = computeTransformOrigin(rect, hoverScale)
+        const { textScale, hoverW, hoverH, hoverLeft, hoverTop } =
+          computeFitDims(rect, display)
         return (
           <div
             key={key}
             className="shortcuts-overlay-fit"
             style={{
-              left: rect.left,
-              top: rect.top,
-              width: rect.width,
-              height: rect.height,
-              transformOrigin,
+              '--rest-left': `${rect.left}px`,
+              '--rest-top': `${rect.top}px`,
+              '--rest-w': `${rect.width}px`,
+              '--rest-h': `${rect.height}px`,
+              '--hover-left': `${hoverLeft}px`,
+              '--hover-top': `${hoverTop}px`,
+              '--hover-w': `${hoverW}px`,
+              '--hover-h': `${hoverH}px`,
               '--text-scale': textScale,
-              '--hover-scale': hoverScale,
             }}
             onClick={(e) => { e.stopPropagation(); onClose?.() }}
           >

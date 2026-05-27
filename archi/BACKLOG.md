@@ -533,6 +533,82 @@ si quelqu'un en exprime le besoin réel en classe.
 
 ## Backlog général (hors itération F)
 
+### Dette structurelle — Migration TypeScript progressive
+
+Décision archi (session 2026-05-27) : adopter TypeScript de manière
+**incrémentale, fichier par fichier**, sans casse intermédiaire.
+
+**Justification** : le projet a grossi au-delà du seuil où le coût
+type-checking devient inférieur au coût bugs-de-modèle. Iter-K (132
+commits) aurait été plus safe avec un modèle typé. Le code audio
+qui sera refacto en itération G (AudioWorklet, mémoïsation
+PeriodicWave) gagnera énormément à être typé en amont.
+
+**Principe** : Vite supporte JS et TS côte à côte. Un `.tsx` peut
+importer un `.js` et inversement. Les types s'effacent au runtime
+(zéro effet sur perf ou comportement).
+
+**Phasage proposé** :
+
+- **Phase 0** — Setup. `npm i -D typescript @types/react @types/react-dom`,
+  créer `tsconfig.json` avec `allowJs: true`, `strict: false`,
+  `checkJs: false`, `noEmit: true`. Vérifier `npm run dev` inchangé.
+  1 commit, neutre fonctionnellement.
+- **Phase 1** — Modèles d'abord (gros ROI). Convertir
+  `src/lib/tuningSystems.js` en `.ts`, créer `src/types.ts` avec
+  `Patch`, `Clip`, `Track`, `TuningSystem`, `Action` (reducer),
+  `AppState`. Le reducer global peut rester en `.js` mais ses
+  imports sont typés → tous les composants qui touchent un `Clip`
+  ou un `TuningSystem` reçoivent autocomplétion + check
+  automatiquement.
+- **Phase 2** — Conversion au fil de l'eau. Quand on modifie un
+  fichier pour autre chose, on le renomme en `.tsx` (composants)
+  ou `.ts` (libs) et on annote ce qui en vaut la peine. Pas de
+  rush pour tout convertir.
+
+**Préconditions / timing** :
+
+- **À faire AVANT itération G perf**. Typer les modules audio
+  (`pointsToPeriodicWave`, `playInstrumentNote`, scheduler)
+  facilite leur refacto AudioWorklet.
+- Peut commencer dès que iter-L est livrée (V1 doc), avant ou en
+  parallèle de F.8 (X-EDO paramétrique).
+
+**Discipline à tenir** :
+
+- Préférer `unknown` à `any` quand on ne sait pas (force narrowing
+  explicite plutôt que désactiver le check silencieusement).
+- Garder `strict: false` global tant que tous les fichiers ne sont
+  pas annotés. Activer strict mode par fichier via opt-in.
+- Les composants React vont en `.tsx` (pas `.ts`), pour parser le
+  JSX.
+
+**Pièges identifiés** :
+
+- `useReducer` global : nécessite de typer `AppState` et l'union
+  discriminée `Action`. Travail modeste mais réflexion à faire une
+  fois. ROI énorme (plus de typos sur `dispatch({ type: '...' })`).
+- Imports avec extension explicite (`'./foo.js'`) à transformer
+  en `'./foo'` ou `'./foo.ts'`. À vérifier à la conversion.
+- Libs sans types fournis : ajouter `@types/<lib>` ou
+  `declare module '<lib>'` ponctuellement.
+
+**Bénéfice secondaire** : les "contraintes implicites" du modèle
+(IDs via compteurs persistés, drafts locaux pour gestes continus,
+pas de champ `lane` dans `Clip`, etc.) peuvent devenir des
+contraintes **explicites du typage** (types brandés, unions
+discriminées). La doc se fait par les types eux-mêmes.
+
+**Hors scope** :
+
+- Pas de big bang. Pas de PR géante "tout passer en TS".
+- Pas d'activation de `strict: true` global avant que la dernière
+  conversion soit terminée et stable.
+- Pas de changement de comportement runtime pendant la migration
+  (les annotations sont muettes).
+
+---
+
 ### Qualité audio
 
 - **Anti-aliasing / harmoniques parasites** sur basses fréquences
