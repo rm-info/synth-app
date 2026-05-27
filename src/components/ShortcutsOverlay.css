@@ -93,13 +93,15 @@
 }
 
 .shortcuts-overlay-fit-text {
+  /* display: inline-block pour que text-align: center s'applique aux
+     lignes individuelles du wrap multi-ligne (un <span> inline ne traite
+     pas text-align per-line). */
+  display: inline-block;
   font-family: system-ui, -apple-system, sans-serif;
   font-size: 0.85rem;
   font-weight: 700;
   /* pre-line : wrapping au '\n' inséré entre combinaisons (jamais à
-     l'intérieur d'une combo unique grâce au '\n' explicite). Les espaces
-     intra-combo restent inscables (no-break-space serait plus strict mais
-     'pre-line' fonctionne car les seuls split-points sont les \n). */
+     l'intérieur d'une combo unique). */
   white-space: pre-line;
   text-align: center;
   pointer-events: none;

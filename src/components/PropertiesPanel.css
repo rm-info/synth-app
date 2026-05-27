@@ -272,13 +272,18 @@
 }
 
 .clip-merge-btn {
-  margin-top: 4px;
-  padding: 7px 10px;
+  /* iter-L follow-up : aligné sur .clip-split-btn pour que la rangée
+     flex .split-buttons stretch tous les boutons à la même hauteur. Le
+     margin-top: 4px précédent créait un décalage vertical (en align-items
+     stretch implicite, l'item rétrécit du montant de la marge cross-axis). */
+  flex: 1;
+  padding: 6px 8px;
   background: transparent;
   color: var(--accent);
   border: 1px solid var(--accent);
   border-radius: 4px;
   font-size: 0.8rem;
+  font-weight: 600;
   cursor: pointer;
   font-family: inherit;
   transition: background 0.12s, color 0.12s;

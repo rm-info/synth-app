@@ -32,11 +32,15 @@ function getMeasureCtx() {
 }
 
 // Hauteur de ligne effective pour la font 0.85rem bold. line-height: 1.15
-// en CSS → ~15.6px par ligne. Pour la mesure, on prend 16px (marge).
-const LINE_HEIGHT_PX = 16
+// en CSS → ~15.6px par ligne. On prend 18px pour absorber les variations
+// inter-fontes (system-ui rend différemment selon l'OS) et la baseline-
+// height des inline boxes qui peut excéder le `line-height` numérique.
+const LINE_HEIGHT_PX = 18
 const PADDING_X = 8
-const PADDING_Y = 6
-const EDGE_MARGIN = 8
+const PADDING_Y = 8
+// Marge de respiration au bord du viewport quand le hover déplace la boîte.
+// Empêche les étiquettes d'être collées au bord (lisibilité + esthétique).
+const EDGE_MARGIN = 16
 
 // Mesure les dimensions naturelles d'un display, en gérant le wrapping
 // inséré au '\n' (entre combinaisons distinctes, jamais à l'intérieur).
@@ -136,17 +140,36 @@ function ShortcutsOverlay({ isOpen, onClose, state }) {
     return () => cancelAnimationFrame(t)
   }, [isOpen, rerender])
 
+  // Pendant l'overlay : capture TOUS les keydown, ferme sur toute action
+  // clavier non-modifier (Esc, lettre, espace, flèches, etc.). Capture
+  // phase impératif pour devancer les handlers métier (notes Designer,
+  // Ctrl+K toggle, Ctrl+CXVMD Composer…) qui sinon happent l'événement.
+  // Les modificateurs seuls (Shift/Ctrl/Alt/Meta press) sont laissés
+  // passer pour ne pas fermer si l'utilisateur tient Ctrl en visant
+  // Ctrl+K (qui ferme via la capture au K). Symétrie keyup : on absorbe
+  // aussi le keyup pour éviter qu'un sustain ou une note tenue lors de
+  // l'ouverture ne fasse de bruit après fermeture.
   useEffect(() => {
     if (!isOpen) return
-    const onKey = (e) => {
-      if (e.key === 'Escape') {
-        e.preventDefault()
-        e.stopPropagation()
-        onClose?.()
-      }
+    const onKeyDown = (e) => {
+      const isModifierOnly = e.key === 'Shift' || e.key === 'Control'
+        || e.key === 'Alt' || e.key === 'Meta' || e.key === 'AltGraph'
+      if (isModifierOnly) return
+      e.preventDefault()
+      e.stopPropagation()
+      e.stopImmediatePropagation?.()
+      onClose?.()
     }
-    window.addEventListener('keydown', onKey, true)
-    return () => window.removeEventListener('keydown', onKey, true)
+    const onKeyUp = (e) => {
+      e.stopPropagation()
+      e.stopImmediatePropagation?.()
+    }
+    window.addEventListener('keydown', onKeyDown, true)
+    window.addEventListener('keyup', onKeyUp, true)
+    return () => {
+      window.removeEventListener('keydown', onKeyDown, true)
+      window.removeEventListener('keyup', onKeyUp, true)
+    }
   }, [isOpen, onClose])
 
   if (!isOpen) return null
