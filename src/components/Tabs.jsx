@@ -4,10 +4,15 @@
 import { Moon, Sun, Keyboard } from 'lucide-react'
 import './Tabs.css'
 
+// iter-L phase-2.1 : ajout du 4e onglet Documentation à droite des trois
+// existants. `dataAnchor` posé uniquement sur Documentation pour préparer
+// d'éventuels DocLink/Tour pointant vers l'onglet (cohérence avec la
+// convention `data-anchor` de L.1).
 const TABS = [
   { id: 'library', label: 'Bibliothèque', hint: 'Gérer la bibliothèque de patches' },
   { id: 'designer', label: 'Designer', hint: 'Dessiner et éditer des sons' },
   { id: 'composer', label: 'Composer', hint: 'Composer la timeline' },
+  { id: 'documentation', label: 'Documentation', hint: 'Aide, raccourcis et articles', dataAnchor: 'tab-documentation' },
 ]
 
 // Constante injectée au build par Vite (vite.config.js define).
@@ -30,6 +35,7 @@ function Tabs({ activeTab, onChange, theme, onToggleTheme, shortcutsOverlayOpen,
             className={`tab ${activeTab === t.id ? 'active' : ''}`}
             onClick={() => onChange(t.id)}
             title={t.hint}
+            data-anchor={t.dataAnchor}
           >
             {t.label}
           </button>

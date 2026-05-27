@@ -50,6 +50,20 @@ export const DESIGNER_SIDEBAR_MIN_WIDTH = 200
 export const DESIGNER_SIDEBAR_DEFAULT_WIDTH = 220
 export const DESIGNER_SIDEBAR_COLLAPSED_WIDTH = 36
 
+// iter-L phase-2.1 : sidebar TOC de l'onglet Documentation. Défaut plus
+// large que les autres sidebars (240) pour loger des titres d'articles
+// confortablement. Min/collapsed alignés sur le pattern Designer.
+export const DOC_SIDEBAR_MIN_WIDTH = 180
+export const DOC_SIDEBAR_DEFAULT_WIDTH = 240
+export const DOC_SIDEBAR_COLLAPSED_WIDTH = 36
+// Clé sessionStorage pour la position de lecture (article courant + scroll
+// par article). Volontairement scopée à la session navigateur : on retombe
+// sur l'article par défaut à chaque ouverture.
+export const DOC_SESSION_KEY = 'synth-app-doc-session'
+// Article ouvert au boot quand aucune session sauvegardée. 'about' = "À
+// propos" — point d'entrée naturel.
+export const DEFAULT_DOC_ARTICLE_ID = 'about'
+
 // Enveloppe AHDSR (F.3.12) : `hold` est un plateau au peak inséré entre
 // l'attack et le decay (utile pour percussifs avec punch). Défaut 0 ms = pas
 // de plateau, comportement strictement identique à un ADSR classique.
@@ -250,7 +264,7 @@ export function loadPersistedState() {
         ? parsed.recentPatchIds.filter(id => typeof id === 'string').slice(0, 10)
         : [],
       theme: parsed.theme === 'light' ? 'light' : 'dark',
-      activeTab: ['library', 'composer', 'designer'].includes(parsed.activeTab)
+      activeTab: ['library', 'composer', 'designer', 'documentation'].includes(parsed.activeTab)
         ? parsed.activeTab
         : 'designer',
       durationMode: parsed.durationMode === 'fraction' ? 'fraction' : 'solfège',
@@ -260,6 +274,11 @@ export function loadPersistedState() {
       composerAsideCollapsed: typeof parsed.composerAsideCollapsed === 'boolean' ? parsed.composerAsideCollapsed : false,
       designerSidebarWidth: typeof parsed.designerSidebarWidth === 'number' ? parsed.designerSidebarWidth : null,
       designerSidebarCollapsed: typeof parsed.designerSidebarCollapsed === 'boolean' ? parsed.designerSidebarCollapsed : false,
+      // iter-L phase-2.1 : préférences sidebar Documentation. Persistées en
+      // localStorage (cohérent avec les autres sidebars). La position de
+      // lecture vit en sessionStorage (cf. loadDocSession).
+      docSidebarWidth: typeof parsed.docSidebarWidth === 'number' ? parsed.docSidebarWidth : null,
+      docSidebarCollapsed: typeof parsed.docSidebarCollapsed === 'boolean' ? parsed.docSidebarCollapsed : false,
       // F.4.4.3 : état d'exploration Designer persisté de bout en bout.
       // Tous les champs `editor.test*` + `editor.visualCue*` survivent au
       // reload. Validation/clamp défensifs ici (point d'entrée unique) :
@@ -340,8 +359,35 @@ export function loadPersistedState() {
   }
 }
 
+// iter-L phase-2.1 : lecture de la session de documentation (article
+// courant + positions de scroll par article). Volontairement en
+// sessionStorage : on retombe sur l'article par défaut à chaque
+// ouverture de session navigateur. Filtrage défensif sur les types
+// (un article courant vide / des positions non-numériques sont
+// silencieusement ignorés — pas de migration, pas de bug bloquant).
+export function loadDocSession() {
+  try {
+    const raw = sessionStorage.getItem(DOC_SESSION_KEY)
+    if (!raw) return null
+    const parsed = JSON.parse(raw)
+    const currentArticleId = typeof parsed.currentArticleId === 'string'
+      ? parsed.currentArticleId
+      : null
+    const scrollPositions = (parsed.scrollPositions && typeof parsed.scrollPositions === 'object')
+      ? Object.fromEntries(
+          Object.entries(parsed.scrollPositions)
+            .filter(([, v]) => typeof v === 'number' && Number.isFinite(v))
+        )
+      : {}
+    return { currentArticleId, scrollPositions }
+  } catch {
+    return null
+  }
+}
+
 export function buildInitialState() {
   const persisted = loadPersistedState()
+  const docSession = loadDocSession()
   const initialState = {
     // Composer (champ undoable)
     clips: persisted?.clips ?? [],
@@ -435,6 +481,15 @@ export function buildInitialState() {
     // Width clampée à [DESIGNER_SIDEBAR_MIN_WIDTH, ∞), persistée.
     designerSidebarWidth: Math.max(DESIGNER_SIDEBAR_MIN_WIDTH, persisted?.designerSidebarWidth ?? DESIGNER_SIDEBAR_DEFAULT_WIDTH),
     designerSidebarCollapsed: persisted?.designerSidebarCollapsed ?? false,
+    // iter-L phase-2.1 : sidebar TOC Documentation + position de lecture.
+    // - docSidebarWidth / docSidebarCollapsed : localStorage (préférences).
+    // - doc.currentArticleId / doc.scrollPositions : sessionStorage (lecture).
+    docSidebarWidth: Math.max(DOC_SIDEBAR_MIN_WIDTH, persisted?.docSidebarWidth ?? DOC_SIDEBAR_DEFAULT_WIDTH),
+    docSidebarCollapsed: persisted?.docSidebarCollapsed ?? false,
+    doc: {
+      currentArticleId: docSession?.currentArticleId ?? DEFAULT_DOC_ARTICLE_ID,
+      scrollPositions: docSession?.scrollPositions ?? {},
+    },
     composerFlash: null,
 
     // Sélection bibliothèque (transient runtime state, non persisté).
@@ -1712,6 +1767,36 @@ export function reducer(state, action) {
       const value = !!action.payload
       if (state.designerSidebarCollapsed === value) return state
       return { ...state, designerSidebarCollapsed: value }
+    }
+    // iter-L phase-2.1 : actions de l'onglet Documentation.
+    case 'SET_CURRENT_ARTICLE': {
+      const id = typeof action.payload === 'string' || action.payload === null
+        ? action.payload
+        : state.doc.currentArticleId
+      if (state.doc.currentArticleId === id) return state
+      return { ...state, doc: { ...state.doc, currentArticleId: id } }
+    }
+    case 'SET_ARTICLE_SCROLL': {
+      const { articleId, scrollTop } = action.payload
+      if (typeof articleId !== 'string') return state
+      if (!Number.isFinite(scrollTop)) return state
+      const current = state.doc.scrollPositions[articleId]
+      if (current === scrollTop) return state
+      return {
+        ...state,
+        doc: {
+          ...state.doc,
+          scrollPositions: { ...state.doc.scrollPositions, [articleId]: scrollTop },
+        },
+      }
+    }
+    case 'TOGGLE_DOC_SIDEBAR': {
+      return { ...state, docSidebarCollapsed: !state.docSidebarCollapsed }
+    }
+    case 'SET_DOC_SIDEBAR_WIDTH': {
+      const clamped = Math.max(DOC_SIDEBAR_MIN_WIDTH, Math.round(action.payload))
+      if (state.docSidebarWidth === clamped) return state
+      return { ...state, docSidebarWidth: clamped }
     }
     case 'SET_COMPOSER_FLASH': {
       return { ...state, composerFlash: action.payload }

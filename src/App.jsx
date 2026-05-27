@@ -22,6 +22,7 @@ import {
   withUndo,
   buildInitialState,
   STORAGE_KEY,
+  DOC_SESSION_KEY,
   BEATS_PER_MEASURE,
   MIN_ZOOM_H,
   MAX_ZOOM_H,
@@ -81,6 +82,7 @@ function App() {
     durationMode, selectedClipIds, selectedTrackId, composerFlash, lastAnchorClipId,
     composerBankWidth, composerAsideWidth, composerBankCollapsed, composerAsideCollapsed,
     designerSidebarWidth, designerSidebarCollapsed,
+    doc, docSidebarWidth, docSidebarCollapsed,
     bibHierarchyMode, bibDisplayMode, bibCurrentFolderId, bibPopupWidth,
     bibSelectedIds, bibSelectionAnchor, bibCollapsedFolders,
     recentPatchIds, theme,
@@ -637,6 +639,11 @@ function App() {
           composerAsideCollapsed,
           designerSidebarWidth,
           designerSidebarCollapsed,
+          // iter-L phase-2.1 : préférences sidebar Documentation (collapsed
+          // + largeur). La position de lecture (article courant + scrolls)
+          // est gérée séparément via sessionStorage.
+          docSidebarWidth,
+          docSidebarCollapsed,
           bibHierarchyMode,
           bibDisplayMode,
           bibCurrentFolderId,
@@ -668,11 +675,30 @@ function App() {
     durationMode, activeTab, patchCounter, clipCounter, folderCounter, trackCounter,
     composerBankWidth, composerAsideWidth, composerBankCollapsed, composerAsideCollapsed,
     designerSidebarWidth, designerSidebarCollapsed,
+    docSidebarWidth, docSidebarCollapsed,
     bibHierarchyMode, bibDisplayMode, bibCurrentFolderId, bibCollapsedFolders, bibPopupWidth,
     recentPatchIds, theme, selectedTrackId,
     editor.testTuningSystem, editor.testNoteIndex, editor.testOctave, editor.testFrequency,
     editor.visualCuePattern, editor.visualCueTonic,
   ])
+
+  // iter-L phase-2.1 : persistance de la position de lecture Documentation
+  // en sessionStorage (article courant + scroll positions par article).
+  // Volontairement scopée à la session : on retombe sur l'article par
+  // défaut à chaque ouverture de session navigateur.
+  useEffect(() => {
+    try {
+      sessionStorage.setItem(
+        DOC_SESSION_KEY,
+        JSON.stringify({
+          currentArticleId: doc.currentArticleId,
+          scrollPositions: doc.scrollPositions,
+        }),
+      )
+    } catch {
+      // sessionStorage unavailable
+    }
+  }, [doc.currentArticleId, doc.scrollPositions])
 
   // iter-K phase-3.f15 : propage `theme` à `<html data-theme=…>` pour
   // activer la palette CSS correspondante. Le CustomEvent 'themechange'
@@ -1960,6 +1986,18 @@ function App() {
             canUndoLibrary={libraryCanUndo}
             canRedoLibrary={libraryCanRedo}
           />
+        </main>
+      )}
+
+      {/* iter-L phase-2.1 : onglet Documentation — placeholder neutre.
+          Layout TOC + zone contenu vient en L.2.3. Mount conditionnel
+          (vs hidden) : aucun état audio/éditeur à préserver, la lecture
+          vit dans sessionStorage. */}
+      {activeTab === 'documentation' && (
+        <main className="documentation-tab-content">
+          <div className="documentation-placeholder">
+            Documentation — bientôt.
+          </div>
         </main>
       )}
 
