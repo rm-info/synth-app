@@ -760,6 +760,79 @@ en classe.
 - **Optimisation stockage localStorage** : résolution points (600 →
   200 ?), quantification, ou migration IndexedDB.
 
+### Routing / deep-links partageables (révise une contrainte du projet)
+
+**Contexte** : aujourd'hui l'app est mono-route, accessible
+uniquement sur `/`. La navigation interne (onglets, articles
+de doc, patches chargés) n'est pas reflétée dans l'URL. La
+contrainte technique "Pas de routing" est inscrite dans
+`CLAUDE.md` racine — elle a été posée à l'origine pour minimaliser
+le projet, mais l'arrivée de la documentation (Iteration L) crée
+un besoin nouveau : **partager une URL d'article**.
+
+**Motivation initiale** : pouvoir envoyer à quelqu'un un lien
+direct vers, par exemple, l'article "Pourquoi 12 notes ?" ou la
+page Raccourcis. Sans routing, on doit dire "ouvre l'app, va
+dans l'onglet Documentation, clique sur l'article X".
+
+**Options à trancher** :
+
+- **(a) Hash-based** (`/#tab=documentation&article=why-12-notes`) :
+  approche minimale, le hash n'est jamais envoyé au serveur,
+  compatible avec n'importe quel hébergement statique sans
+  configuration. Pas besoin de lib de routing. Lecture/écriture
+  via `window.location.hash` + listener `hashchange`. Probablement
+  le bon compromis pour ce projet.
+- **(b) Query string** (`/?tab=documentation&article=why-12-notes`) :
+  URLs un peu plus jolies. Lecture/écriture via `URLSearchParams`
+  + `history.replaceState`. Pas besoin de config serveur non plus
+  (la query string est envoyée mais le serveur sert index.html
+  pour `/` quoi qu'il arrive).
+- **(c) History API "pathname"**
+  (`/documentation/why-12-notes`) : URLs les plus naturelles. Mais
+  **nécessite que le serveur réponde par index.html sur toute
+  route**, sinon refresh = 404. Contraintes d'hébergement plus
+  fortes (config nginx, vercel.json, etc.). Probablement trop
+  intrusif pour le ROI à ce stade.
+
+**Recommandation** : **(a) hash-based**, cohérent avec le
+minimalisme du projet. Permet de partager des URLs sans
+infrastructure spéciale. Extensible naturellement à d'autres
+deep-links plus tard (onglet actif, patch courant, etc.) si
+le besoin émerge.
+
+**Conséquences** :
+- Mise à jour de `CLAUDE.md` racine : la contrainte "Pas de
+  routing" devient "Routing minimal hash-based pour le partage
+  de deep-links (pas de lib externe, lecture/écriture
+  `window.location.hash` directe)".
+- Refacto léger : un module `src/lib/deepLink.js` qui
+  parse/sérialise le hash et expose `getDeepLink()` /
+  `setDeepLink(partial)`. Listener `hashchange` qui dispatch
+  vers le state global.
+- Coexistence avec sessionStorage doc : l'URL prime au load
+  (deep-link), sessionStorage prend le relais à la navigation
+  interne (le hash est mis à jour au switch d'article pour que
+  copy-paste de l'URL fonctionne).
+- Compatibilité existant : si pas de hash, comportement actuel
+  (état restauré depuis localStorage + sessionStorage).
+
+**Périmètre V1 minimal** : juste l'onglet actif et l'article de
+doc. Soit deux clés `tab` (4 valeurs) et `article` (id). À
+implémenter probablement en **phase L.4 ou L.5** (après le Tour),
+ou en hotfix dédié post-iteration L. Pas urgent — c'est une
+amélioration de partage, pas un bug.
+
+**Extensions possibles plus tard** (à designer si demande
+émerge) :
+- `patch=<id>` pour pré-charger un patch dans le Designer
+  (mais les IDs sont locaux à l'utilisateur → utile uniquement
+  pour le partage cross-device par export/import)
+- `compo=<filename>` pour charger une compo `.osa` depuis un
+  lien (pose la question d'où elle vit — repo, gist, autre ?)
+- Section de doc (`#tab=documentation&article=...&section=intro`)
+  via id de heading
+
 ### Interactions diverses
 
 - **Menu contextuel clip enrichi** (Composer Timeline) : actuellement
@@ -768,6 +841,18 @@ en classe.
   ouvrir patch source dans la bibliothèque (différent d'"éditer dans
   Designer" qu'on a explicitement écarté pour garder la séparation
   patch ≠ clip). Cf. iter-K phase-2.f23.
+- **↑/↓ Composer généralisé aux tempéraments non-12-TET** (dette
+  UX). Actuellement les flèches ↑/↓ décalent la hauteur des clips
+  sélectionnés de ±1 demi-ton **uniquement** en 12-TET (et systèmes
+  qui réutilisent `piano-12` comme just-major-c, pythagorean-12,
+  méantone, Werckmeister III) — les autres systèmes (24-TET, 5-TET,
+  31-EDO, gamelan, shrutis, X-EDO) n'ont pas de réponse à ces
+  raccourcis. Demande de définir la sémantique propre à chaque
+  système : ±1 degré ? ±1 cellule ? ±1 colonne (pour les layouts
+  grid) ? Probablement "±1 degré du système courant" comme
+  convention universelle (cohérent avec l'idée de "demi-ton" en
+  12-TET = 1 degré). Shift+↑/↓ resterait ±1 octave (octave
+  universelle). À cadrer en session dédiée tempéraments.
 - Flèches haut/bas dans `FreqInput` pour incréments fins.
 - **Annulation drag par Échap** (selon ressenti utilisateur).
 - **Édition précise amplitude + ADSR** dans le Designer. Aujourd'hui
@@ -852,6 +937,29 @@ suffisent pour 80% du catalogue).
   documenter quand observé). NOTE_GUARD_KEYS de F.7.5 ne couvre pas
   KeyD car le shortcut est Ctrl+D et on laisse passer Ctrl/Meta —
   c'est un cas spécifique qui demanderait une exception ciblée.
+- **Dezoom molette Composer — petits sauts brefs de recalage**
+  (régression observée post-L.1, à confirmer). Symptôme : un
+  scroll molette de dezoom produit des micro-sauts de la timeline
+  pendant l'animation, comme si la position scrollLeft était
+  recalculée et appliquée légèrement à côté pendant un frame ou
+  deux. Si on scroll cran par cran (un Δzoom à la fois), la
+  position finale est correcte mais le saut transitoire reste
+  visible. Piste : ordre de mise à jour entre `setZoom(newZoom)`
+  et l'ajustement de `scrollLeft` (qui doit compenser pour garder
+  le point sous la souris fixe). Possible interaction avec les
+  re-renders introduits en L.1 ou les follow-ups overlay. À
+  diagnostiquer avant fix.
+- **Définitions des raccourcis incorrectes/incomplètes dans
+  `src/lib/shortcuts.js`** (signalé post-L.2, à auditer). Au
+  moins quelques entrées de la table déclarative ne reflètent
+  pas fidèlement le comportement réel (libellé, description,
+  conditions d'activation). Impact : la page Raccourcis
+  auto-générée et l'overlay raccourcis affichent des infos
+  inexactes. Mode opératoire : passer la table en revue contre
+  les handlers réels (et le rapport L.0
+  `archi/L0-audit-raccourcis.md`), corriger les écarts. Pas
+  bloquant pour la livraison V1 doc — à traiter en fin de L
+  ou en hotfix dédié.
 
 (Note : l'ancienne entrée "Firefox raccourcis pendant drag (en cours
 de fix en phase 7.1)" référençait le QuickFind sur ' / Digit4 et ses
