@@ -84,6 +84,7 @@
 
 /* Code block */
 .markdown-renderer .md-pre {
+  position: relative;
   margin: 1em 0;
   padding: 12px 14px;
   background: var(--surface-bg);
@@ -92,6 +93,21 @@
   overflow-x: auto;
   font-size: 0.85rem;
   line-height: 1.5;
+}
+/* Badge `lang` discret en haut à droite. Pas de syntax highlighting
+   (hors scope V1) — juste un repère visuel pour distinguer un bloc
+   typé d'un bloc texte brut. */
+.markdown-renderer .md-pre-lang {
+  position: absolute;
+  top: 4px;
+  right: 8px;
+  font-family: 'Courier New', monospace;
+  font-size: 0.65rem;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  opacity: 0.55;
+  user-select: none;
 }
 .markdown-renderer .md-pre .md-code {
   font-family: 'Courier New', monospace;

@@ -58,6 +58,23 @@ function parseInline(text) {
       if (m) { flush(); nodes.push({ type: 'link', href: m[2], children: parseInline(m[1]) }); i += m[0].length; continue }
     }
 
+    // Gras + italique combinés ***text*** — testé en premier (sinon le
+    // cas `**` ci-dessous capture le préfixe et laisse un `*` orphelin).
+    // Rendu : strong > emphasis > text (cohérent avec la convention
+    // CommonMark).
+    if (c === '*' && text[i + 1] === '*' && text[i + 2] === '*') {
+      const close = text.indexOf('***', i + 3)
+      if (close > -1) {
+        flush()
+        nodes.push({
+          type: 'strong',
+          children: [{ type: 'emphasis', children: parseInline(text.slice(i + 3, close)) }],
+        })
+        i = close + 3
+        continue
+      }
+    }
+
     // Gras **text** — testé avant l'italique (préfixe ** vs *).
     if (c === '*' && text[i + 1] === '*') {
       const close = text.indexOf('**', i + 2)

@@ -29,29 +29,95 @@
 .doc-sidebar.is-collapsed {
   align-items: center;
   padding: 10px 0;
-  gap: 10px;
+  gap: 6px;
+  /* Le popover Sommaire doit déborder à droite — overflow:visible
+     impératif, et position:relative pour l'ancrage (déjà hérité). */
+  overflow: visible;
 }
-.doc-sidebar.is-collapsed .sidebar-toggle {
+.doc-sidebar.is-collapsed .sidebar-toggle,
+.doc-sidebar.is-collapsed .doc-collapsed-btn {
   width: 30px;
   height: 30px;
 }
 
-.doc-sidebar-vlabel {
-  /* Label vertical en mode collapsed, cohérent avec le pattern Composer
-     ("Propriétés" vertical). writing-mode rotate le texte 90°. */
+/* Boutons icônes du mode collapsed (calqués sur
+   .designer-collapsed-section-btn / .actions-icon-btn). État `is-active`
+   utilisé pour deux choses : popover Sommaire ouverte, ou article
+   'shortcuts' courant. */
+.doc-collapsed-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+  flex-shrink: 0;
+}
+.doc-collapsed-btn:hover {
+  background: var(--hover-bg);
+  color: var(--accent);
+  border-color: var(--surface-border-strong);
+}
+.doc-collapsed-btn.is-active {
+  background: var(--accent-bg-medium);
+  color: var(--accent);
+  border-color: var(--accent);
+}
+
+/* Popover Sommaire : ancrée à droite du collapsed sidebar (pattern
+   .designer-library-popover). Largeur plus modeste que la Bibliothèque
+   (la liste TOC est courte). */
+.doc-toc-popover {
+  position: absolute;
+  top: 0;
+  left: calc(100% + 6px);
+  width: 280px;
+  max-width: calc(100vw - 60px);
+  max-height: min(70dvh, 500px);
+  background: var(--surface-bg);
+  border: 1px solid var(--surface-border-strong);
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
   display: flex;
   flex-direction: column;
-  align-items: center;
-  gap: 6px;
-  writing-mode: vertical-rl;
-  transform: rotate(180deg);
-  color: var(--text-secondary);
-  font-size: 0.8rem;
-  letter-spacing: 0.06em;
-  user-select: none;
+  z-index: 50;
+  overflow: hidden;
 }
-.doc-sidebar-vlabel svg {
-  transform: rotate(90deg);
+@media (max-width: 700px) {
+  .doc-toc-popover {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: calc(100vw - 30px);
+    max-width: 320px;
+    max-height: calc(100dvh - 60px);
+  }
+}
+.doc-toc-popover-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--surface-border);
+  flex-shrink: 0;
+}
+.doc-toc-popover-header h3 {
+  margin: 0;
+  font-size: 0.85rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-secondary);
+  font-weight: 600;
+}
+.doc-toc-popover .doc-toc {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
 }
 
 .doc-sidebar-header {

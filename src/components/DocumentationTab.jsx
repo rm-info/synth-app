@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useMemo, useRef } from 'react'
-import { ChevronLeft, ChevronRight, BookOpen } from 'lucide-react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { ChevronLeft, ChevronRight, List, Keyboard, X } from 'lucide-react'
 import SidebarResizer from './SidebarResizer'
 import MarkdownRenderer from './MarkdownRenderer'
 import ShortcutsReference from './ShortcutsReference'
@@ -12,14 +12,21 @@ import './DocumentationTab.css'
 // contenu scrollable à droite. La position de scroll par article est
 // sauvegardée avec un débounce léger ; restaurée au switch d'article.
 //
+// Mode collapsed (refonte L.2 follow-up) : barre verticale de boutons
+// icônes — chevron (expand) + Sommaire (popover style PatchPicker) +
+// Raccourcis (bascule directe sur l'article 'shortcuts'). Le label
+// vertical "Sommaire" initial débordait sous l'icône en mode étroit ;
+// on revient sur des affordances actionnables.
+//
 // Dispatch sur `entry.type` :
 //   - 'markdown'  → MarkdownRenderer source={entry.source}
-//   - 'generated' → cf. L.2.4 (ShortcutsReference pour id 'shortcuts')
+//   - 'generated' → cf. ShortcutsReference pour id 'shortcuts'
 //
 // Si `currentArticleId` est null ou pointe vers une entrée inexistante,
 // affiche une page d'accueil TOC (liste des articles, ou empty-state
-// quand la TOC est encore vide en L.2.3).
+// quand la TOC est encore vide).
 const SCROLL_SAVE_DEBOUNCE_MS = 200
+const SHORTCUTS_ARTICLE_ID = 'shortcuts'
 
 export default function DocumentationTab({
   doc,
@@ -92,6 +99,43 @@ export default function DocumentationTab({
 
   const handleResize = useCallback((w) => onSetSidebarWidth(w), [onSetSidebarWidth])
 
+  // Popover Sommaire (mode collapsed uniquement). Pattern click-outside
+  // + Escape calqué sur composerLibraryPopover (App.jsx). Fermé
+  // automatiquement quand on étend la sidebar (sinon orphelin visuel).
+  const [tocPopoverOpen, setTocPopoverOpen] = useState(false)
+  const tocPopoverRef = useRef(null)
+  const tocTriggerRef = useRef(null)
+  useEffect(() => {
+    if (!tocPopoverOpen) return
+    const onDocClick = (e) => {
+      if (tocPopoverRef.current?.contains(e.target)) return
+      if (tocTriggerRef.current?.contains(e.target)) return
+      setTocPopoverOpen(false)
+    }
+    const onEscape = (e) => { if (e.key === 'Escape') setTocPopoverOpen(false) }
+    document.addEventListener('mousedown', onDocClick)
+    document.addEventListener('keydown', onEscape)
+    return () => {
+      document.removeEventListener('mousedown', onDocClick)
+      document.removeEventListener('keydown', onEscape)
+    }
+  }, [tocPopoverOpen])
+  // Ferme la popup quand la sidebar repasse en étendu (la nav est déjà
+  // visible inline, garder la popover ouverte serait redondant).
+  useEffect(() => {
+    if (!sidebarCollapsed) setTocPopoverOpen(false)
+  }, [sidebarCollapsed])
+
+  const pickArticleAndClose = useCallback((id) => {
+    onSetCurrentArticle(id)
+    setTocPopoverOpen(false)
+  }, [onSetCurrentArticle])
+
+  const jumpToShortcuts = useCallback(() => {
+    onSetCurrentArticle(SHORTCUTS_ARTICLE_ID)
+    setTocPopoverOpen(false)
+  }, [onSetCurrentArticle])
+
   return (
     <main
       className="documentation-layout"
@@ -114,10 +158,55 @@ export default function DocumentationTab({
             >
               <ChevronRight size={14} strokeWidth={2.2} />
             </button>
-            <span className="doc-sidebar-vlabel">
-              <BookOpen size={14} strokeWidth={1.8} aria-hidden="true" />
-              Sommaire
-            </span>
+            <button
+              type="button"
+              ref={tocTriggerRef}
+              className={`doc-collapsed-btn${tocPopoverOpen ? ' is-active' : ''}`}
+              onClick={() => setTocPopoverOpen((v) => !v)}
+              title="Sommaire (flottant)"
+              aria-label="Sommaire"
+              aria-expanded={tocPopoverOpen}
+            >
+              <List size={16} strokeWidth={1.9} />
+            </button>
+            <button
+              type="button"
+              className={`doc-collapsed-btn${currentArticleId === SHORTCUTS_ARTICLE_ID ? ' is-active' : ''}`}
+              onClick={jumpToShortcuts}
+              title="Raccourcis clavier"
+              aria-label="Raccourcis clavier"
+              aria-pressed={currentArticleId === SHORTCUTS_ARTICLE_ID}
+            >
+              <Keyboard size={16} strokeWidth={1.9} />
+            </button>
+            {tocPopoverOpen && (
+              <div
+                className="doc-toc-popover"
+                ref={tocPopoverRef}
+                role="dialog"
+                aria-label="Sommaire"
+              >
+                <div className="doc-toc-popover-header">
+                  <h3>Sommaire</h3>
+                  <button
+                    type="button"
+                    className="popover-close-btn"
+                    onClick={() => setTocPopoverOpen(false)}
+                    title="Fermer le sommaire"
+                    aria-label="Fermer le sommaire"
+                  >
+                    <X size={14} strokeWidth={2.2} />
+                  </button>
+                </div>
+                <nav className="doc-toc" aria-label="Sommaire">
+                  <TocNav
+                    sections={sections}
+                    currentArticleId={currentArticleId}
+                    onPick={pickArticleAndClose}
+                  />
+                </nav>
+              </div>
+            )}
           </>
         ) : (
           <>
@@ -135,28 +224,11 @@ export default function DocumentationTab({
               </button>
             </div>
             <nav className="doc-toc" aria-label="Sommaire">
-              {sections.length === 0 ? (
-                <div className="doc-toc-empty">Aucun article disponible.</div>
-              ) : (
-                sections.map((sec) => (
-                  <div key={sec.title} className="doc-toc-section">
-                    <div className="doc-toc-section-title">{sec.title}</div>
-                    <ul className="doc-toc-list">
-                      {sec.items.map((entry) => (
-                        <li key={entry.id}>
-                          <button
-                            type="button"
-                            className={`doc-toc-item${entry.id === currentArticleId ? ' is-active' : ''}`}
-                            onClick={() => onSetCurrentArticle(entry.id)}
-                          >
-                            {entry.title}
-                          </button>
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                ))
-              )}
+              <TocNav
+                sections={sections}
+                currentArticleId={currentArticleId}
+                onPick={onSetCurrentArticle}
+              />
             </nav>
             <SidebarResizer
               side="right"
@@ -174,6 +246,33 @@ export default function DocumentationTab({
       </section>
     </main>
   )
+}
+
+// Rendu factorisé de la nav TOC : utilisé à la fois par la sidebar
+// étendue (onPick = bascule directe) et la popover du mode collapsed
+// (onPick = bascule + ferme la popover).
+function TocNav({ sections, currentArticleId, onPick }) {
+  if (sections.length === 0) {
+    return <div className="doc-toc-empty">Aucun article disponible.</div>
+  }
+  return sections.map((sec) => (
+    <div key={sec.title} className="doc-toc-section">
+      <div className="doc-toc-section-title">{sec.title}</div>
+      <ul className="doc-toc-list">
+        {sec.items.map((entry) => (
+          <li key={entry.id}>
+            <button
+              type="button"
+              className={`doc-toc-item${entry.id === currentArticleId ? ' is-active' : ''}`}
+              onClick={() => onPick(entry.id)}
+            >
+              {entry.title}
+            </button>
+          </li>
+        ))}
+      </ul>
+    </div>
+  ))
 }
 
 function renderArticle(entry, sections, onSetCurrentArticle) {

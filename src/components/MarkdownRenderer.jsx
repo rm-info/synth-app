@@ -26,8 +26,12 @@ function renderBlock(node, key) {
     case 'list':
       return renderList(node, key)
     case 'codeBlock':
+      // Pas de syntax highlighting (hors scope V1) ; on signale juste
+      // la présence d'un `lang` via un badge discret en haut à droite
+      // pour distinguer un bloc js d'un bloc texte brut.
       return (
         <pre key={key} className="md-pre">
+          {node.lang && <span className="md-pre-lang" aria-hidden="true">{node.lang}</span>}
           <code className={`md-code${node.lang ? ` md-code-${node.lang}` : ''}`}>{node.code}</code>
         </pre>
       )
