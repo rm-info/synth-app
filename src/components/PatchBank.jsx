@@ -1168,7 +1168,7 @@ function PatchBank({
           <button
             type="button"
             className="bib-action-btn"
-            title="Rétablir (Ctrl+Y)"
+            title="Rétablir (Ctrl+Shift+Z)"
             disabled={!canRedoLibrary}
             onClick={onRedoLibrary}
             data-anchor="global-redo-button-library"
@@ -1277,6 +1277,29 @@ function PatchBank({
             title="Vider la bibliothèque"
             onClick={() => setConfirmingClearLibrary(true)}
           ><Eraser size={14} /></button>
+          {/* iter-L phase-1.4.c : chip clipboard. Visible quand le
+              presse-papier bibliothèque n'est pas vide. × vide le clipboard
+              (équivalent comportemental d'Esc tant que clipboard non vide). */}
+          {bibClipboard?.items?.length > 0 && (
+            <span
+              className="bib-clipboard-chip"
+              role="status"
+              title={`${bibClipboard.items.length} élément${bibClipboard.items.length > 1 ? 's' : ''} dans le presse-papier (Esc pour vider)`}
+              data-anchor="library-clipboard-chip"
+            >
+              <span className="bib-clipboard-chip-icon" aria-hidden="true">📋</span>
+              <span className="bib-clipboard-chip-count">
+                {bibClipboard.items.length} élément{bibClipboard.items.length > 1 ? 's' : ''}
+              </span>
+              <button
+                type="button"
+                className="bib-clipboard-chip-clear"
+                onClick={() => onClearClipboard?.()}
+                title="Vider le presse-papier"
+                aria-label="Vider le presse-papier"
+              >×</button>
+            </span>
+          )}
         </div>
       )}
       {headerExtra && <div className="sound-bank-header-toggle">{headerExtra}</div>}

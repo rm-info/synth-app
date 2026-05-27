@@ -694,6 +694,49 @@
   margin: 0 4px;
 }
 
+/* iter-L phase-1.4.c : chip clipboard bibliothèque. Visible quand le
+   presse-papier n'est pas vide. Compteur d'items + × pour vider. */
+.bib-clipboard-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: 8px;
+  padding: 2px 4px 2px 8px;
+  border-radius: 12px;
+  background: var(--surface-bg);
+  border: 1px solid var(--surface-border-strong);
+  color: var(--text-secondary);
+  font-size: 0.7rem;
+  font-weight: 500;
+  white-space: nowrap;
+}
+.bib-clipboard-chip-icon {
+  font-size: 0.85rem;
+  line-height: 1;
+}
+.bib-clipboard-chip-count {
+  color: var(--text-primary);
+}
+.bib-clipboard-chip-clear {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+  border-radius: 50%;
+  font-size: 0.85rem;
+  line-height: 1;
+}
+.bib-clipboard-chip-clear:hover {
+  background: rgba(248, 113, 113, 0.18);
+  color: #f87171;
+}
+
 /* Fix 1 : input inline pour la création d'un nouveau dossier */
 .bib-inline-create-folder {
   display: flex;

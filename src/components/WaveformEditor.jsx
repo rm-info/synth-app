@@ -1,5 +1,5 @@
 import { useRef, useState, useCallback, useEffect, useImperativeHandle, useMemo } from 'react'
-import { Plus, Save, SaveAll, Undo2, Redo2, Sliders, X } from 'lucide-react'
+import { Plus, Save, SaveAll, Undo2, Redo2, Sliders, X, Lock } from 'lucide-react'
 import { pointsToPeriodicWave, MIN_ATTACK } from '../audio'
 import useWindowSize from '../hooks/useWindowSize'
 import FreqInput from './FreqInput'
@@ -334,8 +334,14 @@ function WaveformEditor({
   // sont différés dans `sustainedNotesRef`. Au relâchement de la pédale,
   // toutes ces notes entrent en release simultanément.
   const sustainActiveRef = useRef(false)
+  // iter-L phase-1.4.a : verrou Sustain (pastille cliquable). État runtime
+  // uniquement (non persisté). spaceHeldRef tracke l'état physique d'Espace
+  // pour permettre à toggleSustainLock(false) de relâcher correctement.
+  const spaceHeldRef = useRef(false)
+  const sustainLockedRef = useRef(false)
   const sustainedNotesRef = useRef(new Set())
   const [sustainActive, setSustainActive] = useState(false)
+  const [sustainLocked, setSustainLocked] = useState(false)
 
   const [isDrawing, setIsDrawing] = useState(false)
   const [draggingHandle, setDraggingHandle] = useState(null)
@@ -722,18 +728,45 @@ function WaveformEditor({
   }
 
   // Sustain sur/off. Au off, les notes différées entrent en release ensemble.
+  // iter-L phase-1.4.a : si verrouillé, deactivateSustain est no-op (Espace
+  // ne casse pas le verrou). spaceHeldRef tracké pour que le clic
+  // "déverrouiller" ne libère pas les notes si l'utilisateur tient Espace
+  // simultanément.
   const activateSustain = () => {
+    spaceHeldRef.current = true
     if (sustainActiveRef.current) return
     sustainActiveRef.current = true
     setSustainActive(true)
   }
   const deactivateSustain = () => {
+    spaceHeldRef.current = false
+    if (sustainLockedRef.current) return
     if (!sustainActiveRef.current) return
     sustainActiveRef.current = false
     setSustainActive(false)
     const toRelease = Array.from(sustainedNotesRef.current)
     sustainedNotesRef.current.clear()
     for (const idx of toRelease) performRelease(idx)
+  }
+  // Toggle du verrou via clic sur la pastille. Sémantique d'une pédale
+  // verrouillable de piano numérique : verrouiller = activer + tenir,
+  // déverrouiller = relâcher (sauf si Espace tient déjà la pédale).
+  const toggleSustainLock = () => {
+    const next = !sustainLockedRef.current
+    sustainLockedRef.current = next
+    setSustainLocked(next)
+    if (next) {
+      if (!sustainActiveRef.current) {
+        sustainActiveRef.current = true
+        setSustainActive(true)
+      }
+    } else if (!spaceHeldRef.current && sustainActiveRef.current) {
+      sustainActiveRef.current = false
+      setSustainActive(false)
+      const toRelease = Array.from(sustainedNotesRef.current)
+      sustainedNotesRef.current.clear()
+      for (const idx of toRelease) performRelease(idx)
+    }
   }
 
   // Stop toutes les voix (changement de patch, unmount, etc.) sans fade.
@@ -746,8 +779,11 @@ function WaveformEditor({
     activeNotesMapRef.current.clear()
     sustainedNotesRef.current.clear()
     sustainActiveRef.current = false
+    sustainLockedRef.current = false
+    spaceHeldRef.current = false
     setActiveNoteIndices(new Set())
     setSustainActive(false)
+    setSustainLocked(false)
     // Voix Libre éventuelle (iter G phase 1.3) : même traitement sans fade.
     stopFreeVoiceImmediate()
     if (activeVoicesCountRef) activeVoicesCountRef.current = 0
@@ -1815,11 +1851,24 @@ function WaveformEditor({
                 <span className="note-display">
                   {' '}— {getNoteNames(getTuningSystem(testTuningSystem), xEdoN)?.[testNoteIndex] ?? ''}{testOctave}
                 </span>
-                {sustainActive && (
-                  <span className="sustain-badge" title="Sustain actif (Espace)">
-                    SUSTAIN
-                  </span>
-                )}
+                {/* iter-L phase-1.4.a : pastille Sustain permanente. États
+                    inactif (gris) / actif (orange, Espace maintenue) /
+                    verrouillé (orange + cadenas). Clic = toggle verrou. */}
+                <button
+                  type="button"
+                  className={`sustain-pastille${sustainActive ? ' is-active' : ''}${sustainLocked ? ' is-locked' : ''}`}
+                  onClick={toggleSustainLock}
+                  title={sustainLocked
+                    ? 'Sustain verrouillé — clic pour relâcher'
+                    : sustainActive
+                      ? 'Sustain actif (Espace) — clic pour verrouiller'
+                      : 'Sustain — clic pour verrouiller (Espace : maintenir)'}
+                  aria-pressed={sustainActive}
+                  data-anchor="designer-sustain-pastille"
+                >
+                  Sustain
+                  {sustainLocked && <Lock size={11} strokeWidth={2.5} aria-hidden="true" />}
+                </button>
               </div>
             </>
           )}

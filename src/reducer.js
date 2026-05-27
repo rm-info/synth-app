@@ -240,6 +240,9 @@ export function loadPersistedState() {
       bibPopupWidth: typeof parsed.bibPopupWidth === 'number'
         ? Math.max(320, Math.min(parsed.bibPopupWidth, 1200))
         : 480,
+      // iter-L phase-1.4.b : piste sélectionnée Composer. Validation contre
+      // tracks faite plus bas après assemblage.
+      selectedTrackId: typeof parsed.selectedTrackId === 'string' ? parsed.selectedTrackId : null,
       // iter-K phase-2.f11 : liste LRU des derniers patches utilisés
       // (max 10). Filtrée aux strings ; les IDs orphelins sont nettoyés
       // au prochain ADD_PATCH_TO_RECENTS / DELETE_PATCH / DELETE_BIB_ITEMS.
@@ -383,6 +386,12 @@ export function buildInitialState() {
     clipboard: null,
     measureClipboard: null,
     bibClipboard: null,
+    // iter-L phase-1.4.b : piste sélectionnée (Composer). Mise à jour au
+    // dernier clic utilisateur (clip / header / zone vide d'une piste).
+    // Sert au fallback du bouton Coller et au signifiant visuel sur le
+    // header. Persisté en localStorage. Validation contre tracks à
+    // l'hydratation (cf. plus bas).
+    selectedTrackId: persisted?.selectedTrackId ?? null,
 
     zoomH: DEFAULT_ZOOM_H,
     activeTab: persisted?.activeTab ?? 'designer',
@@ -445,6 +454,12 @@ export function buildInitialState() {
   const validFolderIds = new Set(initialState.soundFolders.map(f => f.id))
   if (initialState.bibCurrentFolderId !== null && !validFolderIds.has(initialState.bibCurrentFolderId)) {
     initialState.bibCurrentFolderId = null
+  }
+
+  // iter-L phase-1.4.b : valide selectedTrackId contre les tracks chargées.
+  const validTrackIds = new Set(initialState.tracks.map(t => t.id))
+  if (initialState.selectedTrackId !== null && !validTrackIds.has(initialState.selectedTrackId)) {
+    initialState.selectedTrackId = null
   }
 
   // iter-K phase-2.f11 : nettoie les IDs orphelins du LRU (patches supprimés
@@ -1124,6 +1139,9 @@ export function reducer(state, action) {
         tracks: state.tracks.filter(t => t.id !== trackId),
         clips: state.clips.filter(c => c.trackId !== trackId),
         selectedClipIds: state.selectedClipIds.filter(id => !deletedClipIds.has(id)),
+        // iter-L phase-1.4.b : si la piste active est supprimée, on retombe
+        // sur null (le bouton Coller utilisera le fallback piste 0).
+        selectedTrackId: state.selectedTrackId === trackId ? null : state.selectedTrackId,
       }
     }
     case 'SET_TRACK_HEIGHT': {
@@ -1499,6 +1517,15 @@ export function reducer(state, action) {
         selectedClipIds: ids,
         lastAnchorClipId: ids.length > 0 ? ids[ids.length - 1] : state.lastAnchorClipId,
       }
+    }
+    case 'SET_SELECTED_TRACK_ID': {
+      // iter-L phase-1.4.b : track active du Composer. Non-undoable, persisté
+      // en localStorage. Sert au fallback du bouton Coller et de signifiant
+      // visuel sur le header. Cf. archi/BACKLOG.md "Spécifications L.1".
+      const trackId = action.payload
+      if (trackId !== null && !state.tracks.some((t) => t.id === trackId)) return state
+      if (state.selectedTrackId === trackId) return state
+      return { ...state, selectedTrackId: trackId }
     }
     case 'SET_CURRENT_PATCH_ID': {
       return { ...state, currentPatchId: action.payload }
@@ -2016,9 +2043,23 @@ function makeMissingPatchNotification(conflict, patches) {
   }
 }
 
+// iter-L phase-1.4.d : si `lastAnchorClipId` pointe vers un clip qui
+// n'existe plus dans state.clips (typiquement après DELETE_MEASURE /
+// CUT_MEASURE / DELETE_TRACK / split de mesure qui rotate l'id), on
+// reset à null. Appliqué avant syncAnchorWithSelection — quand une
+// sélection non-vide subsiste, sync rétablira l'ancre depuis la
+// sélection (cf. invariant). Idempotent.
+function clampAnchorToExistingClip(state) {
+  if (state.lastAnchorClipId == null) return state
+  if (state.clips.some((c) => c.id === state.lastAnchorClipId)) return state
+  return { ...state, lastAnchorClipId: null }
+}
+
 export function withUndo(baseReducer) {
   return function wrapped(state, action) {
-    return syncAnchorWithSelection(applyUndoAware(baseReducer, state, action))
+    return syncAnchorWithSelection(
+      clampAnchorToExistingClip(applyUndoAware(baseReducer, state, action)),
+    )
   }
 }
 

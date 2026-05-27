@@ -77,7 +77,7 @@ function App() {
     clips, patches, soundFolders, tracks, bpm, numMeasures, a4Ref, xEdoN,
     editor, activeTab, currentPatchId, zoomH, defaultClipDuration,
     spectrogramVisible, spectrogramDbScale, spectrogramPeakHold, spectrogramMode,
-    durationMode, selectedClipIds, composerFlash, lastAnchorClipId,
+    durationMode, selectedClipIds, selectedTrackId, composerFlash, lastAnchorClipId,
     composerBankWidth, composerAsideWidth, composerBankCollapsed, composerAsideCollapsed,
     designerSidebarWidth, designerSidebarCollapsed,
     bibHierarchyMode, bibDisplayMode, bibCurrentFolderId, bibPopupWidth,
@@ -617,6 +617,9 @@ function App() {
           bibPopupWidth,
           recentPatchIds,
           theme,
+          // iter-L phase-1.4.b : piste sélectionnée Composer (persistée pour
+          // que le fallback "Coller sur piste sélectionnée" survive au reload).
+          selectedTrackId,
           // F.4.4.3 : état d'exploration Designer persisté de bout en bout.
           // Chaque presse-touche dispatch un SET_EDITOR_TEST_NOTE qui re-tire
           // ce useEffect → setItem(localStorage). Coût acceptable :
@@ -639,7 +642,7 @@ function App() {
     composerBankWidth, composerAsideWidth, composerBankCollapsed, composerAsideCollapsed,
     designerSidebarWidth, designerSidebarCollapsed,
     bibHierarchyMode, bibDisplayMode, bibCurrentFolderId, bibCollapsedFolders, bibPopupWidth,
-    recentPatchIds, theme,
+    recentPatchIds, theme, selectedTrackId,
     editor.testTuningSystem, editor.testNoteIndex, editor.testOctave, editor.testFrequency,
     editor.visualCuePattern, editor.visualCueTonic,
   ])
@@ -1141,6 +1144,13 @@ function App() {
     })
   }, [selectedClipIds, clips])
 
+  // iter-L phase-1.4.b : sélection de piste. Mise à jour au dernier clic
+  // utilisateur dans le Composer (clip / header / zone vide d'une piste).
+  // Non-undoable, persisté en localStorage.
+  const handleSelectTrack = useCallback((trackId) => {
+    dispatch({ type: 'SET_SELECTED_TRACK_ID', payload: trackId })
+  }, [])
+
   const handlePaste = useCallback(
     (absoluteBeat, targetTrackId) => {
       if (!clipboard || clipboard.clips.length === 0) return
@@ -1182,6 +1192,27 @@ function App() {
     },
     [clipboard, numMeasures, tracks],
   )
+
+  // iter-L phase-1.4.b : variante du Coller utilisée par le bouton Toolbar.
+  // Sémantique différente du Ctrl+V "coller à la souris" :
+  //   1. lastAnchorClipId (halo anchor) → après le clip ancre, sur sa piste
+  //   2. selectedTrackId → début de la piste sélectionnée
+  //   3. fallback → début de la première piste (tracks[0])
+  const handlePasteFromButton = useCallback(() => {
+    if (!clipboard || clipboard.clips.length === 0) return
+    const anchor = lastAnchorClipId ? clips.find((c) => c.id === lastAnchorClipId) : null
+    if (anchor) {
+      const anchorEnd = (anchor.measure - 1) * BEATS_PER_MEASURE + anchor.beat + anchor.duration
+      handlePaste(anchorEnd, anchor.trackId)
+      return
+    }
+    if (selectedTrackId && tracks.some((t) => t.id === selectedTrackId)) {
+      handlePaste(0, selectedTrackId)
+      return
+    }
+    const firstTrack = tracks[0]?.id
+    if (firstTrack) handlePaste(0, firstTrack)
+  }, [clipboard, lastAnchorClipId, clips, selectedTrackId, tracks, handlePaste])
 
   useEffect(() => {
     const handler = (e) => {
@@ -2144,6 +2175,7 @@ function App() {
                   hasClipboard={!!clipboard && clipboard.clips.length > 0}
                   onCopy={handleCopy}
                   onCut={handleCut}
+                  onPasteFromButton={handlePasteFromButton}
                   isPlaying={playback.isPlaying}
                   hasClips={clips.length > 0}
                   isExporting={playback.isExporting}
@@ -2301,6 +2333,9 @@ function App() {
                   onDuplicateClips={handleDuplicateClips}
                   selectedClipIds={selectedClipIds}
                   onSetSelection={handleSetSelection}
+                  selectedTrackId={selectedTrackId}
+                  onSelectTrack={handleSelectTrack}
+                  lastAnchorClipId={lastAnchorClipId}
                   onAddMeasures={handleAddMeasures}
                   onRemoveLastMeasure={handleRemoveLastMeasure}
                   mousePositionRef={timelineMouseRef}

@@ -689,19 +689,40 @@
   min-width: 80px;
 }
 
-/* Badge affiché quand la pédale de sustain (Espace) est active. */
-.sustain-badge {
-  display: inline-block;
+/* iter-L phase-1.4.a : pastille Sustain permanente (remplace l'ancien
+   .sustain-badge éphémère). Cliquable = toggle verrou. Trois états :
+   inactif (neutre) / actif (orange) / verrouillé (orange + cadenas). */
+.sustain-pastille {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
   margin-left: 10px;
-  padding: 1px 8px;
+  padding: 2px 8px;
   border-radius: 3px;
-  background: #ffc600;
-  color: var(--surface-bg);
-  font-size: 0.65rem;
-  font-weight: 700;
-  letter-spacing: 0.08em;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+  border: 1px solid var(--surface-border-strong);
   vertical-align: 1px;
-  box-shadow: 0 0 8px rgba(255, 198, 0, 0.5);
+  transition: background 0.12s, color 0.12s, box-shadow 0.12s, border-color 0.12s;
+}
+.sustain-pastille:hover {
+  background: var(--surface-bg);
+  color: var(--text-primary);
+}
+.sustain-pastille.is-active {
+  background: #ffc600;
+  color: #1a1a1a;
+  border-color: #ffc600;
+  box-shadow: 0 0 8px rgba(255, 198, 0, 0.45);
+}
+.sustain-pastille.is-locked {
+  /* Marquage du verrou : bordure plus marquée + icône cadenas dans le markup. */
+  border-color: rgba(0, 0, 0, 0.35);
+  box-shadow: 0 0 8px rgba(255, 198, 0, 0.6), inset 0 0 0 1px rgba(0, 0, 0, 0.18);
 }
 
 .control-buttons {

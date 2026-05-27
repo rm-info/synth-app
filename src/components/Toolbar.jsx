@@ -23,6 +23,7 @@ function Toolbar({
   hasClipboard,
   onCopy,
   onCut,
+  onPasteFromButton,
   isPlaying,
   hasClips,
   isExporting,
@@ -191,9 +192,20 @@ function Toolbar({
         >
           Couper
         </button>
-        {hasClipboard && (
-          <span className="clipboard-hint">Ctrl+V ou clic droit pour coller</span>
-        )}
+        {/* iter-L phase-1.4.b : bouton Coller permanent (remplace l'ancien
+            hint "Ctrl+V ou clic droit pour coller"). Sémantique du clic
+            différente de Ctrl+V : colle après l'ancre halo si présente,
+            sinon au début de la piste sélectionnée, sinon piste 0. */}
+        <button
+          type="button"
+          className="toolbar-secondary"
+          onClick={onPasteFromButton}
+          disabled={!hasClipboard}
+          title="Coller (Ctrl+V) — à la souris (Ctrl+V) ou ancre/piste sélectionnée (clic)"
+          data-anchor="composer-paste-button"
+        >
+          Coller
+        </button>
       </div>
 
       <div className="toolbar-section history-section">
@@ -221,7 +233,7 @@ function Toolbar({
         {typeof testOctave === 'number' && (
           <span
             className={`toolbar-octave${testOctave === 4 ? ' is-reference' : ''}`}
-            title="Octave courante — Shift seul = +1, Ctrl seul = −1"
+            title="Octave courante — PageUp/PageDown ±1"
             data-anchor="composer-octave-indicator"
           >
             Octave : <strong>{testOctave}</strong>

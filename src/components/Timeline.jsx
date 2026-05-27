@@ -153,6 +153,13 @@ function Timeline({
   onDuplicateClips,
   selectedClipIds,
   onSetSelection,
+  // iter-L phase-1.4.b : piste sélectionnée Composer (signifiant visuel +
+  // fallback Coller). onSelectTrack appelé au dernier clic utilisateur dans
+  // la zone Composer (clip / header / zone vide d'une piste).
+  selectedTrackId,
+  onSelectTrack,
+  // iter-L phase-1.4.d : exposé pour le halo anchor (sera consommé en 4.d).
+  lastAnchorClipId,
   onAddMeasures,
   onRemoveLastMeasure,
   mousePositionRef,
@@ -254,7 +261,13 @@ function Timeline({
 
   // --- Track reorder drag (mousedown sur en-tête de piste) ---
   const startTrackReorder = (e, trackIndex) => {
-    if (e.button !== 0 || tracks.length <= 1) return
+    if (e.button !== 0) return
+    // iter-L phase-1.4.b : mousedown sur header (clic gauche) = clic
+    // d'activation de piste. Précède le early-return mono-piste pour que
+    // le clic continue de sélectionner même quand il n'y a qu'une piste.
+    const targetTrack = tracks[trackIndex]
+    if (targetTrack) onSelectTrack?.(targetTrack.id)
+    if (tracks.length <= 1) return
     e.preventDefault()
     let currentHoverIndex = trackIndex
     const headersCol = e.currentTarget.closest('.track-headers-column')
@@ -518,6 +531,9 @@ function Timeline({
           // Clic simple : remplace la sélection par ce clip
           onSetSelection?.([s.clipId])
         }
+        // iter-L phase-1.4.b : clic sur un clip met à jour la piste active.
+        const clip = clipsRef.current.find((c) => c.id === s.clipId)
+        if (clip?.trackId) onSelectTrack?.(clip.trackId)
       } else if (s.visual) {
         const isResize = s.mode === 'resize-left' || s.mode === 'resize-right'
         // Helper: compute new trackId for a clip after vertical drag
@@ -633,7 +649,7 @@ function Timeline({
       window.removeEventListener('mousemove', handleMove)
       window.removeEventListener('mouseup', handleUp)
     }
-  }, [activeClipId, activeMode, onUpdateClip, onMoveClips, onResizeClips, onDuplicateClips, onSetSelection])
+  }, [activeClipId, activeMode, onUpdateClip, onMoveClips, onResizeClips, onDuplicateClips, onSetSelection, onSelectTrack])
 
   const startInteraction = (e, clip, mode, laidOutItems, opts = {}) => {
     if (e.button !== 0) return
@@ -880,6 +896,16 @@ function Timeline({
     const zr = zone.getBoundingClientRect()
     const startX = e.clientX - zr.left
     const startY = e.clientY - zr.top
+
+    // iter-L phase-1.4.b : clic dans la zone vide d'une piste = sélection de
+    // cette piste. Si la coordonnée Y est au-delà des couloirs (zone vide
+    // hors piste), findTrackAtY retourne la dernière piste — on garde alors
+    // la valeur précédente plutôt que de retomber dessus arbitrairement.
+    const trackIdAtClick = findTrackAtY(startY)
+    const totalCorridorHeight = trackLayoutData.reduce((sum, tl) => sum + tl.corridorHeight, 0)
+    if (trackIdAtClick && startY < totalCorridorHeight) {
+      onSelectTrack?.(trackIdAtClick)
+    }
     const additive = e.shiftKey
     const pxPerBeatLocal = pxPerBeat
     const trackHeightLocal = trackHeight
@@ -1131,6 +1157,7 @@ function Timeline({
                   trackReorder?.dragIndex === i && 'track-header-dragging',
                   trackReorder != null && trackReorder.hoverIndex === i && trackReorder.hoverIndex < trackReorder.dragIndex && 'track-header-insert-above',
                   trackReorder != null && trackReorder.hoverIndex === i && trackReorder.hoverIndex > trackReorder.dragIndex && 'track-header-insert-below',
+                  track.id === selectedTrackId && 'is-selected-track',
                 ].filter(Boolean).join(' ')}
                 style={{ height: `${tl.corridorHeight}px` }}
                 onMouseDown={(e) => {
@@ -1427,9 +1454,15 @@ function Timeline({
                 const top = effectiveTrackYOffset + effectiveLane * trackHeight + 4
                 const height = trackHeight - 8
                 const isSelected = selectedClipIds?.includes(clip.id)
+                // iter-L phase-1.4.d : halo subtil sur le clip ancre
+                // (lastAnchorClipId). Sert de signifiant pour le placement
+                // contigu au clavier (C18). Ancre l'étiquette overlay
+                // composer-anchor-clip / composer-notes-contiguous.
+                const isAnchor = lastAnchorClipId === clip.id
                 const classNames = [
                   'placed-sound',
                   isSelected && 'is-selected',
+                  isAnchor && 'is-anchor',
                   mode === 'drag' && 'is-dragging',
                   (mode === 'resize-left' || mode === 'resize-right') && 'is-resizing',
                   mutedTrackIds.has(clip.trackId) && 'is-track-muted',
@@ -1439,6 +1472,7 @@ function Timeline({
                   <div
                     key={clip.id}
                     data-clip-id={clip.id}
+                    data-anchor={isAnchor ? 'composer-anchor-clip' : undefined}
                     className={classNames}
                     style={{
                       left: `${left}%`,
