@@ -60,6 +60,7 @@ import {
 import { buildExportPayload, EmptyExportError, applyImport } from './lib/libraryTransfer.js'
 import { usePlayback } from './hooks/usePlayback'
 import './App.css'
+import './styles/highlight.css'
 
 const wrappedReducer = withUndo(reducer)
 
