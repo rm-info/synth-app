@@ -264,6 +264,7 @@ function Toolbar({
           className="toolbar-export"
           onClick={onExportWav}
           disabled={!hasClips || isExporting}
+          data-anchor="composer-export-button"
         >
           {isExporting ? 'Export…' : 'Exporter WAV'}
         </button>

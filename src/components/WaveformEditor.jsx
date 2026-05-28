@@ -2096,7 +2096,7 @@ function WaveformEditor({
     // Slider rendu inline ici pour partager le layout colonne avec A/D/S/R
     // sans le forcer dans le pipeline draftAdsr.
     const renderAmpSlider = () => (
-      <div className="adsr-slider">
+      <div className="adsr-slider" data-anchor="designer-amplitude">
         <label htmlFor="adsr-amplitude">
           <span>Amp</span>
           <NumberInput

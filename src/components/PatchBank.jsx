@@ -1179,6 +1179,7 @@ function PatchBank({
             className="bib-action-btn"
             title="Nouveau dossier"
             onClick={handleCreateFolder}
+            data-anchor="library-new-folder-button"
           ><FolderPlus size={14} /></button>
           <button
             type="button"

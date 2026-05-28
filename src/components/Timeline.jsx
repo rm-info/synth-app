@@ -1246,6 +1246,7 @@ function Timeline({
               type="button"
               className="track-add-btn"
               onClick={() => onCreateTrack?.()}
+              data-anchor="composer-add-track-button"
             >
               + Piste
             </button>
