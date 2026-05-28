@@ -432,6 +432,29 @@ gracieuse partout (ancre/onglet/article inconnu = no-op + warn dev).
 Quatre sous-commits (3.1 → 3.4), zéro nouveau npm, aucun impact sur les
 3 autres onglets.
 
+**Itération L (Documentation) — phase 4 livrée le 2026-05-28 — V1 de
+l'Itération L atteinte.** Le **Tour guidé** : 3e et dernier entrypoint
+additif (après l'onglet Documentation et le bouton Raccourcis). Un bouton
+**Compass** dans le header + le raccourci **Ctrl/Cmd+J** démarrent la
+visite de l'onglet actif. L'app passe en mode spotlight : un blocker plein
+écran gèle toute interaction (clic, molette, clavier hors ESC), un voile
+box-shadow assombrit tout sauf l'ancre courante, une bulle ancrée (titre +
+description + compteur + Précédent/Suivant) la commente, et une progress
+bar cliquable recouvre la zone des onglets (segments = séquence effective,
+étapes skippées absentes). Tours déclaratifs par onglet
+(`src/lib/tours/{library,designer,composer,documentation}.js` + `index.js`),
+premier jet des textes — passe rédactionnelle à venir
+(`archi/L4-redaction-prompt.md`). 3e consommateur de `getAnchoredPosition` ;
+résolution en RAF borné (montage différé d'un onglet, ouverture d'une
+sidebar repliée pour révéler une ancre intérieure). Étape dont l'ancre est
+absente = skippée gracieusement. State `tour` volatile (jamais persisté,
+hors undo) : snapshot unique capturé au 1er `START_TOUR` (onglet + 4 états
+de sidebars repliables) restauré à la sortie → « stateless du point de vue
+utilisateur » ; le chaînage entre onglets en fin de tour (« Continuer vers
+X, Y ou Z ? ») ne re-snapshot pas. « En savoir plus » par étape (si
+`article` présent dans `DOC_TOC`) quitte vers l'article. Six sous-commits
+(4.1 → 4.6), zéro nouveau npm, aucun impact métier hors le tour.
+
 **Release v1.0.0-1.0.4** (2026-05-20) — Premier déploiement prod. Sortie
 du 0.x exploratoire après 7 itérations majeures (A→G) stables.
 Branding : titre commercial **On_Synth_App** (jeu de mots « on s'en
@@ -486,7 +509,10 @@ synth-app/
     │   ├── shortcuts.js      # table déclarative + matchesShortcut / getAnchor (iter-L phase-1.1)
     │   ├── getAnchoredPosition.js # résolution viewport rect d'un [data-anchor] (iter-L phase-1.5)
     │   ├── highlightElement.js # halo temporaire ancré (DocLink), retry RAF (iter-L phase-3.1)
-    │   └── markdown.js       # parser Markdown maison + AST (iter-L phase-2.2)
+    │   ├── markdown.js       # parser Markdown maison + AST (iter-L phase-2.2)
+    │   └── tours/            # déclarations du Tour guidé par onglet (iter-L phase-4)
+    │       ├── index.js      # map tabId → étapes + TOUR_TABS (ordre chaînage)
+    │       ├── library.js / designer.js / composer.js / documentation.js  # séquences d'étapes
     ├── styles/               # CSS transverses non colocatées
     │   └── highlight.css     # halo flash DocLink (iter-L phase-3.1)
     ├── docs/                 # contenu de l'onglet Documentation (iter-L phase-2)
@@ -529,7 +555,8 @@ synth-app/
         ├── ShortcutsOverlay.jsx + .css       # overlay raccourcis "lever le voile" Ctrl+K (iter-L phase-1.5)
         ├── DocumentationTab.jsx + .css       # layout TOC + zone contenu de l'onglet Documentation (iter-L phase-2.3)
         ├── MarkdownRenderer.jsx + .css       # rendu AST Markdown maison → JSX + DocLink/doc: actifs via MarkdownNavContext (iter-L phase-2.2 / 3.2-3.3)
-        └── ShortcutsReference.jsx + .css     # article généré "Raccourcis clavier" depuis SHORTCUTS (iter-L phase-2.4)
+        ├── ShortcutsReference.jsx + .css     # article généré "Raccourcis clavier" depuis SHORTCUTS (iter-L phase-2.4)
+        └── Tour.jsx + .css                   # moteur du Tour guidé : spotlight + bulle + progress bar (iter-L phase-4)
 ```
 
 ### Layout
@@ -631,6 +658,7 @@ type Clip = {                     // placement timeline + hauteur
 // NON persisté (volatile) : selectedClipIds, currentPatchId, zoomH,
 // defaultClipDuration, lastAnchorClipId, composerFlash,
 // shortcutsOverlayOpen (iter-L phase-1.6, runtime uniquement),
+// tour (iter-L phase-4, runtime uniquement — un tour ne survit pas à un refresh),
 // editor.points / amplitude / ADSR / preset (vides au reload, l'éditeur
 // de patch n'est pas restauré ; seuls les champs `test*` et `visualCue*`
 // d'exploration Designer le sont — F.4.4.3), clipboard, measureClipboard,
@@ -658,6 +686,15 @@ type Clip = {                     // placement timeline + hauteur
 //     Min DOC_SIDEBAR_MIN_WIDTH (180), défaut DOC_SIDEBAR_DEFAULT_WIDTH
 //     (240). Persisté en localStorage.
 //   activeTab étendu à 'documentation' (4ᵉ valeur possible).
+//
+// Champ iter-L phase 4 (Tour guidé) :
+//   tour: { active, tabId, stepIndex, snapshot }  // visite guidée.
+//     Volatile (jamais persisté, hors undo). snapshot = { activeTab,
+//     designerSidebarCollapsed, docSidebarCollapsed, composerBankCollapsed,
+//     composerAsideCollapsed } capturé une seule fois au 1er START_TOUR,
+//     restauré à END_TOUR (tour « stateless du point de vue utilisateur »).
+//     stepIndex indexe les étapes brutes du tour ; le moteur Tour.jsx mappe
+//     vers la séquence effective (ancres résolvables) pour la navigation.
 //
 // État `editor` (Designer, non persisté en bloc) — extrait pertinent :
 //   testTuningSystem, testNoteIndex, testOctave, testFrequency  // preview
@@ -970,6 +1007,26 @@ Choix non évidents pris pour de bonnes raisons. À ne pas remettre en question
   font. Défaut null = rendu inerte → le renderer reste réutilisable hors
   onglet Documentation. Validation des cibles en runtime (warn dev), pas
   au build (un linter d'articles pourra venir si le volume L.5 le justifie).
+- **Tour guidé = 3e consommateur de `getAnchoredPosition` (iter-L phase-4)** :
+  `src/components/Tour.jsx` réutilise la même résolution d'ancre que
+  l'overlay raccourcis et `highlightElement`, et le même RAF borné pour le
+  montage différé (bascule d'onglet + ouverture de sidebar repliée). Choix
+  structurants : (a) **app gelée** par un blocker plein écran qui avale
+  clic/molette/clavier — pas un simple voile : le box-shadow du spotlight ne
+  capture aucun événement, donc le gel est une couche transparente distincte.
+  Ça rend le snapshot/restore tractable (l'utilisateur ne peut rien muter
+  pendant le tour). (b) **Snapshot unique sur toute la chaîne** capturé au 1er
+  `START_TOUR` (onglet + 4 sidebars repliables), restauré à `END_TOUR` ; le
+  chaînage entre onglets (`TOUR_CHAIN`) ne re-snapshot pas — c'est la
+  définition de « stateless du point de vue utilisateur ». Garde dédiée :
+  pendant `tour.active`, l'effet de persistance localStorage est court-circuité
+  (un refresh en plein tour ne doit pas figer une sidebar dépliée par le tour).
+  (c) **Tours déclaratifs par onglet** (`src/lib/tours/*.js`) : une étape =
+  `{ anchor, title, body, article?, sidebar? }`. La *séquence effective*
+  (étapes dont l'ancre est résolvable, ou révélable via `sidebar`) est calculée
+  côté `Tour.jsx` ; les ancres absentes (clip témoin inexistant, presse-papier
+  vide, bouton conditionnel) sont skippées gracieusement — pas de création de
+  contenu témoin (scope médian). Aucun ordre canonique entre tours.
 - **Posture mode note : possession totale du clavier
   alphanumérique (F.7.5)** : hors form-field et hors raccourcis OS
   (Ctrl/Alt/Meta), le mode note "possède" l'ensemble fixe
@@ -1706,6 +1763,18 @@ Phases listées ci-dessous dans l'ordre chronologique d'implémentation.
 ## État actuel
 
 ✅ **Terminé**
+- Iteration L phase 4 (Tour guidé) — **V1 de l'Itération L atteinte** :
+  visite guidée par diaporama d'info-bulles ancrées. Bouton **Compass**
+  (header) + **Ctrl/Cmd+J** démarrent le tour de l'onglet actif. Mode
+  spotlight : blocker plein écran (gel clic/molette/clavier hors ESC),
+  voile box-shadow sur l'ancre courante, bulle ancrée, progress bar
+  cliquable à la place des onglets, croix + ESC pour quitter. Tours
+  déclaratifs par onglet (`src/lib/tours/*.js`, 1er jet des textes — passe
+  writer en attente). 3e consommateur de `getAnchoredPosition` ; RAF borné
+  pour le montage différé + ouverture de sidebar repliée ; étape sans ancre
+  skippée. State `tour` volatile (snapshot onglet + sidebars capturé une
+  fois, restauré à la sortie ; chaînage entre onglets sans re-snapshot).
+  « En savoir plus » par étape → article de doc. Zéro npm ajouté.
 - Iteration L phases 2-3 (onglet Documentation navigable) : 4e onglet
   Documentation (renderer Markdown maison `src/lib/markdown.js`, TOC
   collapsible/resizable, restauration de scroll par article, page
@@ -2279,6 +2348,57 @@ Phases listées ci-dessous dans l'ordre chronologique d'implémentation.
   prochaine candidate).
 
 ## Historique (chronologie inverse)
+
+- **2026-05-28 — Iteration L phase 4 (Tour guidé) — V1 Itération L**
+  Diaporama d'info-bulles ancrées sur l'UI de l'onglet actif. 3e et dernier
+  entrypoint additif de l'Itération L. Six sous-commits.
+
+  - **L.4.1 — state tour + déclarations** : state plat `tour`
+    (`{active, tabId, stepIndex, snapshot}`), volatile — absent de la
+    sérialisation localStorage, hors `*_UNDOABLE`. Actions `START_TOUR`
+    (snapshot unique si `!active` : `activeTab` + `designerSidebarCollapsed`
+    + `docSidebarCollapsed` + `composerBank/AsideCollapsed`), `TOUR_GOTO`,
+    `TOUR_NEXT`, `TOUR_PREV`, `TOUR_CHAIN` (sans re-snapshot), `END_TOUR`
+    (restaure le snapshot), `END_TOUR_NO_RESTORE`. Tours déclaratifs
+    `src/lib/tours/{library,designer,composer,documentation}.js` + `index.js`
+    (1er jet des textes). Nouvelles `data-anchor` : `designer-waveform`,
+    `designer-system-selector`, `designer-adsr`, `designer-spectrogram`,
+    `composer-transport`, `composer-bpm`, `composer-timeline`,
+    `composer-properties`, `library-hierarchy-mode`, `library-display-mode`,
+    `doc-toc`, `doc-content`.
+
+  - **L.4.2 — `Tour.jsx` spotlight + bulle** : blocker plein écran (gel
+    clic/molette), spotlight box-shadow sur l'ancre, bulle ancrée (placement
+    dessous/dessus/clampé viewport, mesurée pour la hauteur). 3e consommateur
+    de `getAnchoredPosition` ; résolution en RAF borné 800 ms (timestamp rAF,
+    pas `performance.now`) pour le montage différé + ouverture de sidebar.
+    Séquence effective : disponibilité statique (ancre présente OU sidebar à
+    déplier) → navigation `TOUR_GOTO(rawIndex)` ; ancre absente sans sidebar
+    = skip. `prefers-reduced-motion`. Déclencheur debug retiré en L.4.4.
+
+  - **L.4.3 — progress bar + sortie** : `tabs-buttons` masqué
+    (`visibility:hidden`, rect préservé) ; progress bar superposée ancrée sur
+    `header-tabs-zone`, un segment par étape effective, courante mise en
+    évidence, segments cliquables (`TOUR_GOTO`). Croix 36px haut-droite →
+    `END_TOUR`. ESC + gel clavier en capture phase (absorbe toute frappe,
+    devance les handlers métier et l'overlay raccourcis).
+
+  - **L.4.4 — Compass + Ctrl+J + snapshot réel** : bouton `Compass` dans le
+    header (`data-anchor="header-tour-button"`, état actif, style calqué sur
+    le toggle raccourcis), ordre `[theme] [Keyboard] [Compass] vX.X.X`.
+    Handler global `Ctrl/Cmd+J` (`preventDefault`, exclusions form field /
+    modale / overlay / tour actif). Cycle snapshot/restore vérifié. Garde de
+    persistance pendant le tour (un refresh en plein tour ne fige pas une
+    sidebar dépliée).
+
+  - **L.4.5 — chaînage + En savoir plus** : fin de tour → panneau « Continuer
+    vers X, Y ou Z ? » (`TOUR_CHAIN` sans re-snapshot) + Quitter (`END_TOUR`).
+    « En savoir plus » si l'étape porte un `article` présent dans `DOC_TOC`
+    → `END_TOUR_NO_RESTORE` + bascule Documentation + `SET_CURRENT_ARTICLE`.
+    État de fin dérivé d'une clé d'étape (zéro effet setState).
+
+  - **L.4.6 — doc** : CONTEXT.md (TL;DR, État actuel, Historique, Modèle de
+    données, Décisions architecturales, Arborescence, Roadmap).
 
 - **2026-05-28 — Iteration L phase 3 (DocLink actif + highlight)**
   Navigation interne de la doc rendue active. Quatre sous-commits.
@@ -4918,13 +5038,13 @@ git log (`fix(iter-K/phase-2.fN)`). Liste compactée :
   `#ffc600`, violet biblio `#c084fc`, magenta cued `#e832e2`) laissées
   inchangées : palette light choisie pour rester lisible avec elles.
 
-### Itération L (Documentation) — cadrée 2026-05-26, en cours
+### Itération L (Documentation) — cadrée 2026-05-26, V1 atteinte 2026-05-28
 
 Production de la documentation utilisateur (manuel, vulgarisation,
 référence, parcours d'orientation) **sans modifier l'app principale**.
 Trois entrypoints additifs : un onglet Documentation, deux boutons
-d'aide contextuelle dans le header (Raccourcis ✓ livré L.1, Tour à
-venir L.4). Détails dans `archi/BACKLOG.md` section "Iteration L".
+d'aide contextuelle dans le header (Raccourcis ✓ livré L.1, Tour ✓ livré
+L.4). Détails dans `archi/BACKLOG.md` section "Iteration L".
 
 - ✅ **L.0** (2026-05-27) — Audit raccourcis. Rapport
   `archi/L0-audit-raccourcis.md` listant les 28 raccourcis d'action,
@@ -4957,20 +5077,31 @@ venir L.4). Détails dans `archi/BACKLOG.md` section "Iteration L".
   + handler `handleDocLink` (App.jsx) ; (3.3) liens doc→doc (scheme
   `doc:`, `onDocNav` borné à `DOC_TOC`) ; (3.4) enrichissement
   `_renderer-test.md` (cas valides + cassés) + doc. Cf. historique pour
-  le détail. **Prochaine étape : L.4 (Tour).**
+  le détail.
 
-- ⏳ **L.4** — Bouton Tour header (`Compass`) + Ctrl+J + composant
-  `Tour.jsx` + progress bar header-overlay + tours déclarés.
+- ✅ **L.4** (2026-05-28) — **Tour guidé. V1 de l'Itération L atteinte.**
+  Bouton `Compass` header + Ctrl/Cmd+J démarrent la visite de l'onglet
+  actif. Six sous-commits : (4.1) state `tour` volatile + actions
+  START/GOTO/NEXT/PREV/CHAIN/END/END_NO_RESTORE + tours déclaratifs
+  `src/lib/tours/*.js` + nouvelles `data-anchor` ; (4.2) `Tour.jsx`
+  spotlight (blocker + box-shadow) + bulle ancrée, RAF borné, skip
+  gracieux ; (4.3) progress bar header-overlay + croix + ESC/gel clavier ;
+  (4.4) bouton `Compass` + Ctrl+J + snapshot/restore réel ; (4.5) chaînage
+  fin de tour + « En savoir plus » ; (4.6) doc. **Les bulles sont un 1er
+  jet dev — passe rédactionnelle en attente (`archi/L4-redaction-prompt.md`).**
+
+- ⏳ **L.4.5** — Math renderer (notation mathématique dans les articles de
+  doc). Hors scope L.4.
 
 - ⏳ **L.5** — Rédaction des contenus (peut commencer en parallèle dès
-  L.2).
+  L.2 ; inclut la passe writer sur les bulles du Tour).
 
 - ⏳ **L.6** *(option)* — Démos écoutables.
 
 - ⏳ **L.7** *(option)* — Exercices guidés.
 
-**Sortie de L.4** = V1 fonctionnelle. L.5 enrichit les contenus sans
-toucher au code.
+**V1 de l'Itération L atteinte à la sortie de L.4.** L.4.5 (math renderer)
+et L.5 (rédaction) enrichissent sans toucher à l'architecture du tour.
 
 ### Backlog général (à caser quand pertinent)
 
