@@ -159,6 +159,16 @@ sans toucher au code. L.6/L.7 différables sans bloquer. La phase
 > chaque tour est une liste déclarative dans `src/lib/tours/*.js`,
 > on ajoute des étapes sans toucher au moteur.
 
+> **Versioning** (noté 2026-05-28) : la version (`package.json` →
+> `__APP_VERSION__` → header) est restée à **1.3.0** pendant toute
+> l'itération L. Bump prévu **1.4.0 en fin de L.5** — quand le
+> corpus de doc rend l'itération réellement utile côté utilisateur
+> (une doc dont la mécanique marche mais sans contenu n'est pas une
+> release). Minor bump SemVer (feature additive, zéro breaking
+> change), cohérent avec le pattern iter-K = 1.3.0. Commit
+> `feat(v1.4.0): …`. L.6/L.7 (optionnels) viendront en 1.4.x ou
+> 1.5.0 plus tard.
+
 ### Décisions de design figées (session 2026-05-26)
 
 - **Renderer Markdown** : maison, minimaliste, ~200 lignes (titres,
