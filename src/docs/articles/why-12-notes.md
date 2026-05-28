@@ -18,11 +18,11 @@ départ : deux cordes dont les longueurs sont dans le rapport
 $3:2$ sonnent particulièrement *consonantes* ensemble. Cet
 intervalle s'appelle une **quinte pure**.
 
-Si on part d'une note et qu'on monte d'une quinte pure, puis
-d'une autre, puis d'une autre — on parcourt un chemin où chaque
+Si tu pars d'une note et que tu montes d'une quinte pure, puis
+d'une autre, puis d'une autre — tu parcours un chemin où chaque
 pas multiplie la fréquence par $\frac{3}{2}$. Au bout de **douze** quintes
 empilées (en redescendant régulièrement à l'octave pour rester
-dans une plage audible), on retombe *presque* sur la note de
+dans une plage audible), tu retombes *presque* sur la note de
 départ, sept octaves plus haut.
 
 *Presque*. C'est le mot important.
@@ -120,7 +120,7 @@ récalcitrant), ce que l'oreille reconnaît, et ce que la main
 peut jouer. D'autres choix existent — et continuent d'être
 pratiqués, ailleurs ou ici.
 
-L'app vous propose de les essayer.
+L'app te propose de les essayer.
 <DocLink target="composer:composer-tuning-system-selector">Changer
 de système musical</DocLink> et rejouer un même clip dans une
 autre grille suffit à entendre, concrètement, ce que ce "choix

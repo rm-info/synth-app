@@ -1,12 +1,12 @@
 # À propos
 
-Synth App est un instrument web de composition musicale. On y
-dessine des formes d'onde à la souris pour fabriquer ses propres
-sons (les *patches*), on les arrange sur une timeline multipiste,
-et on exporte le résultat en WAV. L'app intègre une dizaine de
+Synth App est un instrument web de composition musicale. Tu y
+dessines des formes d'onde à la souris pour fabriquer tes propres
+sons (les *patches*), tu les arranges sur une timeline multipiste,
+et tu exportes le résultat en WAV. L'app intègre une dizaine de
 **systèmes musicaux** — du tempérament égal à douze notes aux
 divisions micro-tonales en passant par le maqâm égyptien de
-1932 — qu'on peut substituer en un clic sans rejouer ses clips.
+1932 — que tu peux substituer en un clic sans rejouer tes clips.
 
 ## Philosophie
 
