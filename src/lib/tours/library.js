@@ -8,7 +8,7 @@ export const libraryTour = [
   {
     anchor: 'library-item-list',
     title: 'Tes patches',
-    body: 'Tous les sons enregistrés depuis le Designer, rangés en dossiers. Clique pour sélectionner ; Ctrl ou Maj pour une sélection multiple.',
+    body: 'Tous les sons enregistrés depuis le Designer, rangés en dossiers. Ctrl ou Maj pour en sélectionner plusieurs.',
   },
   {
     anchor: 'library-hierarchy-mode',
