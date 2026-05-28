@@ -11,17 +11,17 @@ export const composerTour = [
   {
     anchor: 'composer-timeline',
     title: 'La timeline',
-    body: 'Dépose tes patches sur les pistes pour les arranger dans le temps. Chaque bloc est un clip jouant un son à une hauteur et une durée données.',
+    body: 'Dépose tes patches sur les pistes pour les arranger dans le temps. Chaque bloc est un clip : un son à une hauteur et une durée données.',
   },
   {
     anchor: 'composer-transport',
     title: 'Lecture et arrêt',
-    body: 'Lance ou stoppe la lecture de la composition. Le curseur balaie la timeline pendant le jeu.',
+    body: 'Lance ou arrête la lecture de la composition. Le curseur balaie la timeline pendant le jeu.',
   },
   {
     anchor: 'composer-bpm',
     title: 'Le tempo',
-    body: 'Règle la vitesse en battements par minute (noires par minute).',
+    body: 'Règle la vitesse, en battements (noires) par minute.',
   },
   {
     anchor: 'composer-octave-indicator',
@@ -31,7 +31,7 @@ export const composerTour = [
   {
     anchor: 'composer-duration-buttons',
     title: 'La durée par défaut',
-    body: 'Choisis la durée des prochains clips : de la ronde à la triple croche, avec coefficients (pointé, double-pointé).',
+    body: 'Choisis la durée des prochains clips, de la ronde à la triple croche — pointée ou double-pointée au besoin.',
   },
   {
     anchor: 'composer-copy-button',
@@ -41,7 +41,7 @@ export const composerTour = [
   {
     anchor: 'composer-anchor-clip',
     title: 'Placement contigu',
-    body: 'Le dernier clip touché sert d\'ancre : une touche de note pose le clip suivant juste après, à la hauteur jouée.',
+    body: 'Le dernier clip touché sert d\'ancre : jouer une note pose le clip suivant juste après, à cette hauteur.',
   },
   {
     anchor: 'composer-properties',
