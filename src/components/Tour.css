@@ -94,6 +94,16 @@
   background: var(--accent-bg-light);
 }
 
+/* Voile plein écran uni (panneau de fin : aucune ancre en lumière). Même
+   teinte que le box-shadow du spotlight, sans trou. */
+.tour-dim {
+  position: fixed;
+  inset: 0;
+  z-index: 2;
+  pointer-events: none;
+  background: rgba(0, 0, 0, 0.6);
+}
+
 /* Bulle ancrée : titre + body + compteur + navigation. */
 .tour-bubble {
   position: fixed;
@@ -107,6 +117,13 @@
   box-shadow: 0 6px 24px rgba(0, 0, 0, 0.45);
   padding: 14px 16px;
   transition: top 0.22s ease, left 0.22s ease;
+}
+
+/* Bulle de fin : centrée dans le viewport (plus d'ancre à pointer). */
+.tour-bubble-centered {
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
 }
 
 .tour-bubble-title {

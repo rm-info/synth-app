@@ -295,23 +295,28 @@ function Tour({
         <X size={20} strokeWidth={2.4} />
       </button>
 
-      {pos.found && (
-        <div
-          className="tour-spotlight"
-          style={{
-            top: pos.top - SPOTLIGHT_PAD,
-            left: pos.left - SPOTLIGHT_PAD,
-            width: pos.width + SPOTLIGHT_PAD * 2,
-            height: pos.height + SPOTLIGHT_PAD * 2,
-          }}
-        />
+      {atEnd ? (
+        // Panneau de fin : plus d'ancre en lumière → voile plein écran uni.
+        <div className="tour-dim" />
+      ) : (
+        pos.found && (
+          <div
+            className="tour-spotlight"
+            style={{
+              top: pos.top - SPOTLIGHT_PAD,
+              left: pos.left - SPOTLIGHT_PAD,
+              width: pos.width + SPOTLIGHT_PAD * 2,
+              height: pos.height + SPOTLIGHT_PAD * 2,
+            }}
+          />
+        )
       )}
 
-      {bubble && (
+      {(atEnd || bubble) && (
         <div
           ref={bubbleRef}
-          className="tour-bubble"
-          style={{ top: bubble.top, left: bubble.left }}
+          className={`tour-bubble${atEnd ? ' tour-bubble-centered' : ''}`}
+          style={atEnd ? undefined : { top: bubble.top, left: bubble.left }}
         >
           {atEnd ? (
             <div className="tour-end">
