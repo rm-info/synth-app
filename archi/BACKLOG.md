@@ -184,6 +184,16 @@ sans toucher au code. L.6/L.7 différables sans bloquer. La phase
 > Conversion préalable des 2 articles existants (about,
 > why-12-notes) au tutoiement.
 
+> **Ordre cible des sections TOC** (arbitré 2026-05-28, du narratif
+> vers la référence) : **Le projet** (À propos) → **Prise en main**
+> (guides B.5, recettes B.6) → **Comprendre** (articles longs C.9)
+> → **Concepts** (glossaires) → **Tempéraments** (12 fiches) →
+> **Référence** (raccourcis généré, limites A.4). `why-12-notes`
+> est encore dans une section "Articles" héritée de L.2 → à
+> reranger en "Comprendre" lors de L.5d. Fiches = articles séparés
+> (ids `temperament-<nom>`), cibles des `doc:` du glossaire à
+> rebrancher en clôture.
+
 ### Décisions de design figées (session 2026-05-26)
 
 - **Renderer Markdown** : maison, minimaliste, ~200 lignes (titres,
