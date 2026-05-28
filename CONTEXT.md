@@ -1027,6 +1027,16 @@ Choix non évidents pris pour de bonnes raisons. À ne pas remettre en question
   côté `Tour.jsx` ; les ancres absentes (clip témoin inexistant, presse-papier
   vide, bouton conditionnel) sont skippées gracieusement — pas de création de
   contenu témoin (scope médian). Aucun ordre canonique entre tours.
+  **Contrainte d'écriture des étapes** : une étape portant `sidebar` est tenue
+  pour disponible *a priori* (la sidebar la révélera), donc son ancre **doit
+  être inconditionnellement présente** une fois la sidebar ouverte — sinon la
+  bulle reste vide sans skip (cas vécu : `designer-save-button` n'existe
+  qu'avec un patch chargé ; on cible `designer-save-as-button`, toujours là).
+  (d) **Panneau de fin = position virtuelle** après la dernière étape (état
+  `atEnd` explicite, jamais dérivé de `stepIndex` — sinon revenir sur la
+  dernière étape le re-déclencherait). Là, le spotlight s'éteint (voile plein
+  écran) et la bulle se centre dans le viewport. Navigation clavier ← / → en
+  plus des boutons, lue via une ref synchronisée hors render.
 - **Posture mode note : possession totale du clavier
   alphanumérique (F.7.5)** : hors form-field et hors raccourcis OS
   (Ctrl/Alt/Meta), le mode note "possède" l'ensemble fixe
@@ -2400,6 +2410,18 @@ Phases listées ci-dessous dans l'ordre chronologique d'implémentation.
 
   - **L.4.6 — doc** : CONTEXT.md (TL;DR, État actuel, Historique, Modèle de
     données, Décisions architecturales, Arborescence, Roadmap).
+
+  - **Correctifs post-livraison (2026-05-28)** : (a) l'étape « Enregistrer »
+    du tour Designer ciblait `designer-save-button`, rendu uniquement avec un
+    patch chargé → bulle vide au démarrage à froid ; recible sur
+    `designer-save-as-button` (toujours présent). (b) Navigation au clavier
+    ← / → entre étapes (handler de gel clavier, nav lue via une ref synchronisée
+    hors render). (c) Panneau de fin transformé en **position virtuelle**
+    (état `atEnd` explicite, plus dérivé de `stepIndex`) : ← y revient à la
+    dernière étape puis → ré-ouvre le panneau (le bug « impossible de revoir
+    la dernière étape » venait de la dérivation par clé d'index). (d) Au
+    panneau de fin, spotlight éteint (voile plein écran `tour-dim`) et bulle
+    centrée dans le viewport (plus d'ancre à pointer).
 
 - **2026-05-28 — Iteration L phase 3 (DocLink actif + highlight)**
   Navigation interne de la doc rendue active. Quatre sous-commits.
