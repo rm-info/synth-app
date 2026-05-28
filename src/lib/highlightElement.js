@@ -18,7 +18,7 @@ const FLASH_CLASS = 'doc-highlight-flash'
 // l'animation si un nouveau highlight arrive avant la fin du précédent.
 const activeTimers = new WeakMap()
 
-export function highlightElement(anchorId, { duration = 3200, maxWaitMs = 800 } = {}) {
+export function highlightElement(anchorId, { duration = 2400, maxWaitMs = 800 } = {}) {
   if (!anchorId) return
   const start = performance.now()
 

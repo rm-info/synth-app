@@ -9,41 +9,35 @@
    Durée pilotée par --doc-highlight-duration, posée par le JS. */
 
 .doc-highlight-flash {
-  animation: doc-highlight-pulse var(--doc-highlight-duration, 3200ms) ease-out;
+  /* ease-in-out s'applique entre chaque paire de keyframes → chaque
+     transition on/off est un fondu symétrique (clignotement doux). */
+  animation: doc-highlight-blink var(--doc-highlight-duration, 2400ms) ease-in-out;
   /* Largeur/style stables sur la base, seule la couleur est animée — évite
      un saut de géométrie au premier/dernier keyframe. fill-mode par défaut
      (none) → retour à transparent après l'animation, aucun résidu. */
-  outline: 3px solid transparent;
-  outline-offset: 4px;
-  border-radius: 5px;
+  outline: 2px solid transparent;
+  outline-offset: 3px;
+  border-radius: 4px;
 }
 
-/* Le halo monte vite, tient un plateau bien visible (~jusqu'à 65 %) puis
-   s'efface en douceur — il « reste » au lieu de fondre tout de suite. */
-@keyframes doc-highlight-pulse {
-  0% {
+/* Trois allers-retours en fondu puis terminé. Keyframes on/off réguliers ;
+   l'attention vient du clignotement, pas de la taille du halo. */
+@keyframes doc-highlight-blink {
+  0%, 32%, 64% {
     outline-color: var(--accent-bright);
-    box-shadow: 0 0 0 7px var(--accent-bg-strong), 0 0 30px 10px var(--accent-bg-overlay);
+    box-shadow: 0 0 0 4px var(--accent-bg-strong), 0 0 16px 4px var(--accent-bg-overlay);
   }
-  12% {
-    outline-color: var(--accent-bright);
-    box-shadow: 0 0 0 8px var(--accent-bg-strong), 0 0 36px 12px var(--accent-bg-overlay);
-  }
-  65% {
-    outline-color: var(--accent);
-    box-shadow: 0 0 0 6px var(--accent-bg-medium), 0 0 24px 8px var(--accent-bg-light);
-  }
-  100% {
+  16%, 48%, 80%, 100% {
     outline-color: transparent;
     box-shadow: 0 0 0 0 transparent, 0 0 0 0 transparent;
   }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  /* Pas de pulse animé : un halo statique large suffit comme repère. */
+  /* Pas de clignotement : un halo statique court suffit comme repère. */
   .doc-highlight-flash {
     animation: none;
     outline-color: var(--accent);
-    box-shadow: 0 0 0 6px var(--accent-bg-medium);
+    box-shadow: 0 0 0 3px var(--accent-bg-medium);
   }
 }
