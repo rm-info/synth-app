@@ -216,7 +216,7 @@
    parenthèse (sinon il s'aligne ~au niveau du numérateur). Ne cible que
    le sup qui suit immédiatement un délimiteur extensible. */
 .markdown-renderer .md-delim + sup {
-  vertical-align: 0.75em;
+  vertical-align: 0.95em;
 }
 .markdown-renderer .md-delim-edge {
   flex: 0 0 auto;
