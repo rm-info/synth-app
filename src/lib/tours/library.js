@@ -35,9 +35,4 @@ export const libraryTour = [
     title: 'Supprimer',
     body: 'Retire les items sélectionnés. Un avertissement s\'affiche si un patch est utilisé dans le Composer.',
   },
-  {
-    anchor: 'header-shortcuts-button',
-    title: 'Tous les raccourcis',
-    body: 'Ouvre l\'aperçu des raccourcis clavier du contexte courant (Ctrl+K).',
-  },
 ]
