@@ -381,11 +381,68 @@ cadrage.
   cœur de E.4. Halo anchor ajouté en L.1, mais le workflow complet
   (frappe au clavier → ligne mélodique se construit) mériterait
   d'être pensé end-to-end avec retour terrain.
+- **Clavier visuel pour le placement des clips** (ajouté 2026-05-28) :
+  réfléchir à l'inclusion d'un clavier visuel dans le Composer (ou
+  un mini-clavier) au moment de placer / choisir la hauteur d'un
+  clip — l'utilisateur verrait et cliquerait la note plutôt que de
+  la deviner au clavier physique. À intégrer à la réflexion globale
+  sur le placement des clips (alternative ou complément au geste
+  touches-notes ; lien avec le PatchPicker et la notion de hauteur
+  par défaut).
 
 L'idée : retour utilisateur (prof ou élève en situation réelle)
 sur "comment veux-tu écrire une mélodie au clavier ?", puis design
 cohérent englobant ces gestes. Out of scope avant la livraison V1
 doc.
+
+---
+
+## Petites bricoles (quick wins entre grosses sessions)
+
+Correctifs/améliorations légers, à piocher entre deux grosses
+itérations. Faible coût, faible risque.
+
+- **Icônes undo/redo Composer** : différentes de celles des autres
+  onglets (Designer, Bibliothèque). Harmoniser sur un seul jeu
+  d'icônes ⟲/⟳ cohérent partout. (relevé 2026-05-28)
+- **Indicateur "patch modifié non sauvegardé" (Designer)** : quand
+  le patch courant est dirty (édité mais pas enregistré), le
+  signaler visuellement — dans le PatchPicker et/ou sur le
+  `we-sound-tag`. Évite de perdre des modifs sans s'en rendre
+  compte. (relevé 2026-05-28)
+- **Marges autour des canvas éditables (Designer)** : ajouter une
+  petite marge interne autour des canvas de la forme d'onde ET de
+  l'enveloppe, pour que (1) les tracés ne sortent pas du cadre et
+  (2) le drag de dessin ne se perde pas quand la souris frôle les
+  bordures. (relevé 2026-05-28)
+- **Nommage "On_Synth_App"** : remplacer "Synth App" par
+  "On_Synth_App" partout, **via une constante** unique (titre,
+  exports, métadonnées…) plutôt que des littéraux dispersés.
+  (relevé 2026-05-28)
+
+---
+
+## Mécanisme d'undo — cohérence à revoir (Designer)
+
+À cadrer (relevé 2026-05-28) : l'utilisateur a constaté des
+comportements **incohérents** de l'undo au fil de ses essais,
+notamment dans le **Designer**.
+
+Piste principale : le **chargement d'un nouveau patch** (ou la
+création via Ctrl+Alt+N) pourrait être l'occasion de **vider la
+pile d'undo** du Designer. Aujourd'hui la pile semble survivre aux
+chargements, si bien qu'un undo après chargement peut ramener à un
+état appartenant à un patch précédent — incohérent du point de vue
+utilisateur.
+
+Contexte technique (cf. CONTEXT.md) : piles undo isolées par onglet
+(iter-K), `RESET_EDITOR` (Ctrl+Alt+N) préserve l'exploration mais
+réinitialise le contenu du patch, `HYDRATE_EDITOR_FROM_PATCH` au
+chargement. La question : ces transitions (charger / nouveau patch)
+doivent-elles **réinitialiser la pile undo** du Designer ? Probable
+oui — un patch chargé est un nouveau point de départ. À investiguer
+(reproduire les incohérences, lister les transitions concernées)
+avant de trancher la politique exacte.
 
 ---
 
