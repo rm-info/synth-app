@@ -1,0 +1,117 @@
+/* src/components/Tour.css — Tour guidé (iter-L phase-4). Couche au-dessus de
+   toute l'app (z-index 10000, juste au-dessus des overlays existants). La
+   progress bar du header (Tabs.css) passe à 10001 pendant le tour pour rester
+   cliquable au-dessus du blocker. */
+
+.tour-root {
+  position: fixed;
+  inset: 0;
+  z-index: 10000;
+}
+
+/* Blocker transparent plein écran : gèle l'app (avale clic + molette). Le
+   voile visuel vient du box-shadow du spotlight, pas d'ici. */
+.tour-blocker {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  background: transparent;
+  cursor: default;
+}
+
+/* Spotlight : un trou lumineux sur l'ancre courante, le reste assombri via un
+   box-shadow démesuré. pointer-events:none — c'est le blocker qui gèle. */
+.tour-spotlight {
+  position: fixed;
+  z-index: 2;
+  border-radius: 6px;
+  pointer-events: none;
+  box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.6);
+  outline: 2px solid rgba(255, 255, 255, 0.55);
+  outline-offset: 0;
+  transition: top 0.22s ease, left 0.22s ease, width 0.22s ease, height 0.22s ease;
+}
+
+/* Bulle ancrée : titre + body + compteur + navigation. */
+.tour-bubble {
+  position: fixed;
+  z-index: 3;
+  width: 320px;
+  max-width: calc(100vw - 24px);
+  background: var(--surface-elevated);
+  border: 1px solid var(--surface-border-strong);
+  color: var(--text-default);
+  border-radius: 10px;
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.45);
+  padding: 14px 16px;
+  transition: top 0.22s ease, left 0.22s ease;
+}
+
+.tour-bubble-title {
+  margin: 0 0 6px;
+  font-size: 1rem;
+  font-weight: 700;
+}
+
+.tour-bubble-text {
+  margin: 0;
+  font-size: 0.9rem;
+  line-height: 1.45;
+  color: var(--text-secondary);
+}
+
+.tour-bubble-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 14px;
+}
+
+.tour-bubble-counter {
+  font-size: 0.8rem;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-secondary);
+  opacity: 0.8;
+}
+
+.tour-bubble-nav {
+  display: flex;
+  gap: 8px;
+}
+
+.tour-nav-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 6px 10px;
+  font-size: 0.85rem;
+  border-radius: 6px;
+  border: 1px solid var(--surface-border-strong);
+  background: var(--surface-bg);
+  color: var(--text-default);
+  cursor: pointer;
+}
+
+.tour-nav-btn:hover:not(:disabled) {
+  background: var(--accent-bg-light);
+}
+
+.tour-nav-next {
+  background: var(--accent, #4c8bf5);
+  border-color: var(--accent, #4c8bf5);
+  color: #fff;
+}
+
+.tour-nav-btn:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+/* Cohérence avec le halo L.3 : transitions réduites en reduced-motion. */
+@media (prefers-reduced-motion: reduce) {
+  .tour-spotlight,
+  .tour-bubble {
+    transition: none;
+  }
+}

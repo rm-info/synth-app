@@ -18,6 +18,7 @@ import DeleteUsageWarningDialog from './components/DeleteUsageWarningDialog'
 import ConfirmDialog from './components/ConfirmDialog'
 import ShortcutsOverlay from './components/ShortcutsOverlay'
 import DocumentationTab from './components/DocumentationTab'
+import Tour from './components/Tour'
 import {
   reducer,
   withUndo,
@@ -91,7 +92,7 @@ function App() {
     recentPatchIds, theme,
     patchCounter, clipCounter, folderCounter, trackCounter,
     clipboard, measureClipboard, bibClipboard, history, notification,
-    pendingDeleteWarning, shortcutsOverlayOpen,
+    pendingDeleteWarning, shortcutsOverlayOpen, tour,
   } = state
 
   const editorRef = useRef(null)
@@ -721,7 +722,10 @@ function App() {
   useEffect(() => {
     if (!import.meta.env.DEV) return
     window.__store = { state, dispatch }
-    return () => { delete window.__store }
+    // iter-L phase-4.2 : déclencheur debug du Tour (le vrai entrypoint
+    // Compass + Ctrl+J arrive en L.4.4). Ex. `window.__startTour('designer')`.
+    window.__startTour = (tabId = 'designer') => dispatch({ type: 'START_TOUR', payload: tabId })
+    return () => { delete window.__store; delete window.__startTour }
   }, [state])
 
   // Hydratation de l'éditeur quand currentPatchId change. Non-undoable.
@@ -2580,6 +2584,17 @@ function App() {
         }}
         onCancel={closeConfirm}
       />
+
+      {tour.active && (
+        <Tour
+          tour={tour}
+          dispatch={dispatch}
+          designerSidebarCollapsed={designerSidebarCollapsed}
+          docSidebarCollapsed={docSidebarCollapsed}
+          composerBankCollapsed={composerBankCollapsed}
+          composerAsideCollapsed={composerAsideCollapsed}
+        />
+      )}
     </div>
   )
 }
