@@ -29,6 +29,7 @@ import comprendrePianoPasJusteMd from './articles/comprendre-piano-pas-juste.md?
 import guideDesignerMd from './articles/guide-designer.md?raw'
 import guideBibliothequeMd from './articles/guide-bibliotheque.md?raw'
 import guideComposerMd from './articles/guide-composer.md?raw'
+import limitesConnuesMd from './articles/limites-connues.md?raw'
 import rendererTestMd from './articles/_renderer-test.md?raw'
 import glossaireTechniqueMd from './articles/glossaire-technique.md?raw'
 import glossaireMusicalMd from './articles/glossaire-musical.md?raw'
@@ -205,6 +206,13 @@ export const DOC_TOC = [
     title: 'Raccourcis clavier',
     section: 'Référence',
     type: 'generated',
+  },
+  {
+    id: 'limites-connues',
+    title: 'Limites connues',
+    section: 'Référence',
+    type: 'markdown',
+    source: limitesConnuesMd,
   },
   {
     id: '_renderer-test',
