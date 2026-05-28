@@ -149,6 +149,18 @@ cohérence avec l'UI :
 - **Bibliothèque** = onglet de gestion des patches stockés
 - **Documentation** = 4e onglet (cette doc)
 
+**Nomenclature des notes** (convention fixée 2026-05-28) : dans la
+prose, utilise le **solfège français** (do, ré, mi, fa, sol, la,
+si ; ré♭, fa♯…) — public francophone, cohérent avec les articles
+et glossaires existants. ⚠️ L'**UI affiche la notation anglo-saxonne**
+(C, D, E… ; le registre code F♯/D♭). L'équivalence (do = C, ré = D…)
+doit être explicitée **une fois**, dans le Guide Designer (là où on
+présente le clavier) — ne la répète pas dans chaque article. Pour
+les systèmes **non occidentaux** (gamelan, shrutis, maqâm, X-EDO),
+n'emploie ni do/ré ni C/D : utilise les **degrés numérotés** (I, II,
+III…) ou les noms natifs **tels que le registre / CONTEXT.md les
+présente**, sans en inventer.
+
 Quand un terme technique apparaît pour la première fois dans un
 article, tu peux le glosser entre parenthèses ou en blockquote.
 Quand il est défini dans le glossaire (C.7 ou C.8), tu pourras
