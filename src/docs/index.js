@@ -23,6 +23,8 @@
 import aboutMd from './articles/about.md?raw'
 import why12Md from './articles/why-12-notes.md?raw'
 import rendererTestMd from './articles/_renderer-test.md?raw'
+import glossaireTechniqueMd from './articles/glossaire-technique.md?raw'
+import glossaireMusicalMd from './articles/glossaire-musical.md?raw'
 
 export const DOC_TOC = [
   {
@@ -31,6 +33,20 @@ export const DOC_TOC = [
     section: 'Le projet',
     type: 'markdown',
     source: aboutMd,
+  },
+  {
+    id: 'glossaire-technique',
+    title: 'Glossaire technique',
+    section: 'Concepts',
+    type: 'markdown',
+    source: glossaireTechniqueMd,
+  },
+  {
+    id: 'glossaire-musical',
+    title: 'Glossaire musical',
+    section: 'Concepts',
+    type: 'markdown',
+    source: glossaireMusicalMd,
   },
   {
     id: 'shortcuts',
