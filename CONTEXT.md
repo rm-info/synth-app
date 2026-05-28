@@ -417,7 +417,7 @@ aucun impact sur les 3 autres onglets.
 **Itération L (Documentation) — phase 3 livrée le 2026-05-28**.
 Navigation interne de la doc rendue active, deux mécanismes. (1) Les
 `<DocLink target="onglet:ancre">` deviennent cliquables : bascule sur
-l'onglet cible + halo clignotant (~2,4 s, 3 pulses en fondu) sur
+l'onglet cible + halo clignotant (~3,6 s, 3 pulses lents en fondu) sur
 l'élément d'UI ancré.
 Nouvel utilitaire `src/lib/highlightElement.js` (2e consommateur de
 `getAnchoredPosition` après l'overlay) : sonde le DOM via
@@ -2284,7 +2284,7 @@ Phases listées ci-dessous dans l'ordre chronologique d'implémentation.
   Navigation interne de la doc rendue active. Quatre sous-commits.
 
   - **L.3.1 — `highlightElement` + halo CSS** : `src/lib/highlightElement.js`
-    (`highlightElement(anchorId, {duration=2400, maxWaitMs=800})`), 2e
+    (`highlightElement(anchorId, {duration=3600, maxWaitMs=800})`), 2e
     consommateur de `getAnchoredPosition`. Boucle de retry
     `requestAnimationFrame` bornée par `performance.now()` pour absorber
     le montage différé de l'onglet cible ; à la résolution, `scrollIntoView`

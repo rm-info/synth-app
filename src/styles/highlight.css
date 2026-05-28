@@ -11,7 +11,7 @@
 .doc-highlight-flash {
   /* ease-in-out s'applique entre chaque paire de keyframes → chaque
      transition on/off est un fondu symétrique (clignotement doux). */
-  animation: doc-highlight-blink var(--doc-highlight-duration, 2400ms) ease-in-out;
+  animation: doc-highlight-blink var(--doc-highlight-duration, 3600ms) ease-in-out;
   /* Largeur/style stables sur la base, seule la couleur est animée — évite
      un saut de géométrie au premier/dernier keyframe. fill-mode par défaut
      (none) → retour à transparent après l'animation, aucun résidu. */
