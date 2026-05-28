@@ -30,6 +30,13 @@ import temperamentJusteMajeurMd from './articles/temperament-juste-majeur.md?raw
 import temperamentPythagoricienMd from './articles/temperament-pythagoricien.md?raw'
 import temperamentMeantoneMd from './articles/temperament-meantone.md?raw'
 import temperamentWerckmeisterMd from './articles/temperament-werckmeister.md?raw'
+import temperament24TetMd from './articles/temperament-24-tet.md?raw'
+import temperamentCairo1932Md from './articles/temperament-cairo-1932.md?raw'
+import temperamentSlendroMd from './articles/temperament-slendro.md?raw'
+import temperamentPelogMd from './articles/temperament-pelog.md?raw'
+import temperamentShrutisBhatkhandeMd from './articles/temperament-shrutis-bhatkhande.md?raw'
+import temperamentShrutisSarngadevaMd from './articles/temperament-shrutis-sarngadeva.md?raw'
+import temperamentXEdoMd from './articles/temperament-x-edo.md?raw'
 
 export const DOC_TOC = [
   {
@@ -87,6 +94,55 @@ export const DOC_TOC = [
     section: 'Tempéraments',
     type: 'markdown',
     source: temperamentWerckmeisterMd,
+  },
+  {
+    id: 'temperament-24-tet',
+    title: '24-TET (quarts de ton)',
+    section: 'Tempéraments',
+    type: 'markdown',
+    source: temperament24TetMd,
+  },
+  {
+    id: 'temperament-cairo-1932',
+    title: 'Maqâmât du Caire 1932 (mesuré)',
+    section: 'Tempéraments',
+    type: 'markdown',
+    source: temperamentCairo1932Md,
+  },
+  {
+    id: 'temperament-slendro',
+    title: 'Slendro (gamelan javanais)',
+    section: 'Tempéraments',
+    type: 'markdown',
+    source: temperamentSlendroMd,
+  },
+  {
+    id: 'temperament-pelog',
+    title: 'Pelog (gamelan javanais)',
+    section: 'Tempéraments',
+    type: 'markdown',
+    source: temperamentPelogMd,
+  },
+  {
+    id: 'temperament-shrutis-bhatkhande',
+    title: 'Shrutis (Bhatkhande)',
+    section: 'Tempéraments',
+    type: 'markdown',
+    source: temperamentShrutisBhatkhandeMd,
+  },
+  {
+    id: 'temperament-shrutis-sarngadeva',
+    title: 'Shrutis (Sarngadeva)',
+    section: 'Tempéraments',
+    type: 'markdown',
+    source: temperamentShrutisSarngadevaMd,
+  },
+  {
+    id: 'temperament-x-edo',
+    title: 'X-EDO (paramétrique)',
+    section: 'Tempéraments',
+    type: 'markdown',
+    source: temperamentXEdoMd,
   },
   {
     id: 'shortcuts',
