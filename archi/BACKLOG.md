@@ -176,9 +176,13 @@ sans toucher au code. L.6/L.7 différables sans bloquer. La phase
 >   `archi/L5a-redaction-glossaires-prompt.md`.
 > - **L.5b / L.5c** Fiches tempéraments (A.2, 14 fiches) — scindées
 >   en 2 lots (occidentaux/historiques, puis monde).
-> - **L.5d** Articles longs vulgarisés (C.9, 3 restants).
-> - **L.5e** Guides par onglet (B.5) + Recettes (B.6).
-> - **L.5f** Limites connues (A.4).
+> - **L.5d** Articles longs vulgarisés (C.9, 3 restants). ✅
+> - **L.5e** Guides par onglet (B.5, 3 guides) — l'équivalence
+>   do=C est explicitée dans le Guide Designer.
+> - **L.5f** Recettes (B.6).
+> - **L.5g** Limites connues (A.4).
+> (Guides et recettes scindés en deux lots : formats distincts +
+> point de contrôle.)
 > Section TOC **"Concepts"** introduite pour les glossaires (puis
 > fiches/articles). `_renderer-test.md` à retirer en fin de L.5.
 > Conversion préalable des 2 articles existants (about,
