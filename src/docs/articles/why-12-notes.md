@@ -27,7 +27,7 @@ départ, sept octaves plus haut.
 
 *Presque*. C'est le mot important.
 
-> Le rapport $(3/2)^{12}$ ne fait pas exactement $2^{7}$. Il subsiste
+> Le rapport $(\frac{3}{2})^{12}$ ne fait pas exactement $2^{7}$. Il subsiste
 > un petit écart résiduel d'**environ 23 cents** — sachant qu'un
 > demi-ton du tempérament égal en compte cent. Soit un peu moins
 > d'un quart de demi-ton. On l'appelle le **comma pythagoricien**.
