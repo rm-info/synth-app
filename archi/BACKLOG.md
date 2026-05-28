@@ -2,7 +2,7 @@
 
 > Suivi des idées, pistes et dettes techniques reportées.
 > Tenu par l'archi. Source de vérité pour ce qui n'est pas encore planifié.
-> Dernière mise à jour : 2026-05-27.
+> Dernière mise à jour : 2026-05-28.
 
 > Note : itérations G-K closes côté implémenteur (cf. CONTEXT.md).
 > Prochaine itération cadrée : **Iteration L (Documentation)** — voir
@@ -142,7 +142,8 @@ Sont **générés** (pas à rédiger comme texte autonome) :
 | **L.2** | 4e onglet **Documentation** : squelette layout TOC + zone contenu, renderer Markdown maison, persistance lecture, contenus initiaux minimaux (À propos, Raccourcis auto, 1 article témoin pour valider rendu). |
 | **L.3** | Composant `<DocLink>` consommé par le renderer + utilitaire `highlightElement` réutilisant les ancres de L.1. Navigation simple vers l'onglet cible + halo temporaire sur l'élément. |
 | **L.4** | Bouton Tour header (`Compass`) + Ctrl+J démarrage + composant `Tour.jsx` (positionnement dynamique, info-bulle pointée, snapshot/restore, ESC + croix) + progress bar header-overlay cliquable (recouvre `Tabs`) + chaînage "Continuer vers X, Y ou Z ?" + tours déclarés par onglet (`src/lib/tours/{library,designer,composer,documentation}.js`). |
-| **L.5** | Rédaction des contenus restants (peut commencer en parallèle dès L.2). |
+| **L.4.5** | **Extension renderer Markdown — math support maison** (arbitré 2026-05-28). Délimiteurs `$...$` (inline) et `$$...$$` (block centré). Constructs : `^{x}` exposants, `_{x}` indices, `\frac{a}{b}` fractions, italique auto sur lettres latines isolées **à l'intérieur des délimiteurs uniquement**. Mapping Unicode ~10 entrées (`\pi \alpha \beta \gamma \cdot \times \div \approx \neq \leq \geq`). Pas de KaTeX (préserve le principe "no npm dep" du projet), syntaxe LaTeX-like pour réversibilité future. Le fichier `_renderer-test.md` est étendu en même temps pour couvrir le rendu math. Hors scope : matrices, intégrales, sommes, overline, vecteurs, environnements `\begin{...}`. Sortie : indispensable avant L.5 (fiches tempéraments et glossaires généreront beaucoup de ratios, cents, exposants). |
+| **L.5** | Rédaction des contenus restants (peut commencer en parallèle dès L.2 pour les articles sans formules ; les fiches tempéraments et glossaires C.7/C.8 attendent L.4.5). |
 | **L.6** *(option)* | Démos écoutables : dossier "Démos" pré-chargé + boutons "Écouter" dans les articles qui chargent une compo. |
 | **L.7** *(option)* | Exercices guidés. Format à inventer après retour terrain (prof réel ou simulé). Pas en V1. |
 
