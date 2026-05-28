@@ -16,10 +16,6 @@
 //                 DocumentationTab — id 'shortcuts' = ShortcutsReference).
 //   - source    : string Markdown brute (uniquement pour type 'markdown').
 //                 Importée via le suffix `?raw` de Vite (zéro plugin).
-//
-// L'entrée `_renderer-test` est un fichier de validation visuelle des
-// features du renderer. À retirer en L.5 quand les vrais articles
-// rédigés couvrent la même surface en conditions réelles.
 
 import aboutMd from './articles/about.md?raw'
 import why12Md from './articles/why-12-notes.md?raw'
@@ -30,7 +26,6 @@ import guideDesignerMd from './articles/guide-designer.md?raw'
 import guideBibliothequeMd from './articles/guide-bibliotheque.md?raw'
 import guideComposerMd from './articles/guide-composer.md?raw'
 import limitesConnuesMd from './articles/limites-connues.md?raw'
-import rendererTestMd from './articles/_renderer-test.md?raw'
 import glossaireTechniqueMd from './articles/glossaire-technique.md?raw'
 import glossaireMusicalMd from './articles/glossaire-musical.md?raw'
 import temperament12TetMd from './articles/temperament-12-tet.md?raw'
@@ -213,12 +208,5 @@ export const DOC_TOC = [
     section: 'Référence',
     type: 'markdown',
     source: limitesConnuesMd,
-  },
-  {
-    id: '_renderer-test',
-    title: 'Test renderer',
-    section: 'Référence',
-    type: 'markdown',
-    source: rendererTestMd,
   },
 ]
