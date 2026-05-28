@@ -134,7 +134,9 @@ de source pour la valeur exacte. Veux-tu que je précise / contourne ?").
 L'app a son propre vocabulaire. Réutilise-le **exactement** pour
 cohérence avec l'UI :
 
-- **Patch** = forme d'onde + ADSR + amplitude (un "son")
+- **Patch** = forme d'onde + enveloppe **AHDSR** (attack, hold,
+  decay, sustain, release — note la phase *hold*, l'app n'est pas
+  un simple ADSR) + amplitude (un "son")
 - **Clip** = un événement sonore sur la timeline (patch + hauteur +
   durée + position)
 - **Piste** (= track) = ligne horizontale de la timeline portant
@@ -142,7 +144,7 @@ cohérence avec l'UI :
 - **Système musical** (= tuningSystem) = tempérament choisi
   (12-TET, pythagoricien, Cairo 1932, gamelan, etc.)
 - **Designer** = onglet d'édition d'un patch (dessin de forme
-  d'onde, ADSR, test polyphonique)
+  d'onde, AHDSR, test polyphonique)
 - **Composer** = onglet d'arrangement multipiste
 - **Bibliothèque** = onglet de gestion des patches stockés
 - **Documentation** = 4e onglet (cette doc)
@@ -226,15 +228,22 @@ Syntaxe : `<DocLink target="onglet:ancre">label</DocLink>` où :
   utilisées par l'overlay raccourcis — d'autres ancres peuvent
   exister pour d'autres usages)
 
-**En L.2** : `<DocLink>` est rendu comme un lien désactivé (texte
-visible, pas de comportement clic). Tu peux l'utiliser dans tes
-articles dès maintenant — il deviendra actif en L.3 sans rééditer
-le contenu.
+`<DocLink>` est **actif** (L.3 livré) : au clic, bascule vers
+l'onglet cible + halo temporaire sur l'élément. **Vérifie toujours
+que l'ancre existe** (`shortcuts.js` / `tours/*.js`) avant de la
+cibler — une ancre inexistante = lien mort silencieux (no-op, ne
+surligne rien).
 
-**Référencer un autre article de doc** : utilise un lien Markdown
-standard avec une syntaxe interne à définir (probablement
-`[label](doc:why-12-notes)` ou similaire — à clarifier avec
-l'archi quand on en aura besoin).
+**Référencer un autre article de doc** : lien Markdown standard
+avec le scheme `doc:` → `[label](doc:article-id)` (ex.
+`[Pourquoi 12 notes ?](doc:why-12-notes)`). Reste dans l'onglet
+Documentation, ouvre l'article cible.
+
+**Pas d'ancre intra-page** : le renderer ne gère pas les liens
+`#section`. Une référence d'un terme vers un autre terme de la
+*même* page reste **textuelle** ("voir aussi *Cents*"), jamais un
+lien. Un `doc:autre-article` ouvre l'autre article **en haut**, pas
+à une sous-section précise.
 
 ## Emplacement des fichiers
 
