@@ -65,6 +65,17 @@ Repo : `git@github.com:rm-info/synth-app.git` — branche `main`.
 
 # Conventions de rédaction
 
+## Voix : tutoiement
+
+**Toute la documentation tutoie le lecteur** — articles, bulles de
+tour, futurs contenus. Décision de voix unique (2026-05-28) : ton
+direct et chaleureux, cohérent avec un outil créatif/pédagogique et
+le public élève. Impératifs à la 2e personne du singulier
+("Dessine ta forme d'onde", "Choisis un système", "Écoute la
+différence"). **Jamais de vouvoiement**, même dans les articles de
+référence : l'uniformité prime — un lecteur qui passe d'une bulle de
+tour à un article ne doit sentir aucune rupture de ton.
+
 ## Public visé
 
 L'app cible **trois publics simultanément** (slogan archi 2026-05-26) :
@@ -179,6 +190,27 @@ Le renderer maison de l'app (`src/lib/markdown.js`) supporte :
 - **Blockquotes** : `> texte`
 - **DocLink** : `<DocLink target="onglet:ancre">label</DocLink>` —
   lien intra-app vers un onglet + élément (cf. ci-dessous)
+- **Formules mathématiques** (iter-L phase-R) : `$…$` (inline) et
+  `$$…$$` (block, centré). Grammaire LaTeX-like maison :
+  - `^{x}` exposant, `_{x}` indice — **accolades obligatoires**
+    (`$2^{12}$`, pas `2^12`).
+  - `\frac{a}{b}` fraction (empilée).
+  - `( … )` et `[ … ]` : **délimiteurs extensibles** — ils
+    s'agrandissent automatiquement avec leur contenu. Écris
+    `$(\frac{3}{2})^{12}$` et les parenthèses épousent la hauteur
+    de la fraction. Syntaxe naturelle (pas de `\left`/`\right`).
+  - Lettres latines isolées → *italique* automatique (variables),
+    **uniquement dans les délimiteurs math**, jamais dans le texte.
+  - Symboles : `\pi \alpha \beta \gamma \cdot \times \div \approx
+    \neq \leq \geq \pm`.
+  - Récursif (`$\frac{a^{2}}{b}$`). Une commande inconnue est
+    rendue littéralement (pas de crash).
+  - **Hors V1** : matrices, intégrales, racines, sommes. N'essaie
+    pas — la grammaire est volontairement petite.
+
+  **Utilise les formules** pour les ratios (`$\frac{3}{2}$`, ou
+  `$3:2$`), les cents, les exposants (`$2^{1/12}$`) des fiches
+  tempéraments et glossaires — pas du Markdown approximatif.
 
 **Non supporté en V1** : tableaux, strikethrough, footnotes, HTML
 brut (sauf `<DocLink>`), task lists. **Ne les utilise pas** — ils
