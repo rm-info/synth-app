@@ -15,19 +15,19 @@ Le raisonnement qui produit les douze notes a été formalisé,
 pour la première fois à notre connaissance, par l'école
 pythagoricienne (vers le VIe siècle av. J.-C.). Son point de
 départ : deux cordes dont les longueurs sont dans le rapport
-`3:2` sonnent particulièrement *consonantes* ensemble. Cet
+$3:2$ sonnent particulièrement *consonantes* ensemble. Cet
 intervalle s'appelle une **quinte pure**.
 
 Si on part d'une note et qu'on monte d'une quinte pure, puis
 d'une autre, puis d'une autre — on parcourt un chemin où chaque
-pas multiplie la fréquence par `3/2`. Au bout de **douze** quintes
+pas multiplie la fréquence par $\frac{3}{2}$. Au bout de **douze** quintes
 empilées (en redescendant régulièrement à l'octave pour rester
 dans une plage audible), on retombe *presque* sur la note de
 départ, sept octaves plus haut.
 
 *Presque*. C'est le mot important.
 
-> Le rapport `(3/2)^12` ne fait pas exactement `2^7`. Il subsiste
+> Le rapport $(3/2)^{12}$ ne fait pas exactement $2^{7}$. Il subsiste
 > un petit écart résiduel d'**environ 23 cents** — sachant qu'un
 > demi-ton du tempérament égal en compte cent. Soit un peu moins
 > d'un quart de demi-ton. On l'appelle le **comma pythagoricien**.
@@ -58,7 +58,7 @@ précisément choisir comment répartir ce résidu :
 - étaler l'erreur équitablement sur les douze quintes — c'est
   le **tempérament égal** moderne (12-TET, pour *twelve-tone
   equal temperament*), où chaque demi-ton vaut exactement
-  `2^(1/12)`, au prix d'aucune quinte parfaitement pure.
+  $2^{1/12}$, au prix d'aucune quinte parfaitement pure.
 
 Chacune de ces solutions a sa couleur, son époque, son
 répertoire. L'app permet de les comparer directement, en
@@ -77,7 +77,7 @@ seulement sept notes, ce n'est possible qu'en réaccordant
 l'instrument. Les cinq notes chromatiques — les touches noires
 du clavier — comblent les écarts entre les diatoniques et
 permettent de démarrer la même mélodie à n'importe quelle
-hauteur. `7 + 5 = 12`.
+hauteur. $7 + 5 = 12$.
 
 ## Pourquoi douze et pas vingt-quatre ?
 
@@ -115,7 +115,7 @@ mémorisation, et faisabilité instrumentale.
 
 Les douze notes du clavier ne sont **pas** une vérité
 mathématique. C'est l'aboutissement d'un long compromis culturel
-entre ce que la physique permet (le ratio `3:2` et son comma
+entre ce que la physique permet (le ratio $3:2$ et son comma
 récalcitrant), ce que l'oreille reconnaît, et ce que la main
 peut jouer. D'autres choix existent — et continuent d'être
 pratiqués, ailleurs ou ici.
