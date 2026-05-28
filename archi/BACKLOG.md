@@ -177,12 +177,29 @@ sans toucher au code. L.6/L.7 différables sans bloquer. La phase
 > - **L.5b / L.5c** Fiches tempéraments (A.2, 14 fiches) — scindées
 >   en 2 lots (occidentaux/historiques, puis monde).
 > - **L.5d** Articles longs vulgarisés (C.9, 3 restants). ✅
-> - **L.5e** Guides par onglet (B.5, 3 guides) — l'équivalence
->   do=C est explicitée dans le Guide Designer.
-> - **L.5f** Recettes (B.6).
-> - **L.5g** Limites connues (A.4).
-> (Guides et recettes scindés en deux lots : formats distincts +
-> point de contrôle.)
+> - **L.5e** Guides par onglet (B.5, 3 guides). ✅ — équivalence
+>   do=C explicitée dans le Guide Designer.
+> - **L.5f** Limites connues (A.4). ✅
+> - **Recettes (B.6)** — **DÉCISION OUVERTE** : sautées par
+>   inadvertance dans le séquencement (le prompt "L.5f" rédigé était
+>   les limites, pas les recettes). À trancher : les rédiger avant
+>   la release 1.4.0, ou les différer en lot post-1.4.0 ? Le corpus
+>   actuel (guides fonctionnels + articles + fiches) couvre déjà
+>   beaucoup ; les recettes (« exporter en WAV », « créer un patch
+>   et le réutiliser », « comparer deux tempéraments A/B », « export
+>   pour la classe ») sont un format how-to orienté tâche, distinct
+>   des guides orientés onglet.
+>
+> **Clôture L.5** (prompts émis 2026-05-28) : tout le contenu
+> rédactionnel est livré. Reste — (1) writer
+> (`L5-cloture-redaction-prompt.md`) : rebrancher guides→ancres UI
+> (export/track/amplitude/dossier, posées par le dev) +
+> glossaire→12 fiches, retirer `_renderer-test.md` ; (2) dev
+> (`L5-cloture-release-dev-prompt.md`) : bump **1.4.0** (package.json
+> + about.md + CONTEXT), commit de release. Ordre : writer puis dev.
+> NB : le "bug" `composer-duration-buttons` signalé en L.5e était un
+> faux positif (grep littéral sur ancre dynamique `data-anchor={prop}`)
+> — l'ancre est bien posée, rien à corriger.
 > Section TOC **"Concepts"** introduite pour les glossaires (puis
 > fiches/articles). `_renderer-test.md` à retirer en fin de L.5.
 > Conversion préalable des 2 articles existants (about,
