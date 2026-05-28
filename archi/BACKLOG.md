@@ -169,6 +169,21 @@ sans toucher au code. L.6/L.7 différables sans bloquer. La phase
 > `feat(v1.4.0): …`. L.6/L.7 (optionnels) viendront en 1.4.x ou
 > 1.5.0 plus tard.
 
+> **Découpage L.5** (arbitré 2026-05-28) : rédaction par lots
+> ordonnés par dépendance, confiés à l'agent rédacteur.
+> - **L.5a** Glossaires (C.7 technique + C.8 musical) — *fondation
+>   des références croisées, en premier*. Prompt :
+>   `archi/L5a-redaction-glossaires-prompt.md`.
+> - **L.5b / L.5c** Fiches tempéraments (A.2, 14 fiches) — scindées
+>   en 2 lots (occidentaux/historiques, puis monde).
+> - **L.5d** Articles longs vulgarisés (C.9, 3 restants).
+> - **L.5e** Guides par onglet (B.5) + Recettes (B.6).
+> - **L.5f** Limites connues (A.4).
+> Section TOC **"Concepts"** introduite pour les glossaires (puis
+> fiches/articles). `_renderer-test.md` à retirer en fin de L.5.
+> Conversion préalable des 2 articles existants (about,
+> why-12-notes) au tutoiement.
+
 ### Décisions de design figées (session 2026-05-26)
 
 - **Renderer Markdown** : maison, minimaliste, ~200 lignes (titres,
