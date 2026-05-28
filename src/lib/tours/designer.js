@@ -50,9 +50,12 @@ export const designerTour = [
     body: 'Visualise le contenu harmonique du son joué : les fréquences présentes et leur intensité.',
   },
   {
-    anchor: 'designer-save-button',
+    // Ancre toujours présente (le bouton « Enregistrer » existe sans patch
+    // chargé, contrairement à designer-save-button qui n'apparaît qu'avec un
+    // patch courant). Évite une étape vide quand le tour démarre à froid.
+    anchor: 'designer-save-as-button',
     title: 'Enregistrer le patch',
-    body: 'Sauvegarde le son courant dans la bibliothèque pour le réutiliser dans le Composer (Ctrl+S).',
+    body: 'Sauvegarde ton timbre dans la bibliothèque pour le rejouer dans le Composer.',
     sidebar: 'designer',
   },
   {
