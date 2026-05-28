@@ -64,6 +64,7 @@ function Toolbar({
           onClick={isPlaying ? onStop : onPlay}
           disabled={!hasClips}
           aria-label={isPlaying ? 'Stop' : 'Play'}
+          data-anchor="composer-transport"
         >
           {isPlaying ? '■ Stop' : '▶ Play'}
         </button>
@@ -75,7 +76,7 @@ function Toolbar({
       </div>
 
       <div className="toolbar-section">
-        <label className="bpm-control" title="Tempo (noires par minute) — flèches haut/bas pour ±1, +Shift pour ±10">
+        <label className="bpm-control" title="Tempo (noires par minute) — flèches haut/bas pour ±1, +Shift pour ±10" data-anchor="composer-bpm">
           BPM
           <BpmInput value={bpm} onChange={onSetBpm} className="bpm-input" />
         </label>

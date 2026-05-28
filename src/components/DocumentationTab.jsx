@@ -236,7 +236,7 @@ export default function DocumentationTab({
                 <ChevronLeft size={14} strokeWidth={2.2} />
               </button>
             </div>
-            <nav className="doc-toc" aria-label="Sommaire">
+            <nav className="doc-toc" aria-label="Sommaire" data-anchor="doc-toc">
               <TocNav
                 sections={sections}
                 currentArticleId={currentArticleId}
@@ -254,7 +254,7 @@ export default function DocumentationTab({
         )}
       </aside>
 
-      <section className="doc-content" ref={contentRef} onScroll={handleScroll}>
+      <section className="doc-content" ref={contentRef} onScroll={handleScroll} data-anchor="doc-content">
         {renderArticle(currentEntry, sections, onSetCurrentArticle, onDocLink, onDocNav)}
       </section>
     </main>

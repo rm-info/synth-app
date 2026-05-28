@@ -66,7 +66,7 @@ function PropertiesPanel({
   const mono = count === 1 ? selectedClips[0] ?? null : null
 
   return (
-    <aside className={`properties-panel ${collapsed ? 'collapsed' : ''}`}>
+    <aside className={`properties-panel ${collapsed ? 'collapsed' : ''}`} data-anchor="composer-properties">
       <header className="properties-header">
         <h3>
           Propriétés

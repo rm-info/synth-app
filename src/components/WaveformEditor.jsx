@@ -1580,7 +1580,7 @@ function WaveformEditor({
   }
 
   const renderCanvasArea = () => (
-    <div className="we-canvas-area">
+    <div className="we-canvas-area" data-anchor="designer-waveform">
       <header className="we-area-header">
         <div className="we-header-left">
           <h3 className="we-area-title">Waveform</h3>
@@ -1633,7 +1633,7 @@ function WaveformEditor({
   // dédié pour pouvoir être masqué par CSS @media < 1170px (le label
   // wrappait à 2 lignes sur sidebar étroite).
   const renderInstrumentControls = () => (
-    <div className="instrument-system-row">
+    <div className="instrument-system-row" data-anchor="designer-system-selector">
       <div className="instrument-system-field">
         <span className="instrument-system-field-label">Catégorie</span>
         <ShortLabelSelect
@@ -2124,7 +2124,7 @@ function WaveformEditor({
     )
 
     return (
-      <div className="we-adsr-area">
+      <div className="we-adsr-area" data-anchor="designer-adsr">
         <header className="we-area-header">
           <h3 className="we-area-title">Enveloppe AHDSR</h3>
         </header>

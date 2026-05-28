@@ -437,7 +437,7 @@ function Spectrogram({
   }, [])
 
   return (
-    <div className="spectrogram">
+    <div className="spectrogram" data-anchor="designer-spectrogram">
       <header className="spectrogram-header">
         <h3>Spectrogramme</h3>
         <div className="spectrogram-controls">

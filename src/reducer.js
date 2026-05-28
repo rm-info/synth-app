@@ -442,6 +442,13 @@ export function buildInitialState() {
     // persisté (toujours fermé au boot). Toggle via SET_SHORTCUTS_OVERLAY.
     shortcutsOverlayOpen: false,
 
+    // iter-L phase-4 : Tour guidé. State volatile — jamais persisté (absent
+    // du JSON.stringify localStorage) et hors historique undo (les actions
+    // TOUR_* ne sont dans aucun *_UNDOABLE). `snapshot` capture les prefs UI
+    // mutées par le tour (onglet + sidebars repliables), restaurées à END_TOUR
+    // pour que le tour soit « stateless du point de vue utilisateur ».
+    tour: { active: false, tabId: null, stepIndex: 0, snapshot: null },
+
     zoomH: DEFAULT_ZOOM_H,
     activeTab: persisted?.activeTab ?? 'designer',
     selectedClipIds: [],
@@ -1598,6 +1605,77 @@ export function reducer(state, action) {
       const next = !!action.payload
       if (state.shortcutsOverlayOpen === next) return state
       return { ...state, shortcutsOverlayOpen: next }
+    }
+
+    // iter-L phase-4 : actions du Tour guidé. Le snapshot est capturé une
+    // seule fois au premier START_TOUR (quand !active) et survit au chaînage
+    // entre onglets (TOUR_CHAIN ne re-snapshot pas). END_TOUR le restaure ;
+    // END_TOUR_NO_RESTORE l'abandonne (« En savoir plus » part volontairement
+    // vers la doc). stepIndex indexe les étapes brutes du tour ; le moteur
+    // (Tour.jsx) gère le skip des ancres absentes au niveau de la séquence
+    // effective et pilote la navigation via TOUR_GOTO.
+    case 'START_TOUR': {
+      const tabId = action.payload
+      const snapshot = state.tour.active ? state.tour.snapshot : {
+        activeTab: state.activeTab,
+        designerSidebarCollapsed: state.designerSidebarCollapsed,
+        docSidebarCollapsed: state.docSidebarCollapsed,
+        composerBankCollapsed: state.composerBankCollapsed,
+        composerAsideCollapsed: state.composerAsideCollapsed,
+      }
+      return {
+        ...state,
+        activeTab: tabId,
+        pendingDeleteWarning: null,
+        tour: { active: true, tabId, stepIndex: 0, snapshot },
+      }
+    }
+    case 'TOUR_GOTO': {
+      if (!state.tour.active) return state
+      const idx = Math.max(0, action.payload | 0)
+      if (state.tour.stepIndex === idx) return state
+      return { ...state, tour: { ...state.tour, stepIndex: idx } }
+    }
+    case 'TOUR_NEXT': {
+      if (!state.tour.active) return state
+      return { ...state, tour: { ...state.tour, stepIndex: state.tour.stepIndex + 1 } }
+    }
+    case 'TOUR_PREV': {
+      if (!state.tour.active) return state
+      return { ...state, tour: { ...state.tour, stepIndex: Math.max(0, state.tour.stepIndex - 1) } }
+    }
+    case 'TOUR_CHAIN': {
+      if (!state.tour.active) return state
+      const tabId = action.payload
+      return {
+        ...state,
+        activeTab: tabId,
+        pendingDeleteWarning: null,
+        tour: { ...state.tour, tabId, stepIndex: 0 },
+      }
+    }
+    case 'END_TOUR': {
+      if (!state.tour.active) return state
+      const snap = state.tour.snapshot
+      const restored = snap ? {
+        activeTab: snap.activeTab,
+        designerSidebarCollapsed: snap.designerSidebarCollapsed,
+        docSidebarCollapsed: snap.docSidebarCollapsed,
+        composerBankCollapsed: snap.composerBankCollapsed,
+        composerAsideCollapsed: snap.composerAsideCollapsed,
+      } : {}
+      return {
+        ...state,
+        ...restored,
+        tour: { active: false, tabId: null, stepIndex: 0, snapshot: null },
+      }
+    }
+    case 'END_TOUR_NO_RESTORE': {
+      if (!state.tour.active) return state
+      return {
+        ...state,
+        tour: { active: false, tabId: null, stepIndex: 0, snapshot: null },
+      }
     }
     case 'SET_SELECTED_TRACK_ID': {
       // iter-L phase-1.4.b : track active du Composer. Non-undoable, persisté

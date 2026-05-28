@@ -2403,7 +2403,7 @@ function App() {
                   </>
                 )}
               </div>
-              <div className="composer-main">
+              <div className="composer-main" data-anchor="composer-timeline">
                 <Timeline
                   patches={patches}
                   clips={clips}

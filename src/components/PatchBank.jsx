@@ -1112,7 +1112,7 @@ function PatchBank({
         </div>
       </div>
       <div className="bib-toolbar">
-        <div className="bib-toggle-group">
+        <div className="bib-toggle-group" data-anchor="library-hierarchy-mode">
           <button
             type="button"
             className={`bib-toggle-btn ${bibHierarchyMode === 'tree' ? 'is-active' : ''}`}
@@ -1131,7 +1131,7 @@ function PatchBank({
             title="Navigation (un dossier à la fois)"
           ><Folder size={14} /></button>
         </div>
-        <div className="bib-toggle-group">
+        <div className="bib-toggle-group" data-anchor="library-display-mode">
           <button
             type="button"
             className={`bib-toggle-btn ${bibDisplayMode === 'list' ? 'is-active' : ''}`}
