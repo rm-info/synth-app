@@ -16,12 +16,12 @@ export const designerTour = [
   {
     anchor: 'designer-waveform',
     title: 'Dessiner le timbre',
-    body: 'Trace la forme d\'onde à la souris, ou pars d\'un preset (sinus, carré, dent de scie…). C\'est la couleur sonore de ton instrument.',
+    body: 'Trace la forme d\'onde à la souris, ou choisis un preset (sinus, carré, dent de scie…). C\'est la couleur du son.',
   },
   {
     anchor: 'designer-system-selector',
     title: 'Le système musical',
-    body: 'Choisis la façon de découper l\'octave : la gamme à 12 notes habituelle, ou des tempéraments alternatifs (X-EDO, systèmes historiques).',
+    body: 'Choisis comment découper l\'octave : la gamme à 12 notes habituelle, ou des tempéraments alternatifs. Plusieurs traditions coexistent.',
     article: 'why-12-notes',
   },
   {
@@ -32,7 +32,7 @@ export const designerTour = [
   {
     anchor: 'designer-keyboard',
     title: 'Le clavier de test',
-    body: 'Joue les notes du système courant pour écouter ton patch en direct, à la souris ou aux touches du clavier.',
+    body: 'Joue les notes du système courant pour écouter ton patch en direct, à la souris ou au clavier.',
   },
   {
     anchor: 'designer-sustain-pastille',
@@ -55,7 +55,7 @@ export const designerTour = [
     // patch courant). Évite une étape vide quand le tour démarre à froid.
     anchor: 'designer-save-as-button',
     title: 'Enregistrer le patch',
-    body: 'Sauvegarde ton timbre dans la bibliothèque pour le rejouer dans le Composer.',
+    body: 'Sauvegarde ton patch dans la Bibliothèque pour le rejouer dans le Composer.',
     sidebar: 'designer',
   },
   {
