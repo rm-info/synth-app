@@ -469,6 +469,23 @@ généreront massivement ratios, cents et exposants. **Phase R.4
 la fraction (révise la borne « pas de `\left\right` » de R, sur décision
 archi) — la forme correcte de $(3/2)^{12}$ au tableau les exige.
 
+**Itération L (Documentation) — phase 5 (corpus) + clôture livrées le
+2026-05-28 — release v1.4.0. Itération L close.** Rédaction du contenu
+utilisateur (agent writer) sur la mécanique des phases 1-4+R : 2 glossaires
+(technique, musical), 4 articles de vulgarisation « Comprendre » (forme
+d'onde, piano pas juste, 12 notes, tempérament), 12 fiches tempéraments (une
+par système du registre), 3 guides de prise en main (Designer, Bibliothèque,
+Composer) et un article « Limites connues » (périmètre V1 assumé : résolution
+600 pts / 128 harmoniques, aliasing résiduel, mono, pas de MIDI, 16 pistes,
+localStorage). TOC à 6 sections (Le projet / Prise en main / Comprendre /
+Concepts / Tempéraments / Référence). Clôture : rebranchement des DocLink
+(guides + glossaire→fiches), retrait du fichier de test renderer, ancres
+`data-anchor` manquantes posées (export WAV / + Piste / amplitude / nouveau
+dossier). Au terme de l'itération, Synth App expose **4 onglets** dont une
+Documentation complète — renderer Markdown maison + math (zéro dépendance),
+overlay raccourcis (Ctrl+K), Tour guidé (Ctrl+J), DocLink bidirectionnels.
+Aucun npm ajouté sur toute l'Itération L.
+
 **Release v1.0.0-1.0.4** (2026-05-20) — Premier déploiement prod. Sortie
 du 0.x exploratoire après 7 itérations majeures (A→G) stables.
 Branding : titre commercial **On_Synth_App** (jeu de mots « on s'en
@@ -1824,6 +1841,17 @@ Phases listées ci-dessous dans l'ordre chronologique d'implémentation.
 ## État actuel
 
 ✅ **Terminé**
+- Iteration L phase 5 (corpus utilisateur) + clôture — **release v1.4.0,
+  Itération L close** : documentation complète rédigée par l'agent writer.
+  Corpus : 2 glossaires (technique, musical), 4 articles de vulgarisation
+  (« Comprendre » : forme d'onde, piano pas juste, 12 notes, tempérament),
+  12 fiches tempéraments (une par système du registre), 3 guides de prise en
+  main (Designer, Bibliothèque, Composer), article « Limites connues »
+  (périmètre V1 assumé). TOC à 6 sections (Le projet / Prise en main /
+  Comprendre / Concepts / Tempéraments / Référence). Clôture : rebranchement
+  des DocLink, retrait de `_renderer-test.md`, ancres `data-anchor` posées
+  (export / + Piste / amplitude / nouveau dossier), bump 1.3.0 → 1.4.0
+  (`package.json` + `about.md`). Zéro npm ajouté sur toute l'itération.
 - Iteration L phase R (extension renderer Markdown — math maison) :
   support des formules dont la doc a besoin, sans KaTeX (~100 lignes).
   Délimiteurs `$…$` (inline) et `$$…$$` (block centré, mono- ou
@@ -2427,6 +2455,32 @@ Phases listées ci-dessous dans l'ordre chronologique d'implémentation.
   prochaine candidate).
 
 ## Historique (chronologie inverse)
+
+- **2026-05-28 — Iteration L phase 5 + clôture (release v1.4.0)**
+  Fin de l'Itération L (Documentation). Deux pistes parallèles convergent :
+  l'agent writer livre le corpus, le dev acte la release.
+  - **Corpus (writer)** : 2 glossaires, 4 articles de vulgarisation
+    « Comprendre », 12 fiches tempéraments, 3 guides de prise en main,
+    article « Limites connues ». TOC réorganisée en 6 sections (Le projet /
+    Prise en main / Comprendre / Concepts / Tempéraments / Référence).
+  - **Rebranchement des liens (writer)** : DocLink des guides vers les
+    ancres d'UI + liens glossaire→fiches tempéraments rendus actifs
+    (commit `f1d6790`).
+  - **Ancres `data-anchor` (dev)** : pose côté code de `composer-export-button`
+    (Toolbar), `composer-add-track-button` (Timeline), `designer-amplitude`
+    (WaveformEditor), `library-new-folder-button` (PatchBank), consommées par
+    les DocLink des guides. `composer-duration-buttons` était déjà appliquée
+    depuis L.1.3 (le « fix » du prompt s'est révélé sans objet, vérifié au
+    blame). Commit `63ea102`.
+  - **Retrait du fichier de test** : `_renderer-test.md` supprimé de
+    `src/docs/` et de `index.js` (commit `66e703f`), le renderer étant
+    désormais exercé par le corpus réel.
+  - **Release** : `package.json` 1.3.0 → 1.4.0 (injecté `__APP_VERSION__`,
+    affiché dans le header), sync de la chaîne version dans `about.md`.
+  - **Bilan itération** : 4e onglet Documentation, renderer Markdown maison
+    + math, overlay raccourcis (Ctrl+K), Tour guidé (Ctrl+J), DocLink
+    bidirectionnels, corpus complet. Zéro dépendance npm ajoutée. L.6 (démos
+    écoutables) / L.7 (exercices guidés) restent en option de backlog.
 
 - **2026-05-28 — Iteration L phase R.4 (délimiteurs extensibles)**
   Extension du renderer math décidée par l'archi en cours de route : la
@@ -5178,7 +5232,7 @@ git log (`fix(iter-K/phase-2.fN)`). Liste compactée :
   `#ffc600`, violet biblio `#c084fc`, magenta cued `#e832e2`) laissées
   inchangées : palette light choisie pour rester lisible avec elles.
 
-### Itération L (Documentation) — cadrée 2026-05-26, V1 atteinte 2026-05-28
+### Itération L (Documentation) — cadrée 2026-05-26, clôturée 2026-05-28 (v1.4.0)
 
 Production de la documentation utilisateur (manuel, vulgarisation,
 référence, parcours d'orientation) **sans modifier l'app principale**.
@@ -5242,17 +5296,29 @@ L.4). Détails dans `archi/BACKLOG.md` section "Iteration L".
   (décision archi, révise « pas de `\left\right` »). Zéro npm ajouté. Posé
   entre L.4 et L.5.
 
-- ⏳ **L.5** — Rédaction des contenus (peut commencer en parallèle dès
-  L.2 ; les fiches tempéraments et glossaires C.7/C.8 attendaient L.R ;
-  inclut la passe writer sur les bulles du Tour).
+- ✅ **L.5** (2026-05-28) — **Rédaction des contenus + clôture release.**
+  Corpus complet rédigé par l'agent writer : 2 glossaires (technique, musical),
+  4 articles de vulgarisation « Comprendre » (forme d'onde, piano pas juste,
+  12 notes, tempérament), **12 fiches tempéraments** (une par système du
+  registre), 3 guides de prise en main (Designer, Bibliothèque, Composer),
+  article « Limites connues » (périmètre V1 assumé : résolution 600 pts /
+  128 harmoniques, aliasing résiduel, mono, pas de MIDI, 16 pistes,
+  localStorage). TOC à 6 sections (Le projet / Prise en main / Comprendre /
+  Concepts / Tempéraments / Référence). **Clôture** : rebranchement des
+  DocLink (guides + glossaire→fiches), retrait du fichier de test
+  `_renderer-test.md`, ancres `data-anchor` manquantes posées côté code
+  (export WAV / + Piste / amplitude Designer / nouveau dossier Bibliothèque ;
+  `composer-duration-buttons` était déjà appliquée depuis L.1.3). Bump
+  `package.json` 1.3.0 → 1.4.0 + sync `about.md`. **Release v1.4.0.**
 
-- ⏳ **L.6** *(option)* — Démos écoutables.
+- ⏳ **L.6** *(option, hors 1.4.0)* — Démos écoutables.
 
-- ⏳ **L.7** *(option)* — Exercices guidés.
+- ⏳ **L.7** *(option, hors 1.4.0)* — Exercices guidés.
 
-**V1 de l'Itération L atteinte à la sortie de L.4.** L.R (math renderer,
-livrée le 2026-05-28) et L.5 (rédaction) enrichissent sans toucher à
-l'architecture du tour.
+**Itération L clôturée le 2026-05-28 (release v1.4.0).** V1 atteinte à la
+sortie de L.4 ; L.R (math renderer) et L.5 (corpus + rebranchement + ancres)
+l'ont enrichie sans toucher à l'architecture du tour. L.6 (démos écoutables)
+et L.7 (exercices guidés) restent des options de backlog, hors périmètre 1.4.0.
 
 ### Backlog général (à caser quand pertinent)
 
