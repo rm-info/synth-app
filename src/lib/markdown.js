@@ -14,6 +14,11 @@
 // Deux passes : (1) block-level ligne par ligne, (2) inline sur les
 // chunks textuels via regex/scan. L'AST n'est pas exposé comme contrat
 // public stable ; il peut évoluer si le V2 en a besoin.
+//
+// Math (iter-L phase-R) : `$…$` (inline) et `$$…$$` (block) délèguent au
+// sous-parser `parseMath`, qui produit un `mathAst` stocké dans le noeud.
+
+import { parseMath } from './mathParse'
 
 // ----- Parser inline -----
 
@@ -108,6 +113,19 @@ function parseInline(text) {
       }
     }
 
+    // Math inline $…$ (iter-L phase-R). Pas d'escape `\$` en V1 : un `$`
+    // non apparié reste littéral (on ne crée un noeud que si un `$`
+    // fermant existe), cohérent avec l'absence d'escape `\*` du parser.
+    if (c === '$') {
+      const close = text.indexOf('$', i + 1)
+      if (close > -1) {
+        flush()
+        nodes.push({ type: 'math', inline: true, mathAst: parseMath(text.slice(i + 1, close)) })
+        i = close + 1
+        continue
+      }
+    }
+
     buffer += c
     i++
   }
@@ -119,7 +137,7 @@ function parseInline(text) {
 
 // Patterns de lignes qui terminent un paragraphe en cours. Utilisés pour
 // décider quand un paragraphe agrège la ligne suivante ou s'arrête.
-const BLOCK_BREAK = /^(#{1,4}\s|>\s?|[-*]\s+|\d+\.\s+|```)/
+const BLOCK_BREAK = /^(#{1,4}\s|>\s?|[-*]\s+|\d+\.\s+|```|\$\$)/
 
 export function parseMarkdown(source) {
   const lines = (source || '').split('\n')
@@ -136,6 +154,29 @@ export function parseMarkdown(source) {
       while (i < lines.length && !lines[i].startsWith('```')) i++
       blocks.push({ type: 'codeBlock', lang, code: lines.slice(start, i).join('\n') })
       i++ // skip closing fence
+      continue
+    }
+
+    // Math block $$ … $$ (iter-L phase-R). Détecté en début de ligne, sur
+    // le modèle du code fence : mono-ligne (`$$ x $$`) ou multi-ligne
+    // (ligne `$$`, contenu, ligne fermante `$$`).
+    if (line.startsWith('$$')) {
+      const rest = line.slice(2)
+      const endOnSame = rest.indexOf('$$')
+      if (endOnSame > -1) {
+        blocks.push({ type: 'math', inline: false, mathAst: parseMath(rest.slice(0, endOnSame).trim()) })
+        i++
+        continue
+      }
+      const acc = rest.trim() ? [rest.trim()] : []
+      i++
+      while (i < lines.length && !lines[i].includes('$$')) { acc.push(lines[i]); i++ }
+      if (i < lines.length) {
+        const before = lines[i].slice(0, lines[i].indexOf('$$')).trim()
+        if (before) acc.push(before)
+        i++ // skip closing $$
+      }
+      blocks.push({ type: 'math', inline: false, mathAst: parseMath(acc.join(' ').trim()) })
       continue
     }
 
