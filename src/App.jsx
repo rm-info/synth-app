@@ -59,6 +59,7 @@ import {
 } from './lib/osaFormat.js'
 import { buildExportPayload, EmptyExportError, applyImport } from './lib/libraryTransfer.js'
 import { usePlayback } from './hooks/usePlayback'
+import { highlightElement } from './lib/highlightElement'
 import './App.css'
 import './styles/highlight.css'
 
@@ -992,6 +993,26 @@ function App() {
   const setActiveTab = useCallback((tab) => {
     dispatch({ type: 'SET_ACTIVE_TAB', payload: tab })
   }, [])
+
+  // DocLink (iter-L phase-3.2) : "onglet:ancre" → bascule sur l'onglet +
+  // halo sur l'élément d'UI ciblé. Split sur le PREMIER `:` (l'ancre peut
+  // théoriquement en contenir). Le retry interne de highlightElement gère
+  // le montage différé de l'onglet cible — pas de nouveau state à ajouter.
+  const handleDocLink = useCallback((target) => {
+    const sep = target.indexOf(':')
+    if (sep === -1) {
+      if (import.meta.env.DEV) console.warn('[DocLink] target malformé:', target)
+      return
+    }
+    const tab = target.slice(0, sep)
+    const anchor = target.slice(sep + 1)
+    if (!['library', 'designer', 'composer', 'documentation'].includes(tab)) {
+      if (import.meta.env.DEV) console.warn('[DocLink] onglet inconnu:', tab)
+      return
+    }
+    setActiveTab(tab)
+    highlightElement(anchor)
+  }, [setActiveTab])
 
   const handleSavePatch = useCallback(
     (patchData) => {
@@ -2000,6 +2021,7 @@ function App() {
           doc={doc}
           sidebarCollapsed={docSidebarCollapsed}
           sidebarWidth={docSidebarWidth}
+          onDocLink={handleDocLink}
           onSetCurrentArticle={(id) => dispatch({ type: 'SET_CURRENT_ARTICLE', payload: id })}
           onSetArticleScroll={(articleId, scrollTop) => dispatch({ type: 'SET_ARTICLE_SCROLL', payload: { articleId, scrollTop } })}
           onToggleSidebar={() => dispatch({ type: 'TOGGLE_DOC_SIDEBAR' })}

@@ -1,17 +1,29 @@
-import { useMemo } from 'react'
+import { createContext, useContext, useMemo } from 'react'
+import { ArrowUpRight } from 'lucide-react'
 import { parseMarkdown } from '../lib/markdown'
 import './MarkdownRenderer.css'
+
+// Propage les handlers de navigation doc aux feuilles interactives
+// (DocLink cross-onglet, liens doc→doc) sans prop-drilling à travers les
+// fonctions de rendu récursives module-level (renderBlock/renderInline,
+// qui ne sont pas des composants et ne peuvent pas consommer de contexte).
+// Défaut null → rendu inerte (réutilisabilité du renderer hors onglet
+// Documentation préservée).
+const MarkdownNavContext = createContext({ onDocLink: null, onDocNav: null })
 
 // Rendu d'un AST Markdown en JSX (iter-L phase-2.2). Le parser
 // `parseMarkdown` est appelé en mémo par `source` — recomposer un AST
 // à chaque rendu est cheap (~µs) mais on évite quand même la
 // reconstruction des arbres React enfants au passage.
-export default function MarkdownRenderer({ source }) {
+export default function MarkdownRenderer({ source, onDocLink = null, onDocNav = null }) {
   const ast = useMemo(() => parseMarkdown(source || ''), [source])
+  const nav = useMemo(() => ({ onDocLink, onDocNav }), [onDocLink, onDocNav])
   return (
-    <div className="markdown-renderer">
-      {ast.map((node, i) => renderBlock(node, i))}
-    </div>
+    <MarkdownNavContext.Provider value={nav}>
+      <div className="markdown-renderer">
+        {ast.map((node, i) => renderBlock(node, i))}
+      </div>
+    </MarkdownNavContext.Provider>
   )
 }
 
@@ -87,20 +99,29 @@ function renderInline(node, key) {
     case 'image':
       return <img key={key} className="md-image" src={node.src} alt={node.alt} />
     case 'docLink':
-      // TODO L.3 : brancher DocLink (navigation cross-onglet + highlight
-      // ancré via getAnchoredPosition). En L.2 : rendu inerte, style lien.
-      return (
-        <a
-          key={key}
-          href="#"
-          className="md-link md-doclink"
-          data-doclink-target={node.target}
-          onClick={(e) => e.preventDefault()}
-        >
-          {node.children.map(renderInline)}
-        </a>
-      )
+      return <DocLinkAnchor key={key} node={node} />
     default:
       return null
   }
+}
+
+// DocLink : navigation cross-onglet + halo sur l'élément ciblé. Consomme
+// le contexte (onDocLink). Sans provider actif → reste inerte (preventDefault
+// sans action), pour préserver la réutilisabilité du renderer hors doc.
+function DocLinkAnchor({ node }) {
+  const { onDocLink } = useContext(MarkdownNavContext)
+  return (
+    <a
+      href="#"
+      className="md-link md-doclink"
+      data-doclink-target={node.target}
+      onClick={(e) => {
+        e.preventDefault()
+        onDocLink?.(node.target)
+      }}
+    >
+      {node.children.map(renderInline)}
+      <ArrowUpRight className="md-doclink-icon" size={13} strokeWidth={2.2} aria-hidden="true" />
+    </a>
+  )
 }

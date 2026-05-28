@@ -32,6 +32,7 @@ export default function DocumentationTab({
   doc,
   sidebarCollapsed,
   sidebarWidth,
+  onDocLink,
   onSetCurrentArticle,
   onSetArticleScroll,
   onToggleSidebar,
@@ -242,7 +243,7 @@ export default function DocumentationTab({
       </aside>
 
       <section className="doc-content" ref={contentRef} onScroll={handleScroll}>
-        {renderArticle(currentEntry, sections, onSetCurrentArticle)}
+        {renderArticle(currentEntry, sections, onSetCurrentArticle, onDocLink)}
       </section>
     </main>
   )
@@ -275,7 +276,7 @@ function TocNav({ sections, currentArticleId, onPick }) {
   ))
 }
 
-function renderArticle(entry, sections, onSetCurrentArticle) {
+function renderArticle(entry, sections, onSetCurrentArticle, onDocLink) {
   if (!entry) {
     // Page d'accueil : liste des articles disponibles, ou empty-state quand
     // la TOC est encore vide (L.2.3 brut, avant L.2.4/2.5).
@@ -317,7 +318,7 @@ function renderArticle(entry, sections, onSetCurrentArticle) {
   //                   Pour ajouter un nouveau type généré, ajouter un cas
   //                   ici et un import du composant correspondant.
   if (entry.type === 'markdown') {
-    return <MarkdownRenderer source={entry.source} />
+    return <MarkdownRenderer source={entry.source} onDocLink={onDocLink} />
   }
   if (entry.type === 'generated' && entry.id === 'shortcuts') {
     return <ShortcutsReference />

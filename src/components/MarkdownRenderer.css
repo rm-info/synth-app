@@ -128,10 +128,16 @@
   color: var(--accent-bright);
   border-bottom-color: var(--accent);
 }
-/* DocLink en L.2 : visuellement identique à un lien classique mais
-   inerte. L.3 ajoutera un comportement de navigation. */
+/* DocLink (L.3) : saut vers un élément d'UI de l'app. Distingué d'un lien
+   externe par un soulignement pointillé + une petite icône, pour signaler
+   « ça t'emmène dans l'interface », pas vers une page web. */
 .markdown-renderer .md-doclink {
   cursor: pointer;
+  border-bottom-style: dashed;
+}
+.markdown-renderer .md-doclink-icon {
+  vertical-align: -0.12em;
+  margin-left: 0.1em;
 }
 
 /* Images */
