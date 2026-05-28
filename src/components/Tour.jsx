@@ -102,18 +102,15 @@ function Tour({
   // fois) : évite de capturer un `currentPos` périmé dans la closure.
   const navRef = useRef({ goPrev: () => {}, goNext: () => {} })
   const [bubbleSize, setBubbleSize] = useState(BUBBLE_FALLBACK)
-  // Panneau de fin (chaînage) : présentationnel. On mémorise l'étape sur
-  // laquelle « Suivant » a basculé en mode fin ; `atEnd` en est dérivé, donc
-  // un changement d'étape/onglet le désactive automatiquement (pas d'effet).
-  const [endKey, setEndKey] = useState(null)
+  // Panneau de fin (chaînage) : position virtuelle *après* la dernière étape.
+  // État explicite (pas dérivé de stepIndex) : on doit pouvoir en revenir à la
+  // dernière étape, puis y re-basculer. Reset dans chaque transition de step.
+  const [atEnd, setAtEnd] = useState(false)
 
   const { active, tabId, stepIndex } = tour
   const steps = getTour(tabId)
   const rawStep = steps[stepIndex]
   const anchorFound = active && rawStep ? getAnchoredPosition(rawStep.anchor).found : false
-
-  const currentKey = `${tabId}:${stepIndex}`
-  const atEnd = endKey === currentKey
 
   // Séquence effective (étapes disponibles) → progress bar + navigation.
   const availableSteps = active && rawStep
@@ -122,19 +119,26 @@ function Tour({
   const currentPos = availableSteps.findIndex((s) => s.rawIndex === stepIndex)
   const isFirst = currentPos <= 0
 
+  // Toute navigation vers une étape réelle quitte le panneau de fin.
+  const goToStep = (rawIndex) => {
+    setAtEnd(false)
+    dispatch({ type: 'TOUR_GOTO', payload: rawIndex })
+  }
   const goPrev = () => {
-    if (currentPos > 0) {
-      dispatch({ type: 'TOUR_GOTO', payload: availableSteps[currentPos - 1].rawIndex })
-    }
+    if (atEnd) { setAtEnd(false); return } // panneau de fin → retour dernière étape
+    if (currentPos > 0) goToStep(availableSteps[currentPos - 1].rawIndex)
   }
   const goNext = () => {
-    if (currentPos < 0) return
+    if (atEnd || currentPos < 0) return
     if (currentPos < availableSteps.length - 1) {
-      dispatch({ type: 'TOUR_GOTO', payload: availableSteps[currentPos + 1].rawIndex })
+      goToStep(availableSteps[currentPos + 1].rawIndex)
     } else {
-      // Dernière étape → panneau de chaînage de fin de tour.
-      setEndKey(currentKey)
+      setAtEnd(true) // dernière étape → panneau de chaînage de fin de tour
     }
+  }
+  const chainTo = (id) => {
+    setAtEnd(false)
+    dispatch({ type: 'TOUR_CHAIN', payload: id })
   }
 
   // Sync de la navigation vers la ref lue par le handler clavier (hors render).
@@ -271,9 +275,9 @@ function Tour({
               key={s.rawIndex}
               type="button"
               role="tab"
-              aria-selected={i === currentPos}
-              className={`tour-progress-seg${i === currentPos ? ' is-current' : ''}${i < currentPos ? ' is-done' : ''}`}
-              onClick={() => dispatch({ type: 'TOUR_GOTO', payload: s.rawIndex })}
+              aria-selected={!atEnd && i === currentPos}
+              className={`tour-progress-seg${!atEnd && i === currentPos ? ' is-current' : ''}${atEnd || i < currentPos ? ' is-done' : ''}`}
+              onClick={() => goToStep(s.rawIndex)}
               title={`${i + 1}. ${s.step.title}`}
               aria-label={`Étape ${i + 1} sur ${availableSteps.length} : ${s.step.title}`}
             />
@@ -319,7 +323,7 @@ function Tour({
                     key={t.id}
                     type="button"
                     className="tour-nav-btn"
-                    onClick={() => dispatch({ type: 'TOUR_CHAIN', payload: t.id })}
+                    onClick={() => chainTo(t.id)}
                   >
                     {t.label}
                   </button>
