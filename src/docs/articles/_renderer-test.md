@@ -136,6 +136,10 @@ Constructs à vérifier à l'œil :
 - Fraction empilée : $\frac{3}{2}$ (3 sur 2, barre horizontale).
 - Imbrication : $\frac{a^{2}}{b}$ (exposant dans le numérateur, lettres
   $a$ et $b$ en italique).
+- Délimiteurs extensibles : $(\frac{3}{2})^{12}$ — les parenthèses doivent
+  s'agrandir à la hauteur de la fraction (pas des parenthèses minuscules à
+  côté). Crochets : $[\frac{a}{b}]$. Parenthèses **sur une ligne** (pas de
+  fraction) : $(n/12)$ reste en glyphes normaux, $2^{(n/12)}$ aussi.
 - Symboles Unicode : $\pi$, $\approx$, $\times$, $\div$, $\pm$, $\geq$.
 - Commande inconnue : $\foo$ — doit s'afficher littéralement « \foo »
   (fallback gracieux + `console.warn` visible en dev uniquement, aucun

@@ -39,6 +39,29 @@ function matchBrace(src, open) {
   return null
 }
 
+// Apparie un délimiteur ouvrant `openCh` à `open` avec son fermant `closeCh`.
+// Respecte l'imbrication du même délimiteur ET ignore tout ce qui est dans
+// des accolades (`(\frac{a}{b})` : le `)` est après le `}`). null si non
+// fermé (la parenthèse restera alors littérale).
+function matchDelim(src, open, openCh, closeCh) {
+  let depth = 0
+  let brace = 0
+  for (let i = open; i < src.length; i++) {
+    const ch = src[i]
+    if (ch === '{') brace++
+    else if (ch === '}') brace = Math.max(0, brace - 1)
+    else if (brace === 0) {
+      if (ch === openCh) depth++
+      else if (ch === closeCh && --depth === 0) {
+        return { content: src.slice(open + 1, i), end: i + 1 }
+      }
+    }
+  }
+  return null
+}
+
+const DELIM_PAIRS = { '(': ')', '[': ']' }
+
 // Parse une formule brute en tableau de noeuds math. Scan linéaire à
 // buffer (même modèle que `parseInline`) : on accumule le texte courant
 // et on le flush dès qu'un token structurant (^ _ \ ou lettre) apparaît.
@@ -92,6 +115,19 @@ export function parseMath(src) {
           i += m[0].length
           continue
         }
+      }
+    }
+
+    // Délimiteurs ( ) et [ ] : appariés en un noeud `delim` pour pouvoir
+    // s'agrandir avec leur contenu au rendu (cf. fraction). Sans fermant,
+    // la parenthèse retombe en littéral (caractère bufferisé plus bas).
+    if (DELIM_PAIRS[c]) {
+      const g = matchDelim(src, i, c, DELIM_PAIRS[c])
+      if (g) {
+        flush()
+        nodes.push({ type: 'delim', open: c, close: DELIM_PAIRS[c], children: parseMath(g.content) })
+        i = g.end
+        continue
       }
     }
 

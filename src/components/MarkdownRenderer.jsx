@@ -1,4 +1,4 @@
-import { createContext, useContext, useMemo } from 'react'
+import { createContext, Fragment, useContext, useMemo } from 'react'
 import { ArrowUpRight } from 'lucide-react'
 import { parseMarkdown } from '../lib/markdown'
 import './MarkdownRenderer.css'
@@ -135,10 +135,36 @@ function renderMath(nodes) {
             <span className="md-frac-den">{renderMath(node.den)}</span>
           </span>
         )
+      case 'delim':
+        return renderDelim(node, key)
       default:
         return null
     }
   })
+}
+
+// Vrai si le mathAst contient une fraction (à n'importe quelle profondeur)
+// → le contenu est « haut », les délimiteurs qui l'entourent doivent grandir.
+function isTall(nodes) {
+  return nodes.some((n) => n.type === 'frac' || (n.children && isTall(n.children)))
+}
+
+// Délimiteurs ( ) [ ]. Contenu sur une ligne → glyphes littéraux (fidélité
+// typographique). Contenu haut (fraction) → délimiteurs dessinés en CSS qui
+// s'étirent à la hauteur du contenu (inline-flex stretch), sans mesure JS.
+function renderDelim(node, key) {
+  const inner = renderMath(node.children)
+  if (!isTall(node.children)) {
+    return <Fragment key={key}>{node.open}{inner}{node.close}</Fragment>
+  }
+  const shape = node.open === '(' ? 'md-delim-paren' : 'md-delim-bracket'
+  return (
+    <span key={key} className="md-delim">
+      <span className={`md-delim-edge md-delim-open ${shape}`} aria-hidden="true" />
+      <span className="md-delim-inner">{inner}</span>
+      <span className={`md-delim-edge md-delim-close ${shape}`} aria-hidden="true" />
+    </span>
+  )
 }
 
 // DocLink : navigation cross-onglet + halo sur l'élément ciblé. Consomme

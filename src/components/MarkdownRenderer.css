@@ -196,3 +196,38 @@
   padding: 0 0.32em 0.05em;
   border-top: 1px solid currentColor;
 }
+
+/* Délimiteurs extensibles ( ) [ ] (iter-L phase-R.4) — n'apparaissent que
+   pour entourer un contenu haut (fraction). inline-flex + align-items:
+   stretch force les bords à s'étirer à la hauteur de la fraction sans
+   mesure JS. Les bords sont dessinés en bordure (pas un glyphe de police,
+   qui ne saurait s'allonger). */
+.markdown-renderer .md-delim {
+  display: inline-flex;
+  align-items: stretch;
+  vertical-align: middle;
+}
+.markdown-renderer .md-delim-inner {
+  display: inline-flex;
+  align-items: center;
+  padding: 0 0.15em;
+}
+.markdown-renderer .md-delim-edge {
+  flex: 0 0 auto;
+  width: 0.3em;
+  border: 1.5px solid currentColor;
+}
+.markdown-renderer .md-delim-open {
+  border-right: none;
+}
+.markdown-renderer .md-delim-close {
+  border-left: none;
+}
+/* Parenthèses : arc lisse via border-radius vertical en % (reste lisse à
+   toute hauteur). Crochets : angles droits (pas de radius). */
+.markdown-renderer .md-delim-paren.md-delim-open {
+  border-radius: 0.6em 0 0 0.6em / 50% 0 0 50%;
+}
+.markdown-renderer .md-delim-paren.md-delim-close {
+  border-radius: 0 0.6em 0.6em 0 / 0 50% 50% 0;
+}
