@@ -1768,7 +1768,8 @@ Phases listées ci-dessous dans l'ordre chronologique d'implémentation.
   (header) + **Ctrl/Cmd+J** démarrent le tour de l'onglet actif. Mode
   spotlight : blocker plein écran (gel clic/molette/clavier hors ESC),
   voile box-shadow sur l'ancre courante, bulle ancrée, progress bar
-  cliquable à la place des onglets, croix + ESC pour quitter. Tours
+  cliquable à la place des onglets, navigation ← / → (ou Précédent/Suivant),
+  croix + ESC pour quitter. Tours
   déclaratifs par onglet (`src/lib/tours/*.js`, 1er jet des textes — passe
   writer en attente). 3e consommateur de `getAnchoredPosition` ; RAF borné
   pour le montage différé + ouverture de sidebar repliée ; étape sans ancre
