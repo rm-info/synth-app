@@ -11,12 +11,12 @@ divisions micro-tonales en passant par le maqâm égyptien de
 ## Philosophie
 
 L'app a la prétention d'être pensée pour tout type de public :
-prof qui illustre un concept en classe, élève qui découvre par
-l'oreille, amateur autodidacte, simple curieux. À deux
-exceptions près, par construction : les personnes sourdes et
-les personnes aveugles, pour qui un instrument qui se dessine
-à l'œil et s'écoute à l'oreille n'a plus tellement de sens.
-On en est bien désolé.
+prof qui illustre un concept, élève qui découvre par l'oreille,
+amateur autodidacte, simple curieux. Avec une limite qu'on assume
+faute d'avoir su la lever : un instrument qui se dessine à l'œil
+et s'écoute à l'oreille laisse forcément de côté qui ne voit pas
+ou n'entend pas. On n'a pas trouvé mieux — si tu as une idée, le
+repo est ouvert.
 
 Aucun parcours n'est imposé pour autant : pas de modale
 d'accueil, pas de mode "débutant" ou "avancé". Tout est

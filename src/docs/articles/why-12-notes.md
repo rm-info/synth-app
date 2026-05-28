@@ -121,10 +121,9 @@ peut jouer. D'autres choix existent — et continuent d'être
 pratiqués, ailleurs ou ici.
 
 L'app te propose de les essayer.
-<DocLink target="composer:composer-tuning-system-selector">Changer
-de système musical</DocLink> et rejouer un même clip dans une
-autre grille suffit à entendre, concrètement, ce que ce "choix
-de douze" laisse de côté.
+<DocLink target="designer:designer-system-selector">Choisis un autre
+système musical</DocLink> dans le Designer, joue au clavier, et
+tu entendras concrètement ce que ce "choix de douze" laisse de côté.
 
 Pour aller plus loin :
 [Cycle des quintes — Wikipédia](https://fr.wikipedia.org/wiki/Cycle_des_quintes).
