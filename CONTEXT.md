@@ -464,7 +464,10 @@ délimiteurs, ~12 symboles Unicode. Syntaxe LaTeX-like (réversibilité),
 périmètre volontairement borné. Sous-parser dédié `src/lib/mathParse.js`,
 rendu sup/sub/frac + CSS dans MarkdownRenderer. Trois sous-commits
 (R.1 → R.3), zéro npm. Posé entre L.4 et L.5 car les contenus L.5
-généreront massivement ratios, cents et exposants.
+généreront massivement ratios, cents et exposants. **Phase R.4
+(2026-05-28)** : délimiteurs extensibles `( )` `[ ]` qui grandissent avec
+la fraction (révise la borne « pas de `\left\right` » de R, sur décision
+archi) — la forme correcte de $(3/2)^{12}$ au tableau les exige.
 
 **Release v1.0.0-1.0.4** (2026-05-20) — Premier déploiement prod. Sortie
 du 0.x exploratoire après 7 itérations majeures (A→G) stables.
@@ -1493,6 +1496,17 @@ Choix non évidents pris pour de bonnes raisons. À ne pas remettre en question
   littéral + `console.warn` en dev, jamais de crash. Pas d'escape `\$`
   en V1 (cohérent avec l'absence d'escape `\*`) : un `$` non apparié
   reste littéral.
+  **Révision 2026-05-28 (phase R.4)** : ajout des **délimiteurs
+  extensibles** `( )` et `[ ]`, sur décision archi — la forme correcte
+  de `(3/2)^12` au tableau exige des parenthèses qui grandissent avec la
+  fraction. Implémenté sans `\left\right` ni mesure JS : appariement des
+  délimiteurs au parse (`matchDelim`, respecte parenthèses + accolades),
+  et au rendu, si le contenu contient une fraction, les bords sont
+  **dessinés en CSS** (bordure + `border-radius` vertical en %) dans un
+  `inline-flex; align-items: stretch` qui les étire à la hauteur du
+  contenu. Contenu sur une ligne (`(n/12)`) → glyphes littéraux normaux
+  (pas de régression). Reste hors scope : matrices, intégrales, racines —
+  la ligne maison ne tient que petite.
 
 - **Persistance Documentation : double sink localStorage +
   sessionStorage** (iter-L phase-2.1). Les *préférences UX* de la
@@ -1823,7 +1837,10 @@ Phases listées ci-dessous dans l'ordre chronologique d'implémentation.
   → rendu littéral + warn dev, pas de crash. `_renderer-test.md` enrichi
   d'une section Formules. Zéro npm ajouté. Posé entre L.4 et L.5 car les
   contenus L.5 (tempéraments, glossaires) génèrent beaucoup de ratios,
-  cents et exposants.
+  cents et exposants. **Phase R.4** : délimiteurs extensibles `( )` `[ ]`
+  qui grandissent avec la fraction (bords dessinés en CSS, flex stretch,
+  sans mesure JS) ; `why-12-notes.md` migré vers la syntaxe math (1er
+  consommateur réel).
 - Iteration L phase 4 (Tour guidé) — **V1 de l'Itération L atteinte** :
   visite guidée par diaporama d'info-bulles ancrées. Bouton **Compass**
   (header) + **Ctrl/Cmd+J** démarrent le tour de l'onglet actif. Mode
@@ -2410,6 +2427,24 @@ Phases listées ci-dessous dans l'ordre chronologique d'implémentation.
   prochaine candidate).
 
 ## Historique (chronologie inverse)
+
+- **2026-05-28 — Iteration L phase R.4 (délimiteurs extensibles)**
+  Extension du renderer math décidée par l'archi en cours de route : la
+  forme « tableau » de $(3/2)^{12}$ veut des parenthèses qui grandissent
+  avec la fraction. Révise la borne « pas de `\left\right` » de la phase R.
+  - **Parsing** (`mathParse.js`) : `matchDelim` apparie `( )` et `[ ]` en
+    respectant l'imbrication des délimiteurs ET des accolades
+    (`(\frac{a}{b})` : le `)` est après le `}`). Noeud `{type:'delim',
+    open, close, children}`. Délimiteur non fermé → littéral (gracieux).
+  - **Rendu** (`MarkdownRenderer.jsx`) : `renderDelim` + `isTall`. Contenu
+    sans fraction → glyphes littéraux (`Fragment`, aucune régression sur
+    `(n/12)`). Contenu avec fraction → bords dessinés en CSS (bordure +
+    `border-radius` % pour les parenthèses, angles droits pour les
+    crochets) dans un `inline-flex; align-items: stretch` qui les étire à
+    la hauteur du contenu — sans mesure JS.
+  - **Doc** : `why-12-notes.md` passe `(3/2)^{12}` → `(\frac{3}{2})^{12}`
+    (vraie fraction empilée sous parenthèses extensibles) ;
+    `_renderer-test.md` exerce le cas. Zéro npm ajouté.
 
 - **2026-05-28 — Iteration L phase R (math renderer maison)**
   Extension du renderer Markdown au support des formules (pas de KaTeX),
@@ -5201,9 +5236,11 @@ L.4). Détails dans `archi/BACKLOG.md` section "Iteration L".
   exposants `^{x}`, indices `_{x}`, fractions `\frac{a}{b}`, italique auto
   sur lettres latines isolées dans les délimiteurs, ~12 symboles Unicode.
   Pas de KaTeX, syntaxe LaTeX-like (réversibilité), périmètre borné (pas de
-  matrices/intégrales/racines). Trois sous-commits (R.1 parsing
+  matrices/intégrales/racines). Sous-commits R.1 parsing
   `src/lib/mathParse.js` + `markdown.js` ; R.2 rendu sup/sub/frac + CSS ;
-  R.3 `_renderer-test.md` + doc). Zéro npm ajouté. Posé entre L.4 et L.5.
+  R.3 `_renderer-test.md` + doc ; **R.4 délimiteurs extensibles `( )` `[ ]`**
+  (décision archi, révise « pas de `\left\right` »). Zéro npm ajouté. Posé
+  entre L.4 et L.5.
 
 - ⏳ **L.5** — Rédaction des contenus (peut commencer en parallèle dès
   L.2 ; les fiches tempéraments et glossaires C.7/C.8 attendaient L.R ;
