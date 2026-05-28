@@ -98,6 +98,9 @@ function Tour({
   const rerender = useCallback(() => force((n) => n + 1), [])
   const bubbleRef = useRef(null)
   const sizeRef = useRef(BUBBLE_FALLBACK)
+  // Navigation courante exposée au handler clavier (qui reste abonné une seule
+  // fois) : évite de capturer un `currentPos` périmé dans la closure.
+  const navRef = useRef({ goPrev: () => {}, goNext: () => {} })
   const [bubbleSize, setBubbleSize] = useState(BUBBLE_FALLBACK)
   // Panneau de fin (chaînage) : présentationnel. On mémorise l'étape sur
   // laquelle « Suivant » a basculé en mode fin ; `atEnd` en est dérivé, donc
@@ -112,6 +115,31 @@ function Tour({
   const currentKey = `${tabId}:${stepIndex}`
   const atEnd = endKey === currentKey
 
+  // Séquence effective (étapes disponibles) → progress bar + navigation.
+  const availableSteps = active && rawStep
+    ? steps.map((s, i) => ({ step: s, rawIndex: i })).filter(({ step }) => isStepAvailable(step))
+    : []
+  const currentPos = availableSteps.findIndex((s) => s.rawIndex === stepIndex)
+  const isFirst = currentPos <= 0
+
+  const goPrev = () => {
+    if (currentPos > 0) {
+      dispatch({ type: 'TOUR_GOTO', payload: availableSteps[currentPos - 1].rawIndex })
+    }
+  }
+  const goNext = () => {
+    if (currentPos < 0) return
+    if (currentPos < availableSteps.length - 1) {
+      dispatch({ type: 'TOUR_GOTO', payload: availableSteps[currentPos + 1].rawIndex })
+    } else {
+      // Dernière étape → panneau de chaînage de fin de tour.
+      setEndKey(currentKey)
+    }
+  }
+
+  // Sync de la navigation vers la ref lue par le handler clavier (hors render).
+  useEffect(() => { navRef.current = { goPrev, goNext } })
+
   // Reposition au resize/scroll (l'ancre peut bouger). Pattern overlay L.1.5.
   useEffect(() => {
     if (!active) return
@@ -123,11 +151,11 @@ function Tour({
     }
   }, [active, rerender])
 
-  // Gel clavier + sortie ESC. Capture phase impératif pour devancer les
+  // Gel clavier + navigation. Capture phase impératif pour devancer les
   // handlers métier (notes, Ctrl+C/V…) et l'overlay raccourcis : pendant le
-  // tour aucune frappe ne doit atteindre l'app. Esc quitte (END_TOUR), tout
-  // le reste est absorbé. Les modificateurs seuls passent (ne rien casser si
-  // l'utilisateur tient Ctrl/Shift).
+  // tour aucune frappe ne doit atteindre l'app. Esc quitte (END_TOUR), ←/→
+  // naviguent entre étapes, tout le reste est absorbé. Les modificateurs
+  // seuls passent (ne rien casser si l'utilisateur tient Ctrl/Shift).
   useEffect(() => {
     if (!active) return
     const onKeyDown = (e) => {
@@ -138,6 +166,8 @@ function Tour({
       e.stopPropagation()
       e.stopImmediatePropagation?.()
       if (e.key === 'Escape') dispatch({ type: 'END_TOUR' })
+      else if (e.key === 'ArrowRight') navRef.current.goNext()
+      else if (e.key === 'ArrowLeft') navRef.current.goPrev()
     }
     window.addEventListener('keydown', onKeyDown, true)
     return () => window.removeEventListener('keydown', onKeyDown, true)
@@ -192,27 +222,6 @@ function Tour({
   }, [stepIndex, tabId, anchorFound, atEnd])
 
   if (!active || !rawStep) return null
-
-  // Séquence effective (étapes disponibles) → progress bar + navigation.
-  const availableSteps = steps
-    .map((s, i) => ({ step: s, rawIndex: i }))
-    .filter(({ step }) => isStepAvailable(step))
-  const currentPos = availableSteps.findIndex((s) => s.rawIndex === stepIndex)
-  const isFirst = currentPos <= 0
-
-  const goPrev = () => {
-    if (currentPos > 0) {
-      dispatch({ type: 'TOUR_GOTO', payload: availableSteps[currentPos - 1].rawIndex })
-    }
-  }
-  const goNext = () => {
-    if (currentPos >= 0 && currentPos < availableSteps.length - 1) {
-      dispatch({ type: 'TOUR_GOTO', payload: availableSteps[currentPos + 1].rawIndex })
-    } else {
-      // Dernière étape → panneau de chaînage de fin de tour.
-      setEndKey(currentKey)
-    }
-  }
 
   // « En savoir plus » : visible si l'étape référence un article existant.
   const articleId = rawStep.article
