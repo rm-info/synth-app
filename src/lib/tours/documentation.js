@@ -5,13 +5,13 @@ export const documentationTour = [
   {
     anchor: 'doc-toc',
     title: 'Le sommaire',
-    body: 'Navigue entre les articles et la référence. Le projet, les concepts musicaux, les raccourcis.',
+    body: 'Navigue entre les articles et la référence : le projet, les concepts musicaux, les raccourcis.',
     sidebar: 'doc',
   },
   {
     anchor: 'doc-content',
     title: 'La zone de lecture',
-    body: 'L\'article courant s\'affiche ici. Certains liens renvoient directement vers l\'élément d\'interface concerné.',
+    body: 'L\'article courant s\'affiche ici. Certains liens te mènent droit à l\'élément d\'interface concerné.',
     article: 'about',
   },
   {
