@@ -80,6 +80,11 @@ function renderInline(node, key) {
     case 'codeInline':
       return <code key={key} className="md-code-inline">{node.value}</code>
     case 'link': {
+      // Lien interne doc→doc : scheme `doc:article-id` (L.3.3) → change
+      // l'article courant sans quitter l'onglet Documentation.
+      if (node.href.startsWith('doc:')) {
+        return <DocNavLink key={key} node={node} />
+      }
       // Lien externe : ouvre dans un nouvel onglet avec noopener/noreferrer
       // (protection contre window.opener hijack). Lien interne (ancre `#…`
       // ou chemin relatif) : laissé natif au navigateur — pas de routing
@@ -122,6 +127,27 @@ function DocLinkAnchor({ node }) {
     >
       {node.children.map(renderInline)}
       <ArrowUpRight className="md-doclink-icon" size={13} strokeWidth={2.2} aria-hidden="true" />
+    </a>
+  )
+}
+
+// Lien interne doc→doc (scheme `doc:article-id`, L.3.3) : change l'article
+// courant sans quitter l'onglet Documentation. Rendu comme un lien normal
+// (c'est un hyperlien classique, pas un saut vers l'UI). Inerte sans provider.
+function DocNavLink({ node }) {
+  const { onDocNav } = useContext(MarkdownNavContext)
+  const articleId = node.href.slice(4)
+  return (
+    <a
+      href="#"
+      className="md-link md-docnav"
+      data-docnav-target={articleId}
+      onClick={(e) => {
+        e.preventDefault()
+        onDocNav?.(articleId)
+      }}
+    >
+      {node.children.map(renderInline)}
     </a>
   )
 }

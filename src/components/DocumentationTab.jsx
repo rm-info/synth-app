@@ -127,6 +127,18 @@ export default function DocumentationTab({
     if (!sidebarCollapsed) setTocPopoverOpen(false)
   }, [sidebarCollapsed])
 
+  // Lien interne doc→doc (L.3.3) : ne navigue que vers un article connu
+  // de la TOC ; cible inconnue = no-op + warn dev (lien cassé dans un
+  // article). Le scroll de l'article cible repart de sa position sauvée
+  // via l'effet sur currentArticleId.
+  const onDocNav = useCallback((articleId) => {
+    if (DOC_TOC.some((e) => e.id === articleId)) {
+      onSetCurrentArticle(articleId)
+    } else if (import.meta.env.DEV) {
+      console.warn('[doc:] article inconnu:', articleId)
+    }
+  }, [onSetCurrentArticle])
+
   const pickArticleAndClose = useCallback((id) => {
     onSetCurrentArticle(id)
     setTocPopoverOpen(false)
@@ -243,7 +255,7 @@ export default function DocumentationTab({
       </aside>
 
       <section className="doc-content" ref={contentRef} onScroll={handleScroll}>
-        {renderArticle(currentEntry, sections, onSetCurrentArticle, onDocLink)}
+        {renderArticle(currentEntry, sections, onSetCurrentArticle, onDocLink, onDocNav)}
       </section>
     </main>
   )
@@ -276,7 +288,7 @@ function TocNav({ sections, currentArticleId, onPick }) {
   ))
 }
 
-function renderArticle(entry, sections, onSetCurrentArticle, onDocLink) {
+function renderArticle(entry, sections, onSetCurrentArticle, onDocLink, onDocNav) {
   if (!entry) {
     // Page d'accueil : liste des articles disponibles, ou empty-state quand
     // la TOC est encore vide (L.2.3 brut, avant L.2.4/2.5).
@@ -318,7 +330,7 @@ function renderArticle(entry, sections, onSetCurrentArticle, onDocLink) {
   //                   Pour ajouter un nouveau type généré, ajouter un cas
   //                   ici et un import du composant correspondant.
   if (entry.type === 'markdown') {
-    return <MarkdownRenderer source={entry.source} onDocLink={onDocLink} />
+    return <MarkdownRenderer source={entry.source} onDocLink={onDocLink} onDocNav={onDocNav} />
   }
   if (entry.type === 'generated' && entry.id === 'shortcuts') {
     return <ShortcutsReference />
