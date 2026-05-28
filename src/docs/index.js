@@ -9,8 +9,8 @@
 //                 (sessionStorage de la position de lecture). À ne pas
 //                 changer une fois publié sans migration.
 //   - title     : libellé affiché dans la TOC (et en titre éventuel).
-//   - section   : groupage visuel ("Le projet", "Comprendre", "Concepts",
-//                 "Tempéraments", "Référence").
+//   - section   : groupage visuel ("Le projet", "Prise en main",
+//                 "Comprendre", "Concepts", "Tempéraments", "Référence").
 //   - type      : 'markdown' (rendu via MarkdownRenderer + source brute)
 //                 ou 'generated' (composant React dédié, dispatché par
 //                 DocumentationTab — id 'shortcuts' = ShortcutsReference).
@@ -26,6 +26,9 @@ import why12Md from './articles/why-12-notes.md?raw'
 import comprendreTemperamentMd from './articles/comprendre-temperament.md?raw'
 import comprendreFormeOndeMd from './articles/comprendre-forme-onde.md?raw'
 import comprendrePianoPasJusteMd from './articles/comprendre-piano-pas-juste.md?raw'
+import guideDesignerMd from './articles/guide-designer.md?raw'
+import guideBibliothequeMd from './articles/guide-bibliotheque.md?raw'
+import guideComposerMd from './articles/guide-composer.md?raw'
 import rendererTestMd from './articles/_renderer-test.md?raw'
 import glossaireTechniqueMd from './articles/glossaire-technique.md?raw'
 import glossaireMusicalMd from './articles/glossaire-musical.md?raw'
@@ -49,6 +52,27 @@ export const DOC_TOC = [
     section: 'Le projet',
     type: 'markdown',
     source: aboutMd,
+  },
+  {
+    id: 'guide-designer',
+    title: 'Guide : le Designer',
+    section: 'Prise en main',
+    type: 'markdown',
+    source: guideDesignerMd,
+  },
+  {
+    id: 'guide-bibliotheque',
+    title: 'Guide : la Bibliothèque',
+    section: 'Prise en main',
+    type: 'markdown',
+    source: guideBibliothequeMd,
+  },
+  {
+    id: 'guide-composer',
+    title: 'Guide : le Composer',
+    section: 'Prise en main',
+    type: 'markdown',
+    source: guideComposerMd,
   },
   {
     id: 'comprendre-piano-pas-juste',
