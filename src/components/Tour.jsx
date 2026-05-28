@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback, useLayoutEffect, useRef } from 'react'
-import { ChevronLeft, ChevronRight } from 'lucide-react'
+import { ChevronLeft, ChevronRight, X } from 'lucide-react'
 import { getAnchoredPosition } from '../lib/getAnchoredPosition'
 import { getTour } from '../lib/tours'
 import './Tour.css'
@@ -115,6 +115,26 @@ function Tour({
     }
   }, [active, rerender])
 
+  // Gel clavier + sortie ESC. Capture phase impératif pour devancer les
+  // handlers métier (notes, Ctrl+C/V…) et l'overlay raccourcis : pendant le
+  // tour aucune frappe ne doit atteindre l'app. Esc quitte (END_TOUR), tout
+  // le reste est absorbé. Les modificateurs seuls passent (ne rien casser si
+  // l'utilisateur tient Ctrl/Shift).
+  useEffect(() => {
+    if (!active) return
+    const onKeyDown = (e) => {
+      const isModifierOnly = e.key === 'Shift' || e.key === 'Control'
+        || e.key === 'Alt' || e.key === 'Meta' || e.key === 'AltGraph'
+      if (isModifierOnly) return
+      e.preventDefault()
+      e.stopPropagation()
+      e.stopImmediatePropagation?.()
+      if (e.key === 'Escape') dispatch({ type: 'END_TOUR' })
+    }
+    window.addEventListener('keydown', onKeyDown, true)
+    return () => window.removeEventListener('keydown', onKeyDown, true)
+  }, [active, dispatch])
+
   // Résolution de l'ancre courante : ouvre la sidebar si besoin, puis sonde le
   // DOM en RAF borné jusqu'à ce que l'ancre soit visible (montage différé). On
   // re-render à chaque frame tant que ce n'est pas résolu, pour refléter la
@@ -190,6 +210,9 @@ function Tour({
     ? `${currentPos + 1} / ${availableSteps.length}`
     : ''
 
+  // Progress bar superposée sur la zone des onglets (masquée pendant le tour).
+  const tabsZone = getAnchoredPosition('header-tabs-zone')
+
   return (
     <div className="tour-root" role="dialog" aria-modal="true" aria-label="Visite guidée">
       {/* Blocker plein écran : gèle l'app (avale clic + molette). */}
@@ -199,6 +222,43 @@ function Tour({
         onClick={(e) => { e.preventDefault(); e.stopPropagation() }}
         onWheel={(e) => { e.preventDefault() }}
       />
+
+      {tabsZone.found && availableSteps.length > 0 && (
+        <div
+          className="tour-progress"
+          role="tablist"
+          aria-label="Étapes de la visite"
+          style={{
+            top: tabsZone.top,
+            left: tabsZone.left,
+            width: tabsZone.width,
+            height: tabsZone.height,
+          }}
+        >
+          {availableSteps.map((s, i) => (
+            <button
+              key={s.rawIndex}
+              type="button"
+              role="tab"
+              aria-selected={i === currentPos}
+              className={`tour-progress-seg${i === currentPos ? ' is-current' : ''}${i < currentPos ? ' is-done' : ''}`}
+              onClick={() => dispatch({ type: 'TOUR_GOTO', payload: s.rawIndex })}
+              title={`${i + 1}. ${s.step.title}`}
+              aria-label={`Étape ${i + 1} sur ${availableSteps.length} : ${s.step.title}`}
+            />
+          ))}
+        </div>
+      )}
+
+      <button
+        type="button"
+        className="tour-close"
+        onClick={() => dispatch({ type: 'END_TOUR' })}
+        aria-label="Quitter la visite guidée (Échap)"
+        title="Quitter (Échap)"
+      >
+        <X size={20} strokeWidth={2.4} />
+      </button>
 
       {pos.found && (
         <div

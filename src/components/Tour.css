@@ -32,6 +32,68 @@
   transition: top 0.22s ease, left 0.22s ease, width 0.22s ease, height 0.22s ease;
 }
 
+/* Progress bar superposée sur la zone des onglets (header). Au-dessus du
+   spotlight (z 4 > 2) → non assombrie et cliquable, tandis que les toggles
+   latéraux du header restent sous le blocker (inertes). Fond opaque pour
+   recouvrir les libellés d'onglet masqués. */
+.tour-progress {
+  position: fixed;
+  z-index: 4;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 8px;
+  background: var(--surface-bg);
+}
+
+.tour-progress-seg {
+  flex: 1;
+  height: 6px;
+  min-width: 8px;
+  padding: 0;
+  border: none;
+  border-radius: 3px;
+  background: var(--surface-border-strong);
+  cursor: pointer;
+  transition: background 0.15s ease, transform 0.15s ease;
+}
+
+.tour-progress-seg:hover {
+  transform: scaleY(1.6);
+}
+
+.tour-progress-seg.is-done {
+  background: var(--accent-bg-strong);
+}
+
+.tour-progress-seg.is-current {
+  background: var(--accent);
+  transform: scaleY(1.6);
+}
+
+/* Croix de sortie : haut-droite, bien visible, au-dessus du voile. */
+.tour-close {
+  position: fixed;
+  top: 10px;
+  right: 12px;
+  z-index: 5;
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  border: 1px solid var(--surface-border-strong);
+  background: var(--surface-elevated);
+  color: var(--text-default);
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+}
+
+.tour-close:hover {
+  background: var(--accent-bg-light);
+}
+
 /* Bulle ancrée : titre + body + compteur + navigation. */
 .tour-bubble {
   position: fixed;
@@ -111,7 +173,8 @@
 /* Cohérence avec le halo L.3 : transitions réduites en reduced-motion. */
 @media (prefers-reduced-motion: reduce) {
   .tour-spotlight,
-  .tour-bubble {
+  .tour-bubble,
+  .tour-progress-seg {
     transition: none;
   }
 }

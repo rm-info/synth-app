@@ -19,14 +19,21 @@ const TABS = [
 // Source de vérité : `version` de package.json.
 const APP_VERSION = typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : 'dev'
 
-function Tabs({ activeTab, onChange, theme, onToggleTheme, shortcutsOverlayOpen, onToggleShortcuts }) {
+function Tabs({ activeTab, onChange, theme, onToggleTheme, shortcutsOverlayOpen, onToggleShortcuts, tourActive }) {
   const isLight = theme === 'light'
   return (
     <nav className="tabs" role="tablist">
       <div className="tabs-title" title="On Synth App (« on s'en tape »)">
         On_Synth_App
       </div>
-      <div className="tabs-buttons">
+      {/* iter-L phase-4.3 : pendant le tour, les boutons d'onglet sont masqués
+          (visibility:hidden — le rect reste résolu pour ancrer la progress bar
+          que Tour.jsx superpose ici via data-anchor). Navigation d'onglet
+          bloquée par construction. */}
+      <div
+        className={`tabs-buttons${tourActive ? ' is-tour-hidden' : ''}`}
+        data-anchor="header-tabs-zone"
+      >
         {TABS.map((t) => (
           <button
             key={t.id}

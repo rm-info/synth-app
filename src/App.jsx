@@ -1962,6 +1962,7 @@ function App() {
         onToggleTheme={() => dispatch({ type: 'SET_THEME', payload: theme === 'light' ? 'dark' : 'light' })}
         shortcutsOverlayOpen={shortcutsOverlayOpen}
         onToggleShortcuts={() => setShortcutsOverlay(!shortcutsOverlayOpen)}
+        tourActive={tour.active}
       />
       <ShortcutsOverlay
         isOpen={shortcutsOverlayOpen}

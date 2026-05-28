@@ -31,6 +31,13 @@
   align-items: stretch;
 }
 
+/* iter-L phase-4.3 : pendant le Tour guidé, les boutons d'onglet sont rendus
+   invisibles mais conservent leur place (visibility, pas display) pour que
+   leur rect reste résolu — Tour.jsx ancre la progress bar dessus. */
+.tabs-buttons.is-tour-hidden {
+  visibility: hidden;
+}
+
 /* Version en haut à droite — petit, discret, monospace pour aspect
    "build stamp". Tooltip rappelle la version complète. */
 .tabs-version {
