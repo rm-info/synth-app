@@ -265,7 +265,7 @@ toujours visible sans ça, laisser `null`.
 - **État actuel** : Tour guidé (bouton Compass + Ctrl+J, spotlight,
   progress bar, chaînage, snapshot/restore, "En savoir plus").
   Marquer **V1 Iteration L atteinte** (sortie de L.4).
-- **Roadmap & Backlog** : cocher L.4. Prochaines : L.4.5 (math
+- **Roadmap & Backlog** : cocher L.4. Prochaines : L.R (math
   renderer), L.5 (rédaction contenus). Noter que les bulles de tour
   attendent une passe writer (`archi/L4-redaction-prompt.md`).
 - **Historique** : entrée Iteration L Phase 4 (6 sous-commits).
@@ -281,7 +281,7 @@ toujours visible sans ça, laisser `null`.
 
 - **Polish rédactionnel des bulles** : 1er jet par le dev, passe
   writer sur prompt séparé (`archi/L4-redaction-prompt.md`).
-- **Math renderer** (L.4.5).
+- **Math renderer** (L.R).
 - **Rédaction des articles** (L.5).
 - **Chargement de patch démo / création de clip témoin pendant le
   tour** : hors scope médian. Si une étape Composer veut montrer le

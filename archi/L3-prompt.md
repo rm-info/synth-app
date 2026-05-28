@@ -235,7 +235,7 @@ ouvre l'article correspondant.
 ## Hors scope L.3 explicite
 
 - Bouton Tour, Ctrl+J, tours (L.4).
-- Math rendering (L.4.5).
+- Math rendering (L.R).
 - Rédaction de contenus (L.5).
 - **Ouverture automatique d'un panneau collapsed** pour révéler une
   ancre cachée (ex. déplier le Designer Actions panel si la cible y
