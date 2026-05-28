@@ -180,15 +180,14 @@ sans toucher au code. L.6/L.7 différables sans bloquer. La phase
 > - **L.5e** Guides par onglet (B.5, 3 guides). ✅ — équivalence
 >   do=C explicitée dans le Guide Designer.
 > - **L.5f** Limites connues (A.4). ✅
-> - **Recettes (B.6)** — **DÉCISION OUVERTE** : sautées par
->   inadvertance dans le séquencement (le prompt "L.5f" rédigé était
->   les limites, pas les recettes). À trancher : les rédiger avant
->   la release 1.4.0, ou les différer en lot post-1.4.0 ? Le corpus
->   actuel (guides fonctionnels + articles + fiches) couvre déjà
->   beaucoup ; les recettes (« exporter en WAV », « créer un patch
->   et le réutiliser », « comparer deux tempéraments A/B », « export
->   pour la classe ») sont un format how-to orienté tâche, distinct
->   des guides orientés onglet.
+> - **Recettes (B.6)** — **différées post-1.4.0** (décidé
+>   2026-05-28). Le corpus de la V1 (guides + articles + fiches +
+>   glossaires + limites) est jugé suffisant pour la release ; les
+>   recettes how-to (« exporter en WAV », « créer un patch et le
+>   réutiliser », « comparer deux tempéraments A/B », « export pour
+>   la classe ») seront rédigées en **1.4.1**, informées par un
+>   premier retour terrain (quelles tâches les utilisateurs
+>   cherchent réellement). Contenu pur → ajout sans coût code.
 >
 > **Clôture L.5** (prompts émis 2026-05-28) : tout le contenu
 > rédactionnel est livré. Reste — (1) writer
