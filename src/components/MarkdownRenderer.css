@@ -158,3 +158,41 @@
 .markdown-renderer em {
   font-style: italic;
 }
+
+/* Math (iter-L phase-R) — renderer maison, pas de KaTeX. Inline : reste
+   dans le flux, sans casser l'interligne (sup/sub à line-height 0).
+   Block : centré, légèrement plus grand, marges aérées. */
+.markdown-renderer .md-math-inline {
+  white-space: nowrap;
+}
+.markdown-renderer .md-math-block {
+  text-align: center;
+  margin: 1.3em 0;
+  font-size: 1.08rem;
+}
+.markdown-renderer .md-math-var {
+  font-style: italic;
+}
+.markdown-renderer .md-math sup,
+.markdown-renderer .md-math sub {
+  font-size: 0.72em;
+  line-height: 0; /* empêche l'exposant/indice d'élargir l'interligne */
+}
+/* Fraction empilée : numérateur sur dénominateur, barre = border-top du
+   dénominateur. inline-flex en colonne recentré sur la ligne de texte. */
+.markdown-renderer .md-frac {
+  display: inline-flex;
+  flex-direction: column;
+  vertical-align: middle;
+  text-align: center;
+  font-size: 0.85em;
+  line-height: 1.1;
+  margin: 0 0.18em;
+}
+.markdown-renderer .md-frac-num {
+  padding: 0 0.32em;
+}
+.markdown-renderer .md-frac-den {
+  padding: 0 0.32em 0.05em;
+  border-top: 1px solid currentColor;
+}

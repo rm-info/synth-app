@@ -49,6 +49,9 @@ function renderBlock(node, key) {
       )
     case 'blockquote':
       return <blockquote key={key} className="md-blockquote">{node.children.map(renderInline)}</blockquote>
+    case 'math':
+      // Formule en bloc (centrée). Le mathAst est déjà construit au parse.
+      return <div key={key} className="md-math md-math-block">{renderMath(node.mathAst)}</div>
     default:
       return null
   }
@@ -105,9 +108,37 @@ function renderInline(node, key) {
       return <img key={key} className="md-image" src={node.src} alt={node.alt} />
     case 'docLink':
       return <DocLinkAnchor key={key} node={node} />
+    case 'math':
+      return <span key={key} className="md-math md-math-inline">{renderMath(node.mathAst)}</span>
     default:
       return null
   }
+}
+
+// Rendu récursif d'un mathAst (iter-L phase-R.2). Dispatch pur : sup/sub →
+// balises natives, frac → barre CSS empilée, var → italique, text → string.
+function renderMath(nodes) {
+  return nodes.map((node, key) => {
+    switch (node.type) {
+      case 'text':
+        return node.value
+      case 'var':
+        return <i key={key} className="md-math-var">{node.value}</i>
+      case 'sup':
+        return <sup key={key}>{renderMath(node.children)}</sup>
+      case 'sub':
+        return <sub key={key}>{renderMath(node.children)}</sub>
+      case 'frac':
+        return (
+          <span key={key} className="md-frac">
+            <span className="md-frac-num">{renderMath(node.num)}</span>
+            <span className="md-frac-den">{renderMath(node.den)}</span>
+          </span>
+        )
+      default:
+        return null
+    }
+  })
 }
 
 // DocLink : navigation cross-onglet + halo sur l'élément ciblé. Consomme
