@@ -414,6 +414,23 @@ des stubs est confiée à un agent rédacteur dédié (cf.
 `writer/CLAUDE.md`) sur un prompt séparé. Aucun nouveau npm,
 aucun impact sur les 3 autres onglets.
 
+**Itération L (Documentation) — phase 3 livrée le 2026-05-28**.
+Navigation interne de la doc rendue active, deux mécanismes. (1) Les
+`<DocLink target="onglet:ancre">` deviennent cliquables : bascule sur
+l'onglet cible + halo temporaire (~1.8 s) sur l'élément d'UI ancré.
+Nouvel utilitaire `src/lib/highlightElement.js` (2e consommateur de
+`getAnchoredPosition` après l'overlay) : sonde le DOM via
+`requestAnimationFrame` borné pour absorber le montage différé de
+l'onglet, scroll + flash class, halo CSS dédié `src/styles/highlight.css`
+(outline + box-shadow hors flux, variables accent, `prefers-reduced-motion`).
+(2) Les liens Markdown `[label](doc:article-id)` changent l'article
+courant sans quitter l'onglet Documentation. Propagation des handlers
+via un `MarkdownNavContext` (pas de prop-drilling dans les fonctions de
+rendu récursives) ; défaut null → renderer inerte hors doc. Résolution
+gracieuse partout (ancre/onglet/article inconnu = no-op + warn dev).
+Quatre sous-commits (3.1 → 3.4), zéro nouveau npm, aucun impact sur les
+3 autres onglets.
+
 **Release v1.0.0-1.0.4** (2026-05-20) — Premier déploiement prod. Sortie
 du 0.x exploratoire après 7 itérations majeures (A→G) stables.
 Branding : titre commercial **On_Synth_App** (jeu de mots « on s'en
@@ -467,7 +484,10 @@ synth-app/
     │   ├── bibTransfer.js               # wouldCreateCycle + duplicateItemsToFolder (K.1.7)
     │   ├── shortcuts.js      # table déclarative + matchesShortcut / getAnchor (iter-L phase-1.1)
     │   ├── getAnchoredPosition.js # résolution viewport rect d'un [data-anchor] (iter-L phase-1.5)
+    │   ├── highlightElement.js # halo temporaire ancré (DocLink), retry RAF (iter-L phase-3.1)
     │   └── markdown.js       # parser Markdown maison + AST (iter-L phase-2.2)
+    ├── styles/               # CSS transverses non colocatées
+    │   └── highlight.css     # halo flash DocLink (iter-L phase-3.1)
     ├── docs/                 # contenu de l'onglet Documentation (iter-L phase-2)
     │   ├── index.js          # table DOC_TOC + sources .md importées via ?raw
     │   └── articles/         # fichiers Markdown bundled au build
@@ -507,7 +527,7 @@ synth-app/
         ├── RecentPatchesList.jsx + .css      # LRU 10 derniers patches Composer (K.2.f11)
         ├── ShortcutsOverlay.jsx + .css       # overlay raccourcis "lever le voile" Ctrl+K (iter-L phase-1.5)
         ├── DocumentationTab.jsx + .css       # layout TOC + zone contenu de l'onglet Documentation (iter-L phase-2.3)
-        ├── MarkdownRenderer.jsx + .css       # rendu AST Markdown maison → JSX (iter-L phase-2.2)
+        ├── MarkdownRenderer.jsx + .css       # rendu AST Markdown maison → JSX + DocLink/doc: actifs via MarkdownNavContext (iter-L phase-2.2 / 3.2-3.3)
         └── ShortcutsReference.jsx + .css     # article généré "Raccourcis clavier" depuis SHORTCUTS (iter-L phase-2.4)
 ```
 
@@ -930,6 +950,25 @@ Choix non évidents pris pour de bonnes raisons. À ne pas remettre en question
   "<noteIndex>"` pour permettre aux overlays composite (étiquettes
   par touche QWERTY) de se positionner sur la cellule correspondante
   via `getAnchoredKeyPositions`.
+- **Navigation interne de la doc (iter-L phase-3)** : deux mécanismes
+  distincts, volontairement séparés. (1) `<DocLink target="onglet:ancre">`
+  = saut vers un élément d'UI réel → bascule d'onglet + halo via
+  `src/lib/highlightElement.js`, **2e consommateur de
+  `getAnchoredPosition`** après l'overlay raccourcis (la sémantique
+  "premier visible / rect dégénéré = absent" donne gratuitement le no-op
+  gracieux pour un panneau replié ou une ancre dépendant d'une sélection).
+  Le highlight sonde le DOM par `requestAnimationFrame` borné (`maxWaitMs`)
+  car l'onglet cible se monte *après* le `setActiveTab` — pas de state
+  reducer dédié. (2) Lien Markdown `[label](doc:article-id)` = navigation
+  doc→doc, **lien standard intercepté** au rendu (scheme `doc:`), reste
+  dans l'onglet. Les handlers (`onDocLink`, `onDocNav`) sont propagés aux
+  feuilles interactives par un **`MarkdownNavContext`** plutôt qu'en
+  prop-drilling : `renderBlock`/`renderInline` sont des fonctions
+  module-level récursives, pas des composants, et ne peuvent pas consommer
+  de contexte ; seules les feuilles (`DocLinkAnchor`, `DocNavLink`) le
+  font. Défaut null = rendu inerte → le renderer reste réutilisable hors
+  onglet Documentation. Validation des cibles en runtime (warn dev), pas
+  au build (un linter d'articles pourra venir si le volume L.5 le justifie).
 - **Posture mode note : possession totale du clavier
   alphanumérique (F.7.5)** : hors form-field et hors raccourcis OS
   (Ctrl/Alt/Meta), le mode note "possède" l'ensemble fixe
@@ -1666,6 +1705,15 @@ Phases listées ci-dessous dans l'ordre chronologique d'implémentation.
 ## État actuel
 
 ✅ **Terminé**
+- Iteration L phases 2-3 (onglet Documentation navigable) : 4e onglet
+  Documentation (renderer Markdown maison `src/lib/markdown.js`, TOC
+  collapsible/resizable, restauration de scroll par article, page
+  Raccourcis auto-générée depuis `SHORTCUTS`). Navigation interne active
+  (L.3) : les `<DocLink target="onglet:ancre">` basculent sur l'onglet
+  cible + halo temporaire sur l'élément d'UI (via `highlightElement`,
+  2e consommateur de `getAnchoredPosition`) ; les liens `[label](doc:id)`
+  changent l'article courant sans quitter la doc. Handlers propagés via
+  `MarkdownNavContext` ; cibles inconnues = no-op gracieux + warn dev.
 - Iteration L phase 1 (fondation Documentation) : infrastructure pour
   l'onglet Documentation utilisateur sans modification du comportement
   métier. Table déclarative `src/lib/shortcuts.js` (source unique des
@@ -2230,6 +2278,43 @@ Phases listées ci-dessous dans l'ordre chronologique d'implémentation.
   prochaine candidate).
 
 ## Historique (chronologie inverse)
+
+- **2026-05-28 — Iteration L phase 3 (DocLink actif + highlight)**
+  Navigation interne de la doc rendue active. Quatre sous-commits.
+
+  - **L.3.1 — `highlightElement` + halo CSS** : `src/lib/highlightElement.js`
+    (`highlightElement(anchorId, {duration=1800, maxWaitMs=800})`), 2e
+    consommateur de `getAnchoredPosition`. Boucle de retry
+    `requestAnimationFrame` bornée par `performance.now()` pour absorber
+    le montage différé de l'onglet cible ; à la résolution, `scrollIntoView`
+    + ajout d'une classe flash retirée après `duration`, re-trigger propre
+    via `WeakMap` de timers. Halo `src/styles/highlight.css` (outline +
+    box-shadow hors flux pour ne pas déplacer l'élément, variables accent,
+    durée pilotée par `--doc-highlight-duration`, `prefers-reduced-motion`).
+    Importé une fois dans `App.jsx`. Pas encore appelé à ce stade.
+
+  - **L.3.2 — DocLink actif** : `MarkdownRenderer` crée un
+    `MarkdownNavContext` (`{onDocLink, onDocNav}`, défauts null) et accepte
+    les props correspondantes. Le nœud `docLink` devient le sous-composant
+    `DocLinkAnchor` (consomme le contexte, `preventDefault` +
+    `onDocLink?.(target)`, inerte sans provider), distingué visuellement
+    (soulignement pointillé + icône `ArrowUpRight`). `App.jsx` :
+    `handleDocLink(target)` splitte sur le 1er `:`, valide l'onglet
+    (sinon warn dev), `setActiveTab` + `highlightElement(anchor)`. Prop
+    `onDocLink` threadée via `DocumentationTab` → `MarkdownRenderer`.
+
+  - **L.3.3 — liens doc→doc** : dans `renderInline`, un nœud `link` dont
+    `href` commence par `doc:` est rendu par `DocNavLink` (`preventDefault`
+    + `onDocNav?.(href.slice(4))`) ; les liens http(s)/natifs gardent le
+    comportement L.2. `DocumentationTab` fabrique `onDocNav` borné à
+    `DOC_TOC` (cible inconnue = no-op + warn dev) ; le scroll de l'article
+    cible repart de sa position sauvée via l'effet L.2 existant.
+
+  - **L.3.4 — doc** : `_renderer-test.md` enrichi d'une section
+    "Navigation interne (L.3)" couvrant les 4 cas (DocLink valide /
+    ancre introuvable, lien doc→doc valide / cassé) ; note L.2-inerte
+    obsolète mise à jour. CONTEXT.md (TL;DR, État actuel, Roadmap,
+    Décisions architecturales, Arborescence, cet historique).
 
 - **2026-05-27 — Iteration L phase 2 (onglet Documentation)**
   Squelette fonctionnel du 4e onglet utilisateur. Cinq sous-commits
@@ -4864,10 +4949,14 @@ venir L.4). Détails dans `archi/BACKLOG.md` section "Iteration L".
   12 notes ?" (rédaction confiée à l'agent writer/) + fichier de
   validation `_renderer-test.md`. Cf. historique pour le détail.
 
-- ⏳ **L.3** — Composant `<DocLink>` actif (consommé par le
-  renderer ; navigation cross-onglet + highlight via
-  `highlightElement` qui réutilise les ancres L.1) + utilitaire
-  `highlightElement` (halo temporaire ancré).
+- ✅ **L.3** (2026-05-28) — Navigation interne de la doc active.
+  Quatre sous-commits : (3.1) utilitaire `highlightElement` + halo CSS
+  (retry RAF borné, 2e consommateur de `getAnchoredPosition`) ; (3.2)
+  `<DocLink>` actif (bascule d'onglet + halo) via `MarkdownNavContext`
+  + handler `handleDocLink` (App.jsx) ; (3.3) liens doc→doc (scheme
+  `doc:`, `onDocNav` borné à `DOC_TOC`) ; (3.4) enrichissement
+  `_renderer-test.md` (cas valides + cassés) + doc. Cf. historique pour
+  le détail. **Prochaine étape : L.4 (Tour).**
 
 - ⏳ **L.4** — Bouton Tour header (`Compass`) + Ctrl+J + composant
   `Tour.jsx` + progress bar header-overlay + tours déclarés.

@@ -71,8 +71,24 @@ Lien externe vers [la doc MDN sur Web Audio](https://developer.mozilla.org/fr/do
 
 Lien interne sous forme de `<DocLink>` :
 <DocLink target="composer:composer-paste-button">Coller (Composer)</DocLink>
-— en L.2 il est rendu inerte (style lien, clic sans effet). L.3 le
-branchera.
+— depuis L.3 il est actif : clic = bascule sur le Composer + halo
+temporaire sur le bouton Coller.
+
+## Navigation interne (L.3)
+
+Quatre cas à vérifier à la main (les deux cas « cassés » ne doivent
+**rien** faire, avec un `console.warn` visible en dev uniquement) :
+
+- DocLink cross-onglet **valide** :
+  <DocLink target="composer:composer-copy-button">Copier (Composer)</DocLink>
+  — bascule sur le Composer, scroll + halo sur le bouton Copier.
+- DocLink avec ancre **introuvable** :
+  <DocLink target="composer:zzz-inexistant">ancre inexistante</DocLink>
+  — bascule sur le Composer mais aucun halo (no-op gracieux + warn dev).
+- Lien doc→doc **valide** : [À propos](doc:about) — ouvre l'article
+  « À propos » sans quitter l'onglet Documentation.
+- Lien doc→doc **cassé** : [article inexistant](doc:nope) — ne navigue
+  pas (no-op + warn dev).
 
 ## Bloc de citation
 
