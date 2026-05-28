@@ -121,6 +121,36 @@ Image en SVG inline (data URI) pour rester self-contained :
 
 Tu dois voir un petit carré 64×64 dégradé orange → violet ci-dessus.
 
+## Formules (L.R)
+
+Support math maison (pas de KaTeX). En contexte réel : la quinte juste a
+un ratio de $3:2$, et le demi-ton du tempérament égal vaut $2^{1/12}$,
+soit environ $1,0595$ — l'écart à la quinte pythagoricienne reste $\leq$
+un comma. Les lettres dans les formules sont en italique ; *celles-ci*,
+hors `$`, suivent l'emphase Markdown normale.
+
+Constructs à vérifier à l'œil :
+
+- Exposant : $2^{1/12}$ (le « 1/12 » doit être en exposant sur le 2).
+- Indice : $a_{0}$ (le « 0 » en indice).
+- Fraction empilée : $\frac{3}{2}$ (3 sur 2, barre horizontale).
+- Imbrication : $\frac{a^{2}}{b}$ (exposant dans le numérateur, lettres
+  $a$ et $b$ en italique).
+- Symboles Unicode : $\pi$, $\approx$, $\times$, $\div$, $\pm$, $\geq$.
+- Commande inconnue : $\foo$ — doit s'afficher littéralement « \foo »
+  (fallback gracieux + `console.warn` visible en dev uniquement, aucun
+  crash).
+
+Formule en bloc (centrée, légèrement agrandie) :
+
+$$f = a4 \times 2^{(n/12)}$$
+
+La même en multi-ligne (ouverture/fermeture sur leurs propres lignes) :
+
+$$
+\frac{f}{a4} = 2^{(n/12)}
+$$
+
 ## Combinaison finale
 
 Pour finir, un paragraphe qui combine **gras**, *italique*, `code`,

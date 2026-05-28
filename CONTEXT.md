@@ -455,6 +455,17 @@ X, Y ou Z ? ») ne re-snapshot pas. « En savoir plus » par étape (si
 `article` présent dans `DOC_TOC`) quitte vers l'article. Six sous-commits
 (4.1 → 4.6), zéro nouveau npm, aucun impact métier hors le tour.
 
+**Itération L phase R livrée le 2026-05-28 — math renderer maison.**
+Extension du renderer Markdown au support des formules (musique/
+tempéraments), sans KaTeX (~100 lignes). Délimiteurs `$…$` (inline) et
+`$$…$$` (block centré) ; exposants `^{x}`, indices `_{x}`, fractions
+`\frac{a}{b}`, italique auto sur lettres latines isolées dans les
+délimiteurs, ~12 symboles Unicode. Syntaxe LaTeX-like (réversibilité),
+périmètre volontairement borné. Sous-parser dédié `src/lib/mathParse.js`,
+rendu sup/sub/frac + CSS dans MarkdownRenderer. Trois sous-commits
+(R.1 → R.3), zéro npm. Posé entre L.4 et L.5 car les contenus L.5
+généreront massivement ratios, cents et exposants.
+
 **Release v1.0.0-1.0.4** (2026-05-20) — Premier déploiement prod. Sortie
 du 0.x exploratoire après 7 itérations majeures (A→G) stables.
 Branding : titre commercial **On_Synth_App** (jeu de mots « on s'en
@@ -509,7 +520,8 @@ synth-app/
     │   ├── shortcuts.js      # table déclarative + matchesShortcut / getAnchor (iter-L phase-1.1)
     │   ├── getAnchoredPosition.js # résolution viewport rect d'un [data-anchor] (iter-L phase-1.5)
     │   ├── highlightElement.js # halo temporaire ancré (DocLink), retry RAF (iter-L phase-3.1)
-    │   ├── markdown.js       # parser Markdown maison + AST (iter-L phase-2.2)
+    │   ├── markdown.js       # parser Markdown maison + AST, délègue le math à mathParse (iter-L phase-2.2 / R.1)
+    │   ├── mathParse.js      # sous-parser math récursif ($…$, $$…$$ → mathAst) (iter-L phase-R.1)
     │   └── tours/            # déclarations du Tour guidé par onglet (iter-L phase-4)
     │       ├── index.js      # map tabId → étapes + TOUR_TABS (ordre chaînage)
     │       ├── library.js / designer.js / composer.js / documentation.js  # séquences d'étapes
@@ -520,7 +532,7 @@ synth-app/
     │   └── articles/         # fichiers Markdown bundled au build
     │       ├── about.md             # stub L.2.5 (rédaction confiée à writer/)
     │       ├── why-12-notes.md      # stub L.2.5 (rédaction confiée à writer/)
-    │       └── _renderer-test.md    # validation visuelle des features V1 (à retirer en L.5)
+    │       └── _renderer-test.md    # validation visuelle des features V1 + math L.R (à retirer en L.5)
     └── components/
         ├── Tabs.jsx + .css                    # bascule Bibliothèque / Designer / Composer / Documentation
         ├── PatchBank.jsx + .css               # banque de patches partagée
@@ -554,7 +566,7 @@ synth-app/
         ├── RecentPatchesList.jsx + .css      # LRU 10 derniers patches Composer (K.2.f11)
         ├── ShortcutsOverlay.jsx + .css       # overlay raccourcis "lever le voile" Ctrl+K (iter-L phase-1.5)
         ├── DocumentationTab.jsx + .css       # layout TOC + zone contenu de l'onglet Documentation (iter-L phase-2.3)
-        ├── MarkdownRenderer.jsx + .css       # rendu AST Markdown maison → JSX + DocLink/doc: actifs via MarkdownNavContext (iter-L phase-2.2 / 3.2-3.3)
+        ├── MarkdownRenderer.jsx + .css       # rendu AST Markdown maison → JSX + DocLink/doc: actifs via MarkdownNavContext + rendu math sup/sub/frac (iter-L phase-2.2 / 3.2-3.3 / R.2)
         ├── ShortcutsReference.jsx + .css     # article généré "Raccourcis clavier" depuis SHORTCUTS (iter-L phase-2.4)
         └── Tour.jsx + .css                   # moteur du Tour guidé : spotlight + bulle + progress bar (iter-L phase-4)
 ```
@@ -1457,6 +1469,31 @@ Choix non évidents pris pour de bonnes raisons. À ne pas remettre en question
   manque pour un futur article, étendre le parser plutôt que d'ajouter
   remark/markdown-it.
 
+- **Math renderer maison, LaTeX-like, pas de KaTeX** (iter-L phase-R).
+  Le besoin réel (musique/tempéraments) est petit et le restera : ratios
+  (`3:2`), cents, exposants (`2^{1/12}`), fractions (`\frac{3}{2}`),
+  indices, ~12 symboles grecs/opérateurs. ~100 lignes (sous-parser
+  `src/lib/mathParse.js` + rendu dans MarkdownRenderer + CSS) plutôt
+  qu'une dépendance KaTeX (~280 ko) — cohérent avec « no npm dep ».
+  Délimiteurs `$…$` (inline) / `$$…$$` (block centré). Trois choix
+  structurants : (1) **syntaxe LaTeX-like** (pas de DSL visuel maison)
+  pour la **réversibilité** — si le besoin explose un jour, passer à
+  KaTeX ne touche pas aux articles. (2) **Accolades obligatoires**
+  (`^{x}`, pas `^x`) pour désambiguïser la fin de l'exposant sans
+  parser de précédence. (3) **mathAst construit au parse** (pas de
+  `content` brut différé au rendu) : le renderer reste un dispatch pur,
+  et le mémo par `source` de MarkdownRenderer couvre le parse math
+  gratuitement. Italique auto sur lettres latines isolées **à
+  l'intérieur des délimiteurs uniquement** (convention LaTeX des
+  variables ; n'affecte jamais le texte hors `$`). Périmètre
+  volontairement borné — **hors scope** : matrices, intégrales, sommes,
+  racines, vecteurs, environnements `\begin{…}`. La ligne maison ne
+  tient que si elle reste petite : étendre ponctuellement au besoin,
+  ne jamais anticiper. Commande inconnue / construct mal formé → rendu
+  littéral + `console.warn` en dev, jamais de crash. Pas d'escape `\$`
+  en V1 (cohérent avec l'absence d'escape `\*`) : un `$` non apparié
+  reste littéral.
+
 - **Persistance Documentation : double sink localStorage +
   sessionStorage** (iter-L phase-2.1). Les *préférences UX* de la
   sidebar TOC (`docSidebarCollapsed`, `docSidebarWidth`) vivent en
@@ -1773,6 +1810,20 @@ Phases listées ci-dessous dans l'ordre chronologique d'implémentation.
 ## État actuel
 
 ✅ **Terminé**
+- Iteration L phase R (extension renderer Markdown — math maison) :
+  support des formules dont la doc a besoin, sans KaTeX (~100 lignes).
+  Délimiteurs `$…$` (inline) et `$$…$$` (block centré, mono- ou
+  multi-ligne). Constructs : exposants `^{x}`, indices `_{x}` (accolades
+  obligatoires), fractions `\frac{a}{b}` (barre CSS empilée), italique
+  auto sur lettres latines isolées **dans les délimiteurs uniquement**,
+  ~12 symboles Unicode (`\pi \alpha \beta \gamma \cdot \times \div
+  \approx \neq \leq \geq \pm`). Récursif (contenu des accolades re-parsé
+  en math). Sous-parser dédié `src/lib/mathParse.js` (mathAst construit
+  au parse), rendu sup/sub/frac dans MarkdownRenderer. Commande inconnue
+  → rendu littéral + warn dev, pas de crash. `_renderer-test.md` enrichi
+  d'une section Formules. Zéro npm ajouté. Posé entre L.4 et L.5 car les
+  contenus L.5 (tempéraments, glossaires) génèrent beaucoup de ratios,
+  cents et exposants.
 - Iteration L phase 4 (Tour guidé) — **V1 de l'Itération L atteinte** :
   visite guidée par diaporama d'info-bulles ancrées. Bouton **Compass**
   (header) + **Ctrl/Cmd+J** démarrent le tour de l'onglet actif. Mode
@@ -2359,6 +2410,37 @@ Phases listées ci-dessous dans l'ordre chronologique d'implémentation.
   prochaine candidate).
 
 ## Historique (chronologie inverse)
+
+- **2026-05-28 — Iteration L phase R (math renderer maison)**
+  Extension du renderer Markdown au support des formules (pas de KaTeX),
+  intercalée entre L.4 et L.5 : les contenus L.5 (fiches tempéraments,
+  glossaires, articles) généreront massivement ratios, cents et exposants.
+  Trois sous-commits.
+
+  - **L.R.1 — parsing math** : sous-parser récursif `src/lib/mathParse.js`
+    (scan à buffer + matching d'accolades). Tokens `^{…}`/`_{…}` (accolades
+    obligatoires pour désambiguïser), `\frac{a}{b}`, `\cmd` → ~12 symboles
+    Unicode, lettre latine isolée → `var` (italique), reste → texte ;
+    contenu des accolades re-parsé en math (récursion). Dans `markdown.js` :
+    token inline `$…$` dans `parseInline`, bloc `$$…$$` (mono/multi-ligne)
+    dans `parseMarkdown` sur le modèle du code fence, `$$` ajouté à
+    `BLOCK_BREAK`. mathAst construit au parse (pas de content brut). Pas
+    d'escape `\$` (un `$` non apparié reste littéral). Commande inconnue /
+    construct mal formé → littéral + `console.warn` dev, jamais de crash.
+
+  - **L.R.2 — rendu + CSS** : `renderMath` récursif dans MarkdownRenderer
+    (sup/sub → balises natives, frac → barre CSS empilée via `border-top`
+    du dénominateur, var → `<i>`, text → string), cas `math` inline (span)
+    et block (div centré). CSS : `.md-frac` inline-flex colonne recentré,
+    `.md-math-block` centré/agrandi, sup/sub à `line-height: 0` pour ne pas
+    casser l'interligne. Dispatch pur (mathAst déjà construit).
+
+  - **L.R.3 — validation + doc** : `_renderer-test.md` enrichi d'une
+    section « Formules (L.R) » (inline, exposant, indice, fraction,
+    imbrication, symboles, block mono/multi-ligne, commande inconnue).
+    Validé par rendu SSR du composant (DOM conforme aux sélecteurs CSS) +
+    `parseMath`/`parseMarkdown` testés unitairement ; rendu pixel à
+    confirmer à l'œil. Zéro npm ajouté. **Prochaine : L.5 (rédaction).**
 
 - **2026-05-28 — Iteration L phase 4 (Tour guidé) — V1 Itération L**
   Diaporama d'info-bulles ancrées sur l'UI de l'onglet actif. 3e et dernier
@@ -5113,18 +5195,27 @@ L.4). Détails dans `archi/BACKLOG.md` section "Iteration L".
   fin de tour + « En savoir plus » ; (4.6) doc. **Les bulles sont un 1er
   jet dev — passe rédactionnelle en attente (`archi/L4-redaction-prompt.md`).**
 
-- ⏳ **L.4.5** — Math renderer (notation mathématique dans les articles de
-  doc). Hors scope L.4.
+- ✅ **L.R** (2026-05-28) — **Math renderer maison** (renommée de « L.4.5 »
+  le 2026-05-28 pour éviter la collision avec le sous-commit `phase-4.5` du
+  Tour). Extension du renderer Markdown : `$…$` inline / `$$…$$` block,
+  exposants `^{x}`, indices `_{x}`, fractions `\frac{a}{b}`, italique auto
+  sur lettres latines isolées dans les délimiteurs, ~12 symboles Unicode.
+  Pas de KaTeX, syntaxe LaTeX-like (réversibilité), périmètre borné (pas de
+  matrices/intégrales/racines). Trois sous-commits (R.1 parsing
+  `src/lib/mathParse.js` + `markdown.js` ; R.2 rendu sup/sub/frac + CSS ;
+  R.3 `_renderer-test.md` + doc). Zéro npm ajouté. Posé entre L.4 et L.5.
 
 - ⏳ **L.5** — Rédaction des contenus (peut commencer en parallèle dès
-  L.2 ; inclut la passe writer sur les bulles du Tour).
+  L.2 ; les fiches tempéraments et glossaires C.7/C.8 attendaient L.R ;
+  inclut la passe writer sur les bulles du Tour).
 
 - ⏳ **L.6** *(option)* — Démos écoutables.
 
 - ⏳ **L.7** *(option)* — Exercices guidés.
 
-**V1 de l'Itération L atteinte à la sortie de L.4.** L.4.5 (math renderer)
-et L.5 (rédaction) enrichissent sans toucher à l'architecture du tour.
+**V1 de l'Itération L atteinte à la sortie de L.4.** L.R (math renderer,
+livrée le 2026-05-28) et L.5 (rédaction) enrichissent sans toucher à
+l'architecture du tour.
 
 ### Backlog général (à caser quand pertinent)
 
