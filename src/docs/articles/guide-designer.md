@@ -26,7 +26,8 @@ phase est au [glossaire technique](doc:glossaire-technique).
 
 ## L'amplitude
 
-Un réglage d'amplitude fixe le niveau général du patch — son volume
+Le <DocLink target="designer:designer-amplitude">réglage
+d'amplitude</DocLink> fixe le niveau général du patch — son volume
 avant que l'enveloppe ne le module. Utile pour équilibrer plusieurs
 sons entre eux.
 

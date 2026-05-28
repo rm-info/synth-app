@@ -10,7 +10,9 @@ guide, lui, détaille chaque zone.
 ## Tes patches
 
 La liste centrale réunit tous tes patches, regroupés dans des
-dossiers que tu crées et nommes librement.
+dossiers que tu
+<DocLink target="library:library-new-folder-button">crées</DocLink> et
+nommes librement.
 <DocLink target="library:library-item-list">La liste</DocLink> garde
 la sélection en surbrillance. Pour sélectionner plusieurs items,
 maintiens Ctrl (ajout un par un) ou Maj (plage continue) — ou Ctrl+A

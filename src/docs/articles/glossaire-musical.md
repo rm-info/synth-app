@@ -14,7 +14,8 @@ moderne et le système par défaut de l'app. Aucune quinte n'y est
 parfaitement pure, mais toutes les tonalités sonnent de la même
 façon — ce qui rend la transposition libre. Le *pourquoi* de ces
 douze notes est détaillé dans
-[Pourquoi 12 notes ?](doc:why-12-notes). Voir aussi *EDO*,
+[Pourquoi 12 notes ?](doc:why-12-notes), le système lui-même dans sa
+[fiche dédiée](doc:temperament-12-tet). Voir aussi *EDO*,
 *Tempérament*.
 
 ## Cents
@@ -55,7 +56,8 @@ l'octave. Un système n-EDO découpe l'octave en $n$ intervalles
 identiques, chacun valant $2^{1/n}$. Le 12-TET est donc le 12-EDO ;
 l'app propose aussi un mode **X-EDO** où tu choisis librement $n$
 (par exemple 22 ou 53 degrés). Plus $n$ est grand, plus les
-intervalles sont fins. Change de système avec
+intervalles sont fins. Le mode paramétrique est détaillé dans la
+[fiche X-EDO](doc:temperament-x-edo) ; change de système avec
 <DocLink target="designer:designer-system-selector">le sélecteur de
 système</DocLink>.
 
@@ -67,6 +69,8 @@ Le gamelan est un ensemble instrumental d'Indonésie dont les
 intervalles presque égaux) et le **pelog** (sept notes aux
 intervalles inégaux). Ces accords varient d'un ensemble à l'autre ;
 les valeurs de l'app suivent les mesures de Surjodiningrat (1972).
+Fiches : [Slendro](doc:temperament-slendro) et
+[Pelog](doc:temperament-pelog).
 
 ## Intervalle
 
@@ -83,8 +87,9 @@ simples — quinte $\frac{3}{2}$, tierce majeure $\frac{5}{4}$ —
 réputés les plus consonants. Ces intervalles purs sont d'une
 stabilité remarquable, mais ils ne se referment pas sur eux-mêmes :
 une intonation juste interdit de transposer librement dans toutes
-les tonalités. L'app en propose une version majeure centrée sur do.
-Voir aussi *Comma*, *Tempérament*.
+les tonalités. L'app en propose une version majeure centrée sur do,
+détaillée dans sa [fiche](doc:temperament-juste-majeur). Voir aussi
+*Comma*, *Tempérament*.
 
 ## Maqâm
 
@@ -92,8 +97,10 @@ Cadre mélodique de la musique arabe, fondé sur des échelles qui
 incluent des intervalles « neutres », à mi-chemin du majeur et du
 mineur occidentaux. Le Congrès du Caire de 1932 a tenté d'en fixer
 une référence théorique. L'app propose deux grilles de hauteurs
-liées à ce cadre : une division théorique en 24 quarts de ton égaux,
-et un relevé de hauteurs mesurées (d'après aly-abbara.com).
+liées à ce cadre : une division théorique en 24 quarts de ton égaux
+([fiche 24-TET](doc:temperament-24-tet)), et un relevé de hauteurs
+mesurées ([Maqâmât du Caire 1932](doc:temperament-cairo-1932),
+d'après aly-abbara.com).
 
 ## Méantone
 
@@ -102,7 +109,9 @@ gagner des tierces majeures pures ou presque. Le plus courant, le
 **mésotonique 1/4 de comma** (Renaissance et début du baroque),
 retranche à chaque quinte un quart du comma syntonique — au prix
 d'une quinte très fausse, la fameuse « quinte du loup ». L'app en
-propose une version centrée sur do. Voir aussi *Comma*, *Quinte*.
+propose une version centrée sur do, décrite dans la
+[fiche Mésotonique](doc:temperament-meantone). Voir aussi *Comma*,
+*Quinte*.
 
 ## Quinte
 
@@ -112,9 +121,9 @@ consonants après l'octave. Une **quinte pure** respecte exactement
 ce rapport ; une **quinte tempérée** s'en écarte un peu pour que
 l'instrument puisse jouer dans toutes les tonalités. Le 12-TET
 tempère ses douze quintes de façon égale (chacune environ 2 cents
-trop courte) ; d'autres tempéraments concentrent l'écart sur
-quelques-unes seulement. Voir aussi *Comma*,
-[Pourquoi 12 notes ?](doc:why-12-notes).
+trop courte) ; le [pythagoricien](doc:temperament-pythagoricien),
+lui, les garde pures et concentre tout l'écart sur une seule. Voir
+aussi *Comma*, [Pourquoi 12 notes ?](doc:why-12-notes).
 
 ## Raga
 
@@ -131,18 +140,19 @@ Le plus petit intervalle distingué par la théorie musicale indienne.
 L'octave y est traditionnellement décrite comme un assemblage de
 **22 shrutis** d'amplitudes inégales. L'app propose deux
 répartitions de ces 22 hauteurs : l'une d'après la modernisation de
-Bhatkhande (début du XXe siècle), l'autre d'après Sarngadeva (traité
-*Sangita Ratnakara*, XIIIe siècle). Voir aussi *Raga*.
+Bhatkhande ([fiche](doc:temperament-shrutis-bhatkhande)), l'autre
+d'après Sarngadeva (traité *Sangita Ratnakara*, XIIIe siècle ;
+[fiche](doc:temperament-shrutis-sarngadeva)). Voir aussi *Raga*.
 
 ## Tempérament
 
 La manière de répartir les petits écarts inévitables — les *commas*
 — sur un instrument à hauteur fixe, faute de pouvoir rendre tous les
 intervalles purs à la fois. *Tempérer*, c'est choisir où placer le
-défaut : sur quelques notes (tempéraments inégaux comme Werckmeister
-III) ou réparti également sur toutes (le tempérament égal). Chaque
-choix donne une « couleur » différente aux tonalités, que tu peux
-comparer via
+défaut : sur quelques notes (tempéraments inégaux comme
+[Werckmeister III](doc:temperament-werckmeister)) ou réparti
+également sur toutes (le tempérament égal). Chaque choix donne une
+« couleur » différente aux tonalités, que tu peux comparer via
 <DocLink target="designer:designer-system-selector">le sélecteur de
 système</DocLink>. Le compromis est développé dans
 [Pourquoi 12 notes ?](doc:why-12-notes).
@@ -153,4 +163,5 @@ Intervalle de trois degrés dans une gamme diatonique (do-mi, par
 exemple). La **tierce majeure** pure correspond au rapport
 $\frac{5}{4}$ ; elle est l'un des piliers de la consonance, et la
 quête de tierces justes a guidé des tempéraments entiers comme le
-méantone. Voir aussi *Intonation juste*, *Méantone*.
+[méantone](doc:temperament-meantone). Voir aussi *Intonation juste*,
+*Méantone*.

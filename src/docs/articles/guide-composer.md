@@ -9,8 +9,9 @@ et l'export.
 
 <DocLink target="composer:composer-timeline">La timeline</DocLink>
 empile plusieurs pistes horizontales, chacune d'une couleur. Tu peux
-en créer jusqu'à seize, les renommer, les réordonner, ajuster leur
-hauteur ou les supprimer. Chaque piste porte des *clips* : un clip,
+en <DocLink target="composer:composer-add-track-button">ajouter</DocLink>
+jusqu'à seize, les renommer, les réordonner, ajuster leur hauteur ou
+les supprimer. Chaque piste porte des *clips* : un clip,
 c'est un patch joué à une hauteur, pour une durée, à une position
 données.
 
@@ -60,8 +61,9 @@ règle en battements (noires) par minute.
 
 ## Exporter en WAV
 
-Quand la composition est prête, un bouton d'export ouvre une fenêtre
-où tu nommes le fichier ; l'app génère alors un WAV téléchargeable,
+Quand la composition est prête,
+<DocLink target="composer:composer-export-button">le bouton
+d'export</DocLink> ouvre une fenêtre où tu nommes le fichier ; l'app génère alors un WAV téléchargeable,
 le format audio universel, lisible partout.
 
 ## Aller plus loin
