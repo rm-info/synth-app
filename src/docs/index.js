@@ -25,6 +25,11 @@ import why12Md from './articles/why-12-notes.md?raw'
 import rendererTestMd from './articles/_renderer-test.md?raw'
 import glossaireTechniqueMd from './articles/glossaire-technique.md?raw'
 import glossaireMusicalMd from './articles/glossaire-musical.md?raw'
+import temperament12TetMd from './articles/temperament-12-tet.md?raw'
+import temperamentJusteMajeurMd from './articles/temperament-juste-majeur.md?raw'
+import temperamentPythagoricienMd from './articles/temperament-pythagoricien.md?raw'
+import temperamentMeantoneMd from './articles/temperament-meantone.md?raw'
+import temperamentWerckmeisterMd from './articles/temperament-werckmeister.md?raw'
 
 export const DOC_TOC = [
   {
@@ -47,6 +52,41 @@ export const DOC_TOC = [
     section: 'Concepts',
     type: 'markdown',
     source: glossaireMusicalMd,
+  },
+  {
+    id: 'temperament-12-tet',
+    title: '12-TET (tempérament égal)',
+    section: 'Tempéraments',
+    type: 'markdown',
+    source: temperament12TetMd,
+  },
+  {
+    id: 'temperament-juste-majeur',
+    title: 'Intonation juste majeure (do)',
+    section: 'Tempéraments',
+    type: 'markdown',
+    source: temperamentJusteMajeurMd,
+  },
+  {
+    id: 'temperament-pythagoricien',
+    title: 'Pythagoricien (12 notes)',
+    section: 'Tempéraments',
+    type: 'markdown',
+    source: temperamentPythagoricienMd,
+  },
+  {
+    id: 'temperament-meantone',
+    title: 'Mésotonique 1/4 de comma',
+    section: 'Tempéraments',
+    type: 'markdown',
+    source: temperamentMeantoneMd,
+  },
+  {
+    id: 'temperament-werckmeister',
+    title: 'Werckmeister III',
+    section: 'Tempéraments',
+    type: 'markdown',
+    source: temperamentWerckmeisterMd,
   },
   {
     id: 'shortcuts',
