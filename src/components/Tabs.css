@@ -107,7 +107,8 @@
 /* iter-L phase-1.6 : bouton Keyboard (toggle overlay raccourcis).
    Calqué sur .theme-toggle pour cohérence visuelle. État actif quand
    overlay ouvert (highlight accent). */
-.shortcuts-toggle {
+.shortcuts-toggle,
+.tour-toggle {
   display: flex;
   align-items: center;
   justify-content: center;
@@ -123,12 +124,14 @@
   transition: background 0.15s, color 0.15s, border-color 0.15s;
   flex-shrink: 0;
 }
-.shortcuts-toggle:hover {
+.shortcuts-toggle:hover,
+.tour-toggle:hover {
   background: var(--hover-bg);
   color: var(--accent);
   border-color: var(--surface-border);
 }
-.shortcuts-toggle.is-active {
+.shortcuts-toggle.is-active,
+.tour-toggle.is-active {
   background: var(--accent-bg-medium);
   color: var(--accent);
   border-color: var(--accent);

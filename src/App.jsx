@@ -194,6 +194,30 @@ function App() {
     return () => window.removeEventListener('keydown', handler)
   }, [shortcutsOverlayOpen, setShortcutsOverlay])
 
+  // iter-L phase-4.4 : Ctrl/Cmd+J démarre la visite guidée de l'onglet actif.
+  // preventDefault impératif (Ctrl+J = ouvre les téléchargements sur Firefox/
+  // Chrome). Mêmes exclusions que Ctrl+K (form field, modale ouverte, overlay
+  // raccourcis), plus skip si un tour tourne déjà (par sécurité — le gel
+  // clavier du tour absorbe normalement la frappe en amont).
+  useEffect(() => {
+    const handler = (e) => {
+      // Ctrl/Cmd exactement un des deux (cohérent matchModifiers), sans Shift/Alt.
+      if (e.ctrlKey === e.metaKey || e.shiftKey || e.altKey) return
+      if ((e.key || '').toLowerCase() !== 'j') return
+      const target = e.target
+      const tag = target?.tagName
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return
+      if (target?.isContentEditable) return
+      if (document.querySelector('.modal-backdrop, .confirm-dialog-backdrop, .save-dialog-backdrop, .delete-warning-backdrop')) return
+      if (shortcutsOverlayOpen) return
+      if (tour.active) return
+      e.preventDefault()
+      dispatch({ type: 'START_TOUR', payload: activeTab })
+    }
+    window.addEventListener('keydown', handler)
+    return () => window.removeEventListener('keydown', handler)
+  }, [activeTab, shortcutsOverlayOpen, tour.active])
+
   useEffect(() => {
     const handler = (e) => {
       const target = e.target
@@ -615,6 +639,11 @@ function App() {
 
   // Persistance localStorage.
   useEffect(() => {
+    // iter-L phase-4.4 : pendant un tour, l'app est gelée — les seules
+    // mutations possibles (onglet, sidebars dépliées par le tour) sont
+    // volatiles et restaurées à END_TOUR. On ne les persiste pas, sinon un
+    // refresh en plein tour laisserait une sidebar ouverte côté utilisateur.
+    if (tour.active) return
     try {
       localStorage.setItem(
         STORAGE_KEY,
@@ -684,6 +713,7 @@ function App() {
     recentPatchIds, theme, selectedTrackId,
     editor.testTuningSystem, editor.testNoteIndex, editor.testOctave, editor.testFrequency,
     editor.visualCuePattern, editor.visualCueTonic,
+    tour.active,
   ])
 
   // iter-L phase-2.1 : persistance de la position de lecture Documentation
@@ -722,10 +752,7 @@ function App() {
   useEffect(() => {
     if (!import.meta.env.DEV) return
     window.__store = { state, dispatch }
-    // iter-L phase-4.2 : déclencheur debug du Tour (le vrai entrypoint
-    // Compass + Ctrl+J arrive en L.4.4). Ex. `window.__startTour('designer')`.
-    window.__startTour = (tabId = 'designer') => dispatch({ type: 'START_TOUR', payload: tabId })
-    return () => { delete window.__store; delete window.__startTour }
+    return () => { delete window.__store }
   }, [state])
 
   // Hydratation de l'éditeur quand currentPatchId change. Non-undoable.
@@ -1963,6 +1990,7 @@ function App() {
         shortcutsOverlayOpen={shortcutsOverlayOpen}
         onToggleShortcuts={() => setShortcutsOverlay(!shortcutsOverlayOpen)}
         tourActive={tour.active}
+        onToggleTour={() => dispatch(tour.active ? { type: 'END_TOUR' } : { type: 'START_TOUR', payload: activeTab })}
       />
       <ShortcutsOverlay
         isOpen={shortcutsOverlayOpen}

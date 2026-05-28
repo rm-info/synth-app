@@ -1,7 +1,7 @@
 // lucide-react est déjà utilisée par App.jsx (ChevronLeft/Right, Library, Play, etc.) ;
 // on s'appuie sur la même dépendance pour les icônes de toggle thème +
 // bouton raccourcis (Keyboard, iter-L phase-1.6).
-import { Moon, Sun, Keyboard } from 'lucide-react'
+import { Moon, Sun, Keyboard, Compass } from 'lucide-react'
 import './Tabs.css'
 
 // iter-L phase-2.1 : ajout du 4e onglet Documentation à droite des trois
@@ -19,7 +19,7 @@ const TABS = [
 // Source de vérité : `version` de package.json.
 const APP_VERSION = typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : 'dev'
 
-function Tabs({ activeTab, onChange, theme, onToggleTheme, shortcutsOverlayOpen, onToggleShortcuts, tourActive }) {
+function Tabs({ activeTab, onChange, theme, onToggleTheme, shortcutsOverlayOpen, onToggleShortcuts, tourActive, onToggleTour }) {
   const isLight = theme === 'light'
   return (
     <nav className="tabs" role="tablist">
@@ -70,6 +70,20 @@ function Tabs({ activeTab, onChange, theme, onToggleTheme, shortcutsOverlayOpen,
         data-anchor="header-shortcuts-button"
       >
         <Keyboard size={16} strokeWidth={1.8} />
+      </button>
+      {/* iter-L phase-4.4 : bouton Compass = démarre la visite guidée de
+          l'onglet actif. État actif pendant un tour. data-anchor pour de
+          futurs DocLink + cohérence convention. */}
+      <button
+        type="button"
+        className={`tour-toggle${tourActive ? ' is-active' : ''}`}
+        onClick={onToggleTour}
+        aria-label="Visite guidée"
+        aria-pressed={!!tourActive}
+        title="Visite guidée (Ctrl+J)"
+        data-anchor="header-tour-button"
+      >
+        <Compass size={16} strokeWidth={1.8} />
       </button>
       <div className="tabs-version" title={`Version ${APP_VERSION}`}>
         v{APP_VERSION}
