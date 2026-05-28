@@ -122,12 +122,47 @@
   color: var(--text-secondary);
 }
 
+/* « En savoir plus » : lien discret sous le body, vers l'article de doc. */
+.tour-learn-more {
+  display: inline-block;
+  margin-top: 10px;
+  padding: 0;
+  border: none;
+  background: none;
+  color: var(--accent);
+  font-size: 0.85rem;
+  cursor: pointer;
+}
+
+.tour-learn-more:hover {
+  text-decoration: underline;
+}
+
 .tour-bubble-footer {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 12px;
   margin-top: 14px;
+}
+
+/* Panneau de fin : propositions de chaînage vers les autres onglets. */
+.tour-end-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 14px 0 10px;
+}
+
+.tour-end-options .tour-nav-btn {
+  flex: 1 1 auto;
+  justify-content: center;
+}
+
+.tour-end-quit {
+  width: 100%;
+  justify-content: center;
+  color: var(--text-secondary);
 }
 
 .tour-bubble-counter {

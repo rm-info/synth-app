@@ -1,7 +1,8 @@
 import { useEffect, useState, useCallback, useLayoutEffect, useRef } from 'react'
 import { ChevronLeft, ChevronRight, X } from 'lucide-react'
 import { getAnchoredPosition } from '../lib/getAnchoredPosition'
-import { getTour } from '../lib/tours'
+import { getTour, TOUR_TABS } from '../lib/tours'
+import { DOC_TOC } from '../docs/index.js'
 import './Tour.css'
 
 // src/components/Tour.jsx — Moteur d'affichage du Tour guidé (iter-L phase-4).
@@ -98,11 +99,18 @@ function Tour({
   const bubbleRef = useRef(null)
   const sizeRef = useRef(BUBBLE_FALLBACK)
   const [bubbleSize, setBubbleSize] = useState(BUBBLE_FALLBACK)
+  // Panneau de fin (chaînage) : présentationnel. On mémorise l'étape sur
+  // laquelle « Suivant » a basculé en mode fin ; `atEnd` en est dérivé, donc
+  // un changement d'étape/onglet le désactive automatiquement (pas d'effet).
+  const [endKey, setEndKey] = useState(null)
 
   const { active, tabId, stepIndex } = tour
   const steps = getTour(tabId)
   const rawStep = steps[stepIndex]
   const anchorFound = active && rawStep ? getAnchoredPosition(rawStep.anchor).found : false
+
+  const currentKey = `${tabId}:${stepIndex}`
+  const atEnd = endKey === currentKey
 
   // Reposition au resize/scroll (l'ancre peut bouger). Pattern overlay L.1.5.
   useEffect(() => {
@@ -181,7 +189,7 @@ function Tour({
       sizeRef.current = { w: r.width, h: r.height }
       setBubbleSize(sizeRef.current)
     }
-  }, [stepIndex, tabId, anchorFound])
+  }, [stepIndex, tabId, anchorFound, atEnd])
 
   if (!active || !rawStep) return null
 
@@ -190,7 +198,6 @@ function Tour({
     .map((s, i) => ({ step: s, rawIndex: i }))
     .filter(({ step }) => isStepAvailable(step))
   const currentPos = availableSteps.findIndex((s) => s.rawIndex === stepIndex)
-  const isLast = currentPos >= 0 && currentPos === availableSteps.length - 1
   const isFirst = currentPos <= 0
 
   const goPrev = () => {
@@ -201,8 +208,23 @@ function Tour({
   const goNext = () => {
     if (currentPos >= 0 && currentPos < availableSteps.length - 1) {
       dispatch({ type: 'TOUR_GOTO', payload: availableSteps[currentPos + 1].rawIndex })
+    } else {
+      // Dernière étape → panneau de chaînage de fin de tour.
+      setEndKey(currentKey)
     }
   }
+
+  // « En savoir plus » : visible si l'étape référence un article existant.
+  const articleId = rawStep.article
+  const hasArticle = !!articleId && DOC_TOC.some((e) => e.id === articleId)
+  const goToArticle = () => {
+    dispatch({ type: 'END_TOUR_NO_RESTORE' })
+    dispatch({ type: 'SET_ACTIVE_TAB', payload: 'documentation' })
+    dispatch({ type: 'SET_CURRENT_ARTICLE', payload: articleId })
+  }
+
+  // Onglets proposés au chaînage (tous sauf celui en cours).
+  const chainTabs = TOUR_TABS.filter((t) => t.id !== tabId)
 
   const pos = getAnchoredPosition(rawStep.anchor)
   const bubble = pos.found ? placeBubble(pos, bubbleSize.w, bubbleSize.h) : null
@@ -278,31 +300,63 @@ function Tour({
           className="tour-bubble"
           style={{ top: bubble.top, left: bubble.left }}
         >
-          <div className="tour-bubble-body">
-            <h3 className="tour-bubble-title">{rawStep.title}</h3>
-            <p className="tour-bubble-text">{rawStep.body}</p>
-          </div>
-          <div className="tour-bubble-footer">
-            <span className="tour-bubble-counter">{counter}</span>
-            <div className="tour-bubble-nav">
+          {atEnd ? (
+            <div className="tour-end">
+              <h3 className="tour-bubble-title">Visite terminée</h3>
+              <p className="tour-bubble-text">Continuer la visite vers un autre onglet ?</p>
+              <div className="tour-end-options">
+                {chainTabs.map((t) => (
+                  <button
+                    key={t.id}
+                    type="button"
+                    className="tour-nav-btn"
+                    onClick={() => dispatch({ type: 'TOUR_CHAIN', payload: t.id })}
+                  >
+                    {t.label}
+                  </button>
+                ))}
+              </div>
               <button
                 type="button"
-                className="tour-nav-btn"
-                onClick={goPrev}
-                disabled={isFirst}
+                className="tour-nav-btn tour-end-quit"
+                onClick={() => dispatch({ type: 'END_TOUR' })}
               >
-                <ChevronLeft size={15} strokeWidth={2.2} /> Précédent
-              </button>
-              <button
-                type="button"
-                className="tour-nav-btn tour-nav-next"
-                onClick={goNext}
-                disabled={isLast}
-              >
-                Suivant <ChevronRight size={15} strokeWidth={2.2} />
+                Quitter (Échap)
               </button>
             </div>
-          </div>
+          ) : (
+            <>
+              <div className="tour-bubble-body">
+                <h3 className="tour-bubble-title">{rawStep.title}</h3>
+                <p className="tour-bubble-text">{rawStep.body}</p>
+                {hasArticle && (
+                  <button type="button" className="tour-learn-more" onClick={goToArticle}>
+                    En savoir plus →
+                  </button>
+                )}
+              </div>
+              <div className="tour-bubble-footer">
+                <span className="tour-bubble-counter">{counter}</span>
+                <div className="tour-bubble-nav">
+                  <button
+                    type="button"
+                    className="tour-nav-btn"
+                    onClick={goPrev}
+                    disabled={isFirst}
+                  >
+                    <ChevronLeft size={15} strokeWidth={2.2} /> Précédent
+                  </button>
+                  <button
+                    type="button"
+                    className="tour-nav-btn tour-nav-next"
+                    onClick={goNext}
+                  >
+                    Suivant <ChevronRight size={15} strokeWidth={2.2} />
+                  </button>
+                </div>
+              </div>
+            </>
+          )}
         </div>
       )}
     </div>
