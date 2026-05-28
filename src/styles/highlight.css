@@ -9,23 +9,29 @@
    Durée pilotée par --doc-highlight-duration, posée par le JS. */
 
 .doc-highlight-flash {
-  animation: doc-highlight-pulse var(--doc-highlight-duration, 1800ms) ease-out;
+  animation: doc-highlight-pulse var(--doc-highlight-duration, 3200ms) ease-out;
   /* Largeur/style stables sur la base, seule la couleur est animée — évite
      un saut de géométrie au premier/dernier keyframe. fill-mode par défaut
      (none) → retour à transparent après l'animation, aucun résidu. */
-  outline: 2px solid transparent;
-  outline-offset: 3px;
-  border-radius: 4px;
+  outline: 3px solid transparent;
+  outline-offset: 4px;
+  border-radius: 5px;
 }
 
+/* Le halo monte vite, tient un plateau bien visible (~jusqu'à 65 %) puis
+   s'efface en douceur — il « reste » au lieu de fondre tout de suite. */
 @keyframes doc-highlight-pulse {
   0% {
     outline-color: var(--accent-bright);
-    box-shadow: 0 0 0 4px var(--accent-bg-strong), 0 0 16px 4px var(--accent-bg-overlay);
+    box-shadow: 0 0 0 7px var(--accent-bg-strong), 0 0 30px 10px var(--accent-bg-overlay);
   }
-  40% {
+  12% {
+    outline-color: var(--accent-bright);
+    box-shadow: 0 0 0 8px var(--accent-bg-strong), 0 0 36px 12px var(--accent-bg-overlay);
+  }
+  65% {
     outline-color: var(--accent);
-    box-shadow: 0 0 0 3px var(--accent-bg-medium), 0 0 12px 3px var(--accent-bg-light);
+    box-shadow: 0 0 0 6px var(--accent-bg-medium), 0 0 24px 8px var(--accent-bg-light);
   }
   100% {
     outline-color: transparent;
@@ -34,10 +40,10 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  /* Pas de pulse animé : un halo statique court suffit comme repère. */
+  /* Pas de pulse animé : un halo statique large suffit comme repère. */
   .doc-highlight-flash {
     animation: none;
     outline-color: var(--accent);
-    box-shadow: 0 0 0 3px var(--accent-bg-medium);
+    box-shadow: 0 0 0 6px var(--accent-bg-medium);
   }
 }
