@@ -9,7 +9,8 @@
 //                 (sessionStorage de la position de lecture). À ne pas
 //                 changer une fois publié sans migration.
 //   - title     : libellé affiché dans la TOC (et en titre éventuel).
-//   - section   : groupage visuel ("Le projet", "Référence", "Articles").
+//   - section   : groupage visuel ("Le projet", "Comprendre", "Concepts",
+//                 "Tempéraments", "Référence").
 //   - type      : 'markdown' (rendu via MarkdownRenderer + source brute)
 //                 ou 'generated' (composant React dédié, dispatché par
 //                 DocumentationTab — id 'shortcuts' = ShortcutsReference).
@@ -22,6 +23,9 @@
 
 import aboutMd from './articles/about.md?raw'
 import why12Md from './articles/why-12-notes.md?raw'
+import comprendreTemperamentMd from './articles/comprendre-temperament.md?raw'
+import comprendreFormeOndeMd from './articles/comprendre-forme-onde.md?raw'
+import comprendrePianoPasJusteMd from './articles/comprendre-piano-pas-juste.md?raw'
 import rendererTestMd from './articles/_renderer-test.md?raw'
 import glossaireTechniqueMd from './articles/glossaire-technique.md?raw'
 import glossaireMusicalMd from './articles/glossaire-musical.md?raw'
@@ -45,6 +49,34 @@ export const DOC_TOC = [
     section: 'Le projet',
     type: 'markdown',
     source: aboutMd,
+  },
+  {
+    id: 'comprendre-piano-pas-juste',
+    title: 'Pourquoi le piano n\'est pas juste',
+    section: 'Comprendre',
+    type: 'markdown',
+    source: comprendrePianoPasJusteMd,
+  },
+  {
+    id: 'why-12-notes',
+    title: 'Pourquoi 12 notes ?',
+    section: 'Comprendre',
+    type: 'markdown',
+    source: why12Md,
+  },
+  {
+    id: 'comprendre-temperament',
+    title: 'Qu\'est-ce qu\'un tempérament ?',
+    section: 'Comprendre',
+    type: 'markdown',
+    source: comprendreTemperamentMd,
+  },
+  {
+    id: 'comprendre-forme-onde',
+    title: 'Ce que tu entends quand tu dessines une forme d\'onde',
+    section: 'Comprendre',
+    type: 'markdown',
+    source: comprendreFormeOndeMd,
   },
   {
     id: 'glossaire-technique',
@@ -156,12 +188,5 @@ export const DOC_TOC = [
     section: 'Référence',
     type: 'markdown',
     source: rendererTestMd,
-  },
-  {
-    id: 'why-12-notes',
-    title: 'Pourquoi 12 notes ?',
-    section: 'Articles',
-    type: 'markdown',
-    source: why12Md,
   },
 ]
