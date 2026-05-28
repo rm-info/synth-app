@@ -210,7 +210,13 @@
 .markdown-renderer .md-delim-inner {
   display: inline-flex;
   align-items: center;
-  padding: 0 0.15em;
+  padding: 0 0.08em;
+}
+/* Exposant collé à une parenthèse haute : le remonter vers le haut de la
+   parenthèse (sinon il s'aligne ~au niveau du numérateur). Ne cible que
+   le sup qui suit immédiatement un délimiteur extensible. */
+.markdown-renderer .md-delim + sup {
+  vertical-align: 0.75em;
 }
 .markdown-renderer .md-delim-edge {
   flex: 0 0 auto;
