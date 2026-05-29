@@ -4,7 +4,7 @@
 // Structure : [4 octets magic "OSA2"] [N octets gzip(JSON) corrompu]
 // Décision archi (spec §7.1) : zéro dépendance, CompressionStream natif.
 
-import { TUNING_SYSTEMS } from './tuningSystems.js'
+import { TUNING_SYSTEMS } from './tuningSystems'
 
 export const OSA_MAGIC = new Uint8Array([0x4F, 0x53, 0x41, 0x32]) // "OSA2"
 export const OSA_VERSION = 1

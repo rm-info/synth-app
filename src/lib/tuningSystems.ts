@@ -24,11 +24,13 @@
 //    helpers `getKeyboardMap(sys, xEdoN)` (et leurs cousins pour
 //    `noteNames` / `notesPerOctave`) qui résolvent le polymorphisme.
 
+import type { TuningSystem, TuningSystemId, TuningCategory } from '../types'
+
 export const DEFAULT_A4 = 440
 
 const TWELVE_TET_NOTE_NAMES = ['C', 'C♯', 'D', 'D♯', 'E', 'F', 'F♯', 'G', 'G♯', 'A', 'A♯', 'B']
 
-function twelveTetFreq(noteIndex, octave, a4Ref) {
+function twelveTetFreq(noteIndex: number, octave: number, a4Ref: number): number {
   const midi = (octave + 1) * 12 + noteIndex
   return a4Ref * Math.pow(2, (midi - 69) / 12)
 }
@@ -59,7 +61,7 @@ const PYTH_RATIOS_FROM_C = (() => {
 // sur A4 = a4Ref vaut a4Ref * (2/3)^3 * 2 = a4Ref * 16/27. Les autres notes
 // sont obtenues par multiplication avec les ratios pré-calculés ; l'octave
 // cible s'obtient par un facteur 2^(octave-4).
-function pythagoreanFreq(noteIndex, octave, a4Ref) {
+function pythagoreanFreq(noteIndex: number, octave: number, a4Ref: number): number {
   const c4 = (a4Ref * 16) / 27
   return c4 * PYTH_RATIOS_FROM_C[noteIndex] * Math.pow(2, octave - 4)
 }
@@ -91,7 +93,7 @@ const JUST_MAJOR_RATIOS_FROM_C = [
 // respecter l'invariant A4 = a4Ref, C4 doit valoir a4Ref × 3/5. Les
 // autres notes s'obtiennent en multipliant par le ratio relatif à C,
 // l'octave cible par un facteur 2^(octave-4).
-function justMajorCFreq(noteIndex, octave, a4Ref) {
+function justMajorCFreq(noteIndex: number, octave: number, a4Ref: number): number {
   const c4 = (a4Ref * 3) / 5
   return c4 * JUST_MAJOR_RATIOS_FROM_C[noteIndex] * Math.pow(2, octave - 4)
 }
@@ -121,7 +123,7 @@ const MEANTONE_QUARTER_COMMA_CENTS = [
 // A est à l'index 9 dans le tableau, à 889.735¢ au-dessus de C. Pour
 // ancrer A4 = a4Ref, C4 doit valoir a4Ref × 2^(-889.735/1200). Mêmes
 // règles d'octave que les autres systèmes-based (facteur 2^(octave-4)).
-function meantoneQuarterCommaFreq(noteIndex, octave, a4Ref) {
+function meantoneQuarterCommaFreq(noteIndex: number, octave: number, a4Ref: number): number {
   const c4 = a4Ref * Math.pow(2, -MEANTONE_QUARTER_COMMA_CENTS[9] / 1200)
   return c4 * Math.pow(2, MEANTONE_QUARTER_COMMA_CENTS[noteIndex] / 1200) * Math.pow(2, octave - 4)
 }
@@ -148,7 +150,7 @@ const WERCKMEISTER_III_CENTS = [
   1092.180, // B
 ]
 
-function werckmeisterIIIFreq(noteIndex, octave, a4Ref) {
+function werckmeisterIIIFreq(noteIndex: number, octave: number, a4Ref: number): number {
   const c4 = a4Ref * Math.pow(2, -WERCKMEISTER_III_CENTS[9] / 1200)
   return c4 * Math.pow(2, WERCKMEISTER_III_CENTS[noteIndex] / 1200) * Math.pow(2, octave - 4)
 }
@@ -241,7 +243,7 @@ const TWENTYFOUR_KEY_MAP = {
   KeyM: 21, // B↓ (entre KeyJ et KeyK)
 }
 
-function twentyFourTetEqualFreq(noteIndex, octave, a4Ref) {
+function twentyFourTetEqualFreq(noteIndex: number, octave: number, a4Ref: number): number {
   return a4Ref * Math.pow(2, (noteIndex - 18) / 24) * Math.pow(2, octave - 4)
 }
 
@@ -264,7 +266,7 @@ const CAIRO_1932_HZ_OCT4 = [
   464.12,  479.46,  505.92,  514.43,
 ]
 
-function twentyFourTetCairo1932Freq(noteIndex, octave, a4Ref) {
+function twentyFourTetCairo1932Freq(noteIndex: number, octave: number, a4Ref: number): number {
   return CAIRO_1932_HZ_OCT4[noteIndex] * (a4Ref / 440) * Math.pow(2, octave - 4)
 }
 
@@ -284,7 +286,7 @@ const PELOG_NOTE_NAMES = ROMAN_NOTE_NAMES_7
 // des mesures ne dépasse pas ±5¢ et varie d'un ensemble à l'autre.
 const SLENDRO_SURAKARTA_CENTS = [0, 241, 481, 719, 958]
 
-function slendroFreq(noteIndex, octave, a4Ref) {
+function slendroFreq(noteIndex: number, octave: number, a4Ref: number): number {
   return a4Ref * Math.pow(2, SLENDRO_SURAKARTA_CENTS[noteIndex] / 1200 + (octave - 4))
 }
 
@@ -297,7 +299,7 @@ function slendroFreq(noteIndex, octave, a4Ref) {
 // l'utilisateur choisit le sous-ensemble joué.
 const PELOG_SURAKARTA_CENTS = [0, 119, 258, 539, 678, 794, 1058]
 
-function pelogFreq(noteIndex, octave, a4Ref) {
+function pelogFreq(noteIndex: number, octave: number, a4Ref: number): number {
   return a4Ref * Math.pow(2, PELOG_SURAKARTA_CENTS[noteIndex] / 1200 + (octave - 4))
 }
 
@@ -325,7 +327,7 @@ const SHRUTI_CANONICAL_CENTS = [
 // 31-EDO, slendro, pelog. Helper partagé entre les deux frameworks
 // shrutis — les noms de notes diffèrent, la fréquence ne dépend que
 // du noteIndex.
-function shrutiFreq(noteIndex, octave, a4Ref) {
+function shrutiFreq(noteIndex: number, octave: number, a4Ref: number): number {
   return a4Ref * Math.pow(2, SHRUTI_CANONICAL_CENTS[noteIndex] / 1200 + (octave - 4))
 }
 
@@ -485,7 +487,7 @@ export const DEFAULT_X_EDO_N = 31
 // Suffixe "." aligné sur l'ancien THIRTYONE_EDO_NOTE_NAMES : sert de
 // séparateur visuel quand `formatClipNote` concatène avec l'octave
 // ("23." + "4" → "23.4"). Affichage clavier nu via `String(i+1)`.
-function xEdoNoteNames(xEdoN) {
+function xEdoNoteNames(xEdoN: number): string[] {
   return Array.from({ length: xEdoN }, (_, i) => `${i + 1}.`)
 }
 
@@ -494,7 +496,7 @@ function xEdoNoteNames(xEdoN) {
 // l'octave 4, cohérent avec 5-TET / 31-EDO / gamelan / shrutis. Le 4ᵉ
 // argument xEdoN est OBLIGATOIRE pour ce système — un undefined produirait
 // un NaN. Les autres systèmes du registre l'ignorent.
-function xEdoFreq(noteIndex, octave, a4Ref, xEdoN) {
+function xEdoFreq(noteIndex: number, octave: number, a4Ref: number, xEdoN: number): number {
   return a4Ref * Math.pow(2, noteIndex / xEdoN + (octave - 4))
 }
 
@@ -508,22 +510,22 @@ const xEdoKeyboardMap = xEdoKeyboardMapForN
 // classiques renvoient le champ tel quel ; pour X-EDO appellent la factory
 // avec `xEdoN`. Évite que chaque call-site duplique le ternaire
 // `typeof sys.X === 'function' ? sys.X(xEdoN) : sys.X`.
-export function getNotesPerOctave(sys, xEdoN) {
+export function getNotesPerOctave(sys: TuningSystem, xEdoN: number): number | null {
   return typeof sys.notesPerOctave === 'function' ? sys.notesPerOctave(xEdoN) : sys.notesPerOctave
 }
 
-export function getNoteNames(sys, xEdoN) {
+export function getNoteNames(sys: TuningSystem, xEdoN: number): readonly string[] | null {
   return typeof sys.noteNames === 'function' ? sys.noteNames(xEdoN) : sys.noteNames
 }
 
-export function getKeyboardMap(sys, xEdoN) {
+export function getKeyboardMap(sys: TuningSystem, xEdoN: number): Record<string, number> | null {
   return typeof sys.keyboardMap === 'function' ? sys.keyboardMap(xEdoN) : sys.keyboardMap
 }
 
 // Ordre des clés = ordre d'apparition dans les sélecteurs UI : 12-TET en
 // premier (cas par défaut), puis les systèmes alternatifs, puis 'free' en
 // dernier (le cas "à part").
-export const TUNING_SYSTEMS = {
+export const TUNING_SYSTEMS: Record<TuningSystemId, TuningSystem> = {
   '12-TET': {
     id: '12-TET',
     label: '12-TET (Tempérament égal occidental)',
@@ -660,8 +662,8 @@ export const TUNING_SYSTEMS = {
   },
 }
 
-export function getTuningSystem(id) {
-  const sys = TUNING_SYSTEMS[id]
+export function getTuningSystem(id: string): TuningSystem {
+  const sys = TUNING_SYSTEMS[id as TuningSystemId]
   if (sys) return sys
   console.warn(`Unknown tuning system "${id}", falling back to 12-TET`)
   return TUNING_SYSTEMS['12-TET']
@@ -682,7 +684,7 @@ export function getTuningSystem(id) {
 // L'ordre des entrées dans chaque `systems[]` détermine l'ordre d'apparition
 // dans le dropdown filtré. La liste est exhaustive : chaque système du
 // registre doit appartenir à exactement une catégorie.
-export const TUNING_CATEGORIES = {
+export const TUNING_CATEGORIES: Record<string, TuningCategory> = {
   moderne: {
     id: 'moderne',
     label: 'Moderne',
@@ -715,9 +717,9 @@ export const TUNING_CATEGORIES = {
 
 // Retourne l'id de catégorie d'un système. Fallback 'moderne' (12-TET) si
 // le système n'est pas catalogué — défensif, ne devrait pas arriver.
-export function getCategoryOfSystem(systemId) {
+export function getCategoryOfSystem(systemId: string): string {
   for (const cat of Object.values(TUNING_CATEGORIES)) {
-    if (cat.systems.includes(systemId)) return cat.id
+    if ((cat.systems as readonly string[]).includes(systemId)) return cat.id
   }
   return 'moderne'
 }
@@ -740,12 +742,18 @@ const MAX_OCTAVE = 10
 // systèmes l'ignorent. Quand X-EDO est ciblé sans xEdoN passé, on retombe
 // sur DEFAULT_X_EDO_N pour rester déterministe (utile en cas d'appel
 // transitoire pendant la migration de state).
-export function frequencyToNearestIn(hz, sysId, a4Ref = DEFAULT_A4, xEdoN = DEFAULT_X_EDO_N) {
+export function frequencyToNearestIn(
+  hz: number,
+  sysId: string,
+  a4Ref = DEFAULT_A4,
+  xEdoN = DEFAULT_X_EDO_N,
+): { noteIndex: number; octave: number } {
   const sys = getTuningSystem(sysId)
   if (!sys.freq) {
     throw new Error(`frequencyToNearestIn: système "${sysId}" n'a pas de freq()`)
   }
-  const npo = getNotesPerOctave(sys, xEdoN)
+  // sys.freq non-null ⇒ système basé sur degré ⇒ notesPerOctave est un nombre.
+  const npo = getNotesPerOctave(sys, xEdoN) as number
   let best = { noteIndex: 0, octave: MIN_OCTAVE, cents: Infinity }
   for (let oct = MIN_OCTAVE; oct <= MAX_OCTAVE; oct++) {
     for (let i = 0; i < npo; i++) {
