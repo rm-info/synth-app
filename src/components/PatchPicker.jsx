@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect } from 'react'
+import { STRINGS } from '../lib/strings'
 import './PatchPicker.css'
 
 // Composant lightweight pour les sidebars Designer/Composer.
@@ -189,7 +190,7 @@ export default function PatchPicker({
                   setContextMenu(null)
                 }}
               >
-                Éditer dans Designer
+                Éditer dans {STRINGS.tabs.designer}
               </button>
             )}
             <button

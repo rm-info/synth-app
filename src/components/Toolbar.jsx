@@ -87,7 +87,7 @@ function Toolbar({
           <span className="a4-unit">Hz</span>
         </label>
         {testTuningSystem !== undefined && (
-          <label className="tuning-control" title="Tempérament des nouveaux clips placés au clavier. Synchronisé avec le sélecteur du Designer.">
+          <label className="tuning-control" title={`Tempérament des nouveaux clips placés au clavier. Synchronisé avec le sélecteur de la ${STRINGS.tabs.designer}.`}>
             Tempérament
             <select
               className="tuning-select"

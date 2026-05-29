@@ -1,4 +1,5 @@
 import { useEffect } from 'react'
+import { STRINGS } from '../lib/strings'
 import './DeleteUsageWarningDialog.css'
 
 export default function DeleteUsageWarningDialog({
@@ -32,7 +33,7 @@ export default function DeleteUsageWarningDialog({
           </p>
         )}
         <p className="delete-warning-blocked-intro">
-          {blockedPatches.length} patch{blockedPatches.length > 1 ? 'es' : ''} non supprimé{blockedPatches.length > 1 ? 's' : ''} car utilisé{blockedPatches.length > 1 ? 's' : ''} dans le Composer :
+          {blockedPatches.length} patch{blockedPatches.length > 1 ? 'es' : ''} non supprimé{blockedPatches.length > 1 ? 's' : ''} car utilisé{blockedPatches.length > 1 ? 's' : ''} dans la {STRINGS.tabs.composer} :
         </p>
         <ul className="delete-warning-list">
           {blockedPatches.map(p => (
@@ -48,7 +49,7 @@ export default function DeleteUsageWarningDialog({
           <button
             className="delete-warning-btn primary"
             onClick={() => onGoToComposer?.({ patchIds: blockedPatches.map(p => p.id) })}
-          >Voir dans le Composer</button>
+          >Voir dans la {STRINGS.tabs.composer}</button>
           <button className="delete-warning-btn" onClick={onClose}>OK</button>
         </div>
       </div>

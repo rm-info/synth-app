@@ -1,5 +1,6 @@
 import { useMemo } from 'react'
 import { SHORTCUTS } from '../lib/shortcuts'
+import { STRINGS } from '../lib/strings'
 import './ShortcutsReference.css'
 
 // Article "Raccourcis clavier" généré depuis `SHORTCUTS` (iter-L
@@ -13,12 +14,12 @@ import './ShortcutsReference.css'
 // "1-7 (Numpad ou Shift+Digit)", etc.). Pour les notes l'utilisateur
 // est renvoyé à l'overlay raccourcis (Ctrl+K) qui dessine le mapping
 // live de la touche.
-const SECTIONS_ORDER = ['Global', 'Designer', 'Composer', 'Bibliothèque']
+const SECTIONS_ORDER = ['Global', STRINGS.tabs.designer, STRINGS.tabs.composer, STRINGS.tabs.library]
 const SECTION_INTRO = {
-  Global: 'Disponibles dans tous les onglets éditeur (Designer et Composer). L\'overlay (Ctrl+K) en haut à droite affiche les raccourcis du contexte actif.',
-  Designer: 'Actifs quand l\'onglet Designer est ouvert et que le focus n\'est pas dans un champ de saisie.',
-  Composer: 'Actifs quand l\'onglet Composer est ouvert et que le focus n\'est pas dans un champ de saisie. Plusieurs raccourcis s\'appliquent à la sélection courante (cf. condition).',
-  Bibliothèque: 'Actifs uniquement quand le focus est dans l\'onglet Bibliothèque (sélection ou navigation TOC). Permet de manipuler patches et dossiers.',
+  Global: `Disponibles dans tous les onglets éditeur (${STRINGS.tabs.designer} et ${STRINGS.tabs.composer}). L'overlay (Ctrl+K) en haut à droite affiche les raccourcis du contexte actif.`,
+  [STRINGS.tabs.designer]: `Actifs quand l'onglet ${STRINGS.tabs.designer} est ouvert et que le focus n'est pas dans un champ de saisie.`,
+  [STRINGS.tabs.composer]: `Actifs quand l'onglet ${STRINGS.tabs.composer} est ouvert et que le focus n'est pas dans un champ de saisie. Plusieurs raccourcis s'appliquent à la sélection courante (cf. condition).`,
+  [STRINGS.tabs.library]: `Actifs uniquement quand le focus est dans l'onglet ${STRINGS.tabs.library} (sélection ou navigation TOC). Permet de manipuler patches et dossiers.`,
 }
 
 export default function ShortcutsReference() {
@@ -74,5 +75,5 @@ function primarySection(entry) {
   if (entry.contexts.includes('global')) return 'Global'
   if (entry.contexts.length > 1) return 'Global'
   const c = entry.contexts[0]
-  return { designer: 'Designer', composer: 'Composer', library: 'Bibliothèque' }[c] ?? c
+  return { designer: STRINGS.tabs.designer, composer: STRINGS.tabs.composer, library: STRINGS.tabs.library }[c] ?? c
 }

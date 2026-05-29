@@ -25,7 +25,9 @@ function pathFromTrail(trail) {
 // Retourne le folderId ou { error: '...' } si invalide.
 function parsePath(pathStr, soundFolders) {
   const cleaned = pathStr.trim().replace(/^\/+|\/+$/g, '')
-  if (cleaned === '' || cleaned.toLowerCase() === 'root') return null
+  // Racine : accepte le libellé FR affiché ('racine', cf. STRINGS.library.root)
+  // ET 'root' (rétro-compat / saisie historique). Additif, ne casse rien.
+  if (cleaned === '' || cleaned.toLowerCase() === 'racine' || cleaned.toLowerCase() === 'root') return null
   const segments = cleaned.split('/').filter(s => s.length > 0)
   if (segments.length === 0) return null
   let parentId = null

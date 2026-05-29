@@ -2221,7 +2221,7 @@ function App() {
                       width={designerSidebarWidth}
                       minWidth={DESIGNER_SIDEBAR_MIN_WIDTH}
                       onChange={handleResizeDesignerSidebar}
-                      ariaLabel="Redimensionner le panneau latéral du Designer"
+                      ariaLabel={`Redimensionner le panneau latéral de la ${STRINGS.tabs.designer}`}
                     />
                   </>
                 )}

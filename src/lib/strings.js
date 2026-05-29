@@ -10,15 +10,12 @@
 // volontairement conservés (acronymes, « patch ») et les cas « à arbitrer »
 // (laissés EN), pour qu'une décision archi future soit un changement d'une
 // ligne. Cf. `archi/M0-audit-francisation.md`.
-//
-// NB : ce commit (phase-0b SC1) CENTRALISE à valeurs inchangées (refactor
-// neutre) ; les traductions FR claires sont appliquées en SC2.
 
 const fr = {
-  // Onglets principaux.
+  // Onglets principaux (Designer→Création, Composer→Composition : iter-M).
   tabs: {
-    designer: 'Designer',
-    composer: 'Composer',
+    designer: 'Création',
+    composer: 'Composition',
     library: 'Bibliothèque',
     documentation: 'Documentation',
   },
@@ -33,42 +30,42 @@ const fr = {
     exportBusy: 'Export…',    // à arbitrer (Export… / Exportation…)
   },
 
-  // Éditeur de patch (Designer).
+  // Éditeur de patch (Création).
   editor: {
-    waveformTitle: 'Waveform',
+    waveformTitle: 'Forme d’onde',
     spectroToggle: 'Spectro', // à arbitrer (Spectro / Spectrogramme)
-    clear: 'Clear',
+    clear: 'Effacer',
     test: 'Test',             // à arbitrer (Test / Tester)
     canvasEmpty: 'Canvas vide', // à arbitrer (Tracé vide / Toile vide)
   },
 
   // Presets de formes d'onde.
   presets: {
-    sine: 'Sine',
-    square: 'Square',
-    sawtooth: 'Sawtooth',
+    sine: 'Sinusoïde',
+    square: 'Carrée',
+    sawtooth: 'Dent de scie',
     triangle: 'Triangle',
   },
 
   // Enveloppe AHDSR. « Sustain » conservé (à arbitrer) ; les autres étapes
-  // ont un FR clair (appliqué en SC2).
+  // ont un FR clair.
   adsr: {
-    attack: 'Attack',
-    hold: 'Hold',
-    decay: 'Decay',
+    attack: 'Attaque',
+    hold: 'Maintien',
+    decay: 'Déclin',
     sustain: 'Sustain',       // à arbitrer (Sustain / Tenue)
-    release: 'Release',
+    release: 'Relâchement',
     // Tooltips des poignées sur le tracé (P1 / P1h / P2 / P4).
-    handleP1: 'Attack + Amplitude',
-    handleHold: 'Hold',
-    handleP2: 'Decay + Sustain',
-    handleRelease: 'Release',
+    handleP1: 'Attaque + Amplitude',
+    handleHold: 'Maintien',
+    handleP2: 'Déclin + Sustain',
+    handleRelease: 'Relâchement',
   },
 
   // Pistes (timeline).
   track: {
-    muteTitle: 'Mute',
-    unmuteTitle: 'Unmute',
+    muteTitle: 'Mettre en sourdine',
+    unmuteTitle: 'Réactiver le son',
     soloOnTitle: 'Solo',          // à arbitrer (Solo / Isoler)
     soloOffTitle: 'Désactiver solo',
   },
@@ -81,7 +78,7 @@ const fr = {
 
   // Bibliothèque.
   library: {
-    root: 'root',
+    root: 'Racine',
   },
 
   // Termes volontairement CONSERVÉS (graine complète — décision archi).

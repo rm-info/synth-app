@@ -1663,7 +1663,7 @@ function Timeline({
       )}
       {patches.length > 0 && hasNoClips && (
         <p className="timeline-hint">
-          Glissez-déposez un patch depuis la banque pour placer un clip. Double-clic pour éditer dans Designer, clic droit pour options.
+          Glissez-déposez un patch depuis la banque pour placer un clip. Double-clic pour éditer dans {STRINGS.tabs.designer}, clic droit pour options.
           Ctrl + molette pour zoomer.
         </p>
       )}

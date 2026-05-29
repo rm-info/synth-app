@@ -7,6 +7,7 @@ import {
 import { getDescendantFolderIds, countFolderContents } from '../reducer'
 import { matchesShortcut } from '../lib/shortcuts'
 import { nextAvailableFolderName } from '../lib/folderNames.js'
+import { STRINGS } from '../lib/strings'
 import BibBreadcrumb from './BibBreadcrumb'
 import BibContextMenu from './BibContextMenu'
 import ConfirmDialog from './ConfirmDialog'
@@ -725,7 +726,7 @@ function PatchBank({
                 </span>
                 <span
                   className="chip-meta-usage"
-                  title={`Utilisé dans ${patchUsageCount.get(patch.id) ?? 0} clip(s) du Composer`}
+                  title={`Utilisé dans ${patchUsageCount.get(patch.id) ?? 0} clip(s) de la ${STRINGS.tabs.composer}`}
                 >
                   {patchUsageCount.get(patch.id) ?? 0}×
                 </span>
@@ -1323,12 +1324,12 @@ function PatchBank({
         {renderBreadcrumb()}
         {renderInlineCreateFolder()}
         <p className="sound-bank-empty">
-          Aucun patch. Dessinez-en un dans l&apos;onglet Designer.
+          Aucun patch. Dessinez-en un dans l&apos;onglet {STRINGS.tabs.designer}.
         </p>
         <ConfirmDialog
           open={confirmingClearLibrary}
           title="Vider la bibliothèque ?"
-          message="Tous les patches et dossiers seront supprimés. Les patches utilisés dans le Composer seront conservés. Cette action peut être annulée via Ctrl+Z."
+          message={`Tous les patches et dossiers seront supprimés. Les patches utilisés dans la ${STRINGS.tabs.composer} seront conservés. Cette action peut être annulée via Ctrl+Z.`}
           confirmLabel="Vider"
           cancelLabel="Annuler"
           variant="danger"
