@@ -1,6 +1,7 @@
 import { useRef, useEffect, useCallback } from 'react'
 import { pointsToHarmonics } from '../audio'
 import { themeColor } from '../lib/themeColor'
+import { STRINGS } from '../lib/strings'
 import './Spectrogram.css'
 
 const FREQ_MIN = 16
@@ -446,7 +447,7 @@ function Spectrogram({
             onClick={onToggleMode}
             className={`spectrogram-toggle${mode === 'live' ? ' is-active' : ''}`}
             title="Mode Live (analyse temps réel)"
-          >Live</button>
+          >{STRINGS.spectro.live}</button>
           <button
             type="button"
             onClick={onToggleDbScale}
@@ -458,7 +459,7 @@ function Spectrogram({
             onClick={onTogglePeakHold}
             className={`spectrogram-toggle${peakHold ? ' is-active' : ''}`}
             title="Tenir les pics (mode Live)"
-          >Peak</button>
+          >{STRINGS.spectro.peak}</button>
         </div>
       </header>
       <div className="spectrogram-canvas-container" ref={containerRef}>

@@ -28,6 +28,7 @@ import {
   systemSupportsVisualCues,
 } from '../lib/visualCues'
 import { themeColor } from '../lib/themeColor'
+import { STRINGS } from '../lib/strings'
 import ConfirmDialog from './ConfirmDialog'
 import './WaveformEditor.css'
 
@@ -103,10 +104,10 @@ function adsrLevelToY(level) {
 // Libellés des handles ADSR (F.3.13.2). Indexation alignée sur le hit-test :
 // 1=P1 (attack+amp), 5=P1h (hold), 2=P2 (decay+sustain), 4=P4 (release).
 const ADSR_HANDLE_LABELS = {
-  1: 'Attack + Amplitude',
-  5: 'Hold',
-  2: 'Decay + Sustain',
-  4: 'Release',
+  1: STRINGS.adsr.handleP1,
+  5: STRINGS.adsr.handleHold,
+  2: STRINGS.adsr.handleP2,
+  4: STRINGS.adsr.handleRelease,
 }
 
 const ADSR_TOOLTIP_OFFSET = 12
@@ -1089,7 +1090,7 @@ function WaveformEditor({
   const handleSaveAsNew = () => {
     const hasSignal = points.some((v) => v !== 0)
     if (!hasSignal) {
-      flashMessage('Canvas vide')
+      flashMessage(STRINGS.editor.canvasEmpty)
       return
     }
 
@@ -1120,7 +1121,7 @@ function WaveformEditor({
     if (!currentPatch) return
     const hasSignal = points.some((v) => v !== 0)
     if (!hasSignal) {
-      flashMessage('Canvas vide')
+      flashMessage(STRINGS.editor.canvasEmpty)
       return
     }
     onUpdatePatch(currentPatch.id, buildPayload(currentPatch.name))
@@ -1583,7 +1584,7 @@ function WaveformEditor({
     <div className="we-canvas-area" data-anchor="designer-waveform">
       <header className="we-area-header">
         <div className="we-header-left">
-          <h3 className="we-area-title">Waveform</h3>
+          <h3 className="we-area-title">{STRINGS.editor.waveformTitle}</h3>
           <span className="we-sound-tag">
             {currentPatch ? `Édition : ${currentPatch.name}` : defaultName}
           </span>
@@ -1599,17 +1600,17 @@ function WaveformEditor({
                 checked={!!spectrogramVisible}
                 onChange={(e) => onToggleSpectrogram(e.target.checked)}
               />
-              <span>Spectro</span>
+              <span>{STRINGS.editor.spectroToggle}</span>
             </label>
           )}
         </div>
       </header>
       <div className="presets">
-        <button onClick={() => loadPreset('sine')}>Sine</button>
-        <button onClick={() => loadPreset('square')}>Square</button>
-        <button onClick={() => loadPreset('sawtooth')}>Sawtooth</button>
-        <button onClick={() => loadPreset('triangle')}>Triangle</button>
-        <button onClick={clearCanvas}>Clear</button>
+        <button onClick={() => loadPreset('sine')}>{STRINGS.presets.sine}</button>
+        <button onClick={() => loadPreset('square')}>{STRINGS.presets.square}</button>
+        <button onClick={() => loadPreset('sawtooth')}>{STRINGS.presets.sawtooth}</button>
+        <button onClick={() => loadPreset('triangle')}>{STRINGS.presets.triangle}</button>
+        <button onClick={clearCanvas}>{STRINGS.editor.clear}</button>
       </div>
       <div className="canvas-container" ref={canvasContainerRef}>
         <canvas
@@ -1801,7 +1802,7 @@ function WaveformEditor({
                 aria-pressed={freeNoteActive}
                 data-anchor="designer-test-free-button"
               >
-                Test <span className="free-test-shortcut">(s)</span>
+                {STRINGS.editor.test} <span className="free-test-shortcut">(s)</span>
               </button>
             </>
           ) : (
@@ -1866,7 +1867,7 @@ function WaveformEditor({
                   aria-pressed={sustainActive}
                   data-anchor="designer-sustain-pastille"
                 >
-                  Sustain
+                  {STRINGS.adsr.sustain}
                   {sustainLocked && <Lock size={11} strokeWidth={2.5} aria-hidden="true" />}
                 </button>
               </div>
@@ -2064,7 +2065,7 @@ function WaveformEditor({
     const renderSustainSlider = () => (
       <div className="adsr-slider">
         <label htmlFor="adsr-sustain">
-          <span>Sustain</span>
+          <span>{STRINGS.adsr.sustain}</span>
           <NumberInput
             value={sustain}
             onChange={(v) => commitInputAdsr('sustain', v)}
@@ -2073,7 +2074,7 @@ function WaveformEditor({
             parse={parsePercent}
             format={formatPercent}
             className="adsr-value-input"
-            ariaLabel="Sustain en pourcentage"
+            ariaLabel={`${STRINGS.adsr.sustain} en pourcentage`}
           />
         </label>
         <input
@@ -2149,11 +2150,11 @@ function WaveformEditor({
           </div>
           <div className="adsr-sliders">
             {renderAmpSlider()}
-            {renderMsSlider('attack', 'Attack')}
-            {renderMsSlider('hold', 'Hold')}
-            {renderMsSlider('decay', 'Decay')}
+            {renderMsSlider('attack', STRINGS.adsr.attack)}
+            {renderMsSlider('hold', STRINGS.adsr.hold)}
+            {renderMsSlider('decay', STRINGS.adsr.decay)}
             {renderSustainSlider()}
-            {renderMsSlider('release', 'Release')}
+            {renderMsSlider('release', STRINGS.adsr.release)}
           </div>
         </div>
       </div>

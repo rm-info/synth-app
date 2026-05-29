@@ -1,4 +1,5 @@
 import { Play, Square } from 'lucide-react'
+import { STRINGS } from '../lib/strings'
 import './MiniPlayer.css'
 
 /**
@@ -27,7 +28,7 @@ function MiniPlayer({
         onClick={isPlaying ? onStop : onPlay}
         disabled={!hasClips}
         title={isPlaying ? 'Arrêter' : 'Lire la composition'}
-        aria-label={isPlaying ? 'Stop' : 'Play'}
+        aria-label={isPlaying ? STRINGS.transport.stopAria : STRINGS.transport.playAria}
       >
         {isPlaying
           ? <Square size={14} strokeWidth={2.2} fill="currentColor" />

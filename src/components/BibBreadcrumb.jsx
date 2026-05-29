@@ -1,4 +1,5 @@
 import { useState, useMemo } from 'react'
+import { STRINGS } from '../lib/strings'
 import './BibBreadcrumb.css'
 
 // Reconstruit la chaîne de parents jusqu'à currentFolderId.
@@ -89,7 +90,7 @@ export default function BibBreadcrumb({ currentFolderId, soundFolders, onNavigat
         className={`seg ${currentFolderId === null ? 'current' : ''}`}
         onClick={currentFolderId === null ? undefined : () => onNavigate(null)}
       >
-        root
+        {STRINGS.library.root}
       </span>
       {trail.map((node, i) => (
         <span key={node.id} className="seg-wrap">

@@ -19,6 +19,7 @@ import ConfirmDialog from './components/ConfirmDialog'
 import ShortcutsOverlay from './components/ShortcutsOverlay'
 import DocumentationTab from './components/DocumentationTab'
 import Tour from './components/Tour'
+import { STRINGS } from './lib/strings'
 import {
   reducer,
   withUndo,
@@ -2134,7 +2135,7 @@ function App() {
                       onClick={playback.isPlaying ? playback.stop : playback.play}
                       disabled={clips.length === 0}
                       title={playback.isPlaying ? 'Arrêter la lecture' : 'Lire la composition'}
-                      aria-label={playback.isPlaying ? 'Stop' : 'Play'}
+                      aria-label={playback.isPlaying ? STRINGS.transport.stopAria : STRINGS.transport.playAria}
                     >
                       {playback.isPlaying
                         ? <Square size={14} strokeWidth={2.2} fill="currentColor" />
@@ -2238,7 +2239,7 @@ function App() {
                    vides après réouverture (cf. ce commit). */
                 <div className="designer-main designer-main-mobile">
                   {[
-                    { id: 'canvas', title: 'Waveform', body: renderCanvasArea() },
+                    { id: 'canvas', title: STRINGS.editor.waveformTitle, body: renderCanvasArea() },
                     { id: 'spectrogram', title: 'Spectrogramme', body: spectrogramNode },
                     { id: 'adsr', title: 'Enveloppe AHDSR', body: renderAdsrArea() },
                     { id: 'params', title: 'Instrument', body: renderParamsArea() },

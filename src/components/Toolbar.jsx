@@ -3,6 +3,7 @@ import A4Input from './A4Input'
 import XEdoInput from './XEdoInput'
 import DurationButtons from './DurationButtons'
 import { TUNING_SYSTEMS, X_EDO_MAX, X_EDO_MIN } from '../lib/tuningSystems'
+import { STRINGS } from '../lib/strings'
 import './Toolbar.css'
 
 /**
@@ -63,10 +64,10 @@ function Toolbar({
           className={`transport-btn ${isPlaying ? 'playing' : ''}`}
           onClick={isPlaying ? onStop : onPlay}
           disabled={!hasClips}
-          aria-label={isPlaying ? 'Stop' : 'Play'}
+          aria-label={isPlaying ? STRINGS.transport.stopAria : STRINGS.transport.playAria}
           data-anchor="composer-transport"
         >
-          {isPlaying ? '■ Stop' : '▶ Play'}
+          {isPlaying ? STRINGS.transport.stopLabel : STRINGS.transport.playLabel}
         </button>
         {isPlaying && (
           <span className="time-display">
@@ -266,7 +267,7 @@ function Toolbar({
           disabled={!hasClips || isExporting}
           data-anchor="composer-export-button"
         >
-          {isExporting ? 'Export…' : 'Exporter WAV'}
+          {isExporting ? STRINGS.transport.exportBusy : STRINGS.transport.exportIdle}
         </button>
       </div>
     </div>

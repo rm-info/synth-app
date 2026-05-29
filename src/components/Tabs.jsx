@@ -2,6 +2,7 @@
 // on s'appuie sur la même dépendance pour les icônes de toggle thème +
 // bouton raccourcis (Keyboard, iter-L phase-1.6).
 import { Moon, Sun, Keyboard, Compass } from 'lucide-react'
+import { STRINGS } from '../lib/strings'
 import './Tabs.css'
 
 // iter-L phase-2.1 : ajout du 4e onglet Documentation à droite des trois
@@ -9,10 +10,10 @@ import './Tabs.css'
 // d'éventuels DocLink/Tour pointant vers l'onglet (cohérence avec la
 // convention `data-anchor` de L.1).
 const TABS = [
-  { id: 'library', label: 'Bibliothèque', hint: 'Gérer la bibliothèque de patches' },
-  { id: 'designer', label: 'Designer', hint: 'Dessiner et éditer des sons' },
-  { id: 'composer', label: 'Composer', hint: 'Composer la timeline' },
-  { id: 'documentation', label: 'Documentation', hint: 'Aide, raccourcis et articles', dataAnchor: 'tab-documentation' },
+  { id: 'library', label: STRINGS.tabs.library, hint: 'Gérer la bibliothèque de patches' },
+  { id: 'designer', label: STRINGS.tabs.designer, hint: 'Dessiner et éditer des sons' },
+  { id: 'composer', label: STRINGS.tabs.composer, hint: 'Composer la timeline' },
+  { id: 'documentation', label: STRINGS.tabs.documentation, hint: 'Aide, raccourcis et articles', dataAnchor: 'tab-documentation' },
 ]
 
 // Constante injectée au build par Vite (vite.config.js define).

@@ -6,6 +6,7 @@ import {
   MIN_CLIP_DURATION,
 } from '../lib/timelineLayout'
 import { BEATS_PER_MEASURE, TRACK_COLORS } from '../reducer'
+import { STRINGS } from '../lib/strings'
 import { formatClipNote } from '../lib/clipNote'
 import { DEFAULT_X_EDO_N } from '../lib/tuningSystems'
 import { themeColor } from '../lib/themeColor'
@@ -1212,13 +1213,13 @@ function Timeline({
                     type="button"
                     className={`track-mute-btn${track.muted ? ' is-active' : ''}`}
                     onClick={(e) => { e.stopPropagation(); onUpdateTrack?.(track.id, { muted: !track.muted }) }}
-                    title={track.muted ? 'Unmute' : 'Mute'}
+                    title={track.muted ? STRINGS.track.unmuteTitle : STRINGS.track.muteTitle}
                   >M</button>
                   <button
                     type="button"
                     className={`track-solo-btn${track.solo ? ' is-active' : ''}`}
                     onClick={(e) => { e.stopPropagation(); onUpdateTrack?.(track.id, { solo: !track.solo }) }}
-                    title={track.solo ? 'Désactiver solo' : 'Solo'}
+                    title={track.solo ? STRINGS.track.soloOffTitle : STRINGS.track.soloOnTitle}
                   >S</button>
                   <input
                     type="range"

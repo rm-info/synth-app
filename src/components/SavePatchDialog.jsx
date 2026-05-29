@@ -1,5 +1,6 @@
 import { useState, useMemo, useEffect } from 'react'
 import { nextAvailableFolderName } from '../lib/folderNames.js'
+import { STRINGS } from '../lib/strings'
 import './SavePatchDialog.css'
 
 function buildPathToRoot(folderId, soundFolders) {
@@ -169,7 +170,7 @@ export default function SavePatchDialog({
             className="save-dialog-breadcrumb"
             onClick={() => setDropdownOpen(o => !o)}
           >
-            <span className={`save-dialog-seg ${trail.length === 0 ? 'current' : ''}`}>root</span>
+            <span className={`save-dialog-seg ${trail.length === 0 ? 'current' : ''}`}>{STRINGS.library.root}</span>
             {trail.map((node, i) => (
               <span key={node.id} className="save-dialog-seg-wrap">
                 <span className="save-dialog-sep">/</span>
@@ -187,7 +188,7 @@ export default function SavePatchDialog({
                 className={`save-dialog-tree-item ${folderId === null ? 'selected' : ''}`}
                 onClick={() => { setFolderId(null); setDropdownOpen(false) }}
               >
-                📁 root
+                📁 {STRINGS.library.root}
               </div>
               {flatTree.map((f) => (
                 <div
