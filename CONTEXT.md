@@ -1866,8 +1866,10 @@ Phases listées ci-dessous dans l'ordre chronologique d'implémentation.
   composants consommant les clés). SC2 : traductions claires — onglets
   Designer→Création / Composer→Composition (+ toutes leurs références),
   Forme d'onde, presets, étapes AHDSR (Attaque/Maintien/Déclin/Relâchement),
-  Mute→Sourdine, root→Racine. Cas « à arbitrer » laissés EN (Play/Stop,
-  Sustain, Solo, Spectro, Live/Peak, Test, OK…) — décision archi à venir.
+  Mute→Sourdine, root→Racine. Cas « à arbitrer » tranchés par l'archi le
+  2026-05-29 et appliqués : Play/Stop→Lire/Arrêter, Export…→Exporter…,
+  Test→Tester, Peak→Crête, Live→Direct, Canvas vide→Zone de dessin vide,
+  Sustain→Soutenir ; conservés : Spectro, Solo, OK.
 - Iteration M — préalable A (migration TypeScript, phases 0+1, 2026-05-29).
   Adoption TS **incrémentale** posée avant la perf et avant M.2 (Patch typé) :
   devDep `typescript` + `tsconfig.json` (allowJs/noEmit/strict:false) ;
@@ -2506,9 +2508,11 @@ Phases listées ci-dessous dans l'ordre chronologique d'implémentation.
     en sourdine/Réactiver le son ; root→Racine (BibBreadcrumb.parsePath
     accepte 'racine' en plus de 'root', additif). « patch » et acronymes
     (ADSR/BPM/Hz/A4…) conservés.
-  - **À arbitrer (laissés EN)** : Play/Stop, Export…, Spectro, Test, Sustain,
-    Solo, Live, Peak, OK, « Canvas vide ». Listés dans l'audit avec options ;
-    petit follow-up archi → changement d'une ligne dans `strings.js`.
+  - **Arbitrage archi (2026-05-29, appliqué)** : Play/Stop→Lire/Arrêter,
+    Export…→Exporter…, Test→Tester, Peak→Crête, Live→Direct, « Canvas vide »→
+    « Zone de dessin vide », Sustain→**Soutenir** (à gloser au glossaire,
+    domaine writer). Conservés : Spectro, Solo, OK. Commit séparé
+    `feat(iter-M/phase-0b): libellés arbitrés`.
   - Hors scope respecté : zéro changement fonctionnel/audio, aucune clé
     localStorage / data-anchor / action-type / id touchée, aucun fichier ni
     composant renommé. build/typecheck/lint OK. dev server non touché.
@@ -5417,8 +5421,8 @@ et L.7 (exercices guidés) restent des options de backlog, hors périmètre 1.4.
     `tuningSystems.js → .ts`, câblage JSDoc du reducer.
 - ✅ **Préalable B — Francisation des libellés** (2026-05-29) : graine i18n
   (`src/lib/strings.js`), libellés UI normalisés en FR. SC1 audit + infra
-  (refactor neutre), SC2 traductions claires. Cas « à arbitrer » laissés EN
-  (cf. `archi/M0-audit-francisation.md`) → petit follow-up archi.
+  (refactor neutre), SC2 traductions claires. Cas « à arbitrer » tranchés et
+  appliqués le 2026-05-29 (cf. `archi/M0-audit-francisation.md`).
 - ⏳ **M.2** — Patch typé : union discriminée par mode de fabrication du timbre
   (`draw` / `spline` / `harmonic`). Hors scope du préalable A (types Waveform
   réservés à M.2).
