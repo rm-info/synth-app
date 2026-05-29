@@ -2,13 +2,49 @@
 
 > Suivi des idées, pistes et dettes techniques reportées.
 > Tenu par l'archi. Source de vérité pour ce qui n'est pas encore planifié.
-> Dernière mise à jour : 2026-05-28.
+> Dernière mise à jour : 2026-05-29.
 
-> Note : itérations G-K closes côté implémenteur (cf. CONTEXT.md).
-> Prochaine itération cadrée : **Iteration L (Documentation)** — voir
-> section dédiée ci-dessous. Les sections "Aide à l'utilisation" et
-> "Matériel pédagogique" du backlog général (et la question "Système
-> de modes") sont **absorbées par Iteration L**.
+> Note : itérations G-L closes côté implémenteur (L = doc, release v1.4.0 ;
+> cf. CONTEXT.md). Prochaine itération cadrée : **Iteration M (Waveform)** —
+> voir section dédiée ci-dessous (spec :
+> `docs/superpowers/specs/2026-05-29-waveform-designer-design.md`).
+
+---
+
+## Iteration M (Waveform) — cadrée 2026-05-29
+
+Cœur création de son : donner le contrôle du contenu harmonique pour des
+timbres maîtrisés (proches d'instruments dans les limites du modèle, ou
+inattendus mais propres). **Spec complète** :
+`docs/superpowers/specs/2026-05-29-waveform-designer-design.md`.
+
+Résumé : **Monde A** (série harmonique, mono-`PeriodicWave`) ; trois modes de
+fabrication coexistants — **dessin libre** (inchangé), **points/spline**,
+**éditeur d'harmoniques** (barres + N) — avec **passerelle de conversion** ;
+**slider de définition** (troncature, nettoie un dessin sans quitter la 2D) ;
+**bump 128→256 harmoniques** (resample 600→512) ; **layout 3 colonnes** Forme
+d'onde / Harmoniques / Spectro (read-only), proportions adaptatives au mode +
+presets + drag, **auto-sizing en option (essai à confirmer/jeter)** ; **patch
+typé** (prérequis migration TS Phase 0+1) ; **francisation** des libellés ;
+**passe doc** sur le cœur de la synthèse (+ extension renderer `\sum`).
+
+Découpage : **préalable** TS Phase 0+1 + francisation groundwork → **M.1**
+(bump 256 + slider définition) → **M.2** (layout + patch typé + éditeur barres
++ passerelle + toggle auto-sizing) → **M.3** (spline) → **M.4** (presets) →
+**M.5a** (renderer `\sum`) → **M.5b** (doc writer).
+
+Hors scope : inharmonique (Monde B), morph A↔B, toggles miroir (inaudibles),
+>600 points.
+
+Items backlog issus de la session :
+- **i18n / multilingue complet** : la francisation M sème les chaînes
+  centralisées ; le multilingue (ajout de langues) vient après.
+- **Auto-sizing au focus** : à confirmer ou jeter avant clôture de M. Critère :
+  garde si ça accélère sans distraire ; jette si le whiplash de reflow >
+  confort, ou si éditer les barres avec un spectro rétréci gêne.
+- **Itération « timbres riches / évolutifs »** (future) : Monde B inharmonique
+  (cloches, métal) + morph A↔B (spectre évolutif). Les deux vrais chemins vers
+  les sons « inattendus » qu'une mono-forme-d'onde ne peut pas produire.
 
 ---
 
