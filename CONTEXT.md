@@ -1865,11 +1865,12 @@ Phases listées ci-dessous dans l'ordre chronologique d'implémentation.
   audit (`archi/M0-audit-francisation.md`) + centralisation (refactor neutre,
   composants consommant les clés). SC2 : traductions claires — onglets
   Designer→Création / Composer→Composition (+ toutes leurs références),
-  Forme d'onde, presets, étapes AHDSR (Attaque/Maintien/Déclin/Relâchement),
-  Mute→Sourdine, root→Racine. Cas « à arbitrer » tranchés par l'archi le
-  2026-05-29 et appliqués : Play/Stop→Lire/Arrêter, Export…→Exporter…,
-  Test→Tester, Peak→Crête, Live→Direct, Canvas vide→Zone de dessin vide,
-  Sustain→Soutenir ; conservés : Spectro, Solo, OK.
+  Forme d'onde, presets, étapes AHDSR (Attaque/Tenue/Déclin/Maintien/
+  Relâchement), Mute→Sourdine, root→Racine. Cas « à arbitrer » tranchés par
+  l'archi (2026-05-29, révision AHDSR le 2026-05-30) : Play/Stop→Lire/Arrêter,
+  Export…→Exporter…, Test→Tester, Peak→Crête, Live→Direct, Canvas vide→Zone de
+  dessin vide, Hold→Tenue, Sustain (+ pédale Espace)→Maintien ; conservés :
+  Spectro, Solo, OK.
 - Iteration M — préalable A (migration TypeScript, phases 0+1, 2026-05-29).
   Adoption TS **incrémentale** posée avant la perf et avant M.2 (Patch typé) :
   devDep `typescript` + `tsconfig.json` (allowJs/noEmit/strict:false) ;
@@ -2504,15 +2505,16 @@ Phases listées ci-dessous dans l'ordre chronologique d'implémentation.
   - **SC2 (feat)** : traductions claires. Onglets Designer→**Création**,
     Composer→**Composition** (+ toutes les références en prose, accord
     d'article). Forme d'onde, presets (Sinusoïde/Carrée/Dent de scie),
-    Effacer ; AHDSR Attaque/Maintien/Déclin/Relâchement ; Mute/Unmute→Mettre
+    Effacer ; AHDSR Attaque/Tenue/Déclin/Maintien/Relâchement ; Mute/Unmute→Mettre
     en sourdine/Réactiver le son ; root→Racine (BibBreadcrumb.parsePath
     accepte 'racine' en plus de 'root', additif). « patch » et acronymes
     (ADSR/BPM/Hz/A4…) conservés.
   - **Arbitrage archi (2026-05-29, appliqué)** : Play/Stop→Lire/Arrêter,
     Export…→Exporter…, Test→Tester, Peak→Crête, Live→Direct, « Canvas vide »→
-    « Zone de dessin vide », Sustain→**Soutenir** (à gloser au glossaire,
-    domaine writer). Conservés : Spectro, Solo, OK. Commit séparé
-    `feat(iter-M/phase-0b): libellés arbitrés`.
+    « Zone de dessin vide ». Révision AHDSR (2026-05-30) : Hold→**Tenue**,
+    Sustain→**Maintien** (idem pédale clavier Espace) — set
+    Attaque/Tenue/Déclin/Maintien/Relâchement. Conservés : Spectro, Solo, OK.
+    Commits : `feat(iter-M/phase-0b): libellés arbitrés` puis `… libellés AHDSR`.
   - Hors scope respecté : zéro changement fonctionnel/audio, aucune clé
     localStorage / data-anchor / action-type / id touchée, aucun fichier ni
     composant renommé. build/typecheck/lint OK. dev server non touché.

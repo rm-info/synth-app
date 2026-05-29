@@ -34,7 +34,8 @@
 | OK | **conservé** (standard UI FR) |
 | Canvas vide | **Zone de dessin vide** |
 | Live | **Direct** (paire avec Statique) |
-| Sustain | **Soutenir** (culture clavier/synthé, à gloser au glossaire) |
+| Hold (AHDSR) | **Tenue** (révisé 2026-05-30 — libère « Maintien » pour Sustain) |
+| Sustain (AHDSR + pédale Espace) | **Maintien** (révisé 2026-05-30, ex-« Soutenir ») |
 
 > Section ci-dessous conservée pour mémoire (états avant arbitrage).
 
@@ -92,10 +93,10 @@ Références en prose à ces onglets (à aligner pour cohérence, accord d'artic
 | WaveformEditor.jsx:1611 | `Triangle` (preset) | Triangle | traduire (identique) |
 | WaveformEditor.jsx:1612 | `Clear` (bouton) | Effacer | traduire |
 | WaveformEditor.jsx:2152 | `Attack` (slider + aria « …en millisecondes ») | Attaque | traduire |
-| WaveformEditor.jsx:2153 | `Hold` (slider + aria) | Maintien | traduire |
+| WaveformEditor.jsx:2153 | `Hold` (slider + aria) | Tenue (révisé) | traduire |
 | WaveformEditor.jsx:2154 | `Decay` (slider + aria) | Déclin | traduire |
 | WaveformEditor.jsx:2156 | `Release` (slider + aria) | Relâchement | traduire |
-| WaveformEditor.jsx:108-109 | tooltips poignées `Attack + Amplitude` / `Hold` / `Decay + Sustain` / `Release` | Attaque + Amplitude / Maintien / Déclin + Sustain / Relâchement | traduire (Sustain reste, cf. à arbitrer) |
+| WaveformEditor.jsx:108-109 | tooltips poignées `Attack + Amplitude` / `Hold` / `Decay + Sustain` / `Release` | Attaque + Amplitude / Tenue / Déclin + Maintien / Relâchement | traduire |
 
 ### Composition (timeline)
 

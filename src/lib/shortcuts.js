@@ -217,8 +217,8 @@ export const SHORTCUTS = [
   {
     id: 'designer-sustain',
     contexts: ['designer'],
-    label: 'Sustain',
-    description: 'Pédale de sustain temporaire (touches maintenues = release différé jusqu\'au relâchement).',
+    label: 'Maintien',
+    description: 'Pédale de maintien temporaire (touches maintenues = relâchement différé jusqu\'au relâchement de la pédale).',
     keys: { primary: 'Space', alternative: null, display: 'Espace' },
     anchor: 'designer-sustain-pastille',
   },

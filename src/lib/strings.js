@@ -46,18 +46,19 @@ const fr = {
     triangle: 'Triangle',
   },
 
-  // Enveloppe AHDSR. « Soutenir » (Sustain) : terme culture clavier/synthé
-  // conservé en forme verbale, glosé au glossaire — décision archi.
+  // Enveloppe AHDSR : Attaque / Tenue / Déclin / Maintien / Relâchement.
+  // Hold→Tenue libère « Maintien » pour Sustain (et la pédale clavier Espace),
+  // plus parlant que « Soutenir » — décision archi.
   adsr: {
     attack: 'Attaque',
-    hold: 'Maintien',
+    hold: 'Tenue',
     decay: 'Déclin',
-    sustain: 'Soutenir',
+    sustain: 'Maintien',
     release: 'Relâchement',
     // Tooltips des poignées sur le tracé (P1 / P1h / P2 / P4).
     handleP1: 'Attaque + Amplitude',
-    handleHold: 'Maintien',
-    handleP2: 'Déclin + Soutenir',
+    handleHold: 'Tenue',
+    handleP2: 'Déclin + Maintien',
     handleRelease: 'Relâchement',
   },
 

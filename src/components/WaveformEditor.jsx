@@ -1860,10 +1860,10 @@ function WaveformEditor({
                   className={`sustain-pastille${sustainActive ? ' is-active' : ''}${sustainLocked ? ' is-locked' : ''}`}
                   onClick={toggleSustainLock}
                   title={sustainLocked
-                    ? 'Soutenir verrouillé — clic pour relâcher'
+                    ? 'Maintien verrouillé — clic pour relâcher'
                     : sustainActive
-                      ? 'Soutenir actif (Espace) — clic pour verrouiller'
-                      : 'Soutenir — clic pour verrouiller (Espace : maintenir)'}
+                      ? 'Maintien actif (Espace) — clic pour verrouiller'
+                      : 'Maintien — clic pour verrouiller (Espace : maintenir)'}
                   aria-pressed={sustainActive}
                   data-anchor="designer-sustain-pastille"
                 >
