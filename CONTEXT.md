@@ -547,6 +547,7 @@ synth-app/
     │   ├── durations.js      # catalogue durées (bases + coefs, phase 6.1)
     │   ├── clipNote.js       # formatClipNote + NOTE_NAMES Unicode
     │   ├── tuningSystems.ts  # (iter-M, .ts) registre tempéraments + freq + keyboardMap par système
+    │   ├── strings.js        # (iter-M, préalable B) graine i18n : libellés UI centralisés (FR)
     │   ├── visualCues.js     # catalogue gammes/accords en cents + cuedNoteIndices (F.4.4)
     │   ├── keyboardCandidates.js  # NOTE_GUARD_KEYS — touches du mode note (F.7.5)
     │   ├── osaFormat.js      # format binaire .osa (encode/decode/validate)
@@ -1859,6 +1860,14 @@ Phases listées ci-dessous dans l'ordre chronologique d'implémentation.
 ## État actuel
 
 ✅ **Terminé**
+- Iteration M — préalable B (francisation des libellés, 2026-05-29). Graine
+  i18n via `src/lib/strings.js` (clés sémantiques → FR, sans lib i18n). SC1 :
+  audit (`archi/M0-audit-francisation.md`) + centralisation (refactor neutre,
+  composants consommant les clés). SC2 : traductions claires — onglets
+  Designer→Création / Composer→Composition (+ toutes leurs références),
+  Forme d'onde, presets, étapes AHDSR (Attaque/Maintien/Déclin/Relâchement),
+  Mute→Sourdine, root→Racine. Cas « à arbitrer » laissés EN (Play/Stop,
+  Sustain, Solo, Spectro, Live/Peak, Test, OK…) — décision archi à venir.
 - Iteration M — préalable A (migration TypeScript, phases 0+1, 2026-05-29).
   Adoption TS **incrémentale** posée avant la perf et avant M.2 (Patch typé) :
   devDep `typescript` + `tsconfig.json` (allowJs/noEmit/strict:false) ;
@@ -2480,6 +2489,30 @@ Phases listées ci-dessous dans l'ordre chronologique d'implémentation.
   prochaine candidate).
 
 ## Historique (chronologie inverse)
+
+- **2026-05-29 — Iteration M préalable B : francisation des libellés**
+  Normalisation FR du chrome UI via chaînes centralisées (graine i18n posée
+  avant M.2, pour que les nouveaux libellés Waveform naissent cohérents). Pas
+  de lib i18n, pas de multilingue : juste l'infra + le FR.
+  - **SC1 (refactor)** : audit `archi/M0-audit-francisation.md` (app déjà
+    ~99 % FR ; reliquats EN concentrés). Module `src/lib/strings.js` (clés
+    sémantiques → texte, termes gardés + cas « à arbitrer » inclus). 9
+    composants recâblés pour consommer les clés. Valeurs inchangées → rendu
+    identique.
+  - **SC2 (feat)** : traductions claires. Onglets Designer→**Création**,
+    Composer→**Composition** (+ toutes les références en prose, accord
+    d'article). Forme d'onde, presets (Sinusoïde/Carrée/Dent de scie),
+    Effacer ; AHDSR Attaque/Maintien/Déclin/Relâchement ; Mute/Unmute→Mettre
+    en sourdine/Réactiver le son ; root→Racine (BibBreadcrumb.parsePath
+    accepte 'racine' en plus de 'root', additif). « patch » et acronymes
+    (ADSR/BPM/Hz/A4…) conservés.
+  - **À arbitrer (laissés EN)** : Play/Stop, Export…, Spectro, Test, Sustain,
+    Solo, Live, Peak, OK, « Canvas vide ». Listés dans l'audit avec options ;
+    petit follow-up archi → changement d'une ligne dans `strings.js`.
+  - Hors scope respecté : zéro changement fonctionnel/audio, aucune clé
+    localStorage / data-anchor / action-type / id touchée, aucun fichier ni
+    composant renommé. build/typecheck/lint OK. dev server non touché.
+  - 2 commits : `refactor(iter-M/phase-0b)` + `feat(iter-M/phase-0b)`.
 
 - **2026-05-29 — Iteration M préalable A : migration TypeScript (phases 0+1)**
   Adoption TS incrémentale, fichier par fichier, sans casse — posée avant la
@@ -5382,6 +5415,10 @@ et L.7 (exercices guidés) restent des options de backlog, hors périmètre 1.4.
     checkJs:false, strict:false, noEmit), CLAUDE.md racine (contrainte TS levée).
   - **Phase 1** : `src/types.ts` (modèle actuel + union `Action`),
     `tuningSystems.js → .ts`, câblage JSDoc du reducer.
+- ✅ **Préalable B — Francisation des libellés** (2026-05-29) : graine i18n
+  (`src/lib/strings.js`), libellés UI normalisés en FR. SC1 audit + infra
+  (refactor neutre), SC2 traductions claires. Cas « à arbitrer » laissés EN
+  (cf. `archi/M0-audit-francisation.md`) → petit follow-up archi.
 - ⏳ **M.2** — Patch typé : union discriminée par mode de fabrication du timbre
   (`draw` / `spline` / `harmonic`). Hors scope du préalable A (types Waveform
   réservés à M.2).
