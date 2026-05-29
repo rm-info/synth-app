@@ -446,7 +446,7 @@ function Spectrogram({
             type="button"
             onClick={onToggleMode}
             className={`spectrogram-toggle${mode === 'live' ? ' is-active' : ''}`}
-            title="Mode Live (analyse temps réel)"
+            title="Mode Direct (analyse temps réel)"
           >{STRINGS.spectro.live}</button>
           <button
             type="button"
@@ -458,7 +458,7 @@ function Spectrogram({
             type="button"
             onClick={onTogglePeakHold}
             className={`spectrogram-toggle${peakHold ? ' is-active' : ''}`}
-            title="Tenir les pics (mode Live)"
+            title="Tenir les pics (mode Direct)"
           >{STRINGS.spectro.peak}</button>
         </div>
       </header>

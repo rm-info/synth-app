@@ -21,7 +21,24 @@
 
 ---
 
-## ⚠️ À ARBITRER (décision archi requise — laissés EN pour l'instant)
+## ✅ ARBITRÉ (décision archi, 2026-05-29) — appliqué
+
+| Terme | Décision |
+|---|---|
+| Play / Stop | **Lire / Arrêter** (aligne le bouton sur son tooltip) |
+| Export… | **Exporter…** (Import déjà « Importer ») |
+| Spectro | **conservé** (abrév. FR de Spectrogramme) |
+| Test | **Tester** (verbe, cohérent « banc de test ») |
+| Solo | **conservé** (mot FR, paire avec Sourdine) |
+| Peak | **Crête** (terme audio FR) |
+| OK | **conservé** (standard UI FR) |
+| Canvas vide | **Zone de dessin vide** |
+| Live | **Direct** (paire avec Statique) |
+| Sustain | **Soutenir** (culture clavier/synthé, à gloser au glossaire) |
+
+> Section ci-dessous conservée pour mémoire (états avant arbitrage).
+
+## ⚠️ À ARBITRER — historique (résolu, cf. ci-dessus)
 
 | Terme | Où | Options proposées | Note |
 |---|---|---|---|

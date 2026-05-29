@@ -7,9 +7,8 @@
 // Convention : les composants consomment ces clés (`STRINGS.tabs.designer`)
 // plutôt que des littéraux, pour que la francisation — et l'i18n futur — se
 // fasse ici, en un seul endroit. La graine inclut aussi les termes
-// volontairement conservés (acronymes, « patch ») et les cas « à arbitrer »
-// (laissés EN), pour qu'une décision archi future soit un changement d'une
-// ligne. Cf. `archi/M0-audit-francisation.md`.
+// volontairement conservés (acronymes, « patch », et les arbitrages archi
+// gardés tels quels). Cf. `archi/M0-audit-francisation.md`.
 
 const fr = {
   // Onglets principaux (Designer→Création, Composer→Composition : iter-M).
@@ -22,21 +21,21 @@ const fr = {
 
   // Transport (lecture / arrêt / export).
   transport: {
-    playLabel: '▶ Play',      // à arbitrer (jargon audio) — title voisin déjà FR
-    stopLabel: '■ Stop',      // à arbitrer
-    playAria: 'Play',         // à arbitrer
-    stopAria: 'Stop',         // à arbitrer
+    playLabel: '▶ Lire',
+    stopLabel: '■ Arrêter',
+    playAria: 'Lire',
+    stopAria: 'Arrêter',
     exportIdle: 'Exporter WAV',
-    exportBusy: 'Export…',    // à arbitrer (Export… / Exportation…)
+    exportBusy: 'Exporter…',
   },
 
   // Éditeur de patch (Création).
   editor: {
     waveformTitle: 'Forme d’onde',
-    spectroToggle: 'Spectro', // à arbitrer (Spectro / Spectrogramme)
+    spectroToggle: 'Spectro', // conservé (abrév. FR de Spectrogramme) — archi
     clear: 'Effacer',
-    test: 'Test',             // à arbitrer (Test / Tester)
-    canvasEmpty: 'Canvas vide', // à arbitrer (Tracé vide / Toile vide)
+    test: 'Tester',
+    canvasEmpty: 'Zone de dessin vide',
   },
 
   // Presets de formes d'onde.
@@ -47,33 +46,33 @@ const fr = {
     triangle: 'Triangle',
   },
 
-  // Enveloppe AHDSR. « Sustain » conservé (à arbitrer) ; les autres étapes
-  // ont un FR clair.
+  // Enveloppe AHDSR. « Soutenir » (Sustain) : terme culture clavier/synthé
+  // conservé en forme verbale, glosé au glossaire — décision archi.
   adsr: {
     attack: 'Attaque',
     hold: 'Maintien',
     decay: 'Déclin',
-    sustain: 'Sustain',       // à arbitrer (Sustain / Tenue)
+    sustain: 'Soutenir',
     release: 'Relâchement',
     // Tooltips des poignées sur le tracé (P1 / P1h / P2 / P4).
     handleP1: 'Attaque + Amplitude',
     handleHold: 'Maintien',
-    handleP2: 'Déclin + Sustain',
+    handleP2: 'Déclin + Soutenir',
     handleRelease: 'Relâchement',
   },
 
-  // Pistes (timeline).
+  // Pistes (timeline). « Solo » conservé (mot français, paire avec Sourdine).
   track: {
     muteTitle: 'Mettre en sourdine',
     unmuteTitle: 'Réactiver le son',
-    soloOnTitle: 'Solo',          // à arbitrer (Solo / Isoler)
+    soloOnTitle: 'Solo',
     soloOffTitle: 'Désactiver solo',
   },
 
   // Spectrogramme.
   spectro: {
-    live: 'Live',             // à arbitrer (Live / Direct)
-    peak: 'Peak',             // à arbitrer (Peak / Pics)
+    live: 'Direct',
+    peak: 'Crête',
   },
 
   // Bibliothèque.
@@ -84,6 +83,7 @@ const fr = {
   // Termes volontairement CONSERVÉS (graine complète — décision archi).
   // Listés ici pour documenter le vocabulaire de référence ; l'affichage n'en
   // dépend pas partout (rewiring opportuniste), mais le terme est figé.
+  // « OK » (boutons de dialogue) est conservé tel quel, standard en UI FR.
   kept: {
     patch: 'patch',
     adsr: 'ADSR',
