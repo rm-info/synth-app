@@ -27,7 +27,11 @@ Pas besoin que je te le dise à chaque session — c'est un réflexe.
 
 ## Contraintes techniques non négociables
 
-- Pas de TypeScript. Pas de `.ts`/`.tsx`.
+- **TypeScript incrémental** : `allowJs`, pas de big-bang, `strict`
+  activé en opt-in fichier par fichier ; pas de lib de types lourde
+  sans validation archi. (Contrainte « Pas de TypeScript » levée par
+  décision archi — adoption incrémentale, cf. BACKLOG « Migration
+  TypeScript progressive ».)
 - Pas de lib audio externe. Web Audio API native uniquement.
 - Pas de state manager (Redux, Zustand, etc.). Un `useReducer` global
   dans `App.jsx` suffit pour tout le state métier.

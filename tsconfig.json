@@ -1,0 +1,26 @@
+{
+  "compilerOptions": {
+    // Cible alignée sur Vite + React 19 (esbuild transpile, ces options ne
+    // servent qu'au type-check : noEmit ci-dessous, Vite gère la sortie).
+    "target": "ES2022",
+    "lib": ["ES2023", "DOM", "DOM.Iterable"],
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "jsx": "react-jsx",
+
+    // Migration incrémentale : on garde le JS tel quel (pas de check sur les
+    // .js sauf opt-in `// @ts-check` fichier par fichier), on type les .ts.
+    "allowJs": true,
+    "checkJs": false,
+    "strict": false,
+    "noEmit": true,
+
+    // Confort bundler : imports sans extension ou en `.ts`, JSON, interop CJS.
+    "skipLibCheck": true,
+    "esModuleInterop": true,
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "allowImportingTsExtensions": true
+  },
+  "include": ["src"]
+}
