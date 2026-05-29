@@ -7,8 +7,9 @@
 
 Synthétiseur web pédagogique : on dessine une forme d'onde à la souris,
 on la place sur une timeline multipiste, on exporte en WAV. Stack minimale :
-React 19 + Vite, Web Audio API native, persistance localStorage. **Pas de
-TypeScript, pas de lib audio, pas de state manager, pas de framework UI,
+React 19 + Vite, Web Audio API native, persistance localStorage. **TypeScript
+incrémental (allowJs, opt-in fichier par fichier ; depuis le préalable de
+l'Iteration M), pas de lib audio, pas de state manager, pas de framework UI,
 pas de routing.** Itération A (refonte UX core : 2 onglets Designer/Composer,
 dual save, zoom %, édition clips, undo/redo) **clôturée le 2026-04-15**.
 Itération B **clôturée le 2026-04-17** (spectrogramme statique ;
@@ -486,6 +487,17 @@ Documentation complète — renderer Markdown maison + math (zéro dépendance),
 overlay raccourcis (Ctrl+K), Tour guidé (Ctrl+J), DocLink bidirectionnels.
 Aucun npm ajouté sur toute l'Itération L.
 
+**Iteration M — préalable A (migration TypeScript, phases 0+1) livré le
+2026-05-29.** Adoption TS incrémentale, fichier par fichier, sans casse, posée
+avant la perf et avant M.2 (Patch typé). Phase 0 : devDep `typescript`,
+`tsconfig.json` (allowJs, checkJs:false, strict:false, noEmit). Phase 1 :
+`src/types.ts` (modèle actuel — Patch/Clip/Track/TuningSystem/AppState + union
+discriminée `Action`), conversion `tuningSystems.js → .ts` (registre central),
+câblage JSDoc des types sur le reducer. Zéro changement runtime (bundle vite
+byte-identique). `// @ts-check` non retenu sur le reducer : une garde défensive
+le pousse à `never`, et le forcer violerait « zéro changement / s'efface au
+build » ; JSDoc retenu (option sanctionnée par le prompt archi).
+
 **Release v1.0.0-1.0.4** (2026-05-20) — Premier déploiement prod. Sortie
 du 0.x exploratoire après 7 itérations majeures (A→G) stables.
 Branding : titre commercial **On_Synth_App** (jeu de mots « on s'en
@@ -504,7 +516,9 @@ les assembler en compositions musicales sur une timeline, exporter en WAV.
 
 - React 19 + Vite 8 (SWC via `@vitejs/plugin-react`)
 - ESLint 9
-- Pas de TypeScript, pas de state manager, pas de routing
+- TypeScript 6 incrémental (devDep) — `tsconfig.json` allowJs/noEmit/strict:false ;
+  type-check via `npx tsc --noEmit`, transpile/strip par Vite (esbuild). Pas de
+  state manager, pas de routing.
 - Persistance : `localStorage` (clé `synth-app-state`)
 
 ## Arborescence
@@ -516,13 +530,15 @@ synth-app/
 ├── package.json
 ├── vite.config.js
 ├── eslint.config.js
+├── tsconfig.json            # (iter-M) TypeScript incrémental : allowJs, checkJs:false, strict:false, noEmit
 └── src/
     ├── main.jsx              # entry point React
     ├── App.jsx               # orchestration, persistance, raccourcis clavier
     ├── App.css               # layout grid responsive Designer/Composer
     ├── index.css
+    ├── types.ts             # (iter-M) types du modèle : Patch/Clip/Track/TuningSystem/AppState + union Action
     ├── audio.js              # DFT (pointsToHarmonics, pointsToPeriodicWave), encodage WAV, palette couleurs
-    ├── reducer.js            # useReducer global + withUndo (historique par onglet)
+    ├── reducer.js            # useReducer global + withUndo (historique par onglet) — JSDoc typé (Action/AppState)
     ├── assets/               # résiduel template Vite (non utilisé)
     ├── hooks/
     │   └── usePlayback.js    # moteur de lecture timeline (partagé Designer/Composer)
@@ -530,7 +546,7 @@ synth-app/
     │   ├── timelineLayout.js # layoutClips + computeBounds (partagés Timeline/Properties)
     │   ├── durations.js      # catalogue durées (bases + coefs, phase 6.1)
     │   ├── clipNote.js       # formatClipNote + NOTE_NAMES Unicode
-    │   ├── tuningSystems.js  # registre tempéraments + freq + keyboardMap par système
+    │   ├── tuningSystems.ts  # (iter-M, .ts) registre tempéraments + freq + keyboardMap par système
     │   ├── visualCues.js     # catalogue gammes/accords en cents + cuedNoteIndices (F.4.4)
     │   ├── keyboardCandidates.js  # NOTE_GUARD_KEYS — touches du mode note (F.7.5)
     │   ├── osaFormat.js      # format binaire .osa (encode/decode/validate)
@@ -1543,9 +1559,11 @@ Choix non évidents pris pour de bonnes raisons. À ne pas remettre en question
 
 Conventions tacites. Les enfreindre sans raison crée des bugs subtils.
 
-- **Pas de TypeScript** : choix initial, pas de migration en cours de
-  projet. Le modèle est documenté en TS-like dans ce fichier à titre
-  de référence uniquement.
+- **TypeScript incrémental** (depuis Iteration M, préalable A) : `allowJs`,
+  `checkJs:false`, `strict:false`, `noEmit` ; migration fichier par fichier,
+  pas de big-bang. Les types du modèle vivent dans `src/types.ts` (source de
+  vérité du modèle, plus seulement « TS-like » dans ce doc). Ne pas activer
+  `strict:true` global ni ajouter de lib de types lourde sans validation archi.
 - **IDs via compteurs persistés** (`soundCounter`, `clipCounter`,
   `folderCounter`, `trackCounter`) : jamais les recalculer depuis `.length`.
   Après des suppressions, deux créations successives auraient le même
@@ -1841,6 +1859,13 @@ Phases listées ci-dessous dans l'ordre chronologique d'implémentation.
 ## État actuel
 
 ✅ **Terminé**
+- Iteration M — préalable A (migration TypeScript, phases 0+1, 2026-05-29).
+  Adoption TS **incrémentale** posée avant la perf et avant M.2 (Patch typé) :
+  devDep `typescript` + `tsconfig.json` (allowJs/noEmit/strict:false) ;
+  `src/types.ts` (modèle actuel typé — Patch/Clip/Track/TuningSystem/AppState +
+  union discriminée `Action`) ; `tuningSystems.js → .ts` (registre central) ;
+  câblage JSDoc des types sur le reducer. Zéro changement runtime (bundle vite
+  byte-identique, lint vert, `tsc --noEmit` clean).
 - Iteration L phase 5 (corpus utilisateur) + clôture — **release v1.4.0,
   Itération L close** : documentation complète rédigée par l'agent writer.
   Corpus : 2 glossaires (technique, musical), 4 articles de vulgarisation
@@ -2455,6 +2480,34 @@ Phases listées ci-dessous dans l'ordre chronologique d'implémentation.
   prochaine candidate).
 
 ## Historique (chronologie inverse)
+
+- **2026-05-29 — Iteration M préalable A : migration TypeScript (phases 0+1)**
+  Adoption TS incrémentale, fichier par fichier, sans casse — posée avant la
+  perf et avant M.2 (qui a besoin d'un Patch typé). Contrainte « Pas de
+  TypeScript » levée par décision archi (CLAUDE.md racine mis à jour).
+  - **Phase 0** : devDep `typescript` (les `@types/react*` étaient déjà là),
+    `tsconfig.json` (allowJs, checkJs:false, strict:false, noEmit, jsx
+    react-jsx, moduleResolution bundler, skipLibCheck). Build vite inchangé.
+  - **Phase 1** : `src/types.ts` — modèle actuel typé tel quel (Patch, Clip,
+    Track, TuningSystem + registre polymorphe xEdoN, AppState complet, union
+    **discriminée** `Action` = toutes les actions du switch + 6 UNDO/REDO_* +
+    `meta.skipUndo` distribué). Conversion `tuningSystems.js → tuningSystems.ts`
+    (git mv pour le blame ; registre `Record<TuningSystemId, TuningSystem>`,
+    helpers/freq/frequencyToNearestIn annotés ; import explicite corrigé dans
+    `osaFormat.js`). Câblage reducer : JSDoc `@param/@returns` (Action/AppState)
+    + `@type Editor` sur DEFAULT_EDITOR — commentaires qui s'effacent au build.
+  - **Choix `// @ts-check` vs JSDoc** : un passage @ts-check temporaire a
+    validé que le corps du reducer est cohérent avec l'union `Action`, à un
+    seul détail — la garde défensive `typeof … || … === null` de
+    SET_CURRENT_ARTICLE que TS sur-restreint à `never`. La forcer imposait soit
+    un changement de code (bundle non identique), soit un cast contournant le
+    check : les deux contre « zéro changement runtime / s'efface au build ».
+    JSDoc retenu (option explicitement sanctionnée par le prompt archi).
+  - Pas d'anticipation des champs Waveform de M.2 (draw/spline/harmonic).
+  - Vérifs : `tsc --noEmit` clean, build vite byte-identique (même hash), lint
+    vert. dev server non touché (géré côté utilisateur).
+  - 4 commits : `chore(iter-M/phase-0)`, puis 3× `refactor(iter-M/phase-1)`
+    (types / tuningSystems / câblage reducer).
 
 - **2026-05-28 — Iteration L phase 5 + clôture (release v1.4.0)**
   Fin de l'Itération L (Documentation). Deux pistes parallèles convergent :
@@ -5319,6 +5372,19 @@ L.4). Détails dans `archi/BACKLOG.md` section "Iteration L".
 sortie de L.4 ; L.R (math renderer) et L.5 (corpus + rebranchement + ancres)
 l'ont enrichie sans toucher à l'architecture du tour. L.6 (démos écoutables)
 et L.7 (exercices guidés) restent des options de backlog, hors périmètre 1.4.0.
+
+### Itération M (Waveform Designer + Patch typé) — préalable A livré 2026-05-29
+
+- ✅ **Préalable A — Migration TypeScript (phases 0+1)** (2026-05-29) :
+  adoption TS incrémentale, fichier par fichier, sans casse. Posée avant la
+  perf et avant M.2 (Patch typé). Cf. section Historique pour le détail.
+  - **Phase 0** : setup — devDep `typescript`, `tsconfig.json` (allowJs,
+    checkJs:false, strict:false, noEmit), CLAUDE.md racine (contrainte TS levée).
+  - **Phase 1** : `src/types.ts` (modèle actuel + union `Action`),
+    `tuningSystems.js → .ts`, câblage JSDoc du reducer.
+- ⏳ **M.2** — Patch typé : union discriminée par mode de fabrication du timbre
+  (`draw` / `spline` / `harmonic`). Hors scope du préalable A (types Waveform
+  réservés à M.2).
 
 ### Backlog général (à caser quand pertinent)
 
