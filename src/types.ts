@@ -498,7 +498,9 @@ export type ActionBody =
   | { type: 'UNDO_LIBRARY' }
   | { type: 'REDO_LIBRARY' }
 
-// Une action = un corps discriminé + un `meta` optionnel. L'intersection
-// distribue sur chaque membre de l'union (la discrimination par `type` est
-// préservée).
-export type Action = ActionBody & { meta?: ActionMeta }
+// Une action = un corps discriminé + un `meta` optionnel. On distribue
+// l'ajout de `meta` sur CHAQUE membre de l'union (conditionnel distributif)
+// plutôt qu'une intersection globale `ActionBody & { meta }` : sinon le
+// narrowing par `switch (action.type)` peut retomber sur `never`.
+type WithMeta<T> = T extends unknown ? T & { meta?: ActionMeta } : never
+export type Action = WithMeta<ActionBody>

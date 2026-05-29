@@ -82,6 +82,7 @@ export const TRACK_COLORS = [
 // pédagogiques). État éditeur, persisté en localStorage à plat
 // (editorVisualCuePattern / editorVisualCueTonic), pas porté par les
 // patches. Pattern 'none' = aucun repère affiché (état neutre).
+/** @type {import('./types').Editor} */
 export const DEFAULT_EDITOR = {
   points: new Array(POINTS_RESOLUTION).fill(0),
   testTuningSystem: '12-TET', // '12-TET' | 'free'
@@ -619,6 +620,14 @@ function clampTrackHeight(v) {
 
 // === Reducer ===
 
+/**
+ * Reducer métier (état undoable + transient). L'historisation undo/redo est
+ * gérée par le wrapper `withUndo` plus bas.
+ *
+ * @param {import('./types').AppState} state
+ * @param {import('./types').Action} action
+ * @returns {import('./types').AppState}
+ */
 export function reducer(state, action) {
   switch (action.type) {
     // ----- Composer (undoable) -----
