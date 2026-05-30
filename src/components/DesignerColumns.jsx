@@ -1,4 +1,5 @@
 import { useRef } from 'react'
+import { STRINGS } from '../lib/strings'
 import './DesignerColumns.css'
 
 // iter-M phase-2 : les 3 colonnes de la moitié principale du Designer
@@ -18,7 +19,7 @@ const PRESETS = [
 // soit écrasé à zéro et reste re-saisissable.
 const MIN_FRACTION = 0.12
 
-function DesignerColumns({ widths, onWidths, columns }) {
+function DesignerColumns({ widths, onWidths, autoSizing, onToggleAutoSizing, columns }) {
   const rowRef = useRef(null)
 
   // Drag d'un séparateur entre la colonne `sepIndex` et `sepIndex+1`. On
@@ -69,6 +70,16 @@ function DesignerColumns({ widths, onWidths, columns }) {
             onClick={() => onWidths(p.widths)}
           >{p.label}</button>
         ))}
+        {/* iter-M phase-2-as : toggle auto-sizing (essai), opt-in, OFF par
+            défaut. Quand ON, les presets restent un override manuel ponctuel. */}
+        <label className="designer-columns-auto-toggle" title={STRINGS.editor.autoSizingTitle}>
+          <input
+            type="checkbox"
+            checked={autoSizing}
+            onChange={onToggleAutoSizing}
+          />
+          <span>{STRINGS.editor.autoSizing}</span>
+        </label>
       </div>
       <div className="designer-columns-row" ref={rowRef}>
         <div className="designer-column" style={{ flexGrow: widths[0] }}>{columns[0]}</div>

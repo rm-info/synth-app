@@ -335,6 +335,10 @@ export interface AppState {
   designerSidebarCollapsed: boolean
   // iter-M phase-2 : proportions persistées des 3 colonnes du Designer.
   designerColumnWidths: number[]
+  // iter-M phase-2-as : toggle auto-sizing (essai). OFF par défaut. Quand ON,
+  // les proportions deviennent contextuelles au focus — écrites dans
+  // designerColumnWidths (pas de nouvel état canonique).
+  autoSizing: boolean
   docSidebarWidth: number
   docSidebarCollapsed: boolean
   doc: DocState
@@ -531,6 +535,8 @@ export type ActionBody =
   // iter-M phase-2 : proportions des 3 colonnes du Designer (Forme d'onde /
   // Harmoniques / Spectro). Tableau de 3 fractions sommant à 1.
   | { type: 'SET_DESIGNER_COLUMN_WIDTHS'; payload: number[] }
+  // iter-M phase-2-as : toggle auto-sizing.
+  | { type: 'SET_AUTO_SIZING'; payload: boolean }
   | { type: 'SET_CURRENT_ARTICLE'; payload: string | null }
   | { type: 'SET_ARTICLE_SCROLL'; payload: { articleId: string; scrollTop: number } }
   | { type: 'TOGGLE_DOC_SIDEBAR' }

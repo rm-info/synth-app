@@ -32,6 +32,23 @@
   color: var(--text-strong);
 }
 
+/* iter-M phase-2-as : toggle auto-sizing, poussé à droite de la barre presets. */
+.designer-columns-auto-toggle {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 12px;
+  line-height: 1;
+  color: var(--text-secondary);
+  cursor: pointer;
+  user-select: none;
+}
+.designer-columns-auto-toggle input {
+  cursor: pointer;
+  margin: 0;
+}
+
 .designer-columns-row {
   flex: 1;
   display: flex;

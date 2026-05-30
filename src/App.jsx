@@ -87,7 +87,7 @@ function App() {
     spectrogramVisible, spectrogramDbScale, spectrogramPeakHold, spectrogramMode,
     durationMode, selectedClipIds, selectedTrackId, composerFlash, lastAnchorClipId,
     composerBankWidth, composerAsideWidth, composerBankCollapsed, composerAsideCollapsed,
-    designerSidebarWidth, designerSidebarCollapsed, designerColumnWidths,
+    designerSidebarWidth, designerSidebarCollapsed, designerColumnWidths, autoSizing,
     doc, docSidebarWidth, docSidebarCollapsed,
     bibHierarchyMode, bibDisplayMode, bibCurrentFolderId, bibPopupWidth,
     bibSelectedIds, bibSelectionAnchor, bibCollapsedFolders,
@@ -676,6 +676,9 @@ function App() {
           designerSidebarCollapsed,
           // iter-M phase-2 : proportions des 3 colonnes Designer.
           designerColumnWidths,
+          // iter-M phase-2-as : toggle auto-sizing (essai). Le focus, lui,
+          // reste volatile (jamais persisté).
+          autoSizing,
           // iter-L phase-2.1 : préférences sidebar Documentation (collapsed
           // + largeur). La position de lecture (article courant + scrolls)
           // est gérée séparément via sessionStorage.
@@ -711,7 +714,7 @@ function App() {
     spectrogramVisible, spectrogramDbScale, spectrogramPeakHold, spectrogramMode,
     durationMode, activeTab, patchCounter, clipCounter, folderCounter, trackCounter,
     composerBankWidth, composerAsideWidth, composerBankCollapsed, composerAsideCollapsed,
-    designerSidebarWidth, designerSidebarCollapsed, designerColumnWidths,
+    designerSidebarWidth, designerSidebarCollapsed, designerColumnWidths, autoSizing,
     docSidebarWidth, docSidebarCollapsed,
     bibHierarchyMode, bibDisplayMode, bibCurrentFolderId, bibCollapsedFolders, bibPopupWidth,
     recentPatchIds, theme, selectedTrackId,
@@ -848,6 +851,15 @@ function App() {
   const setDesignerColumnWidths = useCallback((widths) => {
     dispatch({ type: 'SET_DESIGNER_COLUMN_WIDTHS', payload: widths })
   }, [])
+  // iter-M phase-2-as : toggle auto-sizing (essai).
+  const toggleAutoSizing = useCallback(() => {
+    dispatch({ type: 'SET_AUTO_SIZING', payload: !autoSizing })
+  }, [autoSizing])
+  // iter-M phase-2-as : guard partagé DesignerColumns (writer) ↔ WaveformEditor
+  // (reader). Volatile (ref, jamais persisté). Le listener de focus le passe à
+  // true le temps du geste qui *change* le focus → l'éditable suppose alors
+  // que ce mousedown ne fait que focuser, pas éditer (cf. règle AS.3.2).
+  const autoSizeFocusGuardRef = useRef(false)
 
   const setBibHierarchyMode = useCallback((mode) => {
     dispatch({ type: 'SET_BIB_HIERARCHY_MODE', payload: mode })
@@ -2287,6 +2299,9 @@ function App() {
                   <DesignerColumns
                     widths={designerColumnWidths}
                     onWidths={setDesignerColumnWidths}
+                    autoSizing={autoSizing}
+                    onToggleAutoSizing={toggleAutoSizing}
+                    focusGuardRef={autoSizeFocusGuardRef}
                     columns={[renderCanvasArea(), renderHarmonicsArea(), spectrogramNode]}
                   />
                   <div className="designer-row">

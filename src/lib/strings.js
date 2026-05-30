@@ -45,6 +45,9 @@ const fr = {
     readOnlyHint: 'Vue dérivée (lecture seule)',
     convertToHarmonic: 'Convertir en Harmoniques',
     convertToDraw: 'Convertir en Dessin',
+    // iter-M phase-2-as : toggle auto-sizing des 3 colonnes (essai).
+    autoSizing: 'Dimension auto',
+    autoSizingTitle: 'La colonne en cours d’édition s’élargit automatiquement',
   },
 
   // Passerelle de conversion draw ↔ harmonic (dialogs).

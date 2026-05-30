@@ -363,6 +363,8 @@ export function loadPersistedState() {
       // iter-M phase-2 : proportions des 3 colonnes Designer (null si absent /
       // invalide → défaut-par-mode appliqué dans buildInitialState).
       designerColumnWidths: sanitizeColumnWidths(parsed.designerColumnWidths),
+      // iter-M phase-2-as : toggle auto-sizing (essai). OFF par défaut.
+      autoSizing: typeof parsed.autoSizing === 'boolean' ? parsed.autoSizing : false,
       // iter-L phase-2.1 : préférences sidebar Documentation. Persistées en
       // localStorage (cohérent avec les autres sidebars). La position de
       // lecture vit en sessionStorage (cf. loadDocSession).
@@ -582,6 +584,8 @@ export function buildInitialState() {
     // le mode d'édition courant (Forme d'onde large en 'draw', cf. spec §7.1)
     // tant qu'aucune valeur n'a été persistée.
     designerColumnWidths: persisted?.designerColumnWidths ?? defaultColumnWidthsForMode('draw'),
+    // iter-M phase-2-as : toggle auto-sizing (essai). OFF par défaut.
+    autoSizing: persisted?.autoSizing ?? false,
     // iter-L phase-2.1 : sidebar TOC Documentation + position de lecture.
     // - docSidebarWidth / docSidebarCollapsed : localStorage (préférences).
     // - doc.currentArticleId / doc.scrollPositions : sessionStorage (lecture).
@@ -2042,6 +2046,14 @@ export function reducer(state, action) {
       const widths = sanitizeColumnWidths(action.payload)
       if (!widths) return state
       return { ...state, designerColumnWidths: widths }
+    }
+    // iter-M phase-2-as : toggle auto-sizing (essai). Écrit dans le même état
+    // de proportions au gré du focus (cf. DesignerColumns). Retrait éventuel
+    // (« jeter ») = supprimer ce case + le champ persisté + le listener.
+    case 'SET_AUTO_SIZING': {
+      const value = !!action.payload
+      if (state.autoSizing === value) return state
+      return { ...state, autoSizing: value }
     }
     // iter-L phase-2.1 : actions de l'onglet Documentation.
     case 'SET_CURRENT_ARTICLE': {
