@@ -75,9 +75,12 @@ export const DEFAULT_ADSR = { attack: 10, hold: 0, decay: 100, sustain: 0.7, rel
 // de valeur d'hydratation pour les patches antérieurs (sans champ definition).
 export const DEFAULT_DEFINITION = HARMONIC_COUNT
 
-// iter-M phase-2 : bornes du nombre d'harmoniques N (mode barres). Min 16
-// (cf. spec « défaut modeste »), max = plafond de synthèse (256).
-export const HARMONIC_N_MIN = 16
+// iter-M phase-2 : bornes du nombre d'harmoniques N (mode barres), max =
+// plafond de synthèse (256).
+// iter-M phase-4 : plancher abaissé 16→4 pour permettre des presets
+// minimalistes à 4-15 harmoniques (Flûte/Orgue/Triade… ont un N < 16). Marge
+// à 4 (et non 8) pour laisser de l'air à de futurs presets ultra-minimalistes.
+export const HARMONIC_N_MIN = 4
 export const HARMONIC_N_MAX = HARMONIC_COUNT
 // Défaut à la création d'un nouveau patch déjà harmonique (rare avant M.4).
 export const DEFAULT_HARMONIC_N = 16
