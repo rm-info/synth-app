@@ -48,6 +48,14 @@ const fr = {
     // iter-M phase-2-as : toggle auto-sizing des 3 colonnes (essai).
     autoSizing: 'Dimension auto',
     autoSizingTitle: 'La colonne en cours d’édition s’élargit automatiquement',
+    // iter-M phase-3 : éditeur spline (points/courbe).
+    splineInterpolation: 'Interpolation',
+    splineSoft: 'Doux',
+    splineHard: 'Anguleux',
+    splineSoftTitle: 'Courbe lisse (Catmull-Rom)',
+    splineHardTitle: 'Segments droits (polyligne)',
+    splineAddHint: 'Clic sur la courbe : ajouter une ancre · glisser : déplacer · Suppr / clic droit : retirer',
+    splineRemove: 'Supprimer l’ancre',
   },
 
   // Passerelle de conversion draw ↔ harmonic (dialogs).

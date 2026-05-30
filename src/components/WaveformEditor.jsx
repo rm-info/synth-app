@@ -32,6 +32,7 @@ import { themeColor } from '../lib/themeColor'
 import { STRINGS } from '../lib/strings'
 import ConfirmDialog from './ConfirmDialog'
 import ConvertToHarmonicDialog from './ConvertToHarmonicDialog'
+import SplineEditor from './SplineEditor'
 import './WaveformEditor.css'
 
 const POINTS_RESOLUTION = 600
@@ -350,15 +351,19 @@ function WaveformEditor({
   const mode = editor.mode ?? 'draw'
   const amplitudes = draftAmplitudes ?? editor.amplitudes
   const N = editor.N ?? DEFAULT_HARMONIC_N
+  // iter-M phase-3 : état du mode spline (vérité éditable = ancres + interp).
+  const anchors = editor.anchors ?? []
+  const interpolation = editor.interpolation ?? 'soft'
   const harmonicPoints = useMemo(
     () => (mode === 'harmonic' ? harmonicsToPoints(amplitudes, amplitudes.length) : null),
     [mode, amplitudes],
   )
   const amplitude = draftAmp ?? editor.amplitude
   const definition = draftDefinition ?? editor.definition ?? HARMONIC_COUNT
-  // En mode harmonique, `N` joue le rôle de la définition : on ne tronque
-  // jamais le spectre à l'audio (les points ne portent déjà que ≤ N harmoniques).
-  const effectiveDefinition = mode === 'harmonic' ? HARMONIC_COUNT : definition
+  // En mode harmonique, `N` joue le rôle de la définition ; en mode spline la
+  // courbe est band-limitée par construction : dans les deux cas on ne tronque
+  // jamais le spectre à l'audio (seul le mode dessin applique `definition`).
+  const effectiveDefinition = mode === 'draw' ? definition : HARMONIC_COUNT
   const points = mode === 'harmonic' ? harmonicPoints : (draftPoints ?? editor.points)
   const testFrequency = draftFreq ?? editor.testFrequency
   const attack = draftAdsr?.attack ?? editor.attack
@@ -1727,6 +1732,41 @@ function WaveformEditor({
   // 'harmonic' elle affiche la reconstruction iDFT (read-only, 🔒) : on coupe
   // les handlers de tracé et on masque presets/Effacer (outils du tracé brut).
   const renderCanvasArea = () => {
+    // iter-M phase-3 : en mode spline, la colonne Forme d'onde devient l'éditeur
+    // de points/courbe (poignées draggables). Boutons de passerelle vers les
+    // deux autres modes (réutilise les dialogs Dessin/Harmoniques existants).
+    if (mode === 'spline') {
+      return (
+        <SplineEditor
+          points={points}
+          anchors={anchors}
+          interpolation={interpolation}
+          onMoveAnchor={editorActions.moveSplineAnchor}
+          onAddAnchor={editorActions.addSplineAnchor}
+          onRemoveAnchor={editorActions.removeSplineAnchor}
+          onSetInterpolation={editorActions.setSplineInterpolation}
+          autoSizing={autoSizing}
+          autoSizeFocusGuardRef={autoSizeFocusGuardRef}
+          soundTag={currentPatch ? `Édition : ${currentPatch.name}` : defaultName}
+          convertButtons={
+            <>
+              <button
+                type="button"
+                className="we-convert-btn"
+                onClick={() => setConvertToDrawOpen(true)}
+                title={STRINGS.editor.convertToDraw}
+              >{STRINGS.editor.convertToDraw}</button>
+              <button
+                type="button"
+                className="we-convert-btn"
+                onClick={() => setConvertToHarmonicOpen(true)}
+                title={STRINGS.editor.convertToHarmonic}
+              >{STRINGS.editor.convertToHarmonic}</button>
+            </>
+          }
+        />
+      )
+    }
     const editable = mode === 'draw'
     return (
       <div className="we-canvas-area" data-anchor="designer-waveform">
@@ -1788,7 +1828,10 @@ function WaveformEditor({
       bars = amplitudes
     } else {
       const { magnitudes } = pointsToHarmonics(editor.points)
-      const cut = Math.min(definition, HARMONIC_COUNT)
+      // iter-M phase-3 : en mode spline, pas de `definition` à appliquer (la
+      // courbe est propre par construction) → on montre la DFT pleine. En mode
+      // dessin, on tronque au plafond `definition` (cohérent avec l'audio).
+      const cut = mode === 'spline' ? HARMONIC_COUNT : Math.min(definition, HARMONIC_COUNT)
       bars = []
       for (let k = 1; k <= cut; k++) bars.push(magnitudes[k] ?? 0)
     }

@@ -1980,6 +1980,13 @@ function App() {
       dispatch({ type: 'SET_EDITOR_HARMONIC_AMPLITUDE', payload: { index, value } }),
     convertToHarmonic: (n) => dispatch({ type: 'CONVERT_EDITOR_TO_HARMONIC', payload: { N: n } }),
     convertToDraw: () => dispatch({ type: 'CONVERT_EDITOR_TO_DRAW' }),
+    // iter-M phase-3 : édition spline. moveSplineAnchor est appelée au commit
+    // du drag (draft local côté SplineEditor) → un seul cran undo par geste.
+    moveSplineAnchor: (index, x, y) =>
+      dispatch({ type: 'MOVE_SPLINE_ANCHOR', payload: { index, x, y } }),
+    addSplineAnchor: (x, y) => dispatch({ type: 'ADD_SPLINE_ANCHOR', payload: { x, y } }),
+    removeSplineAnchor: (index) => dispatch({ type: 'REMOVE_SPLINE_ANCHOR', payload: { index } }),
+    setSplineInterpolation: (v) => dispatch({ type: 'SET_SPLINE_INTERPOLATION', payload: v }),
     setAdsr: (patch) => dispatch({ type: 'SET_EDITOR_ADSR', payload: patch }),
     setAdsrAndAmp: (payload) => dispatch({ type: 'SET_EDITOR_ADSR_AND_AMP', payload }),
     applyPreset: (preset, points) =>
