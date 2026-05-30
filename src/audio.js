@@ -168,6 +168,35 @@ export function pointsToPeriodicWave(points, audioCtx, definition) {
   return audioCtx.createPeriodicWave(truncReal, truncImag, { disableNormalization: false })
 }
 
+// iter-M phase-2 : reconstruction d'une courbe temporelle (600 points) à
+// partir d'un vecteur d'amplitudes harmoniques. `amplitudes[i]` = magnitude
+// de l'harmonique (i+1) (index 0 = fondamentale). Phase canonique : sinus pur
+// (la phase est inaudible, cf. spec §4). Échantillonné sur CANVAS_WIDTH points,
+// une période complète = le tableau entier.
+//
+// C'est l'iDFT du modèle « barres » : son résultat, repassé dans
+// pointsToHarmonics → createPeriodicWave, redonne exactement les mêmes
+// magnitudes (k ≤ 256 tombe sur un bin FFT à NUM_SAMPLES = 512). On stocke
+// donc cette reconstruction dans `patch.points` pour que TOUTE la chaîne audio
+// existante (playback timeline, export WAV, miniatures) joue un patch
+// harmonique sans modification — `points` reste l'unique entrée audio.
+//
+// O(CANVAS_WIDTH · N) ≤ 600·256 = 153k multiplications, sub-milliseconde.
+export function harmonicsToPoints(amplitudes, N) {
+  const count = Math.min(N, amplitudes.length)
+  const points = new Array(CANVAS_WIDTH).fill(0)
+  for (let x = 0; x < CANVAS_WIDTH; x++) {
+    let sum = 0
+    const base = (2 * Math.PI * x) / CANVAS_WIDTH
+    for (let k = 1; k <= count; k++) {
+      const a = amplitudes[k - 1]
+      if (a) sum += a * Math.sin(base * k)
+    }
+    points[x] = sum
+  }
+  return points
+}
+
 export const SOUND_COLORS = [
   '#00d4ff', '#ff6b9d', '#c084fc', '#4ade80',
   '#fb923c', '#f472b6', '#22d3ee', '#a78bfa',

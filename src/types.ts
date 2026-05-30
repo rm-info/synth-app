@@ -115,29 +115,60 @@ export interface Track {
   height: number
 }
 
-// Un patch = un timbre (forme d'onde + enveloppe + amplitude), sans hauteur :
-// la hauteur est portée par chaque clip (refonte iter-E).
-export interface Patch extends AdsrEnvelope {
+// Mode de fabrication du timbre (iter-M phase-2). Discriminant du Patch typé.
+// `spline` (M.3) n'est pas encore modélisé.
+export type WaveformMode = 'draw' | 'harmonic'
+
+// Champs communs à tous les modes de patch. `points` est porté par TOUS les
+// modes : pour `harmonic`, c'est la reconstruction iDFT des `amplitudes`
+// (cf. audio.harmonicsToPoints), stockée pour que la chaîne audio existante
+// (playback / export / miniatures) reste l'unique consommatrice de `points`.
+interface PatchCommon extends AdsrEnvelope {
   id: string
   name: string
   color: string
   points: number[]
   amplitude: number
   preset: string | null
-  // Plafond d'harmoniques (1..256) : troncature M/256 du spectre dessiné
-  // (iter-M phase-1). Patches antérieurs : 256 injecté à l'hydratation.
-  definition: number
   defaultTuningSystem: TuningSystemId
   folderId: string | null
   updatedAt: number
 }
+
+// Mode dessin : tracé libre 2D + plafond d'harmoniques `definition` (1..256,
+// troncature M/256, iter-M phase-1). Patches antérieurs : `mode` absent →
+// hydraté en 'draw', `definition` → 256.
+export interface DrawPatch extends PatchCommon {
+  mode: 'draw'
+  definition: number
+}
+
+// Mode harmoniques : vecteur d'amplitudes (magnitudes seules, ∈ [0..1]) +
+// nombre d'harmoniques N (16..256). `definition` ne s'applique pas (N joue ce
+// rôle). `points` reste la reconstruction iDFT (compat audio).
+export interface HarmonicPatch extends PatchCommon {
+  mode: 'harmonic'
+  N: number
+  amplitudes: number[]
+}
+
+// Un patch = un timbre (forme d'onde + enveloppe + amplitude), sans hauteur :
+// la hauteur est portée par chaque clip (refonte iter-E). Union discriminée
+// par `mode` (iter-M phase-2).
+export type Patch = DrawPatch | HarmonicPatch
 
 // Données d'un patch transmises à SAVE_PATCH / UPDATE_PATCH (sans id/color).
 export interface PatchData {
   name?: string
   points: number[]
   amplitude: number
+  // iter-M phase-2 : mode de fabrication + champs spécifiques. `mode` absent
+  // (anciens call-sites) → 'draw'. `definition` (draw) / `N`+`amplitudes`
+  // (harmonic) ne sont stockés que pour le mode concerné.
+  mode?: WaveformMode
   definition?: number
+  N?: number
+  amplitudes?: number[]
   preset: string | null
   attack?: number
   hold?: number
@@ -163,6 +194,12 @@ export interface Editor extends AdsrEnvelope {
   testFrequency: number
   amplitude: number
   definition: number
+  // iter-M phase-2 : mode de fabrication courant + état du mode harmoniques.
+  // En mode 'harmonic', `points` est la reconstruction iDFT de `amplitudes`
+  // (tenue à jour par le reducer). `amplitudes` a toujours longueur `N`.
+  mode: WaveformMode
+  N: number
+  amplitudes: number[]
   preset: string | null
   visualCuePattern: string
   visualCueTonic: number
@@ -296,6 +333,8 @@ export interface AppState {
   composerAsideCollapsed: boolean
   designerSidebarWidth: number
   designerSidebarCollapsed: boolean
+  // iter-M phase-2 : proportions persistées des 3 colonnes du Designer.
+  designerColumnWidths: number[]
   docSidebarWidth: number
   docSidebarCollapsed: boolean
   doc: DocState
@@ -437,6 +476,16 @@ export type ActionBody =
   | { type: 'SET_EDITOR_TEST_FREQUENCY'; payload: number }
   | { type: 'SET_EDITOR_AMPLITUDE'; payload: number }
   | { type: 'SET_EDITOR_DEFINITION'; payload: number }
+  // iter-M phase-2 : édition du mode harmoniques (barres). `N` redimensionne
+  // le vecteur `amplitudes` ; `SET_EDITOR_HARMONIC_AMPLITUDE` met à jour une
+  // barre (index 0-based = harmonique index+1). Les deux recalculent
+  // `editor.points` (reconstruction iDFT).
+  | { type: 'SET_EDITOR_N'; payload: number }
+  | { type: 'SET_EDITOR_HARMONIC_AMPLITUDE'; payload: { index: number; value: number } }
+  // Passerelle de conversion (action atomique undoable). draw→harmonic : DFT
+  // + troncature à N. harmonic→draw : iDFT vers points ré-éditables.
+  | { type: 'CONVERT_EDITOR_TO_HARMONIC'; payload: { N: number } }
+  | { type: 'CONVERT_EDITOR_TO_DRAW' }
   | { type: 'SET_EDITOR_ADSR'; payload: Partial<AdsrEnvelope> }
   | { type: 'SET_EDITOR_ADSR_AND_AMP'; payload: { adsr?: Partial<AdsrEnvelope>; amplitude?: number } }
   | { type: 'APPLY_EDITOR_PRESET'; payload: { preset: string | null; points: number[] } }
@@ -479,6 +528,9 @@ export type ActionBody =
   | { type: 'SET_COMPOSER_SIDEBAR_COLLAPSED'; payload: { side: 'bank' | 'aside'; collapsed: boolean } }
   | { type: 'SET_DESIGNER_SIDEBAR_WIDTH'; payload: number }
   | { type: 'SET_DESIGNER_SIDEBAR_COLLAPSED'; payload: boolean }
+  // iter-M phase-2 : proportions des 3 colonnes du Designer (Forme d'onde /
+  // Harmoniques / Spectro). Tableau de 3 fractions sommant à 1.
+  | { type: 'SET_DESIGNER_COLUMN_WIDTHS'; payload: number[] }
   | { type: 'SET_CURRENT_ARTICLE'; payload: string | null }
   | { type: 'SET_ARTICLE_SCROLL'; payload: { articleId: string; scrollTop: number } }
   | { type: 'TOGGLE_DOC_SIDEBAR' }

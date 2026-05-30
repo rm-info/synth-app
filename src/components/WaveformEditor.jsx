@@ -1,6 +1,7 @@
 import { useRef, useState, useCallback, useEffect, useImperativeHandle, useMemo } from 'react'
 import { Plus, Save, SaveAll, Undo2, Redo2, Sliders, X, Lock } from 'lucide-react'
-import { pointsToPeriodicWave, MIN_ATTACK, HARMONIC_COUNT } from '../audio'
+import { pointsToPeriodicWave, MIN_ATTACK, HARMONIC_COUNT, harmonicsToPoints } from '../audio'
+import { DEFAULT_HARMONIC_N } from '../reducer'
 import useWindowSize from '../hooks/useWindowSize'
 import FreqInput from './FreqInput'
 import NumberInput from './NumberInput'
@@ -214,16 +215,31 @@ function generatePresetPoints(type) {
 // Dirty check : on compare uniquement les champs stockés sur le Patch
 // (points + ADSR + amplitude + preset). Les champs test* sont volatils et
 // ne participent pas au dirty (ils n'affectent pas le patch sauvegardé).
+// iter-M phase-2 : le dirty-check est mode-aware. On compare toujours mode +
+// champs communs ; puis `definition` (draw) OU `N` + `amplitudes` (harmonic).
+// `points` est comparé dans les deux cas (pour 'harmonic' il est dérivé des
+// amplitudes par la même fonction → comparaison cohérente bit-à-bit).
 function patchFieldsEqual(a, b) {
   if (!a || !b) return false
+  const modeA = a.mode ?? 'draw'
+  const modeB = b.mode ?? 'draw'
+  if (modeA !== modeB) return false
   if (a.amplitude !== b.amplitude) return false
-  if (a.definition !== b.definition) return false
   if (a.preset !== b.preset) return false
   if (a.attack !== b.attack) return false
   if (a.hold !== b.hold) return false
   if (a.decay !== b.decay) return false
   if (a.sustain !== b.sustain) return false
   if (a.release !== b.release) return false
+  if (modeA === 'harmonic') {
+    if ((a.N ?? 0) !== (b.N ?? 0)) return false
+    const aa = a.amplitudes ?? []
+    const ba = b.amplitudes ?? []
+    if (aa.length !== ba.length) return false
+    for (let i = 0; i < aa.length; i++) if (aa[i] !== ba[i]) return false
+  } else {
+    if ((a.definition ?? HARMONIC_COUNT) !== (b.definition ?? HARMONIC_COUNT)) return false
+  }
   if (a.points.length !== b.points.length) return false
   for (let i = 0; i < a.points.length; i++) {
     if (a.points[i] !== b.points[i]) return false
@@ -235,7 +251,10 @@ function snapshotPatchFields(editor) {
   return {
     points: Array.from(editor.points),
     amplitude: editor.amplitude,
+    mode: editor.mode ?? 'draw',
     definition: editor.definition ?? HARMONIC_COUNT,
+    N: editor.N ?? DEFAULT_HARMONIC_N,
+    amplitudes: Array.from(editor.amplitudes ?? []),
     preset: editor.preset,
     attack: editor.attack,
     hold: editor.hold,
@@ -249,7 +268,10 @@ function patchToReference(patch) {
   return {
     points: Array.from(patch.points),
     amplitude: patch.amplitude,
+    mode: patch.mode ?? 'draw',
     definition: patch.definition ?? HARMONIC_COUNT,
+    N: patch.N ?? DEFAULT_HARMONIC_N,
+    amplitudes: Array.from(patch.amplitudes ?? []),
     preset: patch.preset,
     attack: patch.attack,
     hold: patch.hold ?? 0,
@@ -301,9 +323,22 @@ function WaveformEditor({
   // Confirmation "abandonner modifs" pour handleNew
   const [confirmNewOpen, setConfirmNewOpen] = useState(false)
 
-  const points = draftPoints ?? editor.points
+  // iter-M phase-2 : mode de fabrication courant. En 'harmonic', la forme
+  // d'onde affichée (et jouée) est la reconstruction iDFT des amplitudes —
+  // `points` est donc dérivé, pas le tracé édité.
+  const mode = editor.mode ?? 'draw'
+  const amplitudes = editor.amplitudes
+  const N = editor.N ?? DEFAULT_HARMONIC_N
+  const harmonicPoints = useMemo(
+    () => (mode === 'harmonic' ? harmonicsToPoints(amplitudes, amplitudes.length) : null),
+    [mode, amplitudes],
+  )
   const amplitude = draftAmp ?? editor.amplitude
   const definition = draftDefinition ?? editor.definition ?? HARMONIC_COUNT
+  // En mode harmonique, `N` joue le rôle de la définition : on ne tronque
+  // jamais le spectre à l'audio (les points ne portent déjà que ≤ N harmoniques).
+  const effectiveDefinition = mode === 'harmonic' ? HARMONIC_COUNT : definition
+  const points = mode === 'harmonic' ? harmonicPoints : (draftPoints ?? editor.points)
   const testFrequency = draftFreq ?? editor.testFrequency
   const attack = draftAdsr?.attack ?? editor.attack
   const hold = draftAdsr?.hold ?? editor.hold ?? 0
@@ -403,7 +438,7 @@ function WaveformEditor({
   // closures périmées dans les listeners window/clavier).
   const instrumentParamsRef = useRef(null)
   instrumentParamsRef.current = {
-    attack, hold, decay, sustain, release, amplitude, definition,
+    attack, hold, decay, sustain, release, amplitude, definition: effectiveDefinition,
     testOctave, testTuningSystem, testFrequency, a4Ref, xEdoN,
   }
 
@@ -423,6 +458,7 @@ function WaveformEditor({
   const stateSnapshotRef = useRef(null)
   stateSnapshotRef.current = {
     points, amplitude, definition, preset: activePreset, attack, hold, decay, sustain, release,
+    mode, N, amplitudes,
   }
 
   useImperativeHandle(ref, () => ({
@@ -1097,7 +1133,12 @@ function WaveformEditor({
     preset: activePreset,
     points: Array.from(points),
     amplitude,
+    // iter-M phase-2 : le mode + ses champs. Le reducer (patchModeFields) ne
+    // conserve que ceux du mode concerné.
+    mode,
     definition,
+    N,
+    amplitudes: Array.from(amplitudes),
     attack,
     hold,
     decay,

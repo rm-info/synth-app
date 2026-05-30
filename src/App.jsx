@@ -86,7 +86,7 @@ function App() {
     spectrogramVisible, spectrogramDbScale, spectrogramPeakHold, spectrogramMode,
     durationMode, selectedClipIds, selectedTrackId, composerFlash, lastAnchorClipId,
     composerBankWidth, composerAsideWidth, composerBankCollapsed, composerAsideCollapsed,
-    designerSidebarWidth, designerSidebarCollapsed,
+    designerSidebarWidth, designerSidebarCollapsed, designerColumnWidths,
     doc, docSidebarWidth, docSidebarCollapsed,
     bibHierarchyMode, bibDisplayMode, bibCurrentFolderId, bibPopupWidth,
     bibSelectedIds, bibSelectionAnchor, bibCollapsedFolders,
@@ -673,6 +673,8 @@ function App() {
           composerAsideCollapsed,
           designerSidebarWidth,
           designerSidebarCollapsed,
+          // iter-M phase-2 : proportions des 3 colonnes Designer.
+          designerColumnWidths,
           // iter-L phase-2.1 : préférences sidebar Documentation (collapsed
           // + largeur). La position de lecture (article courant + scrolls)
           // est gérée séparément via sessionStorage.
@@ -708,7 +710,7 @@ function App() {
     spectrogramVisible, spectrogramDbScale, spectrogramPeakHold, spectrogramMode,
     durationMode, activeTab, patchCounter, clipCounter, folderCounter, trackCounter,
     composerBankWidth, composerAsideWidth, composerBankCollapsed, composerAsideCollapsed,
-    designerSidebarWidth, designerSidebarCollapsed,
+    designerSidebarWidth, designerSidebarCollapsed, designerColumnWidths,
     docSidebarWidth, docSidebarCollapsed,
     bibHierarchyMode, bibDisplayMode, bibCurrentFolderId, bibCollapsedFolders, bibPopupWidth,
     recentPatchIds, theme, selectedTrackId,
@@ -1955,6 +1957,12 @@ function App() {
     setTestFrequency: (hz) => dispatch({ type: 'SET_EDITOR_TEST_FREQUENCY', payload: hz }),
     setAmplitude: (a) => dispatch({ type: 'SET_EDITOR_AMPLITUDE', payload: a }),
     setDefinition: (d) => dispatch({ type: 'SET_EDITOR_DEFINITION', payload: d }),
+    // iter-M phase-2 : édition barres + passerelle de conversion.
+    setN: (n) => dispatch({ type: 'SET_EDITOR_N', payload: n }),
+    setHarmonicAmplitude: (index, value) =>
+      dispatch({ type: 'SET_EDITOR_HARMONIC_AMPLITUDE', payload: { index, value } }),
+    convertToHarmonic: (n) => dispatch({ type: 'CONVERT_EDITOR_TO_HARMONIC', payload: { N: n } }),
+    convertToDraw: () => dispatch({ type: 'CONVERT_EDITOR_TO_DRAW' }),
     setAdsr: (patch) => dispatch({ type: 'SET_EDITOR_ADSR', payload: patch }),
     setAdsrAndAmp: (payload) => dispatch({ type: 'SET_EDITOR_ADSR_AND_AMP', payload }),
     applyPreset: (preset, points) =>

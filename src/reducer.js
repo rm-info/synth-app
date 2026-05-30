@@ -1,4 +1,4 @@
-import { SOUND_COLORS, HARMONIC_COUNT } from './audio'
+import { SOUND_COLORS, HARMONIC_COUNT, harmonicsToPoints, pointsToHarmonics } from './audio'
 import { wouldCreateCycle, duplicateItemsToFolder } from './lib/bibTransfer.js'
 import {
   DEFAULT_A4,
@@ -74,6 +74,61 @@ export const DEFAULT_ADSR = { attack: 10, hold: 0, decay: 100, sustain: 0.7, rel
 // de valeur d'hydratation pour les patches antérieurs (sans champ definition).
 export const DEFAULT_DEFINITION = HARMONIC_COUNT
 
+// iter-M phase-2 : bornes du nombre d'harmoniques N (mode barres). Min 16
+// (cf. spec « défaut modeste »), max = plafond de synthèse (256).
+export const HARMONIC_N_MIN = 16
+export const HARMONIC_N_MAX = HARMONIC_COUNT
+// Défaut à la création d'un nouveau patch déjà harmonique (rare avant M.4).
+export const DEFAULT_HARMONIC_N = 16
+// Défaut suggéré dans le dialog de conversion draw→harmonic.
+export const BRIDGE_DEFAULT_N = 24
+
+function clampHarmonicN(raw) {
+  if (!Number.isInteger(raw)) return DEFAULT_HARMONIC_N
+  return Math.max(HARMONIC_N_MIN, Math.min(HARMONIC_N_MAX, raw))
+}
+
+// Normalise un vecteur d'amplitudes à la longueur N : tronque ou complète par
+// des zéros, clampe chaque valeur dans [0, 1]. Tout élément non-fini → 0.
+function sanitizeAmplitudes(raw, N) {
+  const out = new Array(N).fill(0)
+  if (Array.isArray(raw)) {
+    for (let i = 0; i < N; i++) {
+      const v = raw[i]
+      out[i] = typeof v === 'number' && Number.isFinite(v) ? Math.max(0, Math.min(1, v)) : 0
+    }
+  }
+  return out
+}
+
+// iter-M phase-2 : extrait les champs spécifiques au mode d'un patchData pour
+// SAVE_PATCH / UPDATE_PATCH. `mode` absent (anciens call-sites) → 'draw'. On
+// ne stocke que les champs du mode concerné (pas d'`amplitudes` sur un patch
+// dessin, ni de `definition` sur un patch harmonique).
+function patchModeFields(patchData) {
+  if (patchData.mode === 'harmonic') {
+    const N = clampHarmonicN(patchData.N)
+    return { mode: 'harmonic', N, amplitudes: sanitizeAmplitudes(patchData.amplitudes, N) }
+  }
+  return { mode: 'draw', definition: patchData.definition ?? DEFAULT_DEFINITION }
+}
+
+// iter-M phase-2 : proportions par défaut des 3 colonnes (Forme d'onde /
+// Harmoniques / Spectro), pilotées par le mode d'édition (cf. spec §7.1) :
+// dessin → Forme d'onde large ; harmoniques → Harmoniques large.
+export function defaultColumnWidthsForMode(mode) {
+  return mode === 'harmonic' ? [0.25, 0.5, 0.25] : [0.5, 0.25, 0.25]
+}
+
+// Valide un tableau de 3 largeurs (fractions finies > 0) et le renormalise à
+// somme 1. Toute entrée invalide → null (le caller retombe sur le défaut).
+function sanitizeColumnWidths(raw) {
+  if (!Array.isArray(raw) || raw.length !== 3) return null
+  if (!raw.every((w) => typeof w === 'number' && Number.isFinite(w) && w > 0)) return null
+  const sum = raw[0] + raw[1] + raw[2]
+  return [raw[0] / sum, raw[1] / sum, raw[2] / sum]
+}
+
 export const TRACK_COLORS = [
   '#5a8a7a', '#7a6a9a', '#9a8a5a', '#5a7a9a',
   '#9a5a7a', '#6a9a5a', '#5a6a9a', '#9a7a5a',
@@ -96,6 +151,11 @@ export const DEFAULT_EDITOR = {
   testFrequency: 440,
   amplitude: 1,
   definition: DEFAULT_DEFINITION,
+  // iter-M phase-2 : mode de fabrication + état barres. Un nouveau patch part
+  // toujours en 'draw'. `amplitudes` a longueur `N` (vecteur de zéros au repos).
+  mode: 'draw',
+  N: DEFAULT_HARMONIC_N,
+  amplitudes: new Array(DEFAULT_HARMONIC_N).fill(0),
   preset: null,
   visualCuePattern: 'none',
   visualCueTonic: 0,
@@ -205,10 +265,23 @@ export function loadPersistedState() {
     // iter-M phase-1 : patches antérieurs sans champ `definition` → 256
     // injecté (préserve leur son : aucune troncature). Idempotent pour les
     // patches déjà porteurs du champ.
-    const patches = (Array.isArray(parsed.patches) ? parsed.patches : []).map((p) => ({
-      ...p,
-      definition: typeof p.definition === 'number' ? p.definition : DEFAULT_DEFINITION,
-    }))
+    // iter-M phase-2 : patches antérieurs sans `mode` → 'draw' (pas de
+    // migration destructive). Patch 'harmonic' : on sanitize N + amplitudes
+    // (clamp défensif des longueurs/bornes, cohérent avec l'invariant F.4.4.3).
+    const patches = (Array.isArray(parsed.patches) ? parsed.patches : []).map((p) => {
+      if (p.mode === 'harmonic') {
+        const N = clampHarmonicN(p.N)
+        const amplitudes = sanitizeAmplitudes(p.amplitudes, N)
+        // `points` peut manquer ou être incohérent : on le reconstruit depuis
+        // les amplitudes (source de vérité du mode harmonique).
+        return { ...p, mode: 'harmonic', N, amplitudes, points: harmonicsToPoints(amplitudes, N) }
+      }
+      return {
+        ...p,
+        mode: 'draw',
+        definition: typeof p.definition === 'number' ? p.definition : DEFAULT_DEFINITION,
+      }
+    })
     const rawClips = Array.isArray(parsed.clips) ? parsed.clips : []
     const tracks = (Array.isArray(parsed.tracks) && parsed.tracks.length > 0
       ? parsed.tracks
@@ -287,6 +360,9 @@ export function loadPersistedState() {
       composerAsideCollapsed: typeof parsed.composerAsideCollapsed === 'boolean' ? parsed.composerAsideCollapsed : false,
       designerSidebarWidth: typeof parsed.designerSidebarWidth === 'number' ? parsed.designerSidebarWidth : null,
       designerSidebarCollapsed: typeof parsed.designerSidebarCollapsed === 'boolean' ? parsed.designerSidebarCollapsed : false,
+      // iter-M phase-2 : proportions des 3 colonnes Designer (null si absent /
+      // invalide → défaut-par-mode appliqué dans buildInitialState).
+      designerColumnWidths: sanitizeColumnWidths(parsed.designerColumnWidths),
       // iter-L phase-2.1 : préférences sidebar Documentation. Persistées en
       // localStorage (cohérent avec les autres sidebars). La position de
       // lecture vit en sessionStorage (cf. loadDocSession).
@@ -427,6 +503,7 @@ export function buildInitialState() {
     editor: {
       ...DEFAULT_EDITOR,
       points: [...DEFAULT_EDITOR.points],
+      amplitudes: [...DEFAULT_EDITOR.amplitudes],
       testTuningSystem: persisted?.editorTestTuningSystem ?? DEFAULT_EDITOR.testTuningSystem,
       testNoteIndex: persisted?.editorTestNoteIndex ?? DEFAULT_EDITOR.testNoteIndex,
       testOctave: persisted?.editorTestOctave ?? DEFAULT_EDITOR.testOctave,
@@ -501,6 +578,10 @@ export function buildInitialState() {
     // Width clampée à [DESIGNER_SIDEBAR_MIN_WIDTH, ∞), persistée.
     designerSidebarWidth: Math.max(DESIGNER_SIDEBAR_MIN_WIDTH, persisted?.designerSidebarWidth ?? DESIGNER_SIDEBAR_DEFAULT_WIDTH),
     designerSidebarCollapsed: persisted?.designerSidebarCollapsed ?? false,
+    // iter-M phase-2 : proportions des 3 colonnes Designer. Défaut piloté par
+    // le mode d'édition courant (Forme d'onde large en 'draw', cf. spec §7.1)
+    // tant qu'aucune valeur n'a été persistée.
+    designerColumnWidths: persisted?.designerColumnWidths ?? defaultColumnWidthsForMode('draw'),
     // iter-L phase-2.1 : sidebar TOC Documentation + position de lecture.
     // - docSidebarWidth / docSidebarCollapsed : localStorage (préférences).
     // - doc.currentArticleId / doc.scrollPositions : sessionStorage (lecture).
@@ -1254,7 +1335,6 @@ export function reducer(state, action) {
         color: SOUND_COLORS[colorIndex],
         points: Array.from(patchData.points),
         amplitude: patchData.amplitude,
-        definition: patchData.definition ?? DEFAULT_DEFINITION,
         preset: patchData.preset,
         attack: patchData.attack ?? DEFAULT_ADSR.attack,
         hold: patchData.hold ?? DEFAULT_ADSR.hold,
@@ -1264,6 +1344,8 @@ export function reducer(state, action) {
         defaultTuningSystem: patchData.defaultTuningSystem ?? '12-TET',
         folderId,
         updatedAt: Date.now(),
+        // iter-M phase-2 : champs spécifiques au mode (union discriminée).
+        ...patchModeFields(patchData),
       }
 
       // SAVE_PATCH non-undoable, mais on rewrite les snapshots LIBRARY
@@ -1285,27 +1367,30 @@ export function reducer(state, action) {
       const { patchId, patchData } = action.payload
       return {
         ...state,
-        patches: state.patches.map((p) =>
-          p.id === patchId
-            ? {
-                ...p,
-                points: Array.from(patchData.points),
-                amplitude: patchData.amplitude,
-                definition: patchData.definition ?? p.definition ?? DEFAULT_DEFINITION,
-                preset: patchData.preset,
-                attack: patchData.attack,
-                hold: patchData.hold ?? DEFAULT_ADSR.hold,
-                decay: patchData.decay,
-                sustain: patchData.sustain,
-                release: patchData.release,
-                // iter G phase 2.4 : on capture aussi le système courant.
-                // Si patchData.defaultTuningSystem absent (rétro-compat
-                // call site oublié), on préserve la valeur existante.
-                defaultTuningSystem: patchData.defaultTuningSystem ?? p.defaultTuningSystem ?? '12-TET',
-                updatedAt: Date.now(),
-              }
-            : p,
-        ),
+        patches: state.patches.map((p) => {
+          if (p.id !== patchId) return p
+          // iter-M phase-2 : on retire les champs spécifiques au mode (definition
+          // / N / amplitudes) du patch existant avant de réinjecter ceux du mode
+          // courant, sinon un patch converti garderait un champ orphelin.
+          const { definition: _d, N: _n, amplitudes: _a, ...rest } = p
+          return {
+            ...rest,
+            points: Array.from(patchData.points),
+            amplitude: patchData.amplitude,
+            preset: patchData.preset,
+            attack: patchData.attack,
+            hold: patchData.hold ?? DEFAULT_ADSR.hold,
+            decay: patchData.decay,
+            sustain: patchData.sustain,
+            release: patchData.release,
+            // iter G phase 2.4 : on capture aussi le système courant.
+            // Si patchData.defaultTuningSystem absent (rétro-compat
+            // call site oublié), on préserve la valeur existante.
+            defaultTuningSystem: patchData.defaultTuningSystem ?? p.defaultTuningSystem ?? '12-TET',
+            updatedAt: Date.now(),
+            ...patchModeFields(patchData),
+          }
+        }),
       }
     }
     case 'DELETE_PATCH': {
@@ -1526,6 +1611,60 @@ export function reducer(state, action) {
     case 'SET_EDITOR_DEFINITION': {
       return { ...state, editor: { ...state.editor, definition: action.payload } }
     }
+    // iter-M phase-2 : nombre d'harmoniques N (mode barres). Redimensionne
+    // `amplitudes` (tronque / complète par des zéros) et recalcule `points`
+    // (reconstruction iDFT — `points` reste l'entrée audio).
+    case 'SET_EDITOR_N': {
+      const N = clampHarmonicN(action.payload)
+      const amplitudes = sanitizeAmplitudes(state.editor.amplitudes, N)
+      return {
+        ...state,
+        editor: { ...state.editor, N, amplitudes, points: harmonicsToPoints(amplitudes, N) },
+      }
+    }
+    // Mise à jour d'une barre (index 0-based = harmonique index+1). Recalcule
+    // `points`. Hors-borne ignoré (no-op défensif).
+    case 'SET_EDITOR_HARMONIC_AMPLITUDE': {
+      const { index, value } = action.payload
+      if (index < 0 || index >= state.editor.amplitudes.length) return state
+      const amplitudes = state.editor.amplitudes.slice()
+      amplitudes[index] = Math.max(0, Math.min(1, value))
+      return {
+        ...state,
+        editor: { ...state.editor, amplitudes, points: harmonicsToPoints(amplitudes, state.editor.N) },
+      }
+    }
+    // Passerelle draw→harmonic : DFT du dessin courant, on garde les magnitudes
+    // k=1..N (phase abandonnée, cf. spec §4), reconstruction iDFT dans `points`.
+    // Action atomique (un seul cran undo annule toute la conversion).
+    case 'CONVERT_EDITOR_TO_HARMONIC': {
+      const N = clampHarmonicN(action.payload?.N)
+      const { magnitudes } = pointsToHarmonics(state.editor.points)
+      const amplitudes = new Array(N).fill(0)
+      for (let k = 1; k <= N; k++) {
+        const m = magnitudes[k]
+        amplitudes[k - 1] = typeof m === 'number' ? Math.max(0, Math.min(1, m)) : 0
+      }
+      return {
+        ...state,
+        editor: {
+          ...state.editor,
+          mode: 'harmonic',
+          N,
+          amplitudes,
+          points: harmonicsToPoints(amplitudes, N),
+        },
+      }
+    }
+    // Passerelle harmonic→draw : iDFT vers `points` ré-éditables, `definition`
+    // remise à fond (la courbe reconstruite est déjà propre). Non destructif.
+    case 'CONVERT_EDITOR_TO_DRAW': {
+      const points = harmonicsToPoints(state.editor.amplitudes, state.editor.N)
+      return {
+        ...state,
+        editor: { ...state.editor, mode: 'draw', definition: DEFAULT_DEFINITION, points },
+      }
+    }
     case 'SET_EDITOR_ADSR': {
       return { ...state, editor: { ...state.editor, ...action.payload } }
     }
@@ -1559,6 +1698,9 @@ export function reducer(state, action) {
         editor: {
           ...DEFAULT_EDITOR,
           points: [...DEFAULT_EDITOR.points],
+          // iter-M phase-2 : un nouveau patch repart en mode 'draw' avec un
+          // vecteur d'amplitudes neuf (clone du défaut).
+          amplitudes: [...DEFAULT_EDITOR.amplitudes],
           testTuningSystem,
           testNoteIndex,
           testOctave,
@@ -1576,16 +1718,31 @@ export function reducer(state, action) {
       if (!patch) {
         return {
           ...state,
-          editor: { ...DEFAULT_EDITOR, points: [...DEFAULT_EDITOR.points] },
+          editor: {
+            ...DEFAULT_EDITOR,
+            points: [...DEFAULT_EDITOR.points],
+            amplitudes: [...DEFAULT_EDITOR.amplitudes],
+          },
         }
       }
+      // iter-M phase-2 : on hydrate le mode du patch. Pour 'harmonic', on
+      // restaure N + amplitudes (et `points` = reconstruction) ; pour 'draw',
+      // definition + un vecteur d'amplitudes neuf. Le mode absent → 'draw'.
+      const isHarmonic = patch.mode === 'harmonic'
+      const N = isHarmonic ? clampHarmonicN(patch.N) : DEFAULT_HARMONIC_N
+      const amplitudes = isHarmonic
+        ? sanitizeAmplitudes(patch.amplitudes, N)
+        : new Array(DEFAULT_HARMONIC_N).fill(0)
       return {
         ...state,
         editor: {
           ...state.editor,
-          points: Array.from(patch.points),
+          points: isHarmonic ? harmonicsToPoints(amplitudes, N) : Array.from(patch.points),
           amplitude: patch.amplitude,
-          definition: patch.definition ?? DEFAULT_DEFINITION,
+          definition: isHarmonic ? DEFAULT_DEFINITION : (patch.definition ?? DEFAULT_DEFINITION),
+          mode: isHarmonic ? 'harmonic' : 'draw',
+          N,
+          amplitudes,
           preset: patch.preset,
           attack: patch.attack,
           hold: patch.hold ?? DEFAULT_ADSR.hold,
@@ -1873,6 +2030,13 @@ export function reducer(state, action) {
       if (state.designerSidebarCollapsed === value) return state
       return { ...state, designerSidebarCollapsed: value }
     }
+    // iter-M phase-2 : proportions des 3 colonnes Designer (presets + drag des
+    // séparateurs). Renormalise à somme 1 ; entrée invalide ignorée.
+    case 'SET_DESIGNER_COLUMN_WIDTHS': {
+      const widths = sanitizeColumnWidths(action.payload)
+      if (!widths) return state
+      return { ...state, designerColumnWidths: widths }
+    }
     // iter-L phase-2.1 : actions de l'onglet Documentation.
     case 'SET_CURRENT_ARTICLE': {
       const id = typeof action.payload === 'string' || action.payload === null
@@ -2105,6 +2269,9 @@ const DESIGNER_UNDOABLE = new Set([
   'SET_EDITOR_POINTS', 'SET_EDITOR_AMPLITUDE', 'SET_EDITOR_DEFINITION',
   'SET_EDITOR_ADSR', 'SET_EDITOR_ADSR_AND_AMP', 'APPLY_EDITOR_PRESET', 'RESET_EDITOR',
   'SET_EDITOR_VISUAL_CUE_PATTERN', 'SET_EDITOR_VISUAL_CUE_TONIC',
+  // iter-M phase-2 : édition barres + passerelle de conversion (atomique).
+  'SET_EDITOR_N', 'SET_EDITOR_HARMONIC_AMPLITUDE',
+  'CONVERT_EDITOR_TO_HARMONIC', 'CONVERT_EDITOR_TO_DRAW',
 ])
 
 const LIBRARY_FIELDS = ['patches', 'soundFolders', 'patchCounter', 'folderCounter']

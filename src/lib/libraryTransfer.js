@@ -17,14 +17,18 @@ export class EmptyExportError extends Error {
 // JSON.stringify drop les clés undefined, ce qui ferait échouer validatePayload
 // à la ré-importation. On normalise donc au moment du build de l'export.
 function normalizePatchForExport(patch, folderId) {
-  return {
+  const base = {
     ...patch,
     defaultTuningSystem: patch.defaultTuningSystem ?? '12-TET',
-    // iter-M phase-1 : garantit le champ dans l'export (JSON.stringify drop
-    // les clés undefined, ce qui priverait un patch sans definition).
-    definition: patch.definition ?? 256,
     folderId: folderId === undefined ? patch.folderId : folderId,
   }
+  // iter-M phase-2 : export mode-aware. JSON.stringify drop les clés undefined,
+  // donc on garantit explicitement les champs du mode (sinon validatePayload
+  // échoue à la ré-importation).
+  if (patch.mode === 'harmonic') {
+    return { ...base, mode: 'harmonic', N: patch.N, amplitudes: patch.amplitudes }
+  }
+  return { ...base, mode: 'draw', definition: patch.definition ?? 256 }
 }
 
 function getDescendantFolderIds(rootId, soundFolders) {
@@ -111,13 +115,25 @@ export function applyImport(payload, mode, wrapperName, { soundFolders, folderCo
   }))
 
   // 3. Construire les nouveaux patches avec folderId remappé.
-  const newPatches = payload.patches.map((p) => ({
-    ...p,
-    id: patchIdMap.get(p.id),
-    // iter-M phase-1 : imports .osa antérieurs sans definition → 256.
-    definition: typeof p.definition === 'number' ? p.definition : 256,
-    folderId: p.folderId === null ? null : folderIdMap.get(p.folderId),
-  }))
+  const newPatches = payload.patches.map((p) => {
+    const common = {
+      ...p,
+      id: patchIdMap.get(p.id),
+      folderId: p.folderId === null ? null : folderIdMap.get(p.folderId),
+    }
+    // iter-M phase-2 : import mode-aware. Mode absent (.osa antérieurs) → 'draw'
+    // + definition 256 (rétro-compat phase-1). 'harmonic' conserve N/amplitudes
+    // (validés par validatePayload, points exportés cohérents).
+    if (p.mode === 'harmonic') {
+      const { definition: _drop, ...rest } = common
+      return { ...rest, mode: 'harmonic' }
+    }
+    return {
+      ...common,
+      mode: 'draw',
+      definition: typeof p.definition === 'number' ? p.definition : 256,
+    }
+  })
 
   // 4. Mode subset : créer un wrapper folder, reparenter les racines dessus.
   if (mode === 'subset') {

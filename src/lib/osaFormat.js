@@ -104,6 +104,18 @@ export function validatePayload(obj) {
     assert(p.definition === undefined ||
       (isNumberInRange(p.definition, 1, 256) && Number.isInteger(p.definition)),
       `patch ${p.id}: definition hors [1,256]`)
+    // iter-M phase-2 : mode de fabrication. Absent (.osa antérieurs) → 'draw'
+    // à l'import. 'harmonic' exige N (16..256) + amplitudes (longueur N, [0,1]).
+    assert(p.mode === undefined || p.mode === 'draw' || p.mode === 'harmonic',
+      `patch ${p.id}: mode '${p.mode}' inconnu`)
+    if (p.mode === 'harmonic') {
+      assert(isNumberInRange(p.N, 16, 256) && Number.isInteger(p.N), `patch ${p.id}: N hors [16,256]`)
+      assert(Array.isArray(p.amplitudes) && p.amplitudes.length === p.N,
+        `patch ${p.id}: amplitudes doit être un tableau de longueur N`)
+      for (let i = 0; i < p.N; i++) {
+        assert(isNumberInRange(p.amplitudes[i], 0, 1), `patch ${p.id}: amplitude ${i} hors [0,1]`)
+      }
+    }
     assert(isNumberInRange(p.attack, 0, 1000), `patch ${p.id}: attack hors [0,1000]`)
     assert(isNumberInRange(p.hold, 0, 1000), `patch ${p.id}: hold hors [0,1000]`)
     assert(isNumberInRange(p.decay, 0, 1000), `patch ${p.id}: decay hors [0,1000]`)
