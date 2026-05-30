@@ -1,9 +1,8 @@
-// Types du modèle Synth App — état ACTUEL, tel quel (iter-M phase-1).
+// Types du modèle Synth App — état ACTUEL, tel quel (iter-M phase-3).
 //
 // Point d'entrée unique du typage métier : `Patch`, `Clip`, `Track`,
 // `TuningSystem`, `AppState` et l'union discriminée `Action` du reducer.
-// Volontairement aligné sur le modèle livré (pas d'anticipation des champs
-// Waveform de M.2 — `draw`/`spline`/`harmonic`, `definition`, etc.).
+// Union de patch discriminée par `mode` : `draw` / `harmonic` / `spline`.
 //
 // Discipline : `unknown` plutôt que `any` pour les porteurs opaques
 // (clipboards de mesure, flash), `strict: false` global conservé.
@@ -115,9 +114,18 @@ export interface Track {
   height: number
 }
 
-// Mode de fabrication du timbre (iter-M phase-2). Discriminant du Patch typé.
-// `spline` (M.3) n'est pas encore modélisé.
-export type WaveformMode = 'draw' | 'harmonic'
+// Mode de fabrication du timbre (iter-M phase-2/3). Discriminant du Patch typé.
+export type WaveformMode = 'draw' | 'harmonic' | 'spline'
+
+// iter-M phase-3 : variante d'interpolation de la courbe spline.
+export type SplineInterpolation = 'soft' | 'hard'
+
+// Ancre du mode spline. x ∈ [0..600) (convention canvas `points`), y ∈ [-1..1].
+// L'ordre cyclique des x est maintenu par le reducer (MOVE/ADD_SPLINE_ANCHOR).
+export interface SplineAnchor {
+  x: number
+  y: number
+}
 
 // Champs communs à tous les modes de patch. `points` est porté par TOUS les
 // modes : pour `harmonic`, c'est la reconstruction iDFT des `amplitudes`
@@ -152,10 +160,20 @@ export interface HarmonicPatch extends PatchCommon {
   amplitudes: number[]
 }
 
+// Mode spline (iter-M phase-3) : courbe band-limitée définie par 4..32 ancres
+// interpolées (Catmull-Rom périodique ou polyligne). `points` reste la
+// reconstruction (ombre) de la courbe — l'unique entrée audio. Pas de
+// `definition` : la courbe est propre par construction (cf. spec §6).
+export interface SplinePatch extends PatchCommon {
+  mode: 'spline'
+  anchors: SplineAnchor[]
+  interpolation: SplineInterpolation
+}
+
 // Un patch = un timbre (forme d'onde + enveloppe + amplitude), sans hauteur :
 // la hauteur est portée par chaque clip (refonte iter-E). Union discriminée
-// par `mode` (iter-M phase-2).
-export type Patch = DrawPatch | HarmonicPatch
+// par `mode` (iter-M phase-2/3).
+export type Patch = DrawPatch | HarmonicPatch | SplinePatch
 
 // Données d'un patch transmises à SAVE_PATCH / UPDATE_PATCH (sans id/color).
 export interface PatchData {
@@ -169,6 +187,9 @@ export interface PatchData {
   definition?: number
   N?: number
   amplitudes?: number[]
+  // iter-M phase-3 : champs du mode spline (stockés uniquement si mode='spline').
+  anchors?: SplineAnchor[]
+  interpolation?: SplineInterpolation
   preset: string | null
   attack?: number
   hold?: number
@@ -200,6 +221,11 @@ export interface Editor extends AdsrEnvelope {
   mode: WaveformMode
   N: number
   amplitudes: number[]
+  // iter-M phase-3 : état du mode spline. En mode 'spline', `points` est la
+  // reconstruction de la courbe (tenue à jour par le reducer) ; `anchors`
+  // (4..32, ordre cyclique des x) et `interpolation` sont la vérité éditable.
+  anchors: SplineAnchor[]
+  interpolation: SplineInterpolation
   preset: string | null
   visualCuePattern: string
   visualCueTonic: number
@@ -490,6 +516,14 @@ export type ActionBody =
   // + troncature à N. harmonic→draw : iDFT vers points ré-éditables.
   | { type: 'CONVERT_EDITOR_TO_HARMONIC'; payload: { N: number } }
   | { type: 'CONVERT_EDITOR_TO_DRAW' }
+  // iter-M phase-3 : édition du mode spline (toutes undoable). MOVE est
+  // dispatchée une fois au commit du drag (draft local côté éditeur).
+  | { type: 'MOVE_SPLINE_ANCHOR'; payload: { index: number; x: number; y: number } }
+  | { type: 'ADD_SPLINE_ANCHOR'; payload: { x: number; y: number } }
+  | { type: 'REMOVE_SPLINE_ANCHOR'; payload: { index: number } }
+  | { type: 'SET_SPLINE_INTERPOLATION'; payload: SplineInterpolation }
+  // Passerelle vers spline : échantillonne N ancres équiréparties depuis points.
+  | { type: 'CONVERT_EDITOR_TO_SPLINE'; payload: { anchorCount: number; interpolation: SplineInterpolation } }
   | { type: 'SET_EDITOR_ADSR'; payload: Partial<AdsrEnvelope> }
   | { type: 'SET_EDITOR_ADSR_AND_AMP'; payload: { adsr?: Partial<AdsrEnvelope>; amplitude?: number } }
   | { type: 'APPLY_EDITOR_PRESET'; payload: { preset: string | null; points: number[] } }

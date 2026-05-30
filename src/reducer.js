@@ -1,4 +1,5 @@
 import { SOUND_COLORS, HARMONIC_COUNT, harmonicsToPoints, pointsToHarmonics } from './audio'
+import { splineToPoints } from './lib/spline'
 import { wouldCreateCycle, duplicateItemsToFolder } from './lib/bibTransfer.js'
 import {
   DEFAULT_A4,
@@ -88,6 +89,46 @@ function clampHarmonicN(raw) {
   return Math.max(HARMONIC_N_MIN, Math.min(HARMONIC_N_MAX, raw))
 }
 
+// iter-M phase-3 : bornes du nombre d'ancres du mode spline.
+export const SPLINE_ANCHOR_MIN = 4
+export const SPLINE_ANCHOR_MAX = 32
+// Défaut suggéré dans le dialog de conversion vers spline.
+export const DEFAULT_SPLINE_ANCHOR_COUNT = 8
+export const DEFAULT_SPLINE_INTERPOLATION = 'soft'
+// Écart minimal (en x) entre deux ancres consécutives. Empêche les segments de
+// largeur nulle (division par zéro côté Catmull-Rom) et garantit que l'ordre
+// cyclique reste re-saisissable. 1 px : négligeable face à l'espacement min
+// (600/32 ≈ 18.75) mais suffisant.
+const SPLINE_MIN_GAP = 1
+
+// Recalcule la courbe dérivée (`points`) depuis les ancres. Plain array (pas
+// Float32Array) : cohérent avec harmonicsToPoints et requis par Array.isArray
+// (validation .osa) + buildPayload.
+function splinePoints(anchors, interpolation) {
+  return Array.from(splineToPoints(anchors, interpolation))
+}
+
+// Normalise/valide un tableau d'ancres : filtre les entrées non-finies, clampe
+// x ∈ [0, 600) et y ∈ [-1, 1], trie par x et écarte les doublons trop proches.
+// Renvoie null si on ne peut pas garantir au moins SPLINE_ANCHOR_MIN ancres
+// exploitables (le caller retombe alors sur un défaut).
+function sanitizeAnchors(raw) {
+  if (!Array.isArray(raw)) return null
+  const cleaned = raw
+    .filter((a) => a && Number.isFinite(a.x) && Number.isFinite(a.y))
+    .map((a) => ({
+      x: Math.max(0, Math.min(POINTS_RESOLUTION - 1, a.x)),
+      y: Math.max(-1, Math.min(1, a.y)),
+    }))
+    .sort((a, b) => a.x - b.x)
+  if (cleaned.length < SPLINE_ANCHOR_MIN) return null
+  const out = [cleaned[0]]
+  for (let i = 1; i < cleaned.length && out.length < SPLINE_ANCHOR_MAX; i++) {
+    if (cleaned[i].x - out[out.length - 1].x >= SPLINE_MIN_GAP) out.push(cleaned[i])
+  }
+  return out.length >= SPLINE_ANCHOR_MIN ? out : null
+}
+
 // Normalise un vecteur d'amplitudes à la longueur N : tronque ou complète par
 // des zéros, clampe chaque valeur dans [0, 1]. Tout élément non-fini → 0.
 function sanitizeAmplitudes(raw, N) {
@@ -110,7 +151,23 @@ function patchModeFields(patchData) {
     const N = clampHarmonicN(patchData.N)
     return { mode: 'harmonic', N, amplitudes: sanitizeAmplitudes(patchData.amplitudes, N) }
   }
+  if (patchData.mode === 'spline') {
+    const anchors = sanitizeAnchors(patchData.anchors) ?? defaultSplineAnchors()
+    const interpolation = patchData.interpolation === 'hard' ? 'hard' : 'soft'
+    return { mode: 'spline', anchors, interpolation }
+  }
   return { mode: 'draw', definition: patchData.definition ?? DEFAULT_DEFINITION }
+}
+
+// Jeu d'ancres par défaut (DEFAULT_SPLINE_ANCHOR_COUNT équiréparties, courbe
+// plate) — filet de sécurité quand un patch spline arrive sans ancres
+// exploitables (rétro-compat / .osa corrompu). Une courbe plate est inoffensive.
+function defaultSplineAnchors() {
+  const out = []
+  for (let i = 0; i < DEFAULT_SPLINE_ANCHOR_COUNT; i++) {
+    out.push({ x: (i * POINTS_RESOLUTION) / DEFAULT_SPLINE_ANCHOR_COUNT, y: 0 })
+  }
+  return out
 }
 
 // iter-M phase-2 : proportions par défaut des 3 colonnes (Forme d'onde /
@@ -156,6 +213,10 @@ export const DEFAULT_EDITOR = {
   mode: 'draw',
   N: DEFAULT_HARMONIC_N,
   amplitudes: new Array(DEFAULT_HARMONIC_N).fill(0),
+  // iter-M phase-3 : état du mode spline. Vide au repos (un nouveau patch part
+  // en 'draw') — les ancres sont peuplées par la conversion ou l'hydratation.
+  anchors: [],
+  interpolation: DEFAULT_SPLINE_INTERPOLATION,
   preset: null,
   visualCuePattern: 'none',
   visualCueTonic: 0,
@@ -275,6 +336,13 @@ export function loadPersistedState() {
         // `points` peut manquer ou être incohérent : on le reconstruit depuis
         // les amplitudes (source de vérité du mode harmonique).
         return { ...p, mode: 'harmonic', N, amplitudes, points: harmonicsToPoints(amplitudes, N) }
+      }
+      if (p.mode === 'spline') {
+        // iter-M phase-3 : forward-compat (aucun patch antérieur n'a ce mode).
+        // `points` reconstruit depuis les ancres (vérité du mode spline).
+        const anchors = sanitizeAnchors(p.anchors) ?? defaultSplineAnchors()
+        const interpolation = p.interpolation === 'hard' ? 'hard' : 'soft'
+        return { ...p, mode: 'spline', anchors, interpolation, points: splinePoints(anchors, interpolation) }
       }
       return {
         ...p,
@@ -506,6 +574,7 @@ export function buildInitialState() {
       ...DEFAULT_EDITOR,
       points: [...DEFAULT_EDITOR.points],
       amplitudes: [...DEFAULT_EDITOR.amplitudes],
+      anchors: [...DEFAULT_EDITOR.anchors],
       testTuningSystem: persisted?.editorTestTuningSystem ?? DEFAULT_EDITOR.testTuningSystem,
       testNoteIndex: persisted?.editorTestNoteIndex ?? DEFAULT_EDITOR.testNoteIndex,
       testOctave: persisted?.editorTestOctave ?? DEFAULT_EDITOR.testOctave,
@@ -1675,6 +1744,73 @@ export function reducer(state, action) {
         editor: { ...state.editor, mode: 'draw', definition: DEFAULT_DEFINITION, points },
       }
     }
+    // iter-M phase-3 : déplacement d'une ancre spline. X clampé pour ne pas
+    // dépasser les voisins (préserve l'ordre des x) ; Y libre dans [-1, 1].
+    // Dispatchée une seule fois au commit du drag (draft local côté éditeur),
+    // donc un seul cran undo par geste. Recalcule `points`.
+    case 'MOVE_SPLINE_ANCHOR': {
+      const { index, x, y } = action.payload
+      const anchors = state.editor.anchors
+      if (index < 0 || index >= anchors.length) return state
+      const lower = index > 0 ? anchors[index - 1].x + SPLINE_MIN_GAP : 0
+      const upper = index < anchors.length - 1
+        ? anchors[index + 1].x - SPLINE_MIN_GAP
+        : POINTS_RESOLUTION - SPLINE_MIN_GAP
+      const cx = Math.max(lower, Math.min(upper, x))
+      const cy = Math.max(-1, Math.min(1, y))
+      const next = anchors.slice()
+      next[index] = { x: cx, y: cy }
+      return {
+        ...state,
+        editor: { ...state.editor, anchors: next, points: splinePoints(next, state.editor.interpolation) },
+      }
+    }
+    // Ajout d'une ancre (clic sur la courbe). Insérée en maintenant l'ordre
+    // cyclique des x. Refusé si N == SPLINE_ANCHOR_MAX, ou si l'x est confondu
+    // avec un voisin (segment de largeur nulle).
+    case 'ADD_SPLINE_ANCHOR': {
+      const anchors = state.editor.anchors
+      if (anchors.length >= SPLINE_ANCHOR_MAX) return state
+      const x = Math.max(0, Math.min(POINTS_RESOLUTION - 1, action.payload.x))
+      const y = Math.max(-1, Math.min(1, action.payload.y))
+      let ins = anchors.findIndex((a) => a.x > x)
+      if (ins === -1) ins = anchors.length
+      const leftOk = ins === 0 || x - anchors[ins - 1].x >= SPLINE_MIN_GAP
+      const rightOk = ins === anchors.length || anchors[ins].x - x >= SPLINE_MIN_GAP
+      if (!leftOk || !rightOk) return state
+      const next = anchors.slice()
+      next.splice(ins, 0, { x, y })
+      return {
+        ...state,
+        editor: { ...state.editor, anchors: next, points: splinePoints(next, state.editor.interpolation) },
+      }
+    }
+    // Suppression d'une ancre. Refusé si N == SPLINE_ANCHOR_MIN (minimum).
+    case 'REMOVE_SPLINE_ANCHOR': {
+      const { index } = action.payload
+      const anchors = state.editor.anchors
+      if (anchors.length <= SPLINE_ANCHOR_MIN) return state
+      if (index < 0 || index >= anchors.length) return state
+      const next = anchors.filter((_, i) => i !== index)
+      return {
+        ...state,
+        editor: { ...state.editor, anchors: next, points: splinePoints(next, state.editor.interpolation) },
+      }
+    }
+    // Bascule Doux (Catmull-Rom) / Anguleux (polyligne). Mêmes ancres, courbe
+    // recalculée.
+    case 'SET_SPLINE_INTERPOLATION': {
+      const interpolation = action.payload === 'hard' ? 'hard' : 'soft'
+      if (state.editor.interpolation === interpolation) return state
+      return {
+        ...state,
+        editor: {
+          ...state.editor,
+          interpolation,
+          points: splinePoints(state.editor.anchors, interpolation),
+        },
+      }
+    }
     case 'SET_EDITOR_ADSR': {
       return { ...state, editor: { ...state.editor, ...action.payload } }
     }
@@ -1711,6 +1847,8 @@ export function reducer(state, action) {
           // iter-M phase-2 : un nouveau patch repart en mode 'draw' avec un
           // vecteur d'amplitudes neuf (clone du défaut).
           amplitudes: [...DEFAULT_EDITOR.amplitudes],
+          // iter-M phase-3 : ancres spline neuves (clone du défaut vide).
+          anchors: [...DEFAULT_EDITOR.anchors],
           testTuningSystem,
           testNoteIndex,
           testOctave,
@@ -1732,27 +1870,39 @@ export function reducer(state, action) {
             ...DEFAULT_EDITOR,
             points: [...DEFAULT_EDITOR.points],
             amplitudes: [...DEFAULT_EDITOR.amplitudes],
+            anchors: [...DEFAULT_EDITOR.anchors],
           },
         }
       }
-      // iter-M phase-2 : on hydrate le mode du patch. Pour 'harmonic', on
-      // restaure N + amplitudes (et `points` = reconstruction) ; pour 'draw',
-      // definition + un vecteur d'amplitudes neuf. Le mode absent → 'draw'.
+      // iter-M phase-2/3 : on hydrate le mode du patch. 'harmonic' → N +
+      // amplitudes (points = reconstruction iDFT) ; 'spline' → anchors +
+      // interpolation (points = reconstruction de la courbe) ; 'draw' →
+      // definition + vecteurs neufs. Mode absent → 'draw'.
       const isHarmonic = patch.mode === 'harmonic'
+      const isSpline = patch.mode === 'spline'
       const N = isHarmonic ? clampHarmonicN(patch.N) : DEFAULT_HARMONIC_N
       const amplitudes = isHarmonic
         ? sanitizeAmplitudes(patch.amplitudes, N)
         : new Array(DEFAULT_HARMONIC_N).fill(0)
+      const anchors = isSpline ? (sanitizeAnchors(patch.anchors) ?? defaultSplineAnchors()) : []
+      const interpolation = isSpline ? (patch.interpolation === 'hard' ? 'hard' : 'soft') : DEFAULT_SPLINE_INTERPOLATION
+      const hydratedPoints = isHarmonic
+        ? harmonicsToPoints(amplitudes, N)
+        : isSpline
+          ? splinePoints(anchors, interpolation)
+          : Array.from(patch.points)
       return {
         ...state,
         editor: {
           ...state.editor,
-          points: isHarmonic ? harmonicsToPoints(amplitudes, N) : Array.from(patch.points),
+          points: hydratedPoints,
           amplitude: patch.amplitude,
-          definition: isHarmonic ? DEFAULT_DEFINITION : (patch.definition ?? DEFAULT_DEFINITION),
-          mode: isHarmonic ? 'harmonic' : 'draw',
+          definition: (isHarmonic || isSpline) ? DEFAULT_DEFINITION : (patch.definition ?? DEFAULT_DEFINITION),
+          mode: isHarmonic ? 'harmonic' : isSpline ? 'spline' : 'draw',
           N,
           amplitudes,
+          anchors,
+          interpolation,
           preset: patch.preset,
           attack: patch.attack,
           hold: patch.hold ?? DEFAULT_ADSR.hold,
@@ -2290,6 +2440,9 @@ const DESIGNER_UNDOABLE = new Set([
   // iter-M phase-2 : édition barres + passerelle de conversion (atomique).
   'SET_EDITOR_N', 'SET_EDITOR_HARMONIC_AMPLITUDE',
   'CONVERT_EDITOR_TO_HARMONIC', 'CONVERT_EDITOR_TO_DRAW',
+  // iter-M phase-3 : édition spline.
+  'MOVE_SPLINE_ANCHOR', 'ADD_SPLINE_ANCHOR', 'REMOVE_SPLINE_ANCHOR',
+  'SET_SPLINE_INTERPOLATION',
 ])
 
 const LIBRARY_FIELDS = ['patches', 'soundFolders', 'patchCounter', 'folderCounter']
