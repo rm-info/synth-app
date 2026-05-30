@@ -570,6 +570,7 @@ synth-app/
     │   ├── markdown.js       # parser Markdown maison + AST, délègue le math à mathParse (iter-L phase-2.2 / R.1)
     │   ├── mathParse.js      # sous-parser math récursif ($…$, $$…$$ → mathAst) (iter-L phase-R.1)
     │   ├── spline.js         # (iter-M M.3) splineSoft Catmull-Rom périodique / splineHard polyligne → points
+    │   ├── presets.js        # (iter-M M.4) bibliothèque code-only de 12 presets de timbre harmoniques
     │   └── tours/            # déclarations du Tour guidé par onglet (iter-L phase-4)
     │       ├── index.js      # map tabId → étapes + TOUR_TABS (ordre chaînage)
     │       ├── library.js / designer.js / composer.js / documentation.js  # séquences d'étapes
@@ -590,6 +591,7 @@ synth-app/
         ├── SplineEditor.jsx + .css            # éditeur points/courbe mode spline (Designer, M.3)
         ├── ConvertToHarmonicDialog.jsx + .css # dialog passerelle draw/spline→harmonic (M.2.5)
         ├── ConvertToSplineDialog.jsx          # dialog passerelle draw/harmonic→spline (M.3.3)
+        ├── PresetPicker.jsx + .css            # modal de chargement des presets de timbre (M.4)
         ├── MiniPlayer.jsx + .css              # transport simplifié (Designer)
         ├── PianoKeyboard.jsx + .css           # dispatcher clavier (piano-12 / grid-24 / grid-5 / grid-7 / grid-31 / grid-22-bhatkhande / grid-22-sarngadeva) + octaves + halo .is-cued (F.4.4)
         ├── DurationButtons.jsx + .css         # boutons durée 7 bases + 3 coefs (phase 6.1)
@@ -965,6 +967,19 @@ Seuls les **placements timeline** s'appellent "clips".
   interpolation (Doux/Anguleux, défaut Doux). Réutilise `ConfirmDialog` +
   le toggle `.spline-interp-*`. Monté/démonté par le parent.
 
+### `PresetPicker.jsx` (iter-M phase-4)
+- Modal de chargement des presets de timbre, ouvert par le bouton « Presets »
+  du header de la colonne Harmoniques (visible dans tous les modes — le
+  chargement bascule en harmonique). Reprend le langage visuel des dialogs
+  (backdrop + carte centrée). Escape ferme.
+- Liste `TIMBRE_PRESETS` groupée par `PRESET_CATEGORIES` (nom + description en
+  ligne). Clic → `onPick(preset)` délégué au parent. Le garde-fou dirty
+  (`ConfirmDialog` avant écrasement) et le dispatch `LOAD_PRESET` vivent côté
+  `WaveformEditor` (qui détient le signal dirty `patchFieldsEqual`).
+- `LOAD_PRESET` (reducer, undoable atomique) remplace le draft en mode
+  harmonique sans passerelle ; amplitude/ADSR aux défauts, champs test*
+  préservés. `sanitizeAmplitudes` = copie défensive de la donnée immuable.
+
 ### `Timeline.jsx` (Composer)
 - Layout multipiste : colonne d'en-têtes de piste (sticky left, 120px) +
   grille scrollable (overflow-x/y) + zone d'extension (+1/+4/+16 mesures).
@@ -1024,6 +1039,15 @@ Seuls les **placements timeline** s'appellent "clips".
   `Σ aₖ·sin(2πkx/600)`, k=1..N, sur 600 points. Reconstruction de la courbe
   d'un patch harmonique ; stockée dans `points` → l'audio reste mono-chemin
   (round-trip iDFT→DFT propre à 512 échantillons, k≤256 sur un bin exact).
+
+### `lib/presets.js` (iter-M phase-4)
+- Bibliothèque **code-only, read-only** de presets de timbre, indépendante du
+  PatchBank utilisateur. `TIMBRE_PRESETS` (12 entrées) + `PRESET_CATEGORIES`.
+- Chaque entrée `{ id, category, name, description, patch }` où `patch` est un
+  HarmonicPatch minimal `{ mode:'harmonic', N, amplitudes }`. 6 évocateurs
+  d'instruments + 6 inattendus-propres. Libellés (noms, descriptions,
+  catégories) importés de `STRINGS.timbrePresets`. Pas de presets
+  `spline`/`draw` (un user convertit un preset harmonique).
 
 ### `lib/spline.js` (iter-M phase-3)
 - `splineSoft(anchors)` (Catmull-Rom périodique, Hermite cubique y(x) — voisins
