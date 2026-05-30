@@ -1951,7 +1951,9 @@ Phases listées ci-dessous dans l'ordre chronologique d'implémentation.
   - **2.4** Vue éditable suit le mode (l'autre → read-only 🔒) ; Forme d'onde
     read-only en harmonic (reconstruction iDFT) ; slider Définition masqué.
   - **2.5** Passerelle : « Convertir en Harmoniques » (dialog choix N, DFT +
-    troncature) / « Convertir en Dessin » (iDFT) — conversions atomiques undoables.
+    troncature) / « Convertir en Dessin » (iDFT) — conversions atomiques
+    undoables. **Follow-up** : la conversion snappe `designerColumnWidths` au
+    défaut du mode cible (la vue éditable récupère sa largeur de référence).
   - **Hors scope traité ailleurs** : toggle auto-sizing → M.2-AS (séparée) ;
     mode spline → M.3 ; presets → M.4 ; doc/renderer `\sum` → M.5.
 - Iteration M — phase M.1 (bump cap 256 + slider Définition, 2026-05-30).
@@ -2635,11 +2637,12 @@ Phases listées ci-dessous dans l'ordre chronologique d'implémentation.
     (`ConvertToHarmonicDialog`, choix N défaut 24, DFT + troncature k=1..N,
     phase abandonnée) et « Convertir en Dessin » (`ConfirmDialog`, iDFT vers
     points ré-éditables, definition remise à 256). Conversions atomiques
-    undoables (un cran annule toute la conversion).
+    undoables (un cran annule toute la conversion). Follow-up (2026-05-30) : la
+    conversion snappe aussi `designerColumnWidths` au défaut du mode cible (vue
+    éditable large) — non-undoable, comme les autres ajustements de proportions.
   - **Décisions / limites** (à confirmer par l'archi à la passe visuelle) :
-    spectro = colonne permanente (toggle retiré) ; pas de snap-on-convert des
-    proportions (défaut par mode au 1er boot seulement, presets dispo) ; pas de
-    color-coding vert/bleu/ambre (accent cyan partout, bars éditables en accent,
+    spectro = colonne permanente (toggle retiré) ; pas de color-coding
+    vert/bleu/ambre (accent cyan partout, bars éditables en accent,
     read-only grisées) ; sweep multi-barres reporté (BACKLOG) ; pas d'animation
     de transition au changement de N.
   - Hors scope (phases dédiées) : auto-sizing → M.2-AS ; spline → M.3 ;
@@ -5655,10 +5658,6 @@ et L.7 (exercices guidés) restent des options de backlog, hors périmètre 1.4.
 - **(iter-M) Nettoyage `spectrogramVisible`** : vestigial depuis M.2 (spectro =
   colonne permanente). Clé localStorage conservée (consigne « ne pas toucher aux
   clés ») ; retrait complet (état + action + reducer) à faire si jamais.
-- **(iter-M) Snap-on-convert des proportions** : à la conversion de mode, faire
-  basculer `designerColumnWidths` vers le défaut du nouveau mode (vue éditable
-  large). Aujourd'hui le défaut par mode ne s'applique qu'au 1er boot ; les
-  presets restent le moyen manuel. À trancher avec l'archi.
 
 - **Adaptation UI résolutions intermédiaires [924×668..1740×900]**
   (G.1.4 ouvre la voie) : layout repensé pour viewports plus

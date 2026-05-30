@@ -1647,6 +1647,9 @@ export function reducer(state, action) {
       }
       return {
         ...state,
+        // M.2 follow-up : snap des proportions au défaut du mode cible (la vue
+        // Harmoniques devient éditable → on lui donne sa largeur de référence).
+        designerColumnWidths: defaultColumnWidthsForMode('harmonic'),
         editor: {
           ...state.editor,
           mode: 'harmonic',
@@ -1662,6 +1665,9 @@ export function reducer(state, action) {
       const points = harmonicsToPoints(state.editor.amplitudes, state.editor.N)
       return {
         ...state,
+        // M.2 follow-up : snap des proportions au défaut du mode cible (la vue
+        // Forme d'onde redevient éditable → on lui rend sa largeur de référence).
+        designerColumnWidths: defaultColumnWidthsForMode('draw'),
         editor: { ...state.editor, mode: 'draw', definition: DEFAULT_DEFINITION, points },
       }
     }
