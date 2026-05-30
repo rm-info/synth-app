@@ -2473,6 +2473,8 @@ const DESIGNER_UNDOABLE = new Set([
   // iter-M phase-2 : édition barres + passerelle de conversion (atomique).
   'SET_EDITOR_N', 'SET_EDITOR_HARMONIC_AMPLITUDE',
   'CONVERT_EDITOR_TO_HARMONIC', 'CONVERT_EDITOR_TO_DRAW',
+  // iter-M phase-4 : chargement d'un preset de timbre (remplacement atomique).
+  'LOAD_PRESET',
   // iter-M phase-3 : édition spline + passerelle vers spline (atomique).
   'MOVE_SPLINE_ANCHOR', 'ADD_SPLINE_ANCHOR', 'REMOVE_SPLINE_ANCHOR',
   'SET_SPLINE_INTERPOLATION', 'CONVERT_EDITOR_TO_SPLINE',

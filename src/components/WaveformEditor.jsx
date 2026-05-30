@@ -36,6 +36,7 @@ import { STRINGS } from '../lib/strings'
 import ConfirmDialog from './ConfirmDialog'
 import ConvertToHarmonicDialog from './ConvertToHarmonicDialog'
 import ConvertToSplineDialog from './ConvertToSplineDialog'
+import PresetPicker from './PresetPicker'
 import SplineEditor from './SplineEditor'
 import './WaveformEditor.css'
 
@@ -366,6 +367,10 @@ function WaveformEditor({
   const [convertToDrawOpen, setConvertToDrawOpen] = useState(false)
   // iter-M phase-3 : dialog de conversion vers spline (draw→spline / harmonic→spline).
   const [convertToSplineOpen, setConvertToSplineOpen] = useState(false)
+  // iter-M phase-4 : picker de presets de timbre + garde-fou dirty. Le preset
+  // en attente est gardé le temps de la confirmation d'écrasement.
+  const [presetPickerOpen, setPresetPickerOpen] = useState(false)
+  const [pendingPresetPatch, setPendingPresetPatch] = useState(null)
 
   // iter-M phase-2 : mode de fabrication courant. En 'harmonic', la forme
   // d'onde affichée (et jouée) est la reconstruction iDFT des amplitudes —
@@ -1218,6 +1223,25 @@ function WaveformEditor({
     editorActions.applyPreset(type, pts)
   }
 
+  // iter-M phase-4 : chargement d'un preset de timbre. Garde-fou dirty — si le
+  // draft diffère du patch de référence, on confirme avant d'écraser (même
+  // signal dirty que handleNew). LOAD_PRESET côté reducer remplace le draft
+  // (un seul cran undo).
+  const handlePickPreset = (preset) => {
+    setPresetPickerOpen(false)
+    const dirty = !patchFieldsEqual(stateSnapshotRef.current, referenceRef.current)
+    if (dirty) {
+      setPendingPresetPatch(preset.patch)
+      return
+    }
+    editorActions.loadPreset(preset.patch)
+  }
+
+  const confirmLoadPreset = () => {
+    if (pendingPresetPatch) editorActions.loadPreset(pendingPresetPatch)
+    setPendingPresetPatch(null)
+  }
+
   const flashMessage = (msg) => {
     setSaveMessage(msg)
     if (saveMsgTimerRef.current) clearTimeout(saveMsgTimerRef.current)
@@ -1880,35 +1904,46 @@ function WaveformEditor({
               </span>
             )}
           </div>
-          {editable && (
-            <div className="we-harmonics-controls">
-              <label className="we-n-input" title={STRINGS.editor.harmonicCountTitle}>
-                <span>{STRINGS.editor.harmonicCount}</span>
-                <NumberInput
-                  value={N}
-                  onChange={editorActions.setN}
-                  min={HARMONIC_N_MIN}
-                  max={HARMONIC_N_MAX}
-                  parse={parseHarmonicN}
-                  format={String}
-                  className="we-n-value-input"
-                  ariaLabel={STRINGS.editor.harmonicCountTitle}
-                />
-              </label>
-              <button
-                type="button"
-                className="we-convert-btn"
-                onClick={() => setConvertToDrawOpen(true)}
-                title={STRINGS.editor.convertToDraw}
-              >{STRINGS.editor.convertToDraw}</button>
-              <button
-                type="button"
-                className="we-convert-btn"
-                onClick={() => setConvertToSplineOpen(true)}
-                title={STRINGS.editor.convertToSpline}
-              >{STRINGS.editor.convertToSpline}</button>
-            </div>
-          )}
+          <div className="we-harmonics-controls">
+            {editable && (
+              <>
+                <label className="we-n-input" title={STRINGS.editor.harmonicCountTitle}>
+                  <span>{STRINGS.editor.harmonicCount}</span>
+                  <NumberInput
+                    value={N}
+                    onChange={editorActions.setN}
+                    min={HARMONIC_N_MIN}
+                    max={HARMONIC_N_MAX}
+                    parse={parseHarmonicN}
+                    format={String}
+                    className="we-n-value-input"
+                    ariaLabel={STRINGS.editor.harmonicCountTitle}
+                  />
+                </label>
+                <button
+                  type="button"
+                  className="we-convert-btn"
+                  onClick={() => setConvertToDrawOpen(true)}
+                  title={STRINGS.editor.convertToDraw}
+                >{STRINGS.editor.convertToDraw}</button>
+                <button
+                  type="button"
+                  className="we-convert-btn"
+                  onClick={() => setConvertToSplineOpen(true)}
+                  title={STRINGS.editor.convertToSpline}
+                >{STRINGS.editor.convertToSpline}</button>
+              </>
+            )}
+            {/* iter-M phase-4 : presets de timbre — visible dans tous les modes
+                (le chargement bascule en harmonique). */}
+            <button
+              type="button"
+              className="we-convert-btn"
+              onClick={() => setPresetPickerOpen(true)}
+              title={STRINGS.timbrePresets.loadButtonTitle}
+              data-anchor="designer-presets-button"
+            >{STRINGS.timbrePresets.loadButton}</button>
+          </div>
         </header>
         <div
           className={`we-harmonics-bars${editable ? '' : ' is-readonly'}`}
@@ -2550,6 +2585,23 @@ function WaveformEditor({
           onCancel={() => setConvertToSplineOpen(false)}
         />
       )}
+      {/* iter-M phase-4 : picker de presets de timbre + garde-fou dirty. */}
+      {presetPickerOpen && (
+        <PresetPicker
+          onPick={handlePickPreset}
+          onClose={() => setPresetPickerOpen(false)}
+        />
+      )}
+      <ConfirmDialog
+        open={pendingPresetPatch !== null}
+        title={STRINGS.timbrePresets.dirtyConfirmTitle}
+        message={STRINGS.timbrePresets.dirtyConfirmBody}
+        confirmLabel={STRINGS.timbrePresets.dirtyConfirmLoad}
+        cancelLabel={STRINGS.timbrePresets.dirtyConfirmCancel}
+        variant="danger"
+        onConfirm={confirmLoadPreset}
+        onCancel={() => setPendingPresetPatch(null)}
+      />
     </>
   )
 }

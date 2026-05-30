@@ -516,6 +516,9 @@ export type ActionBody =
   // + troncature à N. harmonic→draw : iDFT vers points ré-éditables.
   | { type: 'CONVERT_EDITOR_TO_HARMONIC'; payload: { N: number } }
   | { type: 'CONVERT_EDITOR_TO_DRAW' }
+  // iter-M phase-4 : charge un preset de timbre (remplace le draft en mode
+  // harmonique, sans conversion). amplitude/ADSR repartent aux défauts.
+  | { type: 'LOAD_PRESET'; payload: { mode: 'harmonic'; N: number; amplitudes: number[] } }
   // iter-M phase-3 : édition du mode spline (toutes undoable). MOVE est
   // dispatchée une fois au commit du drag (draft local côté éditeur).
   | { type: 'MOVE_SPLINE_ANCHOR'; payload: { index: number; x: number; y: number } }
