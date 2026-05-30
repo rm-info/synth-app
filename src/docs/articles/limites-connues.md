@@ -7,7 +7,7 @@ connaître. Certaines pourront tomber dans de futures versions.
 ## Synthèse et qualité audio
 
 La forme d'onde que tu dessines est échantillonnée sur 600 points,
-puis synthétisée à partir de ses 128 premiers
+puis synthétisée à partir de ses 256 premiers
 [harmoniques](doc:glossaire-technique). C'est largement assez pour
 des timbres riches, mais cela pose deux limites :
 
