@@ -197,6 +197,33 @@
   border-top: 1px solid currentColor;
 }
 
+/* Somme `\sum` (iter-M phase-5a). Inline : Σ avec bornes en sub/sup à droite
+   (héritent de `.md-math sup/sub` ci-dessus). Le `nowrap` du conteneur inline
+   garde l'opérateur et ses bornes solidaires. */
+.markdown-renderer .md-sum {
+  white-space: nowrap;
+}
+.markdown-renderer .md-sum-op {
+  font-style: normal;
+}
+/* Display : grille verticale d'une colonne — borne haute / Σ / borne basse,
+   tout centré (« comme au tableau »). Σ agrandi, bornes en petit. */
+.markdown-renderer .md-sum-display {
+  display: inline-grid;
+  justify-items: center;
+  vertical-align: middle;
+  margin: 0 0.15em;
+  line-height: 1;
+}
+.markdown-renderer .md-sum-display .md-sum-op {
+  font-size: 1.6em;
+}
+.markdown-renderer .md-sum-upper,
+.markdown-renderer .md-sum-lower {
+  font-size: 0.7em;
+  line-height: 1.1;
+}
+
 /* Délimiteurs extensibles ( ) [ ] (iter-L phase-R.4) — n'apparaissent que
    pour entourer un contenu haut (fraction). inline-flex + align-items:
    stretch force les bords à s'étirer à la hauteur de la fraction sans

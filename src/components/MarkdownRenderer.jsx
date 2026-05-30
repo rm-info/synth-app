@@ -51,7 +51,8 @@ function renderBlock(node, key) {
       return <blockquote key={key} className="md-blockquote">{node.children.map(renderInline)}</blockquote>
     case 'math':
       // Formule en bloc (centrée). Le mathAst est déjà construit au parse.
-      return <div key={key} className="md-math md-math-block">{renderMath(node.mathAst)}</div>
+      // displayMode=true : pilote le layout empilé du `\sum` (cf. renderSum).
+      return <div key={key} className="md-math md-math-block">{renderMath(node.mathAst, true)}</div>
     default:
       return null
   }
@@ -109,15 +110,17 @@ function renderInline(node, key) {
     case 'docLink':
       return <DocLinkAnchor key={key} node={node} />
     case 'math':
-      return <span key={key} className="md-math md-math-inline">{renderMath(node.mathAst)}</span>
+      return <span key={key} className="md-math md-math-inline">{renderMath(node.mathAst, false)}</span>
     default:
       return null
   }
 }
 
 // Rendu récursif d'un mathAst (iter-L phase-R.2). Dispatch pur : sup/sub →
-// balises natives, frac → barre CSS empilée, var → italique, text → string.
-function renderMath(nodes) {
+// balises natives, frac → barre CSS empilée, var → italique, text → string,
+// sum → bornes à droite (inline) ou empilées (display). `displayMode` voyage
+// dans la récursion : seul `\sum` s'en sert aujourd'hui (iter-M phase-5a).
+function renderMath(nodes, displayMode = false) {
   return nodes.map((node, key) => {
     switch (node.type) {
       case 'text':
@@ -125,22 +128,48 @@ function renderMath(nodes) {
       case 'var':
         return <i key={key} className="md-math-var">{node.value}</i>
       case 'sup':
-        return <sup key={key}>{renderMath(node.children)}</sup>
+        return <sup key={key}>{renderMath(node.children, displayMode)}</sup>
       case 'sub':
-        return <sub key={key}>{renderMath(node.children)}</sub>
+        return <sub key={key}>{renderMath(node.children, displayMode)}</sub>
       case 'frac':
         return (
           <span key={key} className="md-frac">
-            <span className="md-frac-num">{renderMath(node.num)}</span>
-            <span className="md-frac-den">{renderMath(node.den)}</span>
+            <span className="md-frac-num">{renderMath(node.num, displayMode)}</span>
+            <span className="md-frac-den">{renderMath(node.den, displayMode)}</span>
           </span>
         )
+      case 'sum':
+        return renderSum(node, key, displayMode)
       case 'delim':
-        return renderDelim(node, key)
+        return renderDelim(node, key, displayMode)
       default:
         return null
     }
   })
+}
+
+// `\sum` (iter-M phase-5a). Inline : Σ avec ses bornes en sub/sup à droite
+// (primitives natives, compact, reste dans le flux). Display : grille
+// verticale — borne haute au-dessus du Σ, basse en-dessous, op centré et un
+// peu plus grand (« comme au tableau »). Les bornes sont toujours rendues en
+// textstyle (displayMode=false) pour rester petites, même au-dessus/dessous.
+function renderSum(node, key, displayMode) {
+  if (displayMode) {
+    return (
+      <span key={key} className="md-sum-display">
+        {node.upper && <span className="md-sum-upper">{renderMath(node.upper, false)}</span>}
+        <span className="md-sum-op">Σ</span>
+        {node.lower && <span className="md-sum-lower">{renderMath(node.lower, false)}</span>}
+      </span>
+    )
+  }
+  return (
+    <span key={key} className="md-sum">
+      <span className="md-sum-op">Σ</span>
+      {node.upper && <sup>{renderMath(node.upper, false)}</sup>}
+      {node.lower && <sub>{renderMath(node.lower, false)}</sub>}
+    </span>
+  )
 }
 
 // Vrai si le mathAst contient une fraction (à n'importe quelle profondeur)
@@ -152,8 +181,8 @@ function isTall(nodes) {
 // Délimiteurs ( ) [ ]. Contenu sur une ligne → glyphes littéraux (fidélité
 // typographique). Contenu haut (fraction) → délimiteurs dessinés en CSS qui
 // s'étirent à la hauteur du contenu (inline-flex stretch), sans mesure JS.
-function renderDelim(node, key) {
-  const inner = renderMath(node.children)
+function renderDelim(node, key, displayMode = false) {
+  const inner = renderMath(node.children, displayMode)
   if (!isTall(node.children)) {
     return <Fragment key={key}>{node.open}{inner}{node.close}</Fragment>
   }
