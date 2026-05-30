@@ -537,7 +537,7 @@ synth-app/
     ├── App.css               # layout grid responsive Designer/Composer
     ├── index.css
     ├── types.ts             # (iter-M) types du modèle : Patch/Clip/Track/TuningSystem/AppState + union Action
-    ├── audio.js              # DFT (pointsToHarmonics, pointsToPeriodicWave), encodage WAV, palette couleurs
+    ├── audio.js              # FFT 512 pts, cap 256 harmoniques (pointsToHarmonics, pointsToPeriodicWave + définition), encodage WAV, palette couleurs
     ├── reducer.js            # useReducer global + withUndo (historique par onglet) — JSDoc typé (Action/AppState)
     ├── assets/               # résiduel template Vite (non utilisé)
     ├── hooks/
@@ -632,6 +632,10 @@ type Patch = {
   color: string                   // hex, palette SOUND_COLORS (12 couleurs)
   points: number[]                // 600 échantillons [-1, 1]
   amplitude: number               // 0..1
+  definition: number              // 1..256 (iter-M phase-1) — plafond
+                                  // d'harmoniques, troncature M/256 du spectre
+                                  // dessiné. Défaut 256 (= cap, aucune coupe).
+                                  // Patches antérieurs : 256 injecté à l'hydratation.
   preset: 'sine'|'square'|'sawtooth'|'triangle'|null  // null = dessin custom
   attack: number                  // ms, 0-1000 (F.3.11)
   hold: number                    // ms, 0-1000 (F.3.12) — plateau au peak entre attack et decay
@@ -900,7 +904,10 @@ Seuls les **placements timeline** s'appellent "clips".
   look-ahead dans l'OfflineAudioContext).
 
 ### `audio.js`
-- `pointsToPeriodicWave(points, ctx)` — DFT 256 points
+- `pointsToPeriodicWave(points, ctx, definition)` — FFT 512 points, troncature
+  optionnelle des harmoniques k > `definition` (iter-M phase-1 ; absente = spectre
+  complet). `pointsToHarmonics(points)` mémoïsé par `points` (cap 256 harmoniques).
+- `HARMONIC_COUNT = 256` — plafond d'harmoniques (= défaut/max du slider Définition)
 - `SOUND_COLORS` — palette de 12 couleurs
 - `audioBufferToWav(buffer)` — encode PCM 16 bits stéréo (mono dupliqué L+R)
 - `downloadWav(ab, filename)` — blob + `<a download>` programmatique
@@ -1356,14 +1363,20 @@ Choix non évidents pris pour de bonnes raisons. À ne pas remettre en question
   tick réessaiera. Évite le bug de "cache marquée mais draw raté" qui
   laissait le Spectrogramme vide au chargement.
 
-- **DFT truncation à N/2+1 = 129 coefficients** — pour un signal réel
-  d'entrée, les k=129..255 de la DFT sont les conjugués miroirs de
-  k=1..127 (information redondante). Mais `createPeriodicWave` les
-  traite comme des harmoniques indépendants à des fréquences `k×f`,
-  produisant des "parasites" audibles à basse fréquence (4-8 kHz pour
-  C0). On tronque à k=0..128 avant `createPeriodicWave`. Trade-off :
-  128 harmoniques utiles, suffisant pour la musique courante. Si plus
-  de détail spectral souhaité un jour, bumper `NUM_SAMPLES` à 512.
+- **FFT truncation à N/2+1 = 257 coefficients** (iter-M phase-1, bump
+  128→256) — pour un signal réel d'entrée, les k=257..511 de la FFT sont les
+  conjugués miroirs de k=1..255 (information redondante). Mais
+  `createPeriodicWave` les traite comme des harmoniques indépendants à des
+  fréquences `k×f`, produisant des "parasites" audibles. On tronque à
+  k=0..256 avant `createPeriodicWave`. `NUM_SAMPLES = 512`,
+  `HALF_HARMONICS = 257`, `HARMONIC_COUNT = 256`. Le bump récupère la
+  richesse que les 600 points portaient et qu'on jetait au rééchantillonnage :
+  les **basses** (G2 ≈ 98 Hz → ~204 harmoniques audibles, dont 128 seulement
+  livrées avant) gagnent leur plein potentiel ; au-dessus de ~156 Hz aucun
+  changement (les harmoniques manquantes passaient > 20 kHz). Le slider
+  **Définition** (1..256, per-patch) tronque en aval à M/256 pour nettoyer un
+  dessin sans quitter la 2D — troncature dans `pointsToPeriodicWave`, pas dans
+  le cache spectral.
 
 - **FFT Cooley-Tukey radix-2 in-place** — remplace la DFT naïve O(N²)
   par un algorithme O(N log N) (~30 lignes JS pur, zéro dépendance).
@@ -1860,6 +1873,18 @@ Phases listées ci-dessous dans l'ordre chronologique d'implémentation.
 ## État actuel
 
 ✅ **Terminé**
+- Iteration M — phase M.1 (bump cap 256 + slider Définition, 2026-05-30).
+  SC1 : `NUM_SAMPLES` 256→512, cap harmoniques 128→256 (rééchantillonnage
+  600→512, même troncature miroir-conjugué). Les basses récupèrent jusqu'à
+  ~128 harmoniques audibles ; au-dessus de ~156 Hz, aucun changement. Stade
+  dev → pas de migration localStorage. SC2 : champ `Patch.definition`
+  (1..256, défaut 256) + slider « Définition » dans la colonne de paramètres
+  du Designer (readout « N / 256 »), troncature M/256 appliquée en aval dans
+  `pointsToPeriodicWave` (preview live, lecture Composer, export WAV) ; le
+  spectro statique reflète le couperet. `editor.definition` +
+  `SET_EDITOR_DEFINITION` (undoable designer), mirroré au save, hydraté depuis
+  le patch ; rétro-compat localStorage + imports `.osa` → 256 injecté.
+  Reste mono-mode (le typage `draw`/`spline`/`harmonic` vient en M.2).
 - Iteration M — préalable B (francisation des libellés, 2026-05-29). Graine
   i18n via `src/lib/strings.js` (clés sémantiques → FR, sans lib i18n). SC1 :
   audit (`archi/M0-audit-francisation.md`) + centralisation (refactor neutre,
@@ -2492,6 +2517,43 @@ Phases listées ci-dessous dans l'ordre chronologique d'implémentation.
   prochaine candidate).
 
 ## Historique (chronologie inverse)
+
+- **2026-05-30 — Iteration M phase M.1 : bump cap 256 + slider Définition**
+  Première phase audio de M, volontairement détachée et en tête : dé-risque
+  l'UX cœur « dessine sale → glisse → propre » au coût le plus bas, avant la
+  refonte structurelle M.2 (layout 3-vues + patch typé + barres).
+  - **SC1 (`feat phase-1.1`)** : bump du plafond d'harmoniques 128→256.
+    `NUM_SAMPLES` 256→512, `HALF_HARMONICS` 129→257, `HARMONIC_COUNT` 128→256.
+    Rééchantillonnage 600→512 (même interpolation linéaire), même troncature
+    (miroir conjugué redondant, désormais k=257..511). On récupère la richesse
+    que les 600 points portaient et qu'on jetait : les basses (G2 ≈ 98 Hz →
+    ~204 harmoniques audibles, dont 128 seulement livrées) gagnent leur plein
+    potentiel ; au-dessus de ~156 Hz, aucun changement. Self-test FFT DEV
+    inchangé (invariant en N). Stade dev → pas de migration localStorage.
+  - **SC2 (`feat phase-1.2`)** : slider « Définition ». Champ `Patch.definition`
+    (number 1..256, défaut 256 = aucune coupe) ajouté à `types.ts`, persisté.
+    Troncature M/256 **en aval** dans `pointsToPeriodicWave(points, ctx,
+    definition)` (zéroe k > definition après le cache `pointsToHarmonics`, cheap
+    O(N), pas de cache composite). Câblée partout où l'on synthétise :
+    preview live + mode Libre (`WaveformEditor`), lecture Composer + export WAV
+    (`usePlayback`). Spectro statique tronqué à l'identique (prop `definition`,
+    redraw sur changement). Modèle : `editor.definition` + action
+    `SET_EDITOR_DEFINITION` (undoable designer, pattern `amplitude` — le slider
+    édite le working state, mirroré sur le Patch au save via `buildPayload`/
+    `SAVE_PATCH`/`UPDATE_PATCH`, hydraté par `HYDRATE_EDITOR_FROM_PATCH`).
+    Rétro-compat : patches localStorage et imports `.osa` sans champ → 256
+    injecté (son préservé) ; validation `.osa` optionnelle (entier [1,256] si
+    présent), export normalisé. UI : slider en tête de la colonne de paramètres
+    du Designer, readout « N / 256 », libellé via `strings.js`.
+    **Note d'implémentation** : le prompt suggérait l'action `SET_PATCH_DEFINITION`
+    et présentait `definition` comme un champ « patch » ; routé via l'`editor`
+    (`SET_EDITOR_DEFINITION`) pour coller au pattern existant (amplitude/ADSR) et
+    fonctionner sur un patch neuf non encore sauvegardé. Le champ persisté reste
+    `Patch.definition`.
+  - Reste mono-mode (dessin libre) ; le typage `draw`/`spline`/`harmonic` et
+    l'éditeur de barres viennent en M.2 (le slider disparaîtra alors au profit
+    du N du mode barres). Build / lint / typecheck verts.
+  - 2 commits : `feat(iter-M/phase-1.1)` + `feat(iter-M/phase-1.2)`.
 
 - **2026-05-29 — Iteration M préalable B : francisation des libellés**
   Normalisation FR du chrome UI via chaînes centralisées (graine i18n posée
@@ -5412,7 +5474,7 @@ sortie de L.4 ; L.R (math renderer) et L.5 (corpus + rebranchement + ancres)
 l'ont enrichie sans toucher à l'architecture du tour. L.6 (démos écoutables)
 et L.7 (exercices guidés) restent des options de backlog, hors périmètre 1.4.0.
 
-### Itération M (Waveform Designer + Patch typé) — préalable A livré 2026-05-29
+### Itération M (Waveform Designer + Patch typé) — M.1 livré 2026-05-30
 
 - ✅ **Préalable A — Migration TypeScript (phases 0+1)** (2026-05-29) :
   adoption TS incrémentale, fichier par fichier, sans casse. Posée avant la
@@ -5425,9 +5487,16 @@ et L.7 (exercices guidés) restent des options de backlog, hors périmètre 1.4.
   (`src/lib/strings.js`), libellés UI normalisés en FR. SC1 audit + infra
   (refactor neutre), SC2 traductions claires. Cas « à arbitrer » tranchés et
   appliqués le 2026-05-29 (cf. `archi/M0-audit-francisation.md`).
+- ✅ **M.1 — Bump cap 256 + slider Définition** (2026-05-30) : première phase
+  audio, détachée et en tête (dé-risque l'UX « dessine sale → glisse → propre »).
+  SC1 cap harmoniques 128→256 (FFT 512 pts). SC2 champ `Patch.definition`
+  (1..256) + slider « Définition » (troncature M/256 en aval, spectro statique
+  inclus ; rétro-compat localStorage/`.osa` → 256). Reste mono-mode. Cf.
+  Historique pour le détail. Spec : `docs/superpowers/specs/2026-05-29-waveform-designer-design.md`.
 - ⏳ **M.2** — Patch typé : union discriminée par mode de fabrication du timbre
   (`draw` / `spline` / `harmonic`). Hors scope du préalable A (types Waveform
-  réservés à M.2).
+  réservés à M.2). Le slider Définition de M.1 disparaîtra au profit du N du
+  mode barres (cf. spec §6).
 
 ### Backlog général (à caser quand pertinent)
 
