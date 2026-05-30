@@ -9,10 +9,12 @@
 // obligatoires (`^{x}`, pas `^x`).
 //
 // Constructs : `^{…}` exposant, `_{…}` indice, `\frac{a}{b}` fraction,
-// `\cmd` → symbole Unicode, lettre latine isolée → variable italique,
-// tout le reste → texte. Le contenu des accolades est re-parsé en math
-// (récursion). Hors scope : matrices, intégrales, racines, sommes — ne
-// pas anticiper (la ligne maison ne tient que si elle reste petite).
+// `\sum` opérateur à bornes (iter-M phase-5a), `\cmd` → symbole Unicode,
+// lettre latine isolée → variable italique, tout le reste → texte. Le
+// contenu des accolades est re-parsé en math (récursion). Hors scope :
+// matrices, intégrales, racines, `\prod`, `\int` — ne pas anticiper (la
+// ligne maison ne tient que si elle reste petite). `\sum` a été réintégré
+// pour la DFT (iter-M) ; le reste des grands opérateurs reste exclu.
 
 const MATH_SYMBOLS = {
   pi: 'π', alpha: 'α', beta: 'β', gamma: 'γ',
@@ -104,6 +106,32 @@ export function parseMath(src) {
             continue
           }
           warnDev('\\frac mal formé (attend deux groupes {…}{…}) — rendu littéral')
+        } else if (cmd === 'sum') {
+          // Opérateur à bornes : on capture jusqu'à deux groupes `_{…}` /
+          // `^{…}` qui suivent, dans n'importe quel ordre (LaTeX les accepte
+          // indifféremment). Chaque borne est un sous-AST récursif, ou null
+          // si absente. `\sum` seul → Σ littéral (bornes null).
+          flush()
+          let pos = i + m[0].length
+          let lower = null
+          let upper = null
+          for (let pass = 0; pass < 2; pass++) {
+            const b = src[pos]
+            if (b !== '_' && b !== '^') break
+            const g = src[pos + 1] === '{' && matchBrace(src, pos + 1)
+            if (!g) {
+              // `_`/`^` sans accolade derrière : on laisse le caractère au
+              // traitement littéral du scan principal (cohérent avec ^/_).
+              warnDev(`\\sum: borne '${b}' sans groupe {…} — rendu littéral`)
+              break
+            }
+            if (b === '_') lower = parseMath(g.content)
+            else upper = parseMath(g.content)
+            pos = g.end
+          }
+          nodes.push({ type: 'sum', lower, upper })
+          i = pos
+          continue
         } else if (MATH_SYMBOLS[cmd]) {
           flush()
           nodes.push({ type: 'text', value: MATH_SYMBOLS[cmd] })
