@@ -32,11 +32,35 @@ const fr = {
   // Éditeur de patch (Création).
   editor: {
     waveformTitle: 'Forme d’onde',
+    harmonicsTitle: 'Harmoniques', // iter-M phase-2 : colonne éditeur de barres
     spectroToggle: 'Spectro', // conservé (abrév. FR de Spectrogramme) — archi
     clear: 'Effacer',
     test: 'Tester',
     canvasEmpty: 'Zone de dessin vide',
     definition: 'Définition',
+    // iter-M phase-2 : nombre d'harmoniques (mode barres) + verrou des vues
+    // dérivées read-only + passerelle de conversion.
+    harmonicCount: 'N',
+    harmonicCountTitle: 'Nombre d’harmoniques',
+    readOnlyHint: 'Vue dérivée (lecture seule)',
+    convertToHarmonic: 'Convertir en Harmoniques',
+    convertToDraw: 'Convertir en Dessin',
+  },
+
+  // Passerelle de conversion draw ↔ harmonic (dialogs).
+  convert: {
+    toHarmonicTitle: 'Conversion en mode Harmoniques',
+    toHarmonicBody:
+      'Choisis N (nombre d’harmoniques à conserver). Les harmoniques au-delà ' +
+      'seront supprimées et la phase abandonnée. La forme dessinée sera ' +
+      'remplacée par une reconstruction.',
+    toHarmonicConfirm: 'Convertir',
+    toDrawTitle: 'Conversion en mode Dessin',
+    toDrawBody:
+      'La courbe sera reconstruite à partir des harmoniques actuelles ; tu ' +
+      'pourras la retoucher à la main.',
+    toDrawConfirm: 'Convertir',
+    cancel: 'Annuler',
   },
 
   // Presets de formes d'onde.

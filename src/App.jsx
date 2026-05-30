@@ -10,6 +10,7 @@ import MiniPlayer from './components/MiniPlayer'
 import Toolbar from './components/Toolbar'
 import PropertiesPanel from './components/PropertiesPanel'
 import Spectrogram from './components/Spectrogram'
+import DesignerColumns from './components/DesignerColumns'
 import SidebarResizer from './components/SidebarResizer'
 import PopupResizer from './components/PopupResizer'
 import RecentPatchesList from './components/RecentPatchesList'
@@ -830,9 +831,9 @@ function App() {
     })
   }, [durationMode])
 
-  const setSpectrogramVisible = useCallback((v) => {
-    dispatch({ type: 'SET_SPECTROGRAM_VISIBLE', payload: v })
-  }, [])
+  // iter-M phase-2.2 : `spectrogramVisible` est devenu vestigial (le spectro
+  // est une colonne permanente du layout 3-vues). La clé localStorage est
+  // conservée (consigne « ne pas toucher aux clés ») mais n'a plus de toggle.
 
   const setSpectrogramDbScale = useCallback((v) => {
     dispatch({ type: 'SET_SPECTROGRAM_DB_SCALE', payload: v })
@@ -842,6 +843,10 @@ function App() {
   }, [])
   const setSpectrogramMode = useCallback((mode) => {
     dispatch({ type: 'SET_SPECTROGRAM_MODE', payload: mode })
+  }, [])
+  // iter-M phase-2 : proportions des 3 colonnes Designer (presets + drag).
+  const setDesignerColumnWidths = useCallback((widths) => {
+    dispatch({ type: 'SET_DESIGNER_COLUMN_WIDTHS', payload: widths })
   }, [])
 
   const setBibHierarchyMode = useCallback((mode) => {
@@ -2089,8 +2094,6 @@ function App() {
         currentPatch={currentPatch}
         patches={patches}
         onPatchCreated={handlePatchCreated}
-        spectrogramVisible={spectrogramVisible}
-        onToggleSpectrogram={setSpectrogramVisible}
         canUndo={designerCanUndo}
         canRedo={designerCanRedo}
         onUndo={handleUndoDesigner}
@@ -2098,7 +2101,7 @@ function App() {
         analyserRef={analyserRef}
         activeVoicesCountRef={activeVoicesCountRef}
       >
-        {({ renderCanvasArea, renderParamsArea, renderAdsrArea, renderActions }) => (
+        {({ renderCanvasArea, renderHarmonicsArea, renderParamsArea, renderAdsrArea, renderActions }) => (
           <>
             <main
               className={`designer-layout${isMobile ? ' designer-layout-mobile' : ''}`}
@@ -2250,6 +2253,7 @@ function App() {
                 <div className="designer-main designer-main-mobile">
                   {[
                     { id: 'canvas', title: STRINGS.editor.waveformTitle, body: renderCanvasArea() },
+                    { id: 'harmonics', title: STRINGS.editor.harmonicsTitle, body: renderHarmonicsArea() },
                     { id: 'spectrogram', title: 'Spectrogramme', body: spectrogramNode },
                     { id: 'adsr', title: 'Enveloppe AHDSR', body: renderAdsrArea() },
                     { id: 'params', title: 'Instrument', body: renderParamsArea() },
@@ -2277,12 +2281,14 @@ function App() {
                 </div>
               ) : (
                 <div className="designer-main">
-                  <div className="designer-row">
-                    <div className="designer-cell">{renderCanvasArea()}</div>
-                    {spectrogramVisible && (
-                      <div className="designer-cell">{spectrogramNode}</div>
-                    )}
-                  </div>
+                  {/* iter-M phase-2.2 : moitié haute = 3 colonnes ajustables
+                      Forme d'onde / Harmoniques / Spectrogramme (le spectro,
+                      read-only, est désormais une colonne permanente). */}
+                  <DesignerColumns
+                    widths={designerColumnWidths}
+                    onWidths={setDesignerColumnWidths}
+                    columns={[renderCanvasArea(), renderHarmonicsArea(), spectrogramNode]}
+                  />
                   <div className="designer-row">
                     <div className="designer-cell">{renderParamsArea()}</div>
                     <div className="designer-cell">{renderAdsrArea()}</div>

@@ -1,6 +1,7 @@
 /* --- Zones partagées --- */
 
 .we-canvas-area,
+.we-harmonics-area,
 .we-params-area,
 .we-adsr-area {
   display: flex;
@@ -26,6 +27,15 @@
   border-bottom: 1px solid var(--surface-border-strong);
   flex-shrink: 0;
   gap: 10px;
+}
+
+/* iter-M phase-2.2 : placeholder de la colonne Harmoniques (éditeur livré
+   en 2.3). Occupe l'espace pour que la colonne ait sa hauteur dès 2.2. */
+.we-harmonics-placeholder {
+  flex: 1;
+  min-height: 0;
+  border-radius: 6px;
+  background: var(--canvas-bg, var(--surface-bg));
 }
 
 .we-header-left {

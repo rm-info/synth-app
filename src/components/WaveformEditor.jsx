@@ -304,8 +304,6 @@ function WaveformEditor({
   currentPatch,
   patches,
   onPatchCreated,
-  spectrogramVisible,
-  onToggleSpectrogram,
   canUndo,
   canRedo,
   onUndo,
@@ -1655,21 +1653,9 @@ function WaveformEditor({
             {currentPatch ? `Édition : ${currentPatch.name}` : defaultName}
           </span>
         </div>
-        <div className="we-header-right">
-          {/* iter G phase 2.2 : Undo/Redo migrés vers le panneau Actions de
-              la sidebar gauche pour cohérence. Le header Waveform ne porte
-              plus que le toggle Spectro. */}
-          {onToggleSpectrogram && (
-            <label className="spectro-toggle" title="Afficher le spectrogramme à côté">
-              <input
-                type="checkbox"
-                checked={!!spectrogramVisible}
-                onChange={(e) => onToggleSpectrogram(e.target.checked)}
-              />
-              <span>{STRINGS.editor.spectroToggle}</span>
-            </label>
-          )}
-        </div>
+        {/* iter-M phase-2.2 : le toggle « Spectro » est retiré — le
+            spectrogramme est désormais une colonne permanente du layout
+            3-vues (cf. DesignerColumns). */}
       </header>
       <div className="presets">
         <button onClick={() => loadPreset('sine')}>{STRINGS.presets.sine}</button>
@@ -1690,6 +1676,17 @@ function WaveformEditor({
         <span className="label middle">0</span>
         <span className="label bottom">-1</span>
       </div>
+    </div>
+  )
+
+  // iter-M phase-2.2 : colonne Harmoniques (centre du layout 3-vues).
+  // Placeholder vide à ce sous-commit — l'éditeur de barres arrive en 2.3.
+  const renderHarmonicsArea = () => (
+    <div className="we-harmonics-area" data-anchor="designer-harmonics">
+      <header className="we-area-header">
+        <h3 className="we-area-title">{STRINGS.editor.harmonicsTitle}</h3>
+      </header>
+      <div className="we-harmonics-placeholder" />
     </div>
   )
 
@@ -2269,7 +2266,7 @@ function WaveformEditor({
 
   return (
     <>
-      {children({ renderCanvasArea, renderParamsArea, renderAdsrArea, renderActions })}
+      {children({ renderCanvasArea, renderHarmonicsArea, renderParamsArea, renderAdsrArea, renderActions })}
       <ConfirmDialog
         open={confirmNewOpen}
         title="Nouveau patch ?"

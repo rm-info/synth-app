@@ -1,0 +1,75 @@
+/* iter-M phase-2 : moitié principale du Designer en 3 colonnes ajustables. */
+.designer-columns {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-height: 0;
+  min-width: 0;
+}
+
+/* Petite barre dédiée aux presets de répartition (snap en un clic). */
+.designer-columns-presets {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  flex-shrink: 0;
+}
+.designer-columns-preset-btn {
+  font-size: 12px;
+  line-height: 1;
+  padding: 4px 8px;
+  border-radius: 6px;
+  border: 1px solid var(--surface-border-strong);
+  background: var(--surface-elevated);
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: background 0.12s, color 0.12s, border-color 0.12s;
+}
+.designer-columns-preset-btn:hover {
+  background: var(--accent-bg-faint);
+  border-color: var(--accent);
+  color: var(--text-strong);
+}
+
+.designer-columns-row {
+  flex: 1;
+  display: flex;
+  flex-direction: row;
+  min-height: 0;
+  min-width: 0;
+}
+.designer-column {
+  flex-grow: 1;
+  flex-shrink: 1;
+  flex-basis: 0;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+}
+
+/* Séparateur glissable : cible de hit large (12 px) avec poignée visible
+   centrée. Curseur col-resize. Le mousedown capture l'event côté JS
+   (stopPropagation) — la poignée ne « fuit » pas vers la colonne. */
+.designer-columns-sep {
+  flex: 0 0 12px;
+  align-self: stretch;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: col-resize;
+  touch-action: none;
+}
+.designer-columns-sep-grip {
+  width: 3px;
+  height: 36px;
+  max-height: 60%;
+  border-radius: 3px;
+  background: var(--surface-border-strong);
+  transition: background 0.12s;
+}
+.designer-columns-sep:hover .designer-columns-sep-grip,
+.designer-columns-sep:active .designer-columns-sep-grip {
+  background: var(--accent);
+}
