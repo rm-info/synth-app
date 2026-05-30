@@ -1,7 +1,7 @@
 import { useRef, useState, useCallback, useEffect, useImperativeHandle, useMemo } from 'react'
 import { Plus, Save, SaveAll, Undo2, Redo2, Sliders, X, Lock } from 'lucide-react'
 import { pointsToPeriodicWave, MIN_ATTACK, HARMONIC_COUNT, harmonicsToPoints, pointsToHarmonics } from '../audio'
-import { DEFAULT_HARMONIC_N, HARMONIC_N_MIN, HARMONIC_N_MAX } from '../reducer'
+import { DEFAULT_HARMONIC_N, HARMONIC_N_MIN, HARMONIC_N_MAX, BRIDGE_DEFAULT_N } from '../reducer'
 import useWindowSize from '../hooks/useWindowSize'
 import FreqInput from './FreqInput'
 import NumberInput from './NumberInput'
@@ -31,6 +31,7 @@ import {
 import { themeColor } from '../lib/themeColor'
 import { STRINGS } from '../lib/strings'
 import ConfirmDialog from './ConfirmDialog'
+import ConvertToHarmonicDialog from './ConvertToHarmonicDialog'
 import './WaveformEditor.css'
 
 const POINTS_RESOLUTION = 600
@@ -333,6 +334,9 @@ function WaveformEditor({
   const [draftAmplitudes, setDraftAmplitudes] = useState(null)
   // Confirmation "abandonner modifs" pour handleNew
   const [confirmNewOpen, setConfirmNewOpen] = useState(false)
+  // iter-M phase-2.5 : dialogs de la passerelle de conversion draw ↔ harmonic.
+  const [convertToHarmonicOpen, setConvertToHarmonicOpen] = useState(false)
+  const [convertToDrawOpen, setConvertToDrawOpen] = useState(false)
 
   // iter-M phase-2 : mode de fabrication courant. En 'harmonic', la forme
   // d'onde affichée (et jouée) est la reconstruction iDFT des amplitudes —
@@ -1726,6 +1730,14 @@ function WaveformEditor({
               {currentPatch ? `Édition : ${currentPatch.name}` : defaultName}
             </span>
           </div>
+          {editable && (
+            <button
+              type="button"
+              className="we-convert-btn"
+              onClick={() => setConvertToHarmonicOpen(true)}
+              title={STRINGS.editor.convertToHarmonic}
+            >{STRINGS.editor.convertToHarmonic}</button>
+          )}
         </header>
         {editable && (
           <div className="presets">
@@ -1780,19 +1792,27 @@ function WaveformEditor({
             )}
           </div>
           {editable && (
-            <label className="we-n-input" title={STRINGS.editor.harmonicCountTitle}>
-              <span>{STRINGS.editor.harmonicCount}</span>
-              <NumberInput
-                value={N}
-                onChange={editorActions.setN}
-                min={HARMONIC_N_MIN}
-                max={HARMONIC_N_MAX}
-                parse={parseHarmonicN}
-                format={String}
-                className="we-n-value-input"
-                ariaLabel={STRINGS.editor.harmonicCountTitle}
-              />
-            </label>
+            <div className="we-harmonics-controls">
+              <label className="we-n-input" title={STRINGS.editor.harmonicCountTitle}>
+                <span>{STRINGS.editor.harmonicCount}</span>
+                <NumberInput
+                  value={N}
+                  onChange={editorActions.setN}
+                  min={HARMONIC_N_MIN}
+                  max={HARMONIC_N_MAX}
+                  parse={parseHarmonicN}
+                  format={String}
+                  className="we-n-value-input"
+                  ariaLabel={STRINGS.editor.harmonicCountTitle}
+                />
+              </label>
+              <button
+                type="button"
+                className="we-convert-btn"
+                onClick={() => setConvertToDrawOpen(true)}
+                title={STRINGS.editor.convertToDraw}
+              >{STRINGS.editor.convertToDraw}</button>
+            </div>
           )}
         </header>
         <div
@@ -2405,6 +2425,24 @@ function WaveformEditor({
         variant="danger"
         onConfirm={doNew}
         onCancel={() => setConfirmNewOpen(false)}
+      />
+      {/* iter-M phase-2.5 : passerelle de conversion (actions atomiques
+          undoables côté reducer). */}
+      {convertToHarmonicOpen && (
+        <ConvertToHarmonicDialog
+          defaultN={BRIDGE_DEFAULT_N}
+          onConfirm={(n) => { setConvertToHarmonicOpen(false); editorActions.convertToHarmonic(n) }}
+          onCancel={() => setConvertToHarmonicOpen(false)}
+        />
+      )}
+      <ConfirmDialog
+        open={convertToDrawOpen}
+        title={STRINGS.convert.toDrawTitle}
+        message={STRINGS.convert.toDrawBody}
+        confirmLabel={STRINGS.convert.toDrawConfirm}
+        cancelLabel={STRINGS.convert.cancel}
+        onConfirm={() => { setConvertToDrawOpen(false); editorActions.convertToDraw() }}
+        onCancel={() => setConvertToDrawOpen(false)}
       />
     </>
   )
