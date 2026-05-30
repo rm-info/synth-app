@@ -1,7 +1,7 @@
 import { useRef, useState, useCallback, useEffect, useImperativeHandle, useMemo } from 'react'
 import { Plus, Save, SaveAll, Undo2, Redo2, Sliders, X, Lock } from 'lucide-react'
-import { pointsToPeriodicWave, MIN_ATTACK, HARMONIC_COUNT, harmonicsToPoints } from '../audio'
-import { DEFAULT_HARMONIC_N } from '../reducer'
+import { pointsToPeriodicWave, MIN_ATTACK, HARMONIC_COUNT, harmonicsToPoints, pointsToHarmonics } from '../audio'
+import { DEFAULT_HARMONIC_N, HARMONIC_N_MIN, HARMONIC_N_MAX } from '../reducer'
 import useWindowSize from '../hooks/useWindowSize'
 import FreqInput from './FreqInput'
 import NumberInput from './NumberInput'
@@ -176,6 +176,16 @@ function formatDefinition(v) {
   return String(v)
 }
 
+// iter-M phase-2.3 : N (nombre d'harmoniques, mode barres). Entier ; le clamp
+// [16, 256] est fait par NumberInput.
+function parseHarmonicN(raw) {
+  if (typeof raw !== 'string') return NaN
+  const s = raw.trim()
+  if (s === '') return NaN
+  const v = parseInt(s, 10)
+  return Number.isFinite(v) ? v : NaN
+}
+
 function stripSuffix(name) {
   let s = name
   for (;;) {
@@ -318,6 +328,9 @@ function WaveformEditor({
   const [draftAmp, setDraftAmp] = useState(null)
   const [draftDefinition, setDraftDefinition] = useState(null)
   const [draftFreq, setDraftFreq] = useState(null)
+  // iter-M phase-2.3 : draft des amplitudes harmoniques (geste continu de drag
+  // sur une barre, à la draftPoints). Commit au mouseup → un seul snapshot.
+  const [draftAmplitudes, setDraftAmplitudes] = useState(null)
   // Confirmation "abandonner modifs" pour handleNew
   const [confirmNewOpen, setConfirmNewOpen] = useState(false)
 
@@ -325,7 +338,7 @@ function WaveformEditor({
   // d'onde affichée (et jouée) est la reconstruction iDFT des amplitudes —
   // `points` est donc dérivé, pas le tracé édité.
   const mode = editor.mode ?? 'draw'
-  const amplitudes = editor.amplitudes
+  const amplitudes = draftAmplitudes ?? editor.amplitudes
   const N = editor.N ?? DEFAULT_HARMONIC_N
   const harmonicPoints = useMemo(
     () => (mode === 'harmonic' ? harmonicsToPoints(amplitudes, amplitudes.length) : null),
@@ -621,6 +634,56 @@ function WaveformEditor({
       lastPointRef.current = null
       commitDraftPoints()
     }
+  }
+
+  // --- iter-M phase-2.3 : édition des barres d'harmoniques (mode harmonic) ---
+  // Une barre à la fois : le mousedown verrouille l'index (depuis x), le drag
+  // n'ajuste plus que sa hauteur (depuis y). Commit unique au mouseup → un
+  // seul cran undo par geste. (Le sweep horizontal multi-barres est différé,
+  // cf. BACKLOG.)
+  const harmonicsContainerRef = useRef(null)
+  const dragBarRef = useRef(null)
+
+  const harmonicAmplitudeFromEvent = (e) => {
+    const el = harmonicsContainerRef.current
+    if (!el) return 0
+    const rect = el.getBoundingClientRect()
+    const yPct = (e.clientY - rect.top) / rect.height
+    return Math.max(0, Math.min(1, 1 - yPct))
+  }
+  const harmonicIndexFromEvent = (e, count) => {
+    const el = harmonicsContainerRef.current
+    if (!el) return 0
+    const rect = el.getBoundingClientRect()
+    const xPct = Math.max(0, Math.min(0.9999, (e.clientX - rect.left) / rect.width))
+    return Math.min(count - 1, Math.floor(xPct * count))
+  }
+
+  const handleHarmonicMouseDown = (e) => {
+    const index = harmonicIndexFromEvent(e, editor.amplitudes.length)
+    dragBarRef.current = index
+    const next = Array.from(draftAmplitudes ?? editor.amplitudes)
+    next[index] = harmonicAmplitudeFromEvent(e)
+    setDraftAmplitudes(next)
+  }
+  const handleHarmonicMouseMove = (e) => {
+    if (dragBarRef.current === null) return
+    const index = dragBarRef.current
+    const next = Array.from(draftAmplitudes ?? editor.amplitudes)
+    next[index] = harmonicAmplitudeFromEvent(e)
+    setDraftAmplitudes(next)
+  }
+  const commitHarmonicDraft = () => {
+    const index = dragBarRef.current
+    dragBarRef.current = null
+    if (draftAmplitudes && index !== null && draftAmplitudes[index] !== editor.amplitudes[index]) {
+      editorActions.setHarmonicAmplitude(index, draftAmplitudes[index])
+    }
+    setDraftAmplitudes(null)
+  }
+  const handleHarmonicMouseUp = () => commitHarmonicDraft()
+  const handleHarmonicMouseLeave = () => {
+    if (dragBarRef.current !== null) commitHarmonicDraft()
   }
 
   // --- Instrument live (E.3) : play at mousedown, release at mouseup ---
@@ -1679,16 +1742,69 @@ function WaveformEditor({
     </div>
   )
 
-  // iter-M phase-2.2 : colonne Harmoniques (centre du layout 3-vues).
-  // Placeholder vide à ce sous-commit — l'éditeur de barres arrive en 2.3.
-  const renderHarmonicsArea = () => (
-    <div className="we-harmonics-area" data-anchor="designer-harmonics">
-      <header className="we-area-header">
-        <h3 className="we-area-title">{STRINGS.editor.harmonicsTitle}</h3>
-      </header>
-      <div className="we-harmonics-placeholder" />
-    </div>
-  )
+  // iter-M phase-2.3/2.4 : colonne Harmoniques (centre du layout 3-vues).
+  // - mode 'harmonic' : N barres éditables (drag vertical = amplitude [0..1]).
+  // - mode 'draw' : read-only, magnitudes DFT du dessin courant tronquées à
+  //   `definition` (lues sur editor.points committé, pas le draft — cohérent
+  //   avec le spectro, évite de recomputer la DFT à chaque trait). Indicateur 🔒.
+  const renderHarmonicsArea = () => {
+    const editable = mode === 'harmonic'
+    let bars
+    if (editable) {
+      bars = amplitudes
+    } else {
+      const { magnitudes } = pointsToHarmonics(editor.points)
+      const cut = Math.min(definition, HARMONIC_COUNT)
+      bars = []
+      for (let k = 1; k <= cut; k++) bars.push(magnitudes[k] ?? 0)
+    }
+    return (
+      <div className="we-harmonics-area" data-anchor="designer-harmonics">
+        <header className="we-area-header">
+          <div className="we-header-left">
+            <h3 className="we-area-title">{STRINGS.editor.harmonicsTitle}</h3>
+            {!editable && (
+              <span className="we-readonly-badge" title={STRINGS.editor.readOnlyHint}>
+                <Lock size={13} strokeWidth={2} />
+              </span>
+            )}
+          </div>
+          {editable && (
+            <label className="we-n-input" title={STRINGS.editor.harmonicCountTitle}>
+              <span>{STRINGS.editor.harmonicCount}</span>
+              <NumberInput
+                value={N}
+                onChange={editorActions.setN}
+                min={HARMONIC_N_MIN}
+                max={HARMONIC_N_MAX}
+                parse={parseHarmonicN}
+                format={String}
+                className="we-n-value-input"
+                ariaLabel={STRINGS.editor.harmonicCountTitle}
+              />
+            </label>
+          )}
+        </header>
+        <div
+          className={`we-harmonics-bars${editable ? '' : ' is-readonly'}`}
+          ref={harmonicsContainerRef}
+          onMouseDown={editable ? handleHarmonicMouseDown : undefined}
+          onMouseMove={editable ? handleHarmonicMouseMove : undefined}
+          onMouseUp={editable ? handleHarmonicMouseUp : undefined}
+          onMouseLeave={editable ? handleHarmonicMouseLeave : undefined}
+        >
+          {bars.map((v, i) => (
+            <div key={i} className="we-bar">
+              <div
+                className="we-bar-fill"
+                style={{ height: `${Math.max(0, Math.min(1, v)) * 100}%` }}
+              />
+            </div>
+          ))}
+        </div>
+      </div>
+    )
+  }
 
   // v1.1.0 : Row de contrôles Instrument (Catégorie / Système musical /
   // X-EDO / Repère / Tonique). Extrait en sous-fonction pour réutilisation

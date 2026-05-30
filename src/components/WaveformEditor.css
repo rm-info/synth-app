@@ -29,13 +29,65 @@
   gap: 10px;
 }
 
-/* iter-M phase-2.2 : placeholder de la colonne Harmoniques (éditeur livré
-   en 2.3). Occupe l'espace pour que la colonne ait sa hauteur dès 2.2. */
-.we-harmonics-placeholder {
+/* iter-M phase-2.3 : éditeur de barres d'harmoniques. */
+.we-readonly-badge {
+  display: inline-flex;
+  align-items: center;
+  color: var(--text-secondary);
+  opacity: 0.7;
+}
+.we-n-input {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--text-secondary);
+  flex-shrink: 0;
+}
+.we-n-value-input {
+  width: 48px;
+  text-align: center;
+  font-size: 12px;
+  padding: 2px 4px;
+  border-radius: 4px;
+  border: 1px solid var(--surface-border-strong);
+  background: var(--surface-bg);
+  color: var(--text-default);
+}
+
+.we-harmonics-bars {
   flex: 1;
+  display: flex;
+  align-items: flex-end;
+  gap: 1px;
   min-height: 0;
+  padding: 6px 4px;
   border-radius: 6px;
   background: var(--canvas-bg, var(--surface-bg));
+  cursor: ns-resize;
+  overflow: hidden;
+}
+.we-harmonics-bars.is-readonly {
+  cursor: default;
+}
+.we-bar {
+  flex: 1 1 0;
+  min-width: 0;
+  height: 100%;
+  display: flex;
+  align-items: flex-end;
+}
+.we-bar-fill {
+  width: 100%;
+  min-height: 1px;
+  /* Bleu = éditable (cf. mockup layout-v2). En read-only (mode dessin), la
+     magnitude DFT dérivée est grisée pour signifier la non-éditabilité. */
+  background: var(--accent);
+  border-radius: 1px 1px 0 0;
+}
+.we-harmonics-bars.is-readonly .we-bar-fill {
+  background: var(--text-secondary);
+  opacity: 0.55;
 }
 
 .we-header-left {
