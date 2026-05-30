@@ -498,6 +498,16 @@ byte-identique). `// @ts-check` non retenu sur le reducer : une garde défensive
 le pousse à `never`, et le forcer violerait « zéro changement / s'efface au
 build » ; JSDoc retenu (option sanctionnée par le prompt archi).
 
+**Iteration M — Waveform Designer (M.1→M.3) livré le 2026-05-30.** Le Designer
+gagne **trois modes de fabrication de timbre** coexistants, discriminés par
+`Patch.mode` : `draw` (tracé libre + plafond `definition` 1..256, M.1), `harmonic`
+(barres d'amplitudes, iDFT, M.2) et `spline` (4..32 ancres interpolées Catmull-Rom
+ou polyligne, M.3). Layout 3 colonnes ajustables Forme d'onde / Harmoniques /
+Spectrogramme (M.2.2, toggle auto-sizing en essai M.2-AS). `points` reste l'ombre
+dérivée unique de la vérité de chaque mode → toute la chaîne audio (playback /
+export WAV / miniatures / spectro) demeure mono-chemin, zéro modif. Passerelle de
+conversion entre les 3 modes (dialogs, conversions atomiques undoables).
+
 **Release v1.0.0-1.0.4** (2026-05-20) — Premier déploiement prod. Sortie
 du 0.x exploratoire après 7 itérations majeures (A→G) stables.
 Branding : titre commercial **On_Synth_App** (jeu de mots « on s'en
@@ -559,6 +569,7 @@ synth-app/
     │   ├── highlightElement.js # halo temporaire ancré (DocLink), retry RAF (iter-L phase-3.1)
     │   ├── markdown.js       # parser Markdown maison + AST, délègue le math à mathParse (iter-L phase-2.2 / R.1)
     │   ├── mathParse.js      # sous-parser math récursif ($…$, $$…$$ → mathAst) (iter-L phase-R.1)
+    │   ├── spline.js         # (iter-M M.3) splineSoft Catmull-Rom périodique / splineHard polyligne → points
     │   └── tours/            # déclarations du Tour guidé par onglet (iter-L phase-4)
     │       ├── index.js      # map tabId → étapes + TOUR_TABS (ordre chaînage)
     │       ├── library.js / designer.js / composer.js / documentation.js  # séquences d'étapes
@@ -576,7 +587,9 @@ synth-app/
         ├── WaveformEditor.jsx + .css          # éditeur ondes / patch (Designer)
         ├── Spectrogram.jsx + .css             # spectrogramme statique (Designer)
         ├── DesignerColumns.jsx + .css         # layout 3 colonnes ajustables (Designer, M.2.2)
-        ├── ConvertToHarmonicDialog.jsx + .css # dialog passerelle draw→harmonic (M.2.5)
+        ├── SplineEditor.jsx + .css            # éditeur points/courbe mode spline (Designer, M.3)
+        ├── ConvertToHarmonicDialog.jsx + .css # dialog passerelle draw/spline→harmonic (M.2.5)
+        ├── ConvertToSplineDialog.jsx          # dialog passerelle draw/harmonic→spline (M.3.3)
         ├── MiniPlayer.jsx + .css              # transport simplifié (Designer)
         ├── PianoKeyboard.jsx + .css           # dispatcher clavier (piano-12 / grid-24 / grid-5 / grid-7 / grid-31 / grid-22-bhatkhande / grid-22-sarngadeva) + octaves + halo .is-cued (F.4.4)
         ├── DurationButtons.jsx + .css         # boutons durée 7 bases + 3 coefs (phase 6.1)
@@ -629,10 +642,11 @@ type SoundFolder = {              // racine virtuelle si parentId === null
 // c'est le clip qui porte la hauteur. Un même patch peut être joué à
 // n'importe quelle hauteur sans duplication.
 //
-// Depuis iter-M phase-2 : Patch est une UNION DISCRIMINÉE par `mode`
-// ('draw' | 'harmonic'). `points` est porté par TOUS les modes : en
-// 'harmonic' c'est la reconstruction iDFT des `amplitudes`
-// (audio.harmonicsToPoints), stockée pour que TOUTE la chaîne audio
+// Depuis iter-M phase-2/3 : Patch est une UNION DISCRIMINÉE par `mode`
+// ('draw' | 'harmonic' | 'spline'). `points` est porté par TOUS les modes :
+// en 'harmonic' c'est la reconstruction iDFT des `amplitudes`
+// (audio.harmonicsToPoints), en 'spline' la reconstruction de la courbe
+// (lib/spline.splineToPoints) ; stockée pour que TOUTE la chaîne audio
 // existante (playback / export WAV / miniatures) reste l'unique
 // consommatrice de `points` — aucun chemin audio mode-spécifique.
 type PatchCommon = {
@@ -663,7 +677,14 @@ type HarmonicPatch = PatchCommon & {
   N: number                       // 16..256 — nombre d'harmoniques (iter-M phase-2)
   amplitudes: number[]            // longueur N, magnitudes ∈ [0..1] (pas de phase)
 }
-type Patch = DrawPatch | HarmonicPatch
+type SplinePatch = PatchCommon & {  // iter-M phase-3
+  mode: 'spline'
+  anchors: { x: number, y: number }[]  // 4..32 ancres, x ∈ [0,600), y ∈ [-1,1],
+                                  // ordre cyclique des x maintenu par le reducer
+  interpolation: 'soft' | 'hard'  // soft = Catmull-Rom périodique, hard = polyligne
+  // PAS de `definition` : courbe propre par construction (band-limitée).
+}
+type Patch = DrawPatch | HarmonicPatch | SplinePatch
 // Hydratation rétro-compat : `mode` absent (localStorage / .osa antérieurs)
 // → 'draw' + definition 256. Pas de migration destructive.
 
@@ -834,23 +855,31 @@ Seuls les **placements timeline** s'appellent "clips".
   la moitié haute en 3 colonnes via `DesignerColumns` (Forme d'onde /
   Harmoniques / Spectrogramme) et garde la moitié basse (Instrument / ADSR).
   Le panneau Actions est placé par App.jsx dans la sidebar gauche.
-- **Patch typé (iter-M phase-2)** : `editor.mode` ('draw' | 'harmonic')
-  pilote la vue éditable ; les autres sont read-only (🔒).
-  - **Forme d'onde** : éditable en 'draw' (tracé), read-only en 'harmonic'
-    (reconstruction iDFT de `editor.points`, handlers coupés, presets masqués).
+- **Patch typé (iter-M phase-2/3)** : `editor.mode` ('draw' | 'harmonic' |
+  'spline') pilote la vue éditable ; les autres sont read-only (🔒).
+  - **Forme d'onde** (`renderCanvasArea`) : éditable en 'draw' (tracé) ; en
+    'spline' c'est l'éditeur de points/courbe (`SplineEditor`, dispatch en tête
+    de `renderCanvasArea`) ; read-only en 'harmonic' (reconstruction iDFT de
+    `editor.points`, handlers coupés, presets masqués).
   - **Harmoniques** (`renderHarmonicsArea`) : en 'harmonic', N barres bleues
     éditables (drag vertical = amplitude [0..1], 1 barre/geste verrouillée à
     l'index au mousedown, commit unique → 1 undo ; bouton N 16..256). En
-    'draw', read-only : magnitudes DFT du dessin tronquées à `definition`
-    (lues sur `editor.points` committé, cohérent spectro), grisées + 🔒.
+    'draw', read-only : magnitudes DFT du dessin tronquées à `definition`. En
+    'spline', read-only : DFT **pleine** des `points` (256 composantes, pas de
+    `definition` à appliquer — courbe propre par construction). Grisées + 🔒.
   - `draftAmplitudes` (geste continu) → reconstruction iDFT live → forme
-    d'onde + audio. Définition neutralisée à l'audio en harmonic
-    (`effectiveDefinition = HARMONIC_COUNT` ; N porte déjà la troncature).
-  - Slider Définition masqué en mode harmonique.
-- **Passerelle (iter-M phase-2.5)** : bouton « Convertir en Harmoniques »
-  (header Forme d'onde, mode draw → `ConvertToHarmonicDialog` choix N) et
-  « Convertir en Dessin » (header Harmoniques, mode harmonic → `ConfirmDialog`).
-  Conversions atomiques undoables (un cran undo annule toute la conversion).
+    d'onde + audio. Définition neutralisée à l'audio en harmonic ET spline
+    (`effectiveDefinition = HARMONIC_COUNT` ; seul 'draw' applique `definition`).
+  - Slider Définition masqué hors mode dessin.
+- **Passerelle (iter-M phase-2.5 + 3.3)** — 2 boutons par mode actif (vers les
+  deux autres), conversions atomiques undoables :
+  - draw → harmonic (`ConvertToHarmonicDialog`, choix N), draw → spline
+    (`ConvertToSplineDialog`).
+  - harmonic → draw (`ConfirmDialog`), harmonic → spline (`ConvertToSplineDialog`).
+  - spline → draw (`ConfirmDialog`), spline → harmonic (`ConvertToHarmonicDialog`).
+  - draw/harmonic → spline échantillonne N ancres équiréparties depuis
+    `editor.points` ; spline → draw/harmonic part de `editor.points` (ombre du
+    mode). Snap des proportions au défaut du mode cible conservé (spline = ½¼¼).
 - Éditeur AHDSR **visuel** 380×120 : 4 poignées draggables — P1
   (attack+amplitude en 2D), P1h (hold seul en 1D depuis F.3.13.1),
   P2 (decay+sustain en 2D), P4 (release seul en 1D). Courbe cyan +
@@ -917,6 +946,25 @@ Seuls les **placements timeline** s'appellent "clips".
   avant DFT + troncature. Réutilise le visuel `ConfirmDialog`. Monté/démonté
   par le parent (état `n` frais à chaque ouverture, sans setState-in-effect).
 
+### `SplineEditor.jsx` (iter-M phase-3)
+- Éditeur du mode spline (points/courbe), rendu dans la colonne Forme d'onde.
+  Canvas : courbe (`points`/draft) + poignées d'ancres draggables (pattern
+  visuel ADSR : pastilles cerclées d'accent, pleine si sélectionnée/survolée).
+- Interactions : drag poignée → `MOVE_SPLINE_ANCHOR` (X clampé entre voisins,
+  Y ∈ [-1,1], **draft local** committé au mouseup → 1 cran undo, courbe live via
+  `splineToPoints`) ; clic hors poignée → `ADD_SPLINE_ANCHOR` à ce point ;
+  poignée + Suppr/Backspace **ou** clic droit → menu contextuel « Supprimer »
+  → `REMOVE_SPLINE_ANCHOR`. Toggle Doux/Anguleux (`SET_SPLINE_INTERPOLATION`)
+  dans le header. Curseur grab/grabbing/crosshair. Réutilise `.we-canvas-area`
+  / `.canvas-container` / `.label` (WaveformEditor.css, globaux).
+- Refs miroir mis à jour en `useEffect` (jamais pendant le render —
+  react-hooks/refs), double-rAF ResizeObserver (contournement Firefox).
+
+### `ConvertToSplineDialog.jsx` (iter-M phase-3)
+- Dialog draw/harmonic → spline : nombre d'ancres (4..32, défaut 8) +
+  interpolation (Doux/Anguleux, défaut Doux). Réutilise `ConfirmDialog` +
+  le toggle `.spline-interp-*`. Monté/démonté par le parent.
+
 ### `Timeline.jsx` (Composer)
 - Layout multipiste : colonne d'en-têtes de piste (sticky left, 120px) +
   grille scrollable (overflow-x/y) + zone d'extension (+1/+4/+16 mesures).
@@ -976,6 +1024,13 @@ Seuls les **placements timeline** s'appellent "clips".
   `Σ aₖ·sin(2πkx/600)`, k=1..N, sur 600 points. Reconstruction de la courbe
   d'un patch harmonique ; stockée dans `points` → l'audio reste mono-chemin
   (round-trip iDFT→DFT propre à 512 échantillons, k≤256 sur un bin exact).
+
+### `lib/spline.js` (iter-M phase-3)
+- `splineSoft(anchors)` (Catmull-Rom périodique, Hermite cubique y(x) — voisins
+  wrappés ±600 pour x monotone, continuité C¹ à la frontière x=600↔0) /
+  `splineHard(anchors)` (polyligne périodique) / `splineToPoints(anchors, interp)`
+  (dispatcher). Sortie `Float32Array(600)` clampée [-1,1]. Reconstruction de la
+  courbe d'un patch spline ; stockée dans `points` (même rôle que harmonicsToPoints).
 - `HARMONIC_COUNT = 256` — plafond d'harmoniques (= défaut/max du slider Définition)
 - `SOUND_COLORS` — palette de 12 couleurs
 - `audioBufferToWav(buffer)` — encode PCM 16 bits stéréo (mono dupliqué L+R)
@@ -1942,6 +1997,28 @@ Phases listées ci-dessous dans l'ordre chronologique d'implémentation.
 ## État actuel
 
 ✅ **Terminé**
+- Iteration M — phase M.3 (mode points/spline, 2026-05-30). 3ᵉ mode de
+  fabrication de timbre, propre par construction. 3 sous-commits :
+  - **3.1** `SplinePatch` (`mode:'spline'`, `anchors` 4..32, `interpolation`
+    'soft'|'hard', **pas de `definition`**) ajouté à l'union ; `src/lib/spline.js`
+    (`splineSoft` Catmull-Rom périodique via Hermite y(x) à voisins wrappés ±600,
+    continuité C¹ à x=600↔0 ; `splineHard` polyligne périodique ; sortie
+    `Float32Array(600)` clampée) ; reducer : `MOVE`/`ADD`/`REMOVE_SPLINE_ANCHOR`
+    + `SET_SPLINE_INTERPOLATION` (undoable, draft commit côté éditeur),
+    `sanitizeAnchors`, hydratation forward-compat localStorage. `points` =
+    reconstruction (ombre), chaîne audio inchangée.
+  - **3.2** `SplineEditor.jsx` (canvas courbe + poignées draggables façon ADSR,
+    clic = ajout, Suppr/clic droit = retrait, toggle Doux/Anguleux) ; dispatch
+    dans `WaveformEditor.renderCanvasArea` ; couplage Harmoniques read-only
+    montrant la DFT **pleine** (pas de `definition` en spline) + 🔒.
+  - **3.3** Passerelle étendue : `ConvertToSplineDialog` (N ancres défaut 8 +
+    interpolation, réutilisé draw→spline et harmonic→spline), spline→draw
+    (`ConfirmDialog`, `CONVERT_EDITOR_TO_DRAW` rendu mode-agnostique sur
+    `editor.points`), spline→harmonic (`ConvertToHarmonicDialog`, DFT). 2 boutons
+    par mode actif, conversions atomiques, snap proportions (spline = ½¼¼).
+    osaFormat + libraryTransfer round-trip `.osa` du mode spline.
+  - **Hors scope** : presets de formes spline → M.4 ; auto-fit depuis un tracé →
+    backlog ; B-spline/Bézier → non retenu (Catmull-Rom + polyligne).
 - Iteration M — phase M.2-AS (toggle auto-sizing, **livré en essai** —
   keep/drop avant clôture M, 2026-05-30). Opt-in, OFF par défaut, posé
   **par-dessus** l'état de proportions de M.2 (il l'écrit ; aucun nouvel état
@@ -2629,6 +2706,38 @@ Phases listées ci-dessous dans l'ordre chronologique d'implémentation.
 
 ## Historique (chronologie inverse)
 
+- **2026-05-30 — Iteration M phase M.3 : mode points/spline**
+  3ᵉ et dernier mode de fabrication de timbre, propre par construction (les
+  courbes lisses portent peu d'harmoniques hautes). Réutilise le pattern
+  d'interaction de l'éditeur ADSR (poignées draggables, courbe recalculée au
+  drag). Principe M.2 conservé : une vérité éditable (`anchors` + `interpolation`)
+  + un dérivé `points` (ombre) → chaîne audio inchangée. 3 sous-commits.
+  - **3.1 (`refactor phase-3.1`)** : `SplinePatch` (`mode:'spline'`, `anchors`
+    4..32 `{x∈[0,600), y∈[-1,1]}`, `interpolation` 'soft'|'hard', **pas de
+    `definition`**) ajouté à l'union discriminée. `src/lib/spline.js` : `splineSoft`
+    (Catmull-Rom périodique — Hermite cubique y(x), voisins wrappés ±600 pour x
+    monotone, continuité C¹ à la frontière x=600↔0) et `splineHard` (polyligne
+    périodique fermant la boucle), sortie `Float32Array(600)` clampée [-1,1].
+    Reducer : `MOVE`/`ADD`/`REMOVE_SPLINE_ANCHOR` (X clampé entre voisins,
+    refus au min 4 / max 32) + `SET_SPLINE_INTERPOLATION`, toutes undoable
+    (draft local committé au mouseup côté éditeur → 1 cran undo/geste).
+    `sanitizeAnchors`, `defaultSplineAnchors`, hydratation forward-compat
+    localStorage. `patchModeFields`/`HYDRATE`/`UPDATE_PATCH` mode-aware.
+  - **3.2 (`feat phase-3.2`)** : `SplineEditor.jsx` — canvas courbe + poignées
+    d'ancres (pastilles cerclées d'accent, pleine si active). Clic hors poignée
+    = ajout, Suppr/Backspace + menu contextuel clic droit = retrait, toggle
+    Doux/Anguleux dans le header. `WaveformEditor.renderCanvasArea` dispatche
+    vers lui en mode spline ; Harmoniques read-only montre la **DFT pleine**
+    (pas de `definition`) + 🔒 ; `effectiveDefinition` = full pour harmonic ET
+    spline. Refs miroir mis à jour en effet (react-hooks/refs), double-rAF RO.
+  - **3.3 (`feat phase-3.3`)** : `ConvertToSplineDialog` (N ancres défaut 8 +
+    interpolation défaut Doux), réutilisé draw→spline et harmonic→spline
+    (échantillonne N ancres équiréparties depuis `editor.points`). spline→draw
+    réutilise `ConfirmDialog` (`CONVERT_EDITOR_TO_DRAW` rendu mode-agnostique :
+    part de `editor.points`, l'ombre du mode) ; spline→harmonic réutilise
+    `ConvertToHarmonicDialog` (DFT). 2 boutons contextuels par mode, conversions
+    atomiques, snap proportions au mode cible (spline = ½¼¼). osaFormat +
+    libraryTransfer : round-trip `.osa` du mode spline.
 - **2026-05-30 — Iteration M phase M.2-AS : toggle auto-sizing (essai)**
   Couche opt-in (OFF par défaut) posée par-dessus l'état de proportions M.2 :
   la disposition des 3 colonnes devient contextuelle au focus. **Essai
@@ -5658,7 +5767,7 @@ sortie de L.4 ; L.R (math renderer) et L.5 (corpus + rebranchement + ancres)
 l'ont enrichie sans toucher à l'architecture du tour. L.6 (démos écoutables)
 et L.7 (exercices guidés) restent des options de backlog, hors périmètre 1.4.0.
 
-### Itération M (Waveform Designer + Patch typé) — M.2 livré + M.2-AS en essai 2026-05-30
+### Itération M (Waveform Designer + Patch typé) — M.3 livré 2026-05-30 (M.2-AS en essai)
 
 - ✅ **Préalable A — Migration TypeScript (phases 0+1)** (2026-05-29) :
   adoption TS incrémentale, fichier par fichier, sans casse. Posée avant la
@@ -5698,8 +5807,12 @@ et L.7 (exercices guidés) restent des options de backlog, hors périmètre 1.4.
   whiplash de reflow / gêne d'éditer un spectro rétréci). 3 sous-commits (AS.1
   toggle+état, AS.2 focus contextuel, AS.3 anti-conflit). Cf. spec §7.2 et
   Historique. **Retrait = supprimer toggle + `useEffect` focus + champ persisté.**
-- ⏳ **M.3** — Mode `spline` (soft Catmull-Rom / hard polyligne, précédent
-  poignées ADSR).
+- ✅ **M.3** — Mode `spline` (2026-05-30). Éditeur points/courbe (soft
+  Catmull-Rom périodique / hard polyligne, pattern poignées ADSR). 3 sous-commits :
+  3.1 `SplinePatch` + `src/lib/spline.js` + actions reducer ; 3.2 `SplineEditor`
+  + couplage mode (Harmoniques read-only DFT pleine) ; 3.3 passerelle étendue
+  (`ConvertToSplineDialog`, aller-retour avec draw/harmonic, round-trip `.osa`).
+  Spec : `docs/superpowers/specs/2026-05-29-waveform-designer-design.md` §4,5,10.
 - ⏳ **M.4** — Presets de timbres.
 - ⏳ **M.5a/b** — Extension renderer `\sum` + passe doc « cœur de la synthèse ».
 
