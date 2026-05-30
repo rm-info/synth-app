@@ -1,8 +1,8 @@
-const NUM_SAMPLES = 256
+const NUM_SAMPLES = 512
 const CANVAS_WIDTH = 600
-const HALF_HARMONICS = NUM_SAMPLES / 2 + 1   // = 129 (k=0..128)
+const HALF_HARMONICS = NUM_SAMPLES / 2 + 1   // = 257 (k=0..256)
 
-export const HARMONIC_COUNT = HALF_HARMONICS - 1   // = 128 (k=1..128)
+export const HARMONIC_COUNT = HALF_HARMONICS - 1   // = 256 (k=1..256)
 
 // Durée minimale (secondes) de la rampe d'attack appliquée au démarrage
 // d'une voix. Sans ça, un attack utilisateur de 0 (ou sub-ms) fait sauter
@@ -101,14 +101,14 @@ const harmonicsCache = new WeakMap()
 
 // Décomposition spectrale d'une période de l'onde échantillonnée sur `points`
 // (longueur CANVAS_WIDTH). Retourne les coefficients `real`/`imag` attendus
-// par `createPeriodicWave` (tronqués aux 129 premiers — k=0..128, le reste
+// par `createPeriodicWave` (tronqués aux 257 premiers — k=0..256, le reste
 // est le mirror conjugué redondant qui causerait des parasites audio).
 // Voir spec docs/superpowers/specs/2026-05-24-anti-aliasing-design.md §2.
 export function pointsToHarmonics(points) {
   const cached = harmonicsCache.get(points)
   if (cached) return cached
 
-  // Resample 600 → 256 (linear interp)
+  // Resample 600 → 512 (linear interp)
   const cycle = new Float32Array(NUM_SAMPLES)
   for (let i = 0; i < NUM_SAMPLES; i++) {
     const canvasX = (i / NUM_SAMPLES) * CANVAS_WIDTH
@@ -130,8 +130,8 @@ export function pointsToHarmonics(points) {
     imag[i] /= NUM_SAMPLES
   }
 
-  // Truncation aux 129 premiers coefficients (k=0..128). Les k=129..255
-  // sont les conjugués miroirs de k=1..127 (information redondante pour un
+  // Truncation aux 257 premiers coefficients (k=0..256). Les k=257..511
+  // sont les conjugués miroirs de k=1..255 (information redondante pour un
   // signal réel) — on les drop pour éviter qu'ils deviennent des
   // harmoniques parasites une fois passés à createPeriodicWave.
   const truncReal = real.slice(0, HALF_HARMONICS)
