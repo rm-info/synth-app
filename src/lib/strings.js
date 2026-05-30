@@ -83,12 +83,55 @@ const fr = {
     cancel: 'Annuler',
   },
 
-  // Presets de formes d'onde.
+  // Presets de formes d'onde (mode dessin).
   presets: {
     sine: 'Sinusoïde',
     square: 'Carrée',
     sawtooth: 'Dent de scie',
     triangle: 'Triangle',
+  },
+
+  // iter-M phase-4 : bibliothèque de presets de timbre (mode harmonique).
+  // Libellés UI du bouton/picker, catégories, dialog de confirmation, puis
+  // noms + descriptions de chaque recette (clés = `id` dans lib/presets.js).
+  timbrePresets: {
+    loadButton: 'Presets',
+    loadButtonTitle: 'Charger un timbre prédéfini',
+    pickerTitle: 'Presets de timbre',
+    categoryEvocateurs: 'Évocateurs d’instruments',
+    categoryInattendus: 'Inattendus-propres',
+    dirtyConfirmTitle: 'Charger ce preset ?',
+    dirtyConfirmBody: 'Tes modifications non sauvegardées seront perdues.',
+    dirtyConfirmLoad: 'Charger',
+    dirtyConfirmCancel: 'Annuler',
+    names: {
+      square: 'Onde carrée',
+      triangle: 'Triangle',
+      sawtooth: 'Dent de scie',
+      flute: 'Flûte',
+      organ: 'Orgue',
+      brass: 'Cuivre',
+      oddOnly: 'Harmoniques impaires',
+      evenOnly: 'Harmoniques paires',
+      triad135: 'Triade 1+3+5',
+      octaves: 'Octaves',
+      cluster147: 'Cluster 1+4+7',
+      sparse159: '1+5+9 (creux)',
+    },
+    descriptions: {
+      square: 'Harmoniques impaires en 1/k — son creux d’anche.',
+      triangle: 'Harmoniques impaires en 1/k² — doux, peu de mordant.',
+      sawtooth: 'Toutes les harmoniques en 1/k — riche et brillant.',
+      flute: 'Fondamentale dominante, harmoniques très atténuées — timbre aérien.',
+      organ: 'Huit premières harmoniques pleines — registres d’orgue.',
+      brass: 'Décroissance lente avec emphase des bas rangs — cuivré.',
+      oddOnly: 'Seules les harmoniques impaires, à plein niveau.',
+      evenOnly: 'Seules les harmoniques paires, à plein niveau.',
+      triad135: 'Trois premières harmoniques impaires (1, 3, 5).',
+      octaves: 'Harmoniques en puissances de 2 (1, 2, 4, 8, 16).',
+      cluster147: 'Harmoniques espacées de trois rangs (1, 4, 7).',
+      sparse159: 'Trois harmoniques très espacées (1, 5, 9) — timbre creux.',
+    },
   },
 
   // Enveloppe AHDSR : Attaque / Tenue / Déclin / Maintien / Relâchement.
