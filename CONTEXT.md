@@ -498,7 +498,8 @@ byte-identique). `// @ts-check` non retenu sur le reducer : une garde défensive
 le pousse à `never`, et le forcer violerait « zéro changement / s'efface au
 build » ; JSDoc retenu (option sanctionnée par le prompt archi).
 
-**Iteration M — Waveform Designer (M.1→M.3) livré le 2026-05-30.** Le Designer
+**Iteration M — Waveform Designer (M.1→M.4) livré (M.1→M.3 le 2026-05-30,
+M.4 le 2026-05-31).** Le Designer
 gagne **trois modes de fabrication de timbre** coexistants, discriminés par
 `Patch.mode` : `draw` (tracé libre + plafond `definition` 1..256, M.1), `harmonic`
 (barres d'amplitudes, iDFT, M.2) et `spline` (4..32 ancres interpolées Catmull-Rom
@@ -5837,7 +5838,10 @@ et L.7 (exercices guidés) restent des options de backlog, hors périmètre 1.4.
   + couplage mode (Harmoniques read-only DFT pleine) ; 3.3 passerelle étendue
   (`ConvertToSplineDialog`, aller-retour avec draw/harmonic, round-trip `.osa`).
   Spec : `docs/superpowers/specs/2026-05-29-waveform-designer-design.md` §4,5,10.
-- ⏳ **M.4** — Presets de timbres.
+- ✅ **M.4** — Presets de timbre (2026-05-31). Bibliothèque code-only de 12
+  presets harmoniques (`src/lib/presets.js`), action `LOAD_PRESET` (undoable,
+  remplace le draft sans passerelle), `PresetPicker` (modal groupé par
+  catégorie) + garde-fou dirty. Préalable 4.0 : `HARMONIC_N_MIN` 16→4.
 - ⏳ **M.5a/b** — Extension renderer `\sum` + passe doc « cœur de la synthèse ».
 
 ### Backlog général (à caser quand pertinent)
