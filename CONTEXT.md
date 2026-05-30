@@ -537,7 +537,7 @@ synth-app/
     ├── App.css               # layout grid responsive Designer/Composer
     ├── index.css
     ├── types.ts             # (iter-M) types du modèle : Patch/Clip/Track/TuningSystem/AppState + union Action
-    ├── audio.js              # FFT 512 pts, cap 256 harmoniques (pointsToHarmonics, pointsToPeriodicWave + définition), encodage WAV, palette couleurs
+    ├── audio.js              # FFT 512 pts, cap 256 harmoniques (pointsToHarmonics, pointsToPeriodicWave + définition, harmonicsToPoints iDFT M.2), encodage WAV, palette couleurs
     ├── reducer.js            # useReducer global + withUndo (historique par onglet) — JSDoc typé (Action/AppState)
     ├── assets/               # résiduel template Vite (non utilisé)
     ├── hooks/
@@ -575,6 +575,8 @@ synth-app/
         ├── PatchBank.jsx + .css               # banque de patches partagée
         ├── WaveformEditor.jsx + .css          # éditeur ondes / patch (Designer)
         ├── Spectrogram.jsx + .css             # spectrogramme statique (Designer)
+        ├── DesignerColumns.jsx + .css         # layout 3 colonnes ajustables (Designer, M.2.2)
+        ├── ConvertToHarmonicDialog.jsx + .css # dialog passerelle draw→harmonic (M.2.5)
         ├── MiniPlayer.jsx + .css              # transport simplifié (Designer)
         ├── PianoKeyboard.jsx + .css           # dispatcher clavier (piano-12 / grid-24 / grid-5 / grid-7 / grid-31 / grid-22-bhatkhande / grid-22-sarngadeva) + octaves + halo .is-cued (F.4.4)
         ├── DurationButtons.jsx + .css         # boutons durée 7 bases + 3 coefs (phase 6.1)
@@ -626,24 +628,44 @@ type SoundFolder = {              // racine virtuelle si parentId === null
 // Depuis itération E : un patch ne porte PLUS ni fréquence ni note —
 // c'est le clip qui porte la hauteur. Un même patch peut être joué à
 // n'importe quelle hauteur sans duplication.
-type Patch = {
+//
+// Depuis iter-M phase-2 : Patch est une UNION DISCRIMINÉE par `mode`
+// ('draw' | 'harmonic'). `points` est porté par TOUS les modes : en
+// 'harmonic' c'est la reconstruction iDFT des `amplitudes`
+// (audio.harmonicsToPoints), stockée pour que TOUTE la chaîne audio
+// existante (playback / export WAV / miniatures) reste l'unique
+// consommatrice de `points` — aucun chemin audio mode-spécifique.
+type PatchCommon = {
   id: string                      // "patch-N"
   name: string                    // "Patch N" par défaut
   color: string                   // hex, palette SOUND_COLORS (12 couleurs)
-  points: number[]                // 600 échantillons [-1, 1]
+  points: number[]                // 600 échantillons [-1, 1] (édités en draw,
+                                  // reconstruction iDFT en harmonic)
   amplitude: number               // 0..1
-  definition: number              // 1..256 (iter-M phase-1) — plafond
-                                  // d'harmoniques, troncature M/256 du spectre
-                                  // dessiné. Défaut 256 (= cap, aucune coupe).
-                                  // Patches antérieurs : 256 injecté à l'hydratation.
   preset: 'sine'|'square'|'sawtooth'|'triangle'|null  // null = dessin custom
   attack: number                  // ms, 0-1000 (F.3.11)
   hold: number                    // ms, 0-1000 (F.3.12) — plateau au peak entre attack et decay
   decay: number                   // ms, 0-1000 (F.3.11)
   sustain: number                 // 0..1
   release: number                 // ms, 0-1000 (F.3.11)
+  defaultTuningSystem: string     // système musical actif à l'enreg (iter G.2.4)
   folderId: string | null         // null = racine
+  updatedAt: number
 }
+type DrawPatch = PatchCommon & {
+  mode: 'draw'
+  definition: number              // 1..256 (iter-M phase-1) — plafond
+                                  // d'harmoniques, troncature M/256 du spectre
+                                  // dessiné. Défaut 256 (= cap, aucune coupe).
+}
+type HarmonicPatch = PatchCommon & {
+  mode: 'harmonic'
+  N: number                       // 16..256 — nombre d'harmoniques (iter-M phase-2)
+  amplitudes: number[]            // longueur N, magnitudes ∈ [0..1] (pas de phase)
+}
+type Patch = DrawPatch | HarmonicPatch
+// Hydratation rétro-compat : `mode` absent (localStorage / .osa antérieurs)
+// → 'draw' + definition 256. Pas de migration destructive.
 
 type Track = {
   id: string                      // "track-N"
@@ -806,12 +828,29 @@ Seuls les **placements timeline** s'appellent "clips".
   - Libre : slider log 2^4-2^15 Hz + FreqInput éditable + bouton
     **Test** (canal mono via `playFreeNote()` lisant `testFrequency`
     direct, raccourci `s`).
-- Children-API (4 slots) : `renderCanvasArea`, `renderParamsArea` (≡
-  zone "Instrument" depuis G.1.1), `renderAdsrArea`, `renderActions`
-  ({collapsed}). Le panneau Actions (Nouveau / Mettre à jour /
-  Enregistrer + saveMessage) est placé par App.jsx dans la sidebar
-  gauche entre la Bibliothèque et le MiniPlayer, séparé de la zone
-  Instrument (G.1.1).
+- Children-API (5 slots, iter-M phase-2) : `renderCanvasArea`,
+  `renderHarmonicsArea`, `renderParamsArea` (≡ zone "Instrument" depuis
+  G.1.1), `renderAdsrArea`, `renderActions` ({collapsed}). App.jsx compose
+  la moitié haute en 3 colonnes via `DesignerColumns` (Forme d'onde /
+  Harmoniques / Spectrogramme) et garde la moitié basse (Instrument / ADSR).
+  Le panneau Actions est placé par App.jsx dans la sidebar gauche.
+- **Patch typé (iter-M phase-2)** : `editor.mode` ('draw' | 'harmonic')
+  pilote la vue éditable ; les autres sont read-only (🔒).
+  - **Forme d'onde** : éditable en 'draw' (tracé), read-only en 'harmonic'
+    (reconstruction iDFT de `editor.points`, handlers coupés, presets masqués).
+  - **Harmoniques** (`renderHarmonicsArea`) : en 'harmonic', N barres bleues
+    éditables (drag vertical = amplitude [0..1], 1 barre/geste verrouillée à
+    l'index au mousedown, commit unique → 1 undo ; bouton N 16..256). En
+    'draw', read-only : magnitudes DFT du dessin tronquées à `definition`
+    (lues sur `editor.points` committé, cohérent spectro), grisées + 🔒.
+  - `draftAmplitudes` (geste continu) → reconstruction iDFT live → forme
+    d'onde + audio. Définition neutralisée à l'audio en harmonic
+    (`effectiveDefinition = HARMONIC_COUNT` ; N porte déjà la troncature).
+  - Slider Définition masqué en mode harmonique.
+- **Passerelle (iter-M phase-2.5)** : bouton « Convertir en Harmoniques »
+  (header Forme d'onde, mode draw → `ConvertToHarmonicDialog` choix N) et
+  « Convertir en Dessin » (header Harmoniques, mode harmonic → `ConfirmDialog`).
+  Conversions atomiques undoables (un cran undo annule toute la conversion).
 - Éditeur AHDSR **visuel** 380×120 : 4 poignées draggables — P1
   (attack+amplitude en 2D), P1h (hold seul en 1D depuis F.3.13.1),
   P2 (decay+sustain en 2D), P4 (release seul en 1D). Courbe cyan +
@@ -851,6 +890,24 @@ Seuls les **placements timeline** s'appellent "clips".
     bascule la référence et le `hydratedFromIdRef` vers le nouvel id, déclenche
     `onPatchCreated(id)` pour que App set `currentPatchId`.
 - Header affiche soit "Patch N" (création) soit "Édition : NOM" (chargé).
+
+### `DesignerColumns.jsx` (iter-M phase-2.2)
+- Moitié haute du Designer en 3 colonnes ajustables (Forme d'onde /
+  Harmoniques / Spectrogramme). Props : `widths` (3 fractions sommant à 1,
+  persistées), `onWidths`, `columns` (3 nodes).
+- Presets ⅓⅓⅓ · ½¼¼ · ¼½¼ · ¼¼½ (snap un clic). Séparateurs glissables
+  (`flex-grow` = fractions) : `mousedown` capture l'event (`stopPropagation`,
+  recalcul absolu depuis `startWidths`/`startX`, plancher 12 % par colonne).
+  Le `stopPropagation` isole le drag du clic-colonne (anticipation M.2-AS).
+- État `designerColumnWidths` (reducer, non-undoable, persisté). Défaut piloté
+  par le mode (½¼¼ en dessin) tant qu'aucune valeur n'est persistée. Le spectro
+  est désormais une **colonne permanente** (toggle « Spectro » retiré ;
+  `spectrogramVisible` devenu vestigial, clé localStorage conservée).
+
+### `ConvertToHarmonicDialog.jsx` (iter-M phase-2.5)
+- Dialog de la passerelle draw→harmonic : choix de N (défaut 24, 16..256)
+  avant DFT + troncature. Réutilise le visuel `ConfirmDialog`. Monté/démonté
+  par le parent (état `n` frais à chaque ouverture, sans setState-in-effect).
 
 ### `Timeline.jsx` (Composer)
 - Layout multipiste : colonne d'en-têtes de piste (sticky left, 120px) +
@@ -907,6 +964,10 @@ Seuls les **placements timeline** s'appellent "clips".
 - `pointsToPeriodicWave(points, ctx, definition)` — FFT 512 points, troncature
   optionnelle des harmoniques k > `definition` (iter-M phase-1 ; absente = spectre
   complet). `pointsToHarmonics(points)` mémoïsé par `points` (cap 256 harmoniques).
+- `harmonicsToPoints(amplitudes, N)` (iter-M phase-2) — iDFT
+  `Σ aₖ·sin(2πkx/600)`, k=1..N, sur 600 points. Reconstruction de la courbe
+  d'un patch harmonique ; stockée dans `points` → l'audio reste mono-chemin
+  (round-trip iDFT→DFT propre à 512 échantillons, k≤256 sur un bin exact).
 - `HARMONIC_COUNT = 256` — plafond d'harmoniques (= défaut/max du slider Définition)
 - `SOUND_COLORS` — palette de 12 couleurs
 - `audioBufferToWav(buffer)` — encode PCM 16 bits stéréo (mono dupliqué L+R)
@@ -1873,6 +1934,26 @@ Phases listées ci-dessous dans l'ordre chronologique d'implémentation.
 ## État actuel
 
 ✅ **Terminé**
+- Iteration M — phase M.2 (layout 3-vues + Patch typé + éditeur Harmoniques +
+  passerelle, 2026-05-30). 5 sous-commits :
+  - **2.1** Patch typé : union discriminée `Patch = DrawPatch | HarmonicPatch`
+    par `mode`. `audio.harmonicsToPoints` (iDFT) reconstruit `points` pour un
+    patch harmonique → toute la chaîne audio (playback/export/miniatures) reste
+    mono-chemin sur `points`, zéro modif. Hydratation rétro-compat (mode absent
+    → 'draw'), SAVE/UPDATE/HYDRATE/RESET mode-aware, round-trip `.osa`.
+  - **2.2** Layout 3 colonnes (`DesignerColumns`) Forme d'onde / Harmoniques /
+    Spectro : presets + séparateurs glissables, `designerColumnWidths` persisté
+    (défaut par mode). Spectro = colonne permanente (toggle « Spectro » retiré,
+    `spectrogramVisible` vestigial).
+  - **2.3** Éditeur Harmoniques : N barres bleues éditables (drag vertical,
+    1 barre/geste, bouton N 16..256) ; en mode dessin, read-only = magnitudes
+    DFT tronquées à `definition` (🔒).
+  - **2.4** Vue éditable suit le mode (l'autre → read-only 🔒) ; Forme d'onde
+    read-only en harmonic (reconstruction iDFT) ; slider Définition masqué.
+  - **2.5** Passerelle : « Convertir en Harmoniques » (dialog choix N, DFT +
+    troncature) / « Convertir en Dessin » (iDFT) — conversions atomiques undoables.
+  - **Hors scope traité ailleurs** : toggle auto-sizing → M.2-AS (séparée) ;
+    mode spline → M.3 ; presets → M.4 ; doc/renderer `\sum` → M.5.
 - Iteration M — phase M.1 (bump cap 256 + slider Définition, 2026-05-30).
   SC1 : `NUM_SAMPLES` 256→512, cap harmoniques 128→256 (rééchantillonnage
   600→512, même troncature miroir-conjugué). Les basses récupèrent jusqu'à
@@ -2517,6 +2598,52 @@ Phases listées ci-dessous dans l'ordre chronologique d'implémentation.
   prochaine candidate).
 
 ## Historique (chronologie inverse)
+
+- **2026-05-30 — Iteration M phase M.2 : layout 3-vues + patch typé + éditeur
+  Harmoniques + passerelle**
+  Phase la plus structurante de M : coexistence des modes de timbre et layout
+  adaptatif qui les héberge. 5 sous-commits.
+  - **SC1 (`refactor phase-2.1`)** : Patch typé en union discriminée
+    `DrawPatch | HarmonicPatch` (`mode`). Décision clé : `harmonicsToPoints`
+    (iDFT `Σ aₖ·sin(2πkx/600)`) reconstruit `points` pour un patch harmonique
+    et le stocke → **toute la chaîne audio existante (playback timeline, export
+    WAV, miniatures) joue un patch harmonique sans une ligne de code modifiée**,
+    car le round-trip iDFT→DFT est propre à 512 échantillons (k≤256 sur un bin
+    exact). `amplitudes` est la vérité éditable, `points` son ombre dérivée.
+    Hydratation rétro-compat (mode absent → 'draw', pas de migration), SAVE/
+    UPDATE/HYDRATE/RESET mode-aware, actions `SET_EDITOR_N` /
+    `SET_EDITOR_HARMONIC_AMPLITUDE` / `CONVERT_EDITOR_TO_{HARMONIC,DRAW}`
+    (undoables), round-trip `.osa` + libraryTransfer.
+  - **SC2 (`feat phase-2.2`)** : `DesignerColumns` — moitié haute en 3 colonnes
+    (Forme d'onde / Harmoniques / Spectro) ajustables. Presets ⅓⅓⅓·½¼¼·¼½¼·¼¼½,
+    séparateurs glissables (`mousedown` capture l'event, `stopPropagation` →
+    anticipation M.2-AS), `designerColumnWidths` persisté (défaut par mode). Le
+    spectro devient une colonne permanente : toggle « Spectro » retiré,
+    `spectrogramVisible` vestigial (clé localStorage conservée).
+  - **SC3 (`feat phase-2.3`)** : éditeur de barres. Mode harmonic = N barres
+    bleues éditables (drag vertical = amplitude, 1 barre/geste verrouillée à
+    l'index, commit unique → 1 undo ; bouton N 16..256). Mode draw = read-only,
+    magnitudes DFT tronquées à `definition` (lues sur `editor.points` committé,
+    cohérent spectro), grisées + 🔒. `draftAmplitudes` → reconstruction iDFT
+    live (forme d'onde + audio).
+  - **SC4 (`feat phase-2.4`)** : la vue éditable suit le mode, les autres
+    deviennent read-only (🔒). Forme d'onde read-only en harmonic
+    (reconstruction iDFT, handlers coupés, presets masqués, `effectiveDefinition
+    = HARMONIC_COUNT` à l'audio). Slider Définition masqué en harmonic (N joue
+    ce rôle). Spectro inchangé (moniteur).
+  - **SC5 (`feat phase-2.5`)** : passerelle. « Convertir en Harmoniques »
+    (`ConvertToHarmonicDialog`, choix N défaut 24, DFT + troncature k=1..N,
+    phase abandonnée) et « Convertir en Dessin » (`ConfirmDialog`, iDFT vers
+    points ré-éditables, definition remise à 256). Conversions atomiques
+    undoables (un cran annule toute la conversion).
+  - **Décisions / limites** (à confirmer par l'archi à la passe visuelle) :
+    spectro = colonne permanente (toggle retiré) ; pas de snap-on-convert des
+    proportions (défaut par mode au 1er boot seulement, presets dispo) ; pas de
+    color-coding vert/bleu/ambre (accent cyan partout, bars éditables en accent,
+    read-only grisées) ; sweep multi-barres reporté (BACKLOG) ; pas d'animation
+    de transition au changement de N.
+  - Hors scope (phases dédiées) : auto-sizing → M.2-AS ; spline → M.3 ;
+    presets → M.4 ; doc + renderer `\sum` → M.5a/b.
 
 - **2026-05-30 — Iteration M phase M.1 : bump cap 256 + slider Définition**
   Première phase audio de M, volontairement détachée et en tête : dé-risque
@@ -5474,7 +5601,7 @@ sortie de L.4 ; L.R (math renderer) et L.5 (corpus + rebranchement + ancres)
 l'ont enrichie sans toucher à l'architecture du tour. L.6 (démos écoutables)
 et L.7 (exercices guidés) restent des options de backlog, hors périmètre 1.4.0.
 
-### Itération M (Waveform Designer + Patch typé) — M.1 livré 2026-05-30
+### Itération M (Waveform Designer + Patch typé) — M.2 livré 2026-05-30
 
 - ✅ **Préalable A — Migration TypeScript (phases 0+1)** (2026-05-29) :
   adoption TS incrémentale, fichier par fichier, sans casse. Posée avant la
@@ -5493,12 +5620,45 @@ et L.7 (exercices guidés) restent des options de backlog, hors périmètre 1.4.
   (1..256) + slider « Définition » (troncature M/256 en aval, spectro statique
   inclus ; rétro-compat localStorage/`.osa` → 256). Reste mono-mode. Cf.
   Historique pour le détail. Spec : `docs/superpowers/specs/2026-05-29-waveform-designer-design.md`.
-- ⏳ **M.2** — Patch typé : union discriminée par mode de fabrication du timbre
-  (`draw` / `spline` / `harmonic`). Hors scope du préalable A (types Waveform
-  réservés à M.2). Le slider Définition de M.1 disparaîtra au profit du N du
-  mode barres (cf. spec §6).
+- ✅ **M.2 — Layout 3-vues + Patch typé + éditeur Harmoniques + passerelle**
+  (2026-05-30). 5 sous-commits :
+  - **2.1** Patch typé : union discriminée `DrawPatch | HarmonicPatch` (`mode`).
+    `audio.harmonicsToPoints` (iDFT) reconstruit `points` → audio mono-chemin
+    (zéro modif playback/export/miniatures). Hydratation rétro-compat,
+    SAVE/UPDATE/HYDRATE/RESET mode-aware, round-trip `.osa`.
+  - **2.2** Layout 3 colonnes (`DesignerColumns`) : presets + drag des
+    séparateurs, `designerColumnWidths` persisté (défaut par mode). Spectro =
+    colonne permanente (toggle retiré).
+  - **2.3** Éditeur Harmoniques (N barres + bouton N) ; draw read-only = DFT
+    tronquée à `definition`.
+  - **2.4** Vue éditable suit le mode (verrouillage 🔒) ; Définition masquée en
+    harmonic.
+  - **2.5** Passerelle de conversion draw ↔ harmonic (dialogs, undoable atomique).
+  - Spec : `docs/superpowers/specs/2026-05-29-waveform-designer-design.md` §4,5,7.1.
+- ⏳ **M.2-AS** — Toggle auto-sizing (3 états contextuels, focus-click sans
+  édition), branché sur le même `designerColumnWidths`. Essai à confirmer/jeter
+  avant clôture (cf. spec §7.2).
+- ⏳ **M.3** — Mode `spline` (soft Catmull-Rom / hard polyligne, précédent
+  poignées ADSR).
+- ⏳ **M.4** — Presets de timbres.
+- ⏳ **M.5a/b** — Extension renderer `\sum` + passe doc « cœur de la synthèse ».
 
 ### Backlog général (à caser quand pertinent)
+
+- **(iter-M) Sweep horizontal multi-barres** dans l'éditeur Harmoniques :
+  peindre plusieurs barres en un drag (actuellement 1 barre/geste). Nice-to-have
+  noté dans le prompt M.2 (nécessiterait une action « set amplitudes en bloc »
+  pour rester atomique côté undo).
+- **(iter-M) Color-coding des 3 vues** (Forme d'onde vert / Harmoniques bleu /
+  Spectro ambre, cf. spec §7) : aujourd'hui l'accent cyan est partagé (barres
+  éditables en accent, dérivées grisées). Polish visuel différé.
+- **(iter-M) Nettoyage `spectrogramVisible`** : vestigial depuis M.2 (spectro =
+  colonne permanente). Clé localStorage conservée (consigne « ne pas toucher aux
+  clés ») ; retrait complet (état + action + reducer) à faire si jamais.
+- **(iter-M) Snap-on-convert des proportions** : à la conversion de mode, faire
+  basculer `designerColumnWidths` vers le défaut du nouveau mode (vue éditable
+  large). Aujourd'hui le défaut par mode ne s'applique qu'au 1er boot ; les
+  presets restent le moyen manuel. À trancher avec l'archi.
 
 - **Adaptation UI résolutions intermédiaires [924×668..1740×900]**
   (G.1.4 ouvre la voie) : layout repensé pour viewports plus
