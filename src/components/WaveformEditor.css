@@ -234,6 +234,11 @@
   background: var(--surface-bg);
   box-sizing: border-box;
 }
+/* iter-M phase-2.4 : Forme d'onde read-only (mode harmonique) — pas de
+   curseur d'édition (la courbe est dérivée des barres). */
+.canvas-container.is-readonly canvas {
+  cursor: default;
+}
 
 .canvas-container .label {
   position: absolute;

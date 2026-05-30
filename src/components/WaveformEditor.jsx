@@ -1707,40 +1707,50 @@ function WaveformEditor({
     commitDraftAdsr()
   }
 
-  const renderCanvasArea = () => (
-    <div className="we-canvas-area" data-anchor="designer-waveform">
-      <header className="we-area-header">
-        <div className="we-header-left">
-          <h3 className="we-area-title">{STRINGS.editor.waveformTitle}</h3>
-          <span className="we-sound-tag">
-            {currentPatch ? `Édition : ${currentPatch.name}` : defaultName}
-          </span>
+  // iter-M phase-2.4 : la Forme d'onde n'est éditable qu'en mode 'draw'. En
+  // 'harmonic' elle affiche la reconstruction iDFT (read-only, 🔒) : on coupe
+  // les handlers de tracé et on masque presets/Effacer (outils du tracé brut).
+  const renderCanvasArea = () => {
+    const editable = mode === 'draw'
+    return (
+      <div className="we-canvas-area" data-anchor="designer-waveform">
+        <header className="we-area-header">
+          <div className="we-header-left">
+            <h3 className="we-area-title">{STRINGS.editor.waveformTitle}</h3>
+            {!editable && (
+              <span className="we-readonly-badge" title={STRINGS.editor.readOnlyHint}>
+                <Lock size={13} strokeWidth={2} />
+              </span>
+            )}
+            <span className="we-sound-tag">
+              {currentPatch ? `Édition : ${currentPatch.name}` : defaultName}
+            </span>
+          </div>
+        </header>
+        {editable && (
+          <div className="presets">
+            <button onClick={() => loadPreset('sine')}>{STRINGS.presets.sine}</button>
+            <button onClick={() => loadPreset('square')}>{STRINGS.presets.square}</button>
+            <button onClick={() => loadPreset('sawtooth')}>{STRINGS.presets.sawtooth}</button>
+            <button onClick={() => loadPreset('triangle')}>{STRINGS.presets.triangle}</button>
+            <button onClick={clearCanvas}>{STRINGS.editor.clear}</button>
+          </div>
+        )}
+        <div className={`canvas-container${editable ? '' : ' is-readonly'}`} ref={canvasContainerRef}>
+          <canvas
+            ref={canvasRef}
+            onMouseDown={editable ? handleMouseDown : undefined}
+            onMouseMove={editable ? handleMouseMove : undefined}
+            onMouseUp={editable ? handleMouseUp : undefined}
+            onMouseLeave={editable ? handleMouseLeave : undefined}
+          />
+          <span className="label top">+1</span>
+          <span className="label middle">0</span>
+          <span className="label bottom">-1</span>
         </div>
-        {/* iter-M phase-2.2 : le toggle « Spectro » est retiré — le
-            spectrogramme est désormais une colonne permanente du layout
-            3-vues (cf. DesignerColumns). */}
-      </header>
-      <div className="presets">
-        <button onClick={() => loadPreset('sine')}>{STRINGS.presets.sine}</button>
-        <button onClick={() => loadPreset('square')}>{STRINGS.presets.square}</button>
-        <button onClick={() => loadPreset('sawtooth')}>{STRINGS.presets.sawtooth}</button>
-        <button onClick={() => loadPreset('triangle')}>{STRINGS.presets.triangle}</button>
-        <button onClick={clearCanvas}>{STRINGS.editor.clear}</button>
       </div>
-      <div className="canvas-container" ref={canvasContainerRef}>
-        <canvas
-          ref={canvasRef}
-          onMouseDown={handleMouseDown}
-          onMouseMove={handleMouseMove}
-          onMouseUp={handleMouseUp}
-          onMouseLeave={handleMouseLeave}
-        />
-        <span className="label top">+1</span>
-        <span className="label middle">0</span>
-        <span className="label bottom">-1</span>
-      </div>
-    </div>
-  )
+    )
+  }
 
   // iter-M phase-2.3/2.4 : colonne Harmoniques (centre du layout 3-vues).
   // - mode 'harmonic' : N barres éditables (drag vertical = amplitude [0..1]).
@@ -2367,7 +2377,10 @@ function WaveformEditor({
             />
           </div>
           <div className="adsr-sliders">
-            {renderDefinitionSlider()}
+            {/* iter-M phase-2.4 : la définition (troncature M/256) ne
+                s'applique qu'au mode dessin ; en mode harmonique, N joue ce
+                rôle → slider masqué. */}
+            {mode === 'draw' && renderDefinitionSlider()}
             {renderAmpSlider()}
             {renderMsSlider('attack', STRINGS.adsr.attack)}
             {renderMsSlider('hold', STRINGS.adsr.hold)}
