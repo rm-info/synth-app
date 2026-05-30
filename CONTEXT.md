@@ -903,6 +903,14 @@ Seuls les **placements timeline** s'appellent "clips".
   par le mode (½¼¼ en dessin) tant qu'aucune valeur n'est persistée. Le spectro
   est désormais une **colonne permanente** (toggle « Spectro » retiré ;
   `spectrogramVisible` devenu vestigial, clé localStorage conservée).
+- **Auto-sizing (iter-M phase-2-as, essai)** : props `autoSizing`,
+  `onToggleAutoSizing`, `focusGuardRef`. Toggle « Dimension auto » dans la barre
+  presets. Quand ON, un `useEffect` attache un listener `mousedown` (capture)
+  qui pilote `designerColumnWidths` selon le focus (3 états : `[0.6,0.2,0.2]` /
+  `[0.2,0.6,0.2]` / `[0.2,0.2,0.6]`=repos) et lève `focusGuardRef` le temps du
+  geste qui change le focus (consommé par `WaveformEditor` pour supprimer
+  l'édition sur ce mousedown). Focus volatile (`focusColRef`). OFF → aucun
+  listener, comportement M.2 strict. Retrait = supprimer toggle + `useEffect`.
 
 ### `ConvertToHarmonicDialog.jsx` (iter-M phase-2.5)
 - Dialog de la passerelle draw→harmonic : choix de N (défaut 24, 16..256)
@@ -1934,6 +1942,26 @@ Phases listées ci-dessous dans l'ordre chronologique d'implémentation.
 ## État actuel
 
 ✅ **Terminé**
+- Iteration M — phase M.2-AS (toggle auto-sizing, **livré en essai** —
+  keep/drop avant clôture M, 2026-05-30). Opt-in, OFF par défaut, posé
+  **par-dessus** l'état de proportions de M.2 (il l'écrit ; aucun nouvel état
+  canonique). 3 sous-commits :
+  - **AS.1** Champ `autoSizing: boolean` (initial `false`, persisté localStorage,
+    action `SET_AUTO_SIZING` non undoable) + toggle « Dimension auto » dans la
+    barre des presets. OFF → comportement M.2 strictement inchangé.
+  - **AS.2** Focus contextuel : listener `mousedown` (capture) attaché
+    uniquement quand ON. 3 états stables — focus Forme d'onde `[0.6,0.2,0.2]`,
+    Harmoniques `[0.2,0.6,0.2]`, Spectro/repos `[0.2,0.2,0.6]` (le repos *est*
+    le focus-spectro, pas de 4ᵉ état). Focus **volatile** (ref, non persisté) :
+    activation/ouverture/sortie = repos. Clic hors widget → repos ; clics sur
+    la barre presets/toggle neutres (préserve le « figer en basculant OFF »).
+  - **AS.3** Anti-conflit (quand ON) : (1) séparateur = cible indépendante, son
+    drag écrit comme en manuel, le prochain changement de focus l'écrase (pas
+    de pinning en auto) ; (2) le clic qui *change* le focus ne fait que focuser
+    — guard (ref partagé `DesignerColumns`→`WaveformEditor`) levé le temps du
+    geste, canvas/barres s'abstiennent, l'édition reprend au geste suivant ;
+    (3) sortie → repos. **Retrait éventuel (« jeter ») = supprimer le toggle +
+    le `useEffect` de focus + le champ persisté → retour à M.2 intact.**
 - Iteration M — phase M.2 (layout 3-vues + Patch typé + éditeur Harmoniques +
   passerelle, 2026-05-30). 5 sous-commits :
   - **2.1** Patch typé : union discriminée `Patch = DrawPatch | HarmonicPatch`
@@ -2601,6 +2629,32 @@ Phases listées ci-dessous dans l'ordre chronologique d'implémentation.
 
 ## Historique (chronologie inverse)
 
+- **2026-05-30 — Iteration M phase M.2-AS : toggle auto-sizing (essai)**
+  Couche opt-in (OFF par défaut) posée par-dessus l'état de proportions M.2 :
+  la disposition des 3 colonnes devient contextuelle au focus. **Essai
+  explicite** — à confirmer/jeter avant clôture M (critère : accélère sans
+  distraire vs whiplash de reflow / gêne d'éditer un spectro rétréci). 3
+  sous-commits.
+  - **AS.1 (`feat phase-2-as.1`)** : champ `autoSizing` (persisté, défaut
+    `false`), action `SET_AUTO_SIZING` (non undoable, comme
+    `SET_DESIGNER_COLUMN_WIDTHS`), toggle « Dimension auto » poussé à droite de
+    la barre des presets. OFF = M.2 + son follow-up snap-on-convert inchangés.
+  - **AS.2 (`feat phase-2-as.2`)** : tracking de focus dans `DesignerColumns`
+    via `document.addEventListener('mousedown', …, true)` — capture, attaché
+    seulement quand ON (rien sinon). Décision clé : la capture résout le focus
+    et réécrit `designerColumnWidths` **avant** que l'éditable ne traite son
+    mousedown (React délègue à la racine, descendante de `document`). 3 états
+    stables, le repos = focus-spectro. Focus volatile (ref `focusColRef`, jamais
+    persisté). « Hors widget » testé sur `.designer-columns` (root) → la barre
+    presets/toggle reste neutre, ce qui préserve le pin-en-basculant-OFF.
+  - **AS.3 (`feat phase-2-as.3`)** : guard partagé (`useRef` créé dans `App`,
+    passé à `DesignerColumns` writer + `WaveformEditor` reader). Levé le temps
+    du mousedown qui *change* le focus ; `handleMouseDown` (canvas) et
+    `handleHarmonicMouseDown` (barres) testent `autoSizing && guard.current` en
+    tête et s'abstiennent → le premier clic focuse, l'édition reprend au geste
+    suivant (colonne à 60 %, contenu stable). Séparateur déjà isolé par le
+    `stopPropagation` de M.2 (2.2). **Retrait = supprimer toggle + `useEffect` +
+    champ persisté → M.2 intact, zéro détricotage.**
 - **2026-05-30 — Iteration M phase M.2 : layout 3-vues + patch typé + éditeur
   Harmoniques + passerelle**
   Phase la plus structurante de M : coexistence des modes de timbre et layout
@@ -5604,7 +5658,7 @@ sortie de L.4 ; L.R (math renderer) et L.5 (corpus + rebranchement + ancres)
 l'ont enrichie sans toucher à l'architecture du tour. L.6 (démos écoutables)
 et L.7 (exercices guidés) restent des options de backlog, hors périmètre 1.4.0.
 
-### Itération M (Waveform Designer + Patch typé) — M.2 livré 2026-05-30
+### Itération M (Waveform Designer + Patch typé) — M.2 livré + M.2-AS en essai 2026-05-30
 
 - ✅ **Préalable A — Migration TypeScript (phases 0+1)** (2026-05-29) :
   adoption TS incrémentale, fichier par fichier, sans casse. Posée avant la
@@ -5638,9 +5692,12 @@ et L.7 (exercices guidés) restent des options de backlog, hors périmètre 1.4.
     harmonic.
   - **2.5** Passerelle de conversion draw ↔ harmonic (dialogs, undoable atomique).
   - Spec : `docs/superpowers/specs/2026-05-29-waveform-designer-design.md` §4,5,7.1.
-- ⏳ **M.2-AS** — Toggle auto-sizing (3 états contextuels, focus-click sans
-  édition), branché sur le même `designerColumnWidths`. Essai à confirmer/jeter
-  avant clôture (cf. spec §7.2).
+- 🧪 **M.2-AS** — Toggle auto-sizing (3 états contextuels, focus-click sans
+  édition), branché sur le même `designerColumnWidths`. **Livré 2026-05-30, en
+  essai** — keep/drop avant clôture M (critère : accélère sans distraire vs
+  whiplash de reflow / gêne d'éditer un spectro rétréci). 3 sous-commits (AS.1
+  toggle+état, AS.2 focus contextuel, AS.3 anti-conflit). Cf. spec §7.2 et
+  Historique. **Retrait = supprimer toggle + `useEffect` focus + champ persisté.**
 - ⏳ **M.3** — Mode `spline` (soft Catmull-Rom / hard polyligne, précédent
   poignées ADSR).
 - ⏳ **M.4** — Presets de timbres.
