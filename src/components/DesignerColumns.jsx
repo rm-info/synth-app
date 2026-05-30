@@ -1,4 +1,4 @@
-import { useRef } from 'react'
+import { useEffect, useRef } from 'react'
 import { STRINGS } from '../lib/strings'
 import './DesignerColumns.css'
 
@@ -19,8 +19,70 @@ const PRESETS = [
 // soit écrasé à zéro et reste re-saisissable.
 const MIN_FRACTION = 0.12
 
+// iter-M phase-2-as : 3 états stables pilotés par le focus (essai). La colonne
+// focus prend 60 %, les deux autres 20 %. Le repos = focus-spectro (pas de 4ᵉ
+// état ; le ⅓⅓⅓ reste dispo via les presets en manuel).
+const FOCUS_WIDTHS = [
+  [0.6, 0.2, 0.2], // focus Forme d'onde
+  [0.2, 0.6, 0.2], // focus Harmoniques
+  [0.2, 0.2, 0.6], // focus Spectro
+]
+const REST_WIDTHS = [0.2, 0.2, 0.6]
+
 function DesignerColumns({ widths, onWidths, autoSizing, onToggleAutoSizing, columns }) {
+  const rootRef = useRef(null)
   const rowRef = useRef(null)
+  // Focus courant (index colonne 0/1/2, ou null = repos). Volatile : vit dans
+  // un ref, jamais persisté — à l'ouverture et après toute « sortie » = repos.
+  const focusColRef = useRef(null)
+
+  // iter-M phase-2-as : tracking du focus, actif UNIQUEMENT quand autoSizing
+  // est ON (aucun listener attaché sinon). Écrit dans le même état de
+  // proportions que M.2 — pas de nouvel état canonique. Retrait du mode =
+  // supprimer ce useEffect + le toggle.
+  useEffect(() => {
+    if (!autoSizing) return
+    // Activation (boot avec autoSizing persisté OU passage manuel→auto) :
+    // pas de focus → repos.
+    focusColRef.current = null
+    onWidths(REST_WIDTHS)
+
+    // Capture : on résout le focus AVANT que l'éditable ne traite son propre
+    // mousedown (cf. règle AS.3.2 — le geste qui change le focus ne fait que
+    // focuser).
+    const onDown = (e) => {
+      const root = rootRef.current
+      const row = rowRef.current
+      if (!root || !row) return
+      // Clic réellement hors du widget (clavier visuel, toolbar, ADSR/params,
+      // autre onglet…) → repos.
+      if (!root.contains(e.target)) {
+        if (focusColRef.current !== null) {
+          focusColRef.current = null
+          onWidths(REST_WIDTHS)
+        }
+        return
+      }
+      // Séparateur : cible indépendante, son drag écrit les widths comme en
+      // manuel (cf. règle AS.3.1). On ne touche pas au focus.
+      if (e.target.closest('.designer-columns-sep')) return
+      // Clic dans une des 3 colonnes → prise de focus (si changement).
+      const colEl = e.target.closest('.designer-column')
+      const cols = [...row.querySelectorAll(':scope > .designer-column')]
+      const idx = colEl ? cols.indexOf(colEl) : -1
+      if (idx !== -1) {
+        if (idx !== focusColRef.current) {
+          focusColRef.current = idx
+          onWidths(FOCUS_WIDTHS[idx])
+        }
+        return
+      }
+      // Reste : la barre de presets/toggle (dans le widget mais hors colonnes)
+      // — geste neutre, ni focus ni repos (laisse figer en basculant auto OFF).
+    }
+    document.addEventListener('mousedown', onDown, true)
+    return () => document.removeEventListener('mousedown', onDown, true)
+  }, [autoSizing, onWidths])
 
   // Drag d'un séparateur entre la colonne `sepIndex` et `sepIndex+1`. On
   // capture les largeurs de départ et on recalcule en absolu à chaque move
@@ -59,7 +121,7 @@ function DesignerColumns({ widths, onWidths, autoSizing, onToggleAutoSizing, col
   }
 
   return (
-    <div className="designer-columns">
+    <div className="designer-columns" ref={rootRef}>
       <div className="designer-columns-presets" role="group" aria-label="Proportions des colonnes">
         {PRESETS.map((p) => (
           <button
