@@ -321,6 +321,12 @@ function WaveformEditor({
   onRedo,
   analyserRef,
   activeVoicesCountRef,
+  // iter-M phase-2-as : auto-sizing (essai). Quand ON, le guard est levé par
+  // DesignerColumns le temps du geste qui *change* le focus → l'édition est
+  // suppriméee sur ce mousedown-là (règle AS.3.2), elle reprend au geste
+  // suivant (la colonne est désormais à 60 %, le contenu ne reflue plus).
+  autoSizing,
+  autoSizeFocusGuardRef,
   ref,
   children,
 }) {
@@ -590,6 +596,9 @@ function WaveformEditor({
   const lastPointRef = useRef(null)
 
   const handleMouseDown = (e) => {
+    // AS.3.2 : si ce mousedown vient de donner le focus à la colonne Forme
+    // d'onde (auto-sizing), il ne fait que focuser — pas de tracé.
+    if (autoSizing && autoSizeFocusGuardRef?.current) return
     setIsDrawing(true)
     const pt = getCanvasPoint(e)
     lastPointRef.current = pt
@@ -664,6 +673,9 @@ function WaveformEditor({
   }
 
   const handleHarmonicMouseDown = (e) => {
+    // AS.3.2 : si ce mousedown vient de donner le focus à la colonne
+    // Harmoniques (auto-sizing), il ne fait que focuser — pas d'édition de barre.
+    if (autoSizing && autoSizeFocusGuardRef?.current) return
     const index = harmonicIndexFromEvent(e, editor.amplitudes.length)
     dragBarRef.current = index
     const next = Array.from(draftAmplitudes ?? editor.amplitudes)

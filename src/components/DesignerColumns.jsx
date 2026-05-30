@@ -29,7 +29,7 @@ const FOCUS_WIDTHS = [
 ]
 const REST_WIDTHS = [0.2, 0.2, 0.6]
 
-function DesignerColumns({ widths, onWidths, autoSizing, onToggleAutoSizing, columns }) {
+function DesignerColumns({ widths, onWidths, autoSizing, onToggleAutoSizing, focusGuardRef, columns }) {
   const rootRef = useRef(null)
   const rowRef = useRef(null)
   // Focus courant (index colonne 0/1/2, ou null = repos). Volatile : vit dans
@@ -54,6 +54,10 @@ function DesignerColumns({ widths, onWidths, autoSizing, onToggleAutoSizing, col
       const root = rootRef.current
       const row = rowRef.current
       if (!root || !row) return
+      // Par défaut ce geste n'est PAS une prise de focus → l'éditable peut
+      // éditer normalement (règle AS.3.2). On ne lève le guard que dans la
+      // branche « changement de focus » ci-dessous.
+      if (focusGuardRef) focusGuardRef.current = false
       // Clic réellement hors du widget (clavier visuel, toolbar, ADSR/params,
       // autre onglet…) → repos.
       if (!root.contains(e.target)) {
@@ -74,6 +78,9 @@ function DesignerColumns({ widths, onWidths, autoSizing, onToggleAutoSizing, col
         if (idx !== focusColRef.current) {
           focusColRef.current = idx
           onWidths(FOCUS_WIDTHS[idx])
+          // Ce geste *change* le focus → il ne fait que focuser, pas éditer
+          // (règle AS.3.2). L'éditable consultera ce guard et s'abstiendra.
+          if (focusGuardRef) focusGuardRef.current = true
         }
         return
       }
@@ -81,8 +88,11 @@ function DesignerColumns({ widths, onWidths, autoSizing, onToggleAutoSizing, col
       // — geste neutre, ni focus ni repos (laisse figer en basculant auto OFF).
     }
     document.addEventListener('mousedown', onDown, true)
-    return () => document.removeEventListener('mousedown', onDown, true)
-  }, [autoSizing, onWidths])
+    return () => {
+      document.removeEventListener('mousedown', onDown, true)
+      if (focusGuardRef) focusGuardRef.current = false
+    }
+  }, [autoSizing, onWidths, focusGuardRef])
 
   // Drag d'un séparateur entre la colonne `sepIndex` et `sepIndex+1`. On
   // capture les largeurs de départ et on recalcule en absolu à chaque move

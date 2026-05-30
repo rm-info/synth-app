@@ -2112,6 +2112,8 @@ function App() {
         onRedo={handleRedoDesigner}
         analyserRef={analyserRef}
         activeVoicesCountRef={activeVoicesCountRef}
+        autoSizing={autoSizing}
+        autoSizeFocusGuardRef={autoSizeFocusGuardRef}
       >
         {({ renderCanvasArea, renderHarmonicsArea, renderParamsArea, renderAdsrArea, renderActions }) => (
           <>
