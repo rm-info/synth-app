@@ -468,7 +468,12 @@ rendu sup/sub/frac + CSS dans MarkdownRenderer. Trois sous-commits
 généreront massivement ratios, cents et exposants. **Phase R.4
 (2026-05-28)** : délimiteurs extensibles `( )` `[ ]` qui grandissent avec
 la fraction (révise la borne « pas de `\left\right` » de R, sur décision
-archi) — la forme correcte de $(3/2)^{12}$ au tableau les exige.
+archi) — la forme correcte de $(3/2)^{12}$ au tableau les exige. **Phase
+M.5a (2026-05-31)** : `\sum` réintégré (opérateur à bornes `_{…}`/`^{…}`),
+rendu sub/sup à droite en inline et empilé sous/dessus le Σ en display
+(grille CSS) — prérequis de la DFT (M.5b). `displayMode` propagé du
+renderer markdown jusqu'à `renderMath`. `\prod`/`\int`/matrices restent
+hors scope.
 
 **Itération L (Documentation) — phase 5 (corpus) + clôture livrées le
 2026-05-28 — release v1.4.0. Itération L close.** Rédaction du contenu
@@ -569,7 +574,7 @@ synth-app/
     │   ├── getAnchoredPosition.js # résolution viewport rect d'un [data-anchor] (iter-L phase-1.5)
     │   ├── highlightElement.js # halo temporaire ancré (DocLink), retry RAF (iter-L phase-3.1)
     │   ├── markdown.js       # parser Markdown maison + AST, délègue le math à mathParse (iter-L phase-2.2 / R.1)
-    │   ├── mathParse.js      # sous-parser math récursif ($…$, $$…$$ → mathAst) (iter-L phase-R.1)
+    │   ├── mathParse.js      # sous-parser math récursif ($…$, $$…$$ → mathAst), \sum à bornes (iter-L phase-R.1 / iter-M phase-5a.1)
     │   ├── spline.js         # (iter-M M.3) splineSoft Catmull-Rom périodique / splineHard polyligne → points
     │   ├── presets.js        # (iter-M M.4) bibliothèque code-only de 12 presets de timbre harmoniques
     │   └── tours/            # déclarations du Tour guidé par onglet (iter-L phase-4)
@@ -621,7 +626,7 @@ synth-app/
         ├── RecentPatchesList.jsx + .css      # LRU 10 derniers patches Composer (K.2.f11)
         ├── ShortcutsOverlay.jsx + .css       # overlay raccourcis "lever le voile" Ctrl+K (iter-L phase-1.5)
         ├── DocumentationTab.jsx + .css       # layout TOC + zone contenu de l'onglet Documentation (iter-L phase-2.3)
-        ├── MarkdownRenderer.jsx + .css       # rendu AST Markdown maison → JSX + DocLink/doc: actifs via MarkdownNavContext + rendu math sup/sub/frac (iter-L phase-2.2 / 3.2-3.3 / R.2)
+        ├── MarkdownRenderer.jsx + .css       # rendu AST Markdown maison → JSX + DocLink/doc: actifs via MarkdownNavContext + rendu math sup/sub/frac/sum, displayMode (iter-L phase-2.2 / 3.2-3.3 / R.2 / iter-M phase-5a.2)
         ├── ShortcutsReference.jsx + .css     # article généré "Raccourcis clavier" depuis SHORTCUTS (iter-L phase-2.4)
         └── Tour.jsx + .css                   # moteur du Tour guidé : spotlight + bulle + progress bar (iter-L phase-4)
 ```
@@ -2731,6 +2736,24 @@ Phases listées ci-dessous dans l'ordre chronologique d'implémentation.
 
 ## Historique (chronologie inverse)
 
+- **2026-05-31 — Iteration M phase M.5a : extension renderer math `\sum`**
+  Réintègre `\sum` dans le renderer maison (exclu en L.R avec `\prod`/`\int`/
+  matrices), parce que la DFT (`X_k = Σ_{n=0}^{N-1} x_n · e^{-i2πkn/N}`, à
+  poser en M.5b) est la seule formule du corpus qui en a besoin. Le reste des
+  grands opérateurs reste hors scope. 2 sous-commits.
+  - **5a.1 (`feat phase-5a.1`)** : `mathParse.js` reconnaît `\sum` comme
+    opérateur à bornes — capture jusqu'à deux groupes `_{…}`/`^{…}` qui suivent,
+    **dans n'importe quel ordre** (boucle 2 passes, assignation par caractère),
+    en sous-AST récursifs ; nœud compact `{type:'sum', lower, upper}` (null si
+    borne absente). `\sum` seul → Σ littéral. `_`/`^` sans accolade → warn dev
+    + retombe en littéral via le scan principal (pas de crash, cohérent ^/_).
+  - **5a.2 (`feat phase-5a.2`)** : `displayMode` propagé de `renderMath` (block →
+    true, inline → false) à travers la récursion (info déjà portée par le nœud
+    math `inline` côté `markdown.js`). `renderSum` : inline → Σ + bornes en
+    sub/sup natifs à droite (compact) ; display → grille CSS `.md-sum-display`
+    (borne haute / Σ agrandi / borne basse, centrées, « comme au tableau »).
+    Bornes toujours rendues en textstyle. Pas de vérif visuelle dédiée (M.5b
+    posera la DFT) : AST validé sur les 5 cas de la table + build OK.
 - **2026-05-30 — Iteration M phase M.3 : mode points/spline**
   3ᵉ et dernier mode de fabrication de timbre, propre par construction (les
   courbes lisses portent peu d'harmoniques hautes). Réutilise le pattern
@@ -5842,7 +5865,11 @@ et L.7 (exercices guidés) restent des options de backlog, hors périmètre 1.4.
   presets harmoniques (`src/lib/presets.js`), action `LOAD_PRESET` (undoable,
   remplace le draft sans passerelle), `PresetPicker` (modal groupé par
   catégorie) + garde-fou dirty. Préalable 4.0 : `HARMONIC_N_MIN` 16→4.
-- ⏳ **M.5a/b** — Extension renderer `\sum` + passe doc « cœur de la synthèse ».
+- ✅ **M.5a** — Extension renderer `\sum` (2026-05-31). Opérateur à bornes
+  `_{…}`/`^{…}` (n'importe quel ordre), rendu sub/sup inline / empilé display
+  (grille CSS), `displayMode` propagé jusqu'à `renderMath`. 2 sous-commits.
+  `\prod`/`\int`/matrices restent hors scope.
+- ⏳ **M.5b** — Passe doc « cœur de la synthèse » (pose la DFT avec le `\sum`).
 
 ### Backlog général (à caser quand pertinent)
 
