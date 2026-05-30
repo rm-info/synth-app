@@ -1987,6 +1987,8 @@ function App() {
     addSplineAnchor: (x, y) => dispatch({ type: 'ADD_SPLINE_ANCHOR', payload: { x, y } }),
     removeSplineAnchor: (index) => dispatch({ type: 'REMOVE_SPLINE_ANCHOR', payload: { index } }),
     setSplineInterpolation: (v) => dispatch({ type: 'SET_SPLINE_INTERPOLATION', payload: v }),
+    convertToSpline: (anchorCount, interpolation) =>
+      dispatch({ type: 'CONVERT_EDITOR_TO_SPLINE', payload: { anchorCount, interpolation } }),
     setAdsr: (patch) => dispatch({ type: 'SET_EDITOR_ADSR', payload: patch }),
     setAdsrAndAmp: (payload) => dispatch({ type: 'SET_EDITOR_ADSR_AND_AMP', payload }),
     applyPreset: (preset, points) =>

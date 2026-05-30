@@ -1,7 +1,10 @@
 import { useRef, useState, useCallback, useEffect, useImperativeHandle, useMemo } from 'react'
 import { Plus, Save, SaveAll, Undo2, Redo2, Sliders, X, Lock } from 'lucide-react'
 import { pointsToPeriodicWave, MIN_ATTACK, HARMONIC_COUNT, harmonicsToPoints, pointsToHarmonics } from '../audio'
-import { DEFAULT_HARMONIC_N, HARMONIC_N_MIN, HARMONIC_N_MAX, BRIDGE_DEFAULT_N } from '../reducer'
+import {
+  DEFAULT_HARMONIC_N, HARMONIC_N_MIN, HARMONIC_N_MAX, BRIDGE_DEFAULT_N,
+  DEFAULT_SPLINE_ANCHOR_COUNT, DEFAULT_SPLINE_INTERPOLATION,
+} from '../reducer'
 import useWindowSize from '../hooks/useWindowSize'
 import FreqInput from './FreqInput'
 import NumberInput from './NumberInput'
@@ -32,6 +35,7 @@ import { themeColor } from '../lib/themeColor'
 import { STRINGS } from '../lib/strings'
 import ConfirmDialog from './ConfirmDialog'
 import ConvertToHarmonicDialog from './ConvertToHarmonicDialog'
+import ConvertToSplineDialog from './ConvertToSplineDialog'
 import SplineEditor from './SplineEditor'
 import './WaveformEditor.css'
 
@@ -249,6 +253,14 @@ function patchFieldsEqual(a, b) {
     const ba = b.amplitudes ?? []
     if (aa.length !== ba.length) return false
     for (let i = 0; i < aa.length; i++) if (aa[i] !== ba[i]) return false
+  } else if (modeA === 'spline') {
+    if ((a.interpolation ?? 'soft') !== (b.interpolation ?? 'soft')) return false
+    const aa = a.anchors ?? []
+    const ba = b.anchors ?? []
+    if (aa.length !== ba.length) return false
+    for (let i = 0; i < aa.length; i++) {
+      if (aa[i].x !== ba[i].x || aa[i].y !== ba[i].y) return false
+    }
   } else {
     if ((a.definition ?? HARMONIC_COUNT) !== (b.definition ?? HARMONIC_COUNT)) return false
   }
@@ -259,6 +271,10 @@ function patchFieldsEqual(a, b) {
   return true
 }
 
+function cloneAnchors(anchors) {
+  return (anchors ?? []).map((a) => ({ x: a.x, y: a.y }))
+}
+
 function snapshotPatchFields(editor) {
   return {
     points: Array.from(editor.points),
@@ -267,6 +283,8 @@ function snapshotPatchFields(editor) {
     definition: editor.definition ?? HARMONIC_COUNT,
     N: editor.N ?? DEFAULT_HARMONIC_N,
     amplitudes: Array.from(editor.amplitudes ?? []),
+    anchors: cloneAnchors(editor.anchors),
+    interpolation: editor.interpolation ?? 'soft',
     preset: editor.preset,
     attack: editor.attack,
     hold: editor.hold,
@@ -284,6 +302,8 @@ function patchToReference(patch) {
     definition: patch.definition ?? HARMONIC_COUNT,
     N: patch.N ?? DEFAULT_HARMONIC_N,
     amplitudes: Array.from(patch.amplitudes ?? []),
+    anchors: cloneAnchors(patch.anchors),
+    interpolation: patch.interpolation ?? 'soft',
     preset: patch.preset,
     attack: patch.attack,
     hold: patch.hold ?? 0,
@@ -344,6 +364,8 @@ function WaveformEditor({
   // iter-M phase-2.5 : dialogs de la passerelle de conversion draw ↔ harmonic.
   const [convertToHarmonicOpen, setConvertToHarmonicOpen] = useState(false)
   const [convertToDrawOpen, setConvertToDrawOpen] = useState(false)
+  // iter-M phase-3 : dialog de conversion vers spline (draw→spline / harmonic→spline).
+  const [convertToSplineOpen, setConvertToSplineOpen] = useState(false)
 
   // iter-M phase-2 : mode de fabrication courant. En 'harmonic', la forme
   // d'onde affichée (et jouée) est la reconstruction iDFT des amplitudes —
@@ -484,7 +506,7 @@ function WaveformEditor({
   const stateSnapshotRef = useRef(null)
   stateSnapshotRef.current = {
     points, amplitude, definition, preset: activePreset, attack, hold, decay, sustain, release,
-    mode, N, amplitudes,
+    mode, N, amplitudes, anchors, interpolation,
   }
 
   useImperativeHandle(ref, () => ({
@@ -1221,6 +1243,10 @@ function WaveformEditor({
     definition,
     N,
     amplitudes: Array.from(amplitudes),
+    // iter-M phase-3 : champs spline (conservés par patchModeFields seulement
+    // si mode === 'spline').
+    anchors: cloneAnchors(anchors),
+    interpolation,
     attack,
     hold,
     decay,
@@ -1783,12 +1809,20 @@ function WaveformEditor({
             </span>
           </div>
           {editable && (
-            <button
-              type="button"
-              className="we-convert-btn"
-              onClick={() => setConvertToHarmonicOpen(true)}
-              title={STRINGS.editor.convertToHarmonic}
-            >{STRINGS.editor.convertToHarmonic}</button>
+            <div className="spline-header-controls">
+              <button
+                type="button"
+                className="we-convert-btn"
+                onClick={() => setConvertToHarmonicOpen(true)}
+                title={STRINGS.editor.convertToHarmonic}
+              >{STRINGS.editor.convertToHarmonic}</button>
+              <button
+                type="button"
+                className="we-convert-btn"
+                onClick={() => setConvertToSplineOpen(true)}
+                title={STRINGS.editor.convertToSpline}
+              >{STRINGS.editor.convertToSpline}</button>
+            </div>
           )}
         </header>
         {editable && (
@@ -1867,6 +1901,12 @@ function WaveformEditor({
                 onClick={() => setConvertToDrawOpen(true)}
                 title={STRINGS.editor.convertToDraw}
               >{STRINGS.editor.convertToDraw}</button>
+              <button
+                type="button"
+                className="we-convert-btn"
+                onClick={() => setConvertToSplineOpen(true)}
+                title={STRINGS.editor.convertToSpline}
+              >{STRINGS.editor.convertToSpline}</button>
             </div>
           )}
         </header>
@@ -2499,6 +2539,17 @@ function WaveformEditor({
         onConfirm={() => { setConvertToDrawOpen(false); editorActions.convertToDraw() }}
         onCancel={() => setConvertToDrawOpen(false)}
       />
+      {convertToSplineOpen && (
+        <ConvertToSplineDialog
+          defaultCount={DEFAULT_SPLINE_ANCHOR_COUNT}
+          defaultInterpolation={DEFAULT_SPLINE_INTERPOLATION}
+          onConfirm={(count, interpolation) => {
+            setConvertToSplineOpen(false)
+            editorActions.convertToSpline(count, interpolation)
+          }}
+          onCancel={() => setConvertToSplineOpen(false)}
+        />
+      )}
     </>
   )
 }

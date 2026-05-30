@@ -28,6 +28,9 @@ function normalizePatchForExport(patch, folderId) {
   if (patch.mode === 'harmonic') {
     return { ...base, mode: 'harmonic', N: patch.N, amplitudes: patch.amplitudes }
   }
+  if (patch.mode === 'spline') {
+    return { ...base, mode: 'spline', anchors: patch.anchors, interpolation: patch.interpolation }
+  }
   return { ...base, mode: 'draw', definition: patch.definition ?? 256 }
 }
 
@@ -121,12 +124,17 @@ export function applyImport(payload, mode, wrapperName, { soundFolders, folderCo
       id: patchIdMap.get(p.id),
       folderId: p.folderId === null ? null : folderIdMap.get(p.folderId),
     }
-    // iter-M phase-2 : import mode-aware. Mode absent (.osa antérieurs) → 'draw'
-    // + definition 256 (rétro-compat phase-1). 'harmonic' conserve N/amplitudes
-    // (validés par validatePayload, points exportés cohérents).
+    // iter-M phase-2/3 : import mode-aware. Mode absent (.osa antérieurs) →
+    // 'draw' + definition 256 (rétro-compat phase-1). 'harmonic' conserve
+    // N/amplitudes ; 'spline' conserve anchors/interpolation (validés par
+    // validatePayload, points exportés cohérents).
     if (p.mode === 'harmonic') {
       const { definition: _drop, ...rest } = common
       return { ...rest, mode: 'harmonic' }
+    }
+    if (p.mode === 'spline') {
+      const { definition: _drop, ...rest } = common
+      return { ...rest, mode: 'spline' }
     }
     return {
       ...common,

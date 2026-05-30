@@ -89,6 +89,11 @@ function clampHarmonicN(raw) {
   return Math.max(HARMONIC_N_MIN, Math.min(HARMONIC_N_MAX, raw))
 }
 
+function clampAnchorCount(raw) {
+  if (!Number.isInteger(raw)) return DEFAULT_SPLINE_ANCHOR_COUNT
+  return Math.max(SPLINE_ANCHOR_MIN, Math.min(SPLINE_ANCHOR_MAX, raw))
+}
+
 // iter-M phase-3 : bornes du nombre d'ancres du mode spline.
 export const SPLINE_ANCHOR_MIN = 4
 export const SPLINE_ANCHOR_MAX = 32
@@ -170,9 +175,10 @@ function defaultSplineAnchors() {
   return out
 }
 
-// iter-M phase-2 : proportions par défaut des 3 colonnes (Forme d'onde /
+// iter-M phase-2/3 : proportions par défaut des 3 colonnes (Forme d'onde /
 // Harmoniques / Spectro), pilotées par le mode d'édition (cf. spec §7.1) :
-// dessin → Forme d'onde large ; harmoniques → Harmoniques large.
+// harmoniques → Harmoniques large ; dessin ET spline → Forme d'onde large
+// (½¼¼ — l'éditable est la colonne Forme d'onde dans les deux cas).
 export function defaultColumnWidthsForMode(mode) {
   return mode === 'harmonic' ? [0.25, 0.5, 0.25] : [0.5, 0.25, 0.25]
 }
@@ -1442,10 +1448,11 @@ export function reducer(state, action) {
         ...state,
         patches: state.patches.map((p) => {
           if (p.id !== patchId) return p
-          // iter-M phase-2 : on retire les champs spécifiques au mode (definition
-          // / N / amplitudes) du patch existant avant de réinjecter ceux du mode
-          // courant, sinon un patch converti garderait un champ orphelin.
-          const { definition: _d, N: _n, amplitudes: _a, ...rest } = p
+          // iter-M phase-2/3 : on retire les champs spécifiques au mode
+          // (definition / N / amplitudes / anchors / interpolation) du patch
+          // existant avant de réinjecter ceux du mode courant, sinon un patch
+          // converti garderait un champ orphelin.
+          const { definition: _d, N: _n, amplitudes: _a, anchors: _an, interpolation: _in, ...rest } = p
           return {
             ...rest,
             points: Array.from(patchData.points),
@@ -1732,16 +1739,39 @@ export function reducer(state, action) {
         },
       }
     }
-    // Passerelle harmonic→draw : iDFT vers `points` ré-éditables, `definition`
-    // remise à fond (la courbe reconstruite est déjà propre). Non destructif.
+    // Passerelle harmonic/spline → draw : `editor.points` est déjà l'ombre à
+    // jour de la vérité du mode courant (iDFT pour harmonic, courbe pour spline)
+    // → il devient le tracé ré-éditable. `definition` remise à fond (la courbe
+    // reconstruite est déjà propre). Non destructif.
     case 'CONVERT_EDITOR_TO_DRAW': {
-      const points = harmonicsToPoints(state.editor.amplitudes, state.editor.N)
+      const points = Array.from(state.editor.points)
       return {
         ...state,
         // M.2 follow-up : snap des proportions au défaut du mode cible (la vue
         // Forme d'onde redevient éditable → on lui rend sa largeur de référence).
         designerColumnWidths: defaultColumnWidthsForMode('draw'),
         editor: { ...state.editor, mode: 'draw', definition: DEFAULT_DEFINITION, points },
+      }
+    }
+    // Passerelle draw/harmonic → spline : on échantillonne N ancres équiréparties
+    // depuis `editor.points` (déjà l'ombre du mode source). La courbe est ensuite
+    // reconstruite à partir des ancres. Action atomique (un cran undo).
+    case 'CONVERT_EDITOR_TO_SPLINE': {
+      const N = clampAnchorCount(action.payload?.anchorCount)
+      const interpolation = action.payload?.interpolation === 'hard' ? 'hard' : 'soft'
+      const src = state.editor.points
+      const anchors = []
+      for (let i = 0; i < N; i++) {
+        const x = (i * POINTS_RESOLUTION) / N
+        const yi = Math.min(POINTS_RESOLUTION - 1, Math.round(x))
+        const y = Math.max(-1, Math.min(1, src[yi] ?? 0))
+        anchors.push({ x, y })
+      }
+      return {
+        ...state,
+        // Snap des proportions au défaut du mode cible (½¼¼, comme draw).
+        designerColumnWidths: defaultColumnWidthsForMode('spline'),
+        editor: { ...state.editor, mode: 'spline', anchors, interpolation, points: splinePoints(anchors, interpolation) },
       }
     }
     // iter-M phase-3 : déplacement d'une ancre spline. X clampé pour ne pas
@@ -2440,9 +2470,9 @@ const DESIGNER_UNDOABLE = new Set([
   // iter-M phase-2 : édition barres + passerelle de conversion (atomique).
   'SET_EDITOR_N', 'SET_EDITOR_HARMONIC_AMPLITUDE',
   'CONVERT_EDITOR_TO_HARMONIC', 'CONVERT_EDITOR_TO_DRAW',
-  // iter-M phase-3 : édition spline.
+  // iter-M phase-3 : édition spline + passerelle vers spline (atomique).
   'MOVE_SPLINE_ANCHOR', 'ADD_SPLINE_ANCHOR', 'REMOVE_SPLINE_ANCHOR',
-  'SET_SPLINE_INTERPOLATION',
+  'SET_SPLINE_INTERPOLATION', 'CONVERT_EDITOR_TO_SPLINE',
 ])
 
 const LIBRARY_FIELDS = ['patches', 'soundFolders', 'patchCounter', 'folderCounter']

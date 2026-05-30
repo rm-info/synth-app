@@ -251,8 +251,12 @@ function SplineEditor({
     const idx = hitTest(e)
     if (idx === null) { setMenu(null); return }
     const rect = containerRef.current.getBoundingClientRect()
+    // Clamp dans le conteneur (overflow:hidden) pour que le menu reste visible
+    // même quand on clique droit près du bord droit/bas.
+    const px = Math.max(0, Math.min(rect.width - 150, e.clientX - rect.left))
+    const py = Math.max(0, Math.min(rect.height - 44, e.clientY - rect.top))
     setSelectedIdx(idx)
-    setMenu({ index: idx, px: e.clientX - rect.left, py: e.clientY - rect.top })
+    setMenu({ index: idx, px, py })
   }
 
   // Suppr / Backspace retirent l'ancre sélectionnée (refus au minimum géré par
@@ -330,7 +334,11 @@ function SplineEditor({
         <span className="label middle">0</span>
         <span className="label bottom">-1</span>
         {menu && (
-          <div className="spline-context-menu" style={{ left: `${menu.px}px`, top: `${menu.py}px` }}>
+          <div
+            className="spline-context-menu"
+            style={{ left: `${menu.px}px`, top: `${menu.py}px` }}
+            onMouseDown={(e) => e.stopPropagation()}
+          >
             <button
               type="button"
               className="spline-context-menu-item"

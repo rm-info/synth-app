@@ -45,6 +45,7 @@ const fr = {
     readOnlyHint: 'Vue dérivée (lecture seule)',
     convertToHarmonic: 'Convertir en Harmoniques',
     convertToDraw: 'Convertir en Dessin',
+    convertToSpline: 'Convertir en Spline',
     // iter-M phase-2-as : toggle auto-sizing des 3 colonnes (essai).
     autoSizing: 'Dimension auto',
     autoSizingTitle: 'La colonne en cours d’édition s’élargit automatiquement',
@@ -71,6 +72,14 @@ const fr = {
       'La courbe sera reconstruite à partir des harmoniques actuelles ; tu ' +
       'pourras la retoucher à la main.',
     toDrawConfirm: 'Convertir',
+    // iter-M phase-3 : conversion vers le mode spline (draw→spline, harmonic→spline).
+    toSplineTitle: 'Conversion en mode Spline',
+    toSplineBody:
+      'Choisis le nombre d’ancres et le type d’interpolation. La courbe sera ' +
+      'reconstruite à partir des ancres ; les détails fins entre les ancres ' +
+      'seront perdus.',
+    toSplineConfirm: 'Convertir',
+    anchorCount: 'Nombre d’ancres',
     cancel: 'Annuler',
   },
 

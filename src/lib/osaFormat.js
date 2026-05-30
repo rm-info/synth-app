@@ -104,9 +104,10 @@ export function validatePayload(obj) {
     assert(p.definition === undefined ||
       (isNumberInRange(p.definition, 1, 256) && Number.isInteger(p.definition)),
       `patch ${p.id}: definition hors [1,256]`)
-    // iter-M phase-2 : mode de fabrication. Absent (.osa antérieurs) → 'draw'
+    // iter-M phase-2/3 : mode de fabrication. Absent (.osa antérieurs) → 'draw'
     // à l'import. 'harmonic' exige N (16..256) + amplitudes (longueur N, [0,1]).
-    assert(p.mode === undefined || p.mode === 'draw' || p.mode === 'harmonic',
+    // 'spline' exige anchors (4..32, x ∈ [0,600), y ∈ [-1,1]) + interpolation.
+    assert(p.mode === undefined || p.mode === 'draw' || p.mode === 'harmonic' || p.mode === 'spline',
       `patch ${p.id}: mode '${p.mode}' inconnu`)
     if (p.mode === 'harmonic') {
       assert(isNumberInRange(p.N, 16, 256) && Number.isInteger(p.N), `patch ${p.id}: N hors [16,256]`)
@@ -115,6 +116,19 @@ export function validatePayload(obj) {
       for (let i = 0; i < p.N; i++) {
         assert(isNumberInRange(p.amplitudes[i], 0, 1), `patch ${p.id}: amplitude ${i} hors [0,1]`)
       }
+    }
+    if (p.mode === 'spline') {
+      assert(Array.isArray(p.anchors) && p.anchors.length >= 4 && p.anchors.length <= 32,
+        `patch ${p.id}: anchors doit être un tableau de 4 à 32`)
+      for (let i = 0; i < p.anchors.length; i++) {
+        const a = p.anchors[i]
+        assert(a && typeof a === 'object', `patch ${p.id}: anchor ${i} non-objet`)
+        assert(typeof a.x === 'number' && Number.isFinite(a.x) && a.x >= 0 && a.x < 600,
+          `patch ${p.id}: anchor ${i} x hors [0,600)`)
+        assert(isNumberInRange(a.y, -1, 1), `patch ${p.id}: anchor ${i} y hors [-1,1]`)
+      }
+      assert(p.interpolation === 'soft' || p.interpolation === 'hard',
+        `patch ${p.id}: interpolation '${p.interpolation}' inconnue`)
     }
     assert(isNumberInRange(p.attack, 0, 1000), `patch ${p.id}: attack hors [0,1000]`)
     assert(isNumberInRange(p.hold, 0, 1000), `patch ${p.id}: hold hors [0,1000]`)
