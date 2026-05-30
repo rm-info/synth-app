@@ -82,7 +82,7 @@ function scheduleAllClips(ctx, clips, patches, startTime, trackGainNodes, defaul
     if (track && !trackPlays(track, anySolo)) continue
 
     const dest = trackGainNodes?.[clip.trackId] ?? defaultDest
-    const wave = pointsToPeriodicWave(patch.points, ctx)
+    const wave = pointsToPeriodicWave(patch.points, ctx, patch.definition)
     const osc = ctx.createOscillator()
     const gain = ctx.createGain()
     osc.setPeriodicWave(wave)

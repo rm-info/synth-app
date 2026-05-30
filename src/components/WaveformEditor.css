@@ -982,6 +982,24 @@
   font-weight: 600;
 }
 
+/* Définition (iter-M phase-1) : readout « N / 256 » à droite du label.
+ * L'input reprend l'apparence .adsr-value-input mais resserré (3 chiffres
+ * max) ; le « / 256 » est un suffixe muet pour contextualiser le plafond. */
+.definition-readout {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 2px;
+}
+
+.definition-readout .adsr-value-input {
+  width: 40px;
+}
+
+.definition-suffix {
+  color: #9a9ab0;
+  font-size: 0.7rem;
+}
+
 /* Input éditable de la valeur (F.3.11.2). Apparence d'un <strong> au repos
  * (texte cyan, bold), cadre visible au focus pour signaler l'édition.
  * Largeur fixe pour éviter le re-layout quand la valeur change. */

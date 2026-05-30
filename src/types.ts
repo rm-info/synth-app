@@ -124,6 +124,9 @@ export interface Patch extends AdsrEnvelope {
   points: number[]
   amplitude: number
   preset: string | null
+  // Plafond d'harmoniques (1..256) : troncature M/256 du spectre dessiné
+  // (iter-M phase-1). Patches antérieurs : 256 injecté à l'hydratation.
+  definition: number
   defaultTuningSystem: TuningSystemId
   folderId: string | null
   updatedAt: number
@@ -134,6 +137,7 @@ export interface PatchData {
   name?: string
   points: number[]
   amplitude: number
+  definition?: number
   preset: string | null
   attack?: number
   hold?: number
@@ -158,6 +162,7 @@ export interface Editor extends AdsrEnvelope {
   testOctave: number
   testFrequency: number
   amplitude: number
+  definition: number
   preset: string | null
   visualCuePattern: string
   visualCueTonic: number
@@ -431,6 +436,7 @@ export type ActionBody =
   | { type: 'SET_EDITOR_VISUAL_CUE_TONIC'; payload: number }
   | { type: 'SET_EDITOR_TEST_FREQUENCY'; payload: number }
   | { type: 'SET_EDITOR_AMPLITUDE'; payload: number }
+  | { type: 'SET_EDITOR_DEFINITION'; payload: number }
   | { type: 'SET_EDITOR_ADSR'; payload: Partial<AdsrEnvelope> }
   | { type: 'SET_EDITOR_ADSR_AND_AMP'; payload: { adsr?: Partial<AdsrEnvelope>; amplitude?: number } }
   | { type: 'APPLY_EDITOR_PRESET'; payload: { preset: string | null; points: number[] } }

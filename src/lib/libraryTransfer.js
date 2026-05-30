@@ -20,6 +20,9 @@ function normalizePatchForExport(patch, folderId) {
   return {
     ...patch,
     defaultTuningSystem: patch.defaultTuningSystem ?? '12-TET',
+    // iter-M phase-1 : garantit le champ dans l'export (JSON.stringify drop
+    // les clés undefined, ce qui priverait un patch sans definition).
+    definition: patch.definition ?? 256,
     folderId: folderId === undefined ? patch.folderId : folderId,
   }
 }
@@ -111,6 +114,8 @@ export function applyImport(payload, mode, wrapperName, { soundFolders, folderCo
   const newPatches = payload.patches.map((p) => ({
     ...p,
     id: patchIdMap.get(p.id),
+    // iter-M phase-1 : imports .osa antérieurs sans definition → 256.
+    definition: typeof p.definition === 'number' ? p.definition : 256,
     folderId: p.folderId === null ? null : folderIdMap.get(p.folderId),
   }))
 

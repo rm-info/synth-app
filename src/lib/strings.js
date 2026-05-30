@@ -36,6 +36,7 @@ const fr = {
     clear: 'Effacer',
     test: 'Tester',
     canvasEmpty: 'Zone de dessin vide',
+    definition: 'Définition',
   },
 
   // Presets de formes d'onde.

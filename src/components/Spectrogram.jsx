@@ -115,14 +115,14 @@ function drawYGrid(ctx, plotX, plotY, plotW, plotH, dbScale) {
  * Axe X : log 16 Hz → 32 kHz. Axe Y : linéaire (default) ou dB (toggle).
  */
 function Spectrogram({
-  points, frequency,
+  points, frequency, definition,
   analyserRef, activeVoicesCountRef,
   dbScale, peakHold, mode,
   onToggleDbScale, onTogglePeakHold, onToggleMode,
 }) {
   const canvasRef = useRef(null)
   const containerRef = useRef(null)
-  const propsRef = useRef({ points, frequency, dbScale, peakHold, mode, analyserRef, activeVoicesCountRef })
+  const propsRef = useRef({ points, frequency, definition, dbScale, peakHold, mode, analyserRef, activeVoicesCountRef })
   const stateRef = useRef({
     fftDataBuffer: new Float32Array(FFT_SIZE / 2),
     peakBuffer: null,
@@ -135,11 +135,12 @@ function Spectrogram({
     lastPoints: null,
     lastFrequency: 0,
     lastDbScale: false,
+    lastDefinition: 0,
   })
 
   useEffect(() => {
-    propsRef.current = { points, frequency, dbScale, peakHold, mode, analyserRef, activeVoicesCountRef }
-  }, [points, frequency, dbScale, peakHold, mode, analyserRef, activeVoicesCountRef])
+    propsRef.current = { points, frequency, definition, dbScale, peakHold, mode, analyserRef, activeVoicesCountRef }
+  }, [points, frequency, definition, dbScale, peakHold, mode, analyserRef, activeVoicesCountRef])
 
   useEffect(() => {
     if (mode === 'static') {
@@ -167,7 +168,7 @@ function Spectrogram({
     const H = canvas.height
     if (!W || !H) return false
     const ctx = canvas.getContext('2d')
-    const { points, frequency, dbScale } = propsRef.current
+    const { points, frequency, definition, dbScale } = propsRef.current
 
     ctx.fillStyle = themeColor('canvas-bg')
     ctx.fillRect(0, 0, W, H)
@@ -220,8 +221,14 @@ function Spectrogram({
     }
     if (maxMag <= 0) return true
 
+    // iter-M phase-1 : la définition tronque le spectre exactement comme la
+    // synthèse (cf. pointsToPeriodicWave). Les harmoniques k > definition
+    // tombent à zéro → l'utilisateur voit le couperet du slider. definition
+    // absente (rétro-compat) = pas de troncature.
+    const cut = Number.isFinite(definition) ? definition : magnitudes.length - 1
     ctx.fillStyle = themeColor('accent')
     for (let k = 1; k < magnitudes.length; k++) {
+      if (k > cut) break
       const f = k * frequency
       if (f > FREQ_MAX) break
       if (f < FREQ_MIN) continue
@@ -384,16 +391,18 @@ function Spectrogram({
   useEffect(() => {
     let rafId = 0
     const loop = () => {
-      const { mode, points, frequency, dbScale } = propsRef.current
+      const { mode, points, frequency, definition, dbScale } = propsRef.current
 
       if (mode === 'live') {
         drawLive()
       } else {
-        // Static : redraw uniquement si points (ref) / frequency / dbScale ont changé
+        // Static : redraw uniquement si points (ref) / frequency / dbScale /
+        // definition ont changé (definition tronque le spectre affiché).
         if (
           points !== stateRef.current.lastPoints ||
           frequency !== stateRef.current.lastFrequency ||
-          dbScale !== stateRef.current.lastDbScale
+          dbScale !== stateRef.current.lastDbScale ||
+          definition !== stateRef.current.lastDefinition
         ) {
           if (drawStatic()) {
             // Cache mise à jour UNIQUEMENT si drawStatic a réussi.
@@ -402,6 +411,7 @@ function Spectrogram({
             stateRef.current.lastPoints = points
             stateRef.current.lastFrequency = frequency
             stateRef.current.lastDbScale = dbScale
+            stateRef.current.lastDefinition = definition
           }
         }
       }

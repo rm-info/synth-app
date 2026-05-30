@@ -1,4 +1,4 @@
-import { SOUND_COLORS } from './audio'
+import { SOUND_COLORS, HARMONIC_COUNT } from './audio'
 import { wouldCreateCycle, duplicateItemsToFolder } from './lib/bibTransfer.js'
 import {
   DEFAULT_A4,
@@ -69,6 +69,11 @@ export const DEFAULT_DOC_ARTICLE_ID = 'about'
 // de plateau, comportement strictement identique à un ADSR classique.
 export const DEFAULT_ADSR = { attack: 10, hold: 0, decay: 100, sustain: 0.7, release: 200 }
 
+// iter-M phase-1 : plafond d'harmoniques par défaut = aucune troncature
+// (HARMONIC_COUNT = 256, le cap post-bump). Sert de défaut nouveau patch et
+// de valeur d'hydratation pour les patches antérieurs (sans champ definition).
+export const DEFAULT_DEFINITION = HARMONIC_COUNT
+
 export const TRACK_COLORS = [
   '#5a8a7a', '#7a6a9a', '#9a8a5a', '#5a7a9a',
   '#9a5a7a', '#6a9a5a', '#5a6a9a', '#9a7a5a',
@@ -90,6 +95,7 @@ export const DEFAULT_EDITOR = {
   testOctave: 4,
   testFrequency: 440,
   amplitude: 1,
+  definition: DEFAULT_DEFINITION,
   preset: null,
   visualCuePattern: 'none',
   visualCueTonic: 0,
@@ -196,7 +202,13 @@ export function loadPersistedState() {
       return null
     }
 
-    const patches = Array.isArray(parsed.patches) ? parsed.patches : []
+    // iter-M phase-1 : patches antérieurs sans champ `definition` → 256
+    // injecté (préserve leur son : aucune troncature). Idempotent pour les
+    // patches déjà porteurs du champ.
+    const patches = (Array.isArray(parsed.patches) ? parsed.patches : []).map((p) => ({
+      ...p,
+      definition: typeof p.definition === 'number' ? p.definition : DEFAULT_DEFINITION,
+    }))
     const rawClips = Array.isArray(parsed.clips) ? parsed.clips : []
     const tracks = (Array.isArray(parsed.tracks) && parsed.tracks.length > 0
       ? parsed.tracks
@@ -1242,6 +1254,7 @@ export function reducer(state, action) {
         color: SOUND_COLORS[colorIndex],
         points: Array.from(patchData.points),
         amplitude: patchData.amplitude,
+        definition: patchData.definition ?? DEFAULT_DEFINITION,
         preset: patchData.preset,
         attack: patchData.attack ?? DEFAULT_ADSR.attack,
         hold: patchData.hold ?? DEFAULT_ADSR.hold,
@@ -1278,6 +1291,7 @@ export function reducer(state, action) {
                 ...p,
                 points: Array.from(patchData.points),
                 amplitude: patchData.amplitude,
+                definition: patchData.definition ?? p.definition ?? DEFAULT_DEFINITION,
                 preset: patchData.preset,
                 attack: patchData.attack,
                 hold: patchData.hold ?? DEFAULT_ADSR.hold,
@@ -1509,6 +1523,9 @@ export function reducer(state, action) {
     case 'SET_EDITOR_AMPLITUDE': {
       return { ...state, editor: { ...state.editor, amplitude: action.payload } }
     }
+    case 'SET_EDITOR_DEFINITION': {
+      return { ...state, editor: { ...state.editor, definition: action.payload } }
+    }
     case 'SET_EDITOR_ADSR': {
       return { ...state, editor: { ...state.editor, ...action.payload } }
     }
@@ -1568,6 +1585,7 @@ export function reducer(state, action) {
           ...state.editor,
           points: Array.from(patch.points),
           amplitude: patch.amplitude,
+          definition: patch.definition ?? DEFAULT_DEFINITION,
           preset: patch.preset,
           attack: patch.attack,
           hold: patch.hold ?? DEFAULT_ADSR.hold,
@@ -2084,7 +2102,7 @@ const COMPOSER_UNDOABLE = new Set([
 
 const DESIGNER_UNDOABLE = new Set([
   'UPDATE_PATCH',
-  'SET_EDITOR_POINTS', 'SET_EDITOR_AMPLITUDE',
+  'SET_EDITOR_POINTS', 'SET_EDITOR_AMPLITUDE', 'SET_EDITOR_DEFINITION',
   'SET_EDITOR_ADSR', 'SET_EDITOR_ADSR_AND_AMP', 'APPLY_EDITOR_PRESET', 'RESET_EDITOR',
   'SET_EDITOR_VISUAL_CUE_PATTERN', 'SET_EDITOR_VISUAL_CUE_TONIC',
 ])

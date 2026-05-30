@@ -1,6 +1,6 @@
 import { useRef, useState, useCallback, useEffect, useImperativeHandle, useMemo } from 'react'
 import { Plus, Save, SaveAll, Undo2, Redo2, Sliders, X, Lock } from 'lucide-react'
-import { pointsToPeriodicWave, MIN_ATTACK } from '../audio'
+import { pointsToPeriodicWave, MIN_ATTACK, HARMONIC_COUNT } from '../audio'
 import useWindowSize from '../hooks/useWindowSize'
 import FreqInput from './FreqInput'
 import NumberInput from './NumberInput'
@@ -162,6 +162,19 @@ function formatMs(v) {
   return `${v} ms`
 }
 
+// Définition (iter-M phase-1) : entier dans [1, HARMONIC_COUNT]. Le clamp
+// final est fait par NumberInput ; ici on parse permissivement et on arrondit.
+function parseDefinition(raw) {
+  if (typeof raw !== 'string') return NaN
+  const s = raw.trim()
+  if (s === '') return NaN
+  const v = parseInt(s, 10)
+  return Number.isFinite(v) ? v : NaN
+}
+function formatDefinition(v) {
+  return String(v)
+}
+
 function stripSuffix(name) {
   let s = name
   for (;;) {
@@ -204,6 +217,7 @@ function generatePresetPoints(type) {
 function patchFieldsEqual(a, b) {
   if (!a || !b) return false
   if (a.amplitude !== b.amplitude) return false
+  if (a.definition !== b.definition) return false
   if (a.preset !== b.preset) return false
   if (a.attack !== b.attack) return false
   if (a.hold !== b.hold) return false
@@ -221,6 +235,7 @@ function snapshotPatchFields(editor) {
   return {
     points: Array.from(editor.points),
     amplitude: editor.amplitude,
+    definition: editor.definition ?? HARMONIC_COUNT,
     preset: editor.preset,
     attack: editor.attack,
     hold: editor.hold,
@@ -234,6 +249,7 @@ function patchToReference(patch) {
   return {
     points: Array.from(patch.points),
     amplitude: patch.amplitude,
+    definition: patch.definition ?? HARMONIC_COUNT,
     preset: patch.preset,
     attack: patch.attack,
     hold: patch.hold ?? 0,
@@ -280,12 +296,14 @@ function WaveformEditor({
   const [draftPoints, setDraftPoints] = useState(null)
   const [draftAdsr, setDraftAdsr] = useState(null)
   const [draftAmp, setDraftAmp] = useState(null)
+  const [draftDefinition, setDraftDefinition] = useState(null)
   const [draftFreq, setDraftFreq] = useState(null)
   // Confirmation "abandonner modifs" pour handleNew
   const [confirmNewOpen, setConfirmNewOpen] = useState(false)
 
   const points = draftPoints ?? editor.points
   const amplitude = draftAmp ?? editor.amplitude
+  const definition = draftDefinition ?? editor.definition ?? HARMONIC_COUNT
   const testFrequency = draftFreq ?? editor.testFrequency
   const attack = draftAdsr?.attack ?? editor.attack
   const hold = draftAdsr?.hold ?? editor.hold ?? 0
@@ -385,7 +403,7 @@ function WaveformEditor({
   // closures périmées dans les listeners window/clavier).
   const instrumentParamsRef = useRef(null)
   instrumentParamsRef.current = {
-    attack, hold, decay, sustain, release, amplitude,
+    attack, hold, decay, sustain, release, amplitude, definition,
     testOctave, testTuningSystem, testFrequency, a4Ref, xEdoN,
   }
 
@@ -404,7 +422,7 @@ function WaveformEditor({
 
   const stateSnapshotRef = useRef(null)
   stateSnapshotRef.current = {
-    points, amplitude, preset: activePreset, attack, hold, decay, sustain, release,
+    points, amplitude, definition, preset: activePreset, attack, hold, decay, sustain, release,
   }
 
   useImperativeHandle(ref, () => ({
@@ -643,7 +661,7 @@ function WaveformEditor({
     const oct = params.testOctave
     const osc = ctx.createOscillator()
     const gain = ctx.createGain()
-    osc.setPeriodicWave(pointsToPeriodicWave(pointsRef.current, ctx))
+    osc.setPeriodicWave(pointsToPeriodicWave(pointsRef.current, ctx, params.definition))
 
     const freq = previewNoteFrequency(params.testTuningSystem, idx, oct, params.a4Ref, params.xEdoN)
     const now = ctx.currentTime
@@ -837,7 +855,7 @@ function WaveformEditor({
     const ctx = ensureAudioCtx()
     const osc = ctx.createOscillator()
     const gain = ctx.createGain()
-    osc.setPeriodicWave(pointsToPeriodicWave(pointsRef.current, ctx))
+    osc.setPeriodicWave(pointsToPeriodicWave(pointsRef.current, ctx, params.definition))
     const freq = params.testFrequency
     const now = ctx.currentTime
     osc.frequency.setValueAtTime(freq, now)
@@ -1079,6 +1097,7 @@ function WaveformEditor({
     preset: activePreset,
     points: Array.from(points),
     amplitude,
+    definition,
     attack,
     hold,
     decay,
@@ -1570,6 +1589,12 @@ function WaveformEditor({
       setDraftAmp(null)
     }
   }
+  const commitDraftDefinition = () => {
+    if (draftDefinition != null) {
+      if (draftDefinition !== editor.definition) editorActions.setDefinition(draftDefinition)
+      setDraftDefinition(null)
+    }
+  }
   const commitDraftFreq = () => {
     if (draftFreq != null) {
       if (draftFreq !== editor.testFrequency) editorActions.setTestFrequency(draftFreq)
@@ -2028,6 +2053,10 @@ function WaveformEditor({
       setDraftAmp(null)
       editorActions.setAmplitude(v)
     }
+    const commitInputDefinition = (v) => {
+      setDraftDefinition(null)
+      editorActions.setDefinition(v)
+    }
 
     const liveValue = (key) => ({ attack, hold, decay, sustain, release }[key])
 
@@ -2093,6 +2122,41 @@ function WaveformEditor({
       </div>
     )
 
+    // Définition (iter-M phase-1) : plafond d'harmoniques, troncature M/256.
+    // Même pattern draft que l'amplitude — le readout « N / 256 » donne le
+    // feedback live pendant le drag, le commit (relâchement) crée un seul
+    // snapshot undo. Placé en tête de colonne, à côté des paramètres patch.
+    const renderDefinitionSlider = () => (
+      <div className="adsr-slider" data-anchor="designer-definition">
+        <label htmlFor="patch-definition">
+          <span>{STRINGS.editor.definition}</span>
+          <span className="definition-readout">
+            <NumberInput
+              value={definition}
+              onChange={commitInputDefinition}
+              min={1}
+              max={HARMONIC_COUNT}
+              parse={parseDefinition}
+              format={formatDefinition}
+              className="adsr-value-input"
+              ariaLabel={`${STRINGS.editor.definition} (nombre d’harmoniques)`}
+            />
+            <span className="definition-suffix">/ {HARMONIC_COUNT}</span>
+          </span>
+        </label>
+        <input
+          id="patch-definition"
+          type="range"
+          min="1"
+          max={HARMONIC_COUNT}
+          step="1"
+          value={definition}
+          onChange={(e) => setDraftDefinition(Number(e.target.value))}
+          {...sliderCommitter(commitDraftDefinition)}
+        />
+      </div>
+    )
+
     // L'amplitude vit dans son propre draft (draftAmp / commitDraftAmp).
     // Slider rendu inline ici pour partager le layout colonne avec A/D/S/R
     // sans le forcer dans le pipeline draftAdsr.
@@ -2149,6 +2213,7 @@ function WaveformEditor({
             />
           </div>
           <div className="adsr-sliders">
+            {renderDefinitionSlider()}
             {renderAmpSlider()}
             {renderMsSlider('attack', STRINGS.adsr.attack)}
             {renderMsSlider('hold', STRINGS.adsr.hold)}

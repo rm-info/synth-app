@@ -99,6 +99,11 @@ export function validatePayload(obj) {
       assert(isNumberInRange(p.points[i], -1, 1), `patch ${p.id}: point ${i} hors [-1,1]`)
     }
     assert(isNumberInRange(p.amplitude, 0, 1), `patch ${p.id}: amplitude hors [0,1]`)
+    // iter-M phase-1 : champ optionnel (absent des .osa antérieurs → 256
+    // injecté à l'import). Présent : entier dans [1, 256].
+    assert(p.definition === undefined ||
+      (isNumberInRange(p.definition, 1, 256) && Number.isInteger(p.definition)),
+      `patch ${p.id}: definition hors [1,256]`)
     assert(isNumberInRange(p.attack, 0, 1000), `patch ${p.id}: attack hors [0,1000]`)
     assert(isNumberInRange(p.hold, 0, 1000), `patch ${p.id}: hold hors [0,1000]`)
     assert(isNumberInRange(p.decay, 0, 1000), `patch ${p.id}: decay hors [0,1000]`)

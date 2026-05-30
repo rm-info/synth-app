@@ -1954,6 +1954,7 @@ function App() {
     setTestTuningSystem: (ts) => dispatch({ type: 'SET_EDITOR_TEST_TUNING_SYSTEM', payload: ts }),
     setTestFrequency: (hz) => dispatch({ type: 'SET_EDITOR_TEST_FREQUENCY', payload: hz }),
     setAmplitude: (a) => dispatch({ type: 'SET_EDITOR_AMPLITUDE', payload: a }),
+    setDefinition: (d) => dispatch({ type: 'SET_EDITOR_DEFINITION', payload: d }),
     setAdsr: (patch) => dispatch({ type: 'SET_EDITOR_ADSR', payload: patch }),
     setAdsrAndAmp: (payload) => dispatch({ type: 'SET_EDITOR_ADSR_AND_AMP', payload }),
     applyPreset: (preset, points) =>
@@ -1967,6 +1968,7 @@ function App() {
   const spectrogramNode = (
     <Spectrogram
       points={editor.points}
+      definition={editor.definition}
       frequency={editorFrequency}
       analyserRef={analyserRef}
       activeVoicesCountRef={activeVoicesCountRef}
