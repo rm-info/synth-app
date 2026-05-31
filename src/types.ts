@@ -1,8 +1,11 @@
-// Types du modèle Synth App — état ACTUEL, tel quel (iter-M phase-3).
+// Types du modèle Synth App — état ACTUEL, tel quel (iter-M phase-r.1).
 //
 // Point d'entrée unique du typage métier : `Patch`, `Clip`, `Track`,
 // `TuningSystem`, `AppState` et l'union discriminée `Action` du reducer.
-// Union de patch discriminée par `mode` : `draw` / `harmonic` / `spline`.
+// Modèle de timbre unifié (M rattrapage) : une seule courbe `canonical`
+// (600 points, LA vérité audio), trois lentilles qui la regardent/éditent
+// (Forme d'onde / Harmoniques / Spectro). Plus de `mode` discriminé, plus
+// de conversion destructive.
 //
 // Discipline : `unknown` plutôt que `any` pour les porteurs opaques
 // (clipboards de mesure, flash), `strict: false` global conservé.
@@ -114,8 +117,10 @@ export interface Track {
   height: number
 }
 
-// Mode de fabrication du timbre (iter-M phase-2/3). Discriminant du Patch typé.
-export type WaveformMode = 'draw' | 'harmonic' | 'spline'
+// Lentille active de l'éditeur (M rattrapage). Remplace l'ancien `mode`
+// discriminant : ce n'est plus une propriété du timbre mais un état d'UI
+// volatile (quelle vue regarde l'utilisateur). Voir `Editor.currentLens`.
+export type WaveformLens = 'free' | 'spline' | 'bars'
 
 // iter-M phase-3 : variante d'interpolation de la courbe spline.
 export type SplineInterpolation = 'soft' | 'hard'
@@ -127,69 +132,43 @@ export interface SplineAnchor {
   y: number
 }
 
-// Champs communs à tous les modes de patch. `points` est porté par TOUS les
-// modes : pour `harmonic`, c'est la reconstruction iDFT des `amplitudes`
-// (cf. audio.harmonicsToPoints), stockée pour que la chaîne audio existante
-// (playback / export / miniatures) reste l'unique consommatrice de `points`.
-interface PatchCommon extends AdsrEnvelope {
+// Un patch = un timbre (forme d'onde + enveloppe + amplitude), sans hauteur :
+// la hauteur est portée par chaque clip (refonte iter-E). Modèle unifié
+// (M rattrapage) : une seule courbe `canonical` est la vérité audio ; `cap`
+// borne les harmoniques reconstruites ; `anchors`/`interpolation`/`residual`
+// portent la lentille spline (le résidu préserve les détails fins du tracé
+// libre entre deux éditions d'ancres). Plus de `mode` discriminé.
+export interface Patch extends AdsrEnvelope {
   id: string
   name: string
   color: string
-  points: number[]
-  amplitude: number
   preset: string | null
   defaultTuningSystem: TuningSystemId
   folderId: string | null
   updatedAt: number
-}
-
-// Mode dessin : tracé libre 2D + plafond d'harmoniques `definition` (1..256,
-// troncature M/256, iter-M phase-1). Patches antérieurs : `mode` absent →
-// hydraté en 'draw', `definition` → 256.
-export interface DrawPatch extends PatchCommon {
-  mode: 'draw'
-  definition: number
-}
-
-// Mode harmoniques : vecteur d'amplitudes (magnitudes seules, ∈ [0..1]) +
-// nombre d'harmoniques N (16..256). `definition` ne s'applique pas (N joue ce
-// rôle). `points` reste la reconstruction iDFT (compat audio).
-export interface HarmonicPatch extends PatchCommon {
-  mode: 'harmonic'
-  N: number
-  amplitudes: number[]
-}
-
-// Mode spline (iter-M phase-3) : courbe band-limitée définie par 4..32 ancres
-// interpolées (Catmull-Rom périodique ou polyligne). `points` reste la
-// reconstruction (ombre) de la courbe — l'unique entrée audio. Pas de
-// `definition` : la courbe est propre par construction (cf. spec §6).
-export interface SplinePatch extends PatchCommon {
-  mode: 'spline'
+  amplitude: number
+  // 600 points dans [-1, 1] — LA vérité audio (remplace `points`).
+  canonical: number[]
+  // Plafond d'harmoniques [1, 256] (remplace `definition` ET `N`).
+  cap: number
+  // Lentille spline : ancres (4..32) + interpolation + résidu (600 points :
+  // canonical − spline(anchors), peut sortir de [-1, 1]).
   anchors: SplineAnchor[]
   interpolation: SplineInterpolation
+  residual: number[]
 }
 
-// Un patch = un timbre (forme d'onde + enveloppe + amplitude), sans hauteur :
-// la hauteur est portée par chaque clip (refonte iter-E). Union discriminée
-// par `mode` (iter-M phase-2/3).
-export type Patch = DrawPatch | HarmonicPatch | SplinePatch
-
 // Données d'un patch transmises à SAVE_PATCH / UPDATE_PATCH (sans id/color).
+// Aligné sur le shape unifié : plus de `mode`/`definition`/`N`/`amplitudes`/
+// `points`.
 export interface PatchData {
   name?: string
-  points: number[]
+  canonical: number[]
+  cap: number
+  anchors: SplineAnchor[]
+  interpolation: SplineInterpolation
+  residual: number[]
   amplitude: number
-  // iter-M phase-2 : mode de fabrication + champs spécifiques. `mode` absent
-  // (anciens call-sites) → 'draw'. `definition` (draw) / `N`+`amplitudes`
-  // (harmonic) ne sont stockés que pour le mode concerné.
-  mode?: WaveformMode
-  definition?: number
-  N?: number
-  amplitudes?: number[]
-  // iter-M phase-3 : champs du mode spline (stockés uniquement si mode='spline').
-  anchors?: SplineAnchor[]
-  interpolation?: SplineInterpolation
   preset: string | null
   attack?: number
   hold?: number
@@ -208,24 +187,21 @@ export interface SoundFolder {
 // État de l'éditeur de patch (Designer). Les champs `test*` / `visualCue*`
 // pilotent la preview clavier et ne sont PAS copiés dans le patch sauvegardé.
 export interface Editor extends AdsrEnvelope {
-  points: number[]
+  // Modèle unifié (M rattrapage) : `canonical` est la vérité audio éditée,
+  // `cap` borne les harmoniques, `anchors`/`interpolation`/`residual` portent
+  // la lentille spline. `currentLens` est la lentille active (état d'UI
+  // volatile : non persisté en localStorage, non écrit dans `.osa`).
+  canonical: number[]
+  cap: number
+  anchors: SplineAnchor[]
+  interpolation: SplineInterpolation
+  residual: number[]
+  currentLens: WaveformLens
   testTuningSystem: TuningSystemId
   testNoteIndex: number
   testOctave: number
   testFrequency: number
   amplitude: number
-  definition: number
-  // iter-M phase-2 : mode de fabrication courant + état du mode harmoniques.
-  // En mode 'harmonic', `points` est la reconstruction iDFT de `amplitudes`
-  // (tenue à jour par le reducer). `amplitudes` a toujours longueur `N`.
-  mode: WaveformMode
-  N: number
-  amplitudes: number[]
-  // iter-M phase-3 : état du mode spline. En mode 'spline', `points` est la
-  // reconstruction de la courbe (tenue à jour par le reducer) ; `anchors`
-  // (4..32, ordre cyclique des x) et `interpolation` sont la vérité éditable.
-  anchors: SplineAnchor[]
-  interpolation: SplineInterpolation
   preset: string | null
   visualCuePattern: string
   visualCueTonic: number
@@ -496,7 +472,7 @@ export type ActionBody =
   | { type: 'DELETE_FOLDER'; payload: { folderId: string } }
   | { type: 'MOVE_PATCH_TO_FOLDER'; payload: { patchId: string; folderId: string | null } }
   | { type: 'MOVE_FOLDER'; payload: { folderId: string; parentId: string | null } }
-  | { type: 'SET_EDITOR_POINTS'; payload: number[] }
+  | { type: 'SET_EDITOR_CANONICAL'; payload: number[] }
   | { type: 'SET_EDITOR_TEST_NOTE'; payload: number }
   | { type: 'SET_EDITOR_TEST_OCTAVE'; payload: number }
   | { type: 'SET_EDITOR_TEST_TUNING_SYSTEM'; payload: TuningSystemId }
@@ -505,28 +481,25 @@ export type ActionBody =
   | { type: 'SET_EDITOR_VISUAL_CUE_TONIC'; payload: number }
   | { type: 'SET_EDITOR_TEST_FREQUENCY'; payload: number }
   | { type: 'SET_EDITOR_AMPLITUDE'; payload: number }
-  | { type: 'SET_EDITOR_DEFINITION'; payload: number }
-  // iter-M phase-2 : édition du mode harmoniques (barres). `N` redimensionne
-  // le vecteur `amplitudes` ; `SET_EDITOR_HARMONIC_AMPLITUDE` met à jour une
-  // barre (index 0-based = harmonique index+1). Les deux recalculent
-  // `editor.points` (reconstruction iDFT).
-  | { type: 'SET_EDITOR_N'; payload: number }
+  // Modèle unifié (M rattrapage) : `cap` borne les harmoniques (remplace
+  // SET_EDITOR_DEFINITION + SET_EDITOR_N). `currentLens` est la lentille
+  // active (volatile, non undoable).
+  | { type: 'SET_EDITOR_CAP'; payload: number }
+  | { type: 'SET_EDITOR_CURRENT_LENS'; payload: WaveformLens }
+  // Édition d'une barre (lentille Harmoniques) : met à jour la magnitude
+  // `index` parmi les `cap` premières, puis régénère `canonical` par iDFT à
+  // phase canonique (M.r.1 : écrase la phase, normalisation en M.r.4).
   | { type: 'SET_EDITOR_HARMONIC_AMPLITUDE'; payload: { index: number; value: number } }
-  // Passerelle de conversion (action atomique undoable). draw→harmonic : DFT
-  // + troncature à N. harmonic→draw : iDFT vers points ré-éditables.
-  | { type: 'CONVERT_EDITOR_TO_HARMONIC'; payload: { N: number } }
-  | { type: 'CONVERT_EDITOR_TO_DRAW' }
-  // iter-M phase-4 : charge un preset de timbre (remplace le draft en mode
-  // harmonique, sans conversion). amplitude/ADSR repartent aux défauts.
-  | { type: 'LOAD_PRESET'; payload: { mode: 'harmonic'; N: number; amplitudes: number[] } }
-  // iter-M phase-3 : édition du mode spline (toutes undoable). MOVE est
-  // dispatchée une fois au commit du drag (draft local côté éditeur).
+  // iter-M phase-4 : charge un preset de timbre (domaine harmonique).
+  // amplitude/ADSR repartent aux défauts.
+  | { type: 'LOAD_PRESET'; payload: { cap: number; amplitudes: number[] } }
+  // iter-M phase-3 : édition de la lentille spline (toutes undoable). MOVE est
+  // dispatchée une fois au commit du drag (draft local côté éditeur). La
+  // nouvelle canonical = spline(anchors) + residual, clampée [-1, 1].
   | { type: 'MOVE_SPLINE_ANCHOR'; payload: { index: number; x: number; y: number } }
   | { type: 'ADD_SPLINE_ANCHOR'; payload: { x: number; y: number } }
   | { type: 'REMOVE_SPLINE_ANCHOR'; payload: { index: number } }
   | { type: 'SET_SPLINE_INTERPOLATION'; payload: SplineInterpolation }
-  // Passerelle vers spline : échantillonne N ancres équiréparties depuis points.
-  | { type: 'CONVERT_EDITOR_TO_SPLINE'; payload: { anchorCount: number; interpolation: SplineInterpolation } }
   | { type: 'SET_EDITOR_ADSR'; payload: Partial<AdsrEnvelope> }
   | { type: 'SET_EDITOR_ADSR_AND_AMP'; payload: { adsr?: Partial<AdsrEnvelope>; amplitude?: number } }
   | { type: 'APPLY_EDITOR_PRESET'; payload: { preset: string | null; points: number[] } }

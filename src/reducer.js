@@ -70,26 +70,24 @@ export const DEFAULT_DOC_ARTICLE_ID = 'about'
 // de plateau, comportement strictement identique à un ADSR classique.
 export const DEFAULT_ADSR = { attack: 10, hold: 0, decay: 100, sustain: 0.7, release: 200 }
 
-// iter-M phase-1 : plafond d'harmoniques par défaut = aucune troncature
-// (HARMONIC_COUNT = 256, le cap post-bump). Sert de défaut nouveau patch et
-// de valeur d'hydratation pour les patches antérieurs (sans champ definition).
-export const DEFAULT_DEFINITION = HARMONIC_COUNT
+// Modèle unifié (M rattrapage) : `cap` ∈ [1, 256] est le plafond
+// d'harmoniques unique (remplace `definition` du tracé ET `N` des barres).
+// `cap = 256` : pleine bande. `cap = 1` : fondamentale seule (cas dégénéré
+// valide). HARMONIC_COUNT (= 256) vient d'audio.js.
+export const CAP_MIN = 1
+export const CAP_MAX = HARMONIC_COUNT
+export const DEFAULT_CAP = HARMONIC_COUNT
 
-// iter-M phase-2 : bornes du nombre d'harmoniques N (mode barres), max =
-// plafond de synthèse (256).
-// iter-M phase-4 : plancher abaissé 16→4 pour permettre des presets
-// minimalistes à 4-15 harmoniques (Flûte/Orgue/Triade… ont un N < 16). Marge
-// à 4 (et non 8) pour laisser de l'air à de futurs presets ultra-minimalistes.
-export const HARMONIC_N_MIN = 4
-export const HARMONIC_N_MAX = HARMONIC_COUNT
-// Défaut à la création d'un nouveau patch déjà harmonique (rare avant M.4).
-export const DEFAULT_HARMONIC_N = 16
-// Défaut suggéré dans le dialog de conversion draw→harmonic.
+// BRIDGE_DEFAULT_N : défaut du dialog de conversion draw→harmonic (dialog
+// supprimé en M.r.1.4 ; constante conservée jusque-là).
 export const BRIDGE_DEFAULT_N = 24
 
-function clampHarmonicN(raw) {
-  if (!Number.isInteger(raw)) return DEFAULT_HARMONIC_N
-  return Math.max(HARMONIC_N_MIN, Math.min(HARMONIC_N_MAX, raw))
+// Clamp entier de `cap` sur [CAP_MIN, CAP_MAX]. Intègre les anciens
+// clampDefinition + clampHarmonicN (une seule borne désormais).
+function clampCap(raw) {
+  const n = Math.round(Number(raw))
+  if (!Number.isFinite(n)) return DEFAULT_CAP
+  return Math.max(CAP_MIN, Math.min(CAP_MAX, n))
 }
 
 function clampAnchorCount(raw) {
@@ -210,22 +208,21 @@ export const TRACK_COLORS = [
 // patches. Pattern 'none' = aucun repère affiché (état neutre).
 /** @type {import('./types').Editor} */
 export const DEFAULT_EDITOR = {
-  points: new Array(POINTS_RESOLUTION).fill(0),
+  // Modèle unifié (M rattrapage) : `canonical` est la vérité audio éditée,
+  // `cap` borne les harmoniques, la lentille spline porte ancres + résidu.
+  // `currentLens` est volatile (non persisté). Les ancres sont toujours
+  // peuplées (8 plates) : la lentille spline est disponible d'emblée.
+  canonical: new Array(POINTS_RESOLUTION).fill(0),
+  cap: DEFAULT_CAP,
+  anchors: defaultSplineAnchors(),
+  interpolation: DEFAULT_SPLINE_INTERPOLATION,
+  residual: new Array(POINTS_RESOLUTION).fill(0),
+  currentLens: 'free',
   testTuningSystem: '12-TET', // '12-TET' | 'free'
   testNoteIndex: 9, // A
   testOctave: 4,
   testFrequency: 440,
   amplitude: 1,
-  definition: DEFAULT_DEFINITION,
-  // iter-M phase-2 : mode de fabrication + état barres. Un nouveau patch part
-  // toujours en 'draw'. `amplitudes` a longueur `N` (vecteur de zéros au repos).
-  mode: 'draw',
-  N: DEFAULT_HARMONIC_N,
-  amplitudes: new Array(DEFAULT_HARMONIC_N).fill(0),
-  // iter-M phase-3 : état du mode spline. Vide au repos (un nouveau patch part
-  // en 'draw') — les ancres sont peuplées par la conversion ou l'hydratation.
-  anchors: [],
-  interpolation: DEFAULT_SPLINE_INTERPOLATION,
   preset: null,
   visualCuePattern: 'none',
   visualCueTonic: 0,
