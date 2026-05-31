@@ -90,11 +90,6 @@ function clampCap(raw) {
   return Math.max(CAP_MIN, Math.min(CAP_MAX, n))
 }
 
-function clampAnchorCount(raw) {
-  if (!Number.isInteger(raw)) return DEFAULT_SPLINE_ANCHOR_COUNT
-  return Math.max(SPLINE_ANCHOR_MIN, Math.min(SPLINE_ANCHOR_MAX, raw))
-}
-
 // iter-M phase-3 : bornes du nombre d'ancres du mode spline.
 export const SPLINE_ANCHOR_MIN = 4
 export const SPLINE_ANCHOR_MAX = 32
@@ -112,6 +107,26 @@ const SPLINE_MIN_GAP = 1
 // (validation .osa) + buildPayload.
 function splinePoints(anchors, interpolation) {
   return Array.from(splineToPoints(anchors, interpolation))
+}
+
+// Modèle unifié (M rattrapage) — résidu = canonical − spline(anchors), élément
+// par élément (longueur 600). Pas de clamp : le résidu peut sortir de [-1, 1],
+// c'est attendu (il porte les détails fins du tracé qui survivent au drag).
+function computeResidual(canonical, splineCurve) {
+  const out = new Array(POINTS_RESOLUTION)
+  for (let i = 0; i < POINTS_RESOLUTION; i++) out[i] = canonical[i] - splineCurve[i]
+  return out
+}
+
+// Canonical = spline(anchors) + résidu, clampée [-1, 1] (la somme peut pousser
+// hors borne). Utilisé au drag d'ancre : la spline bouge, le résidu survit.
+function splinePlusResidual(splineCurve, residual) {
+  const out = new Array(POINTS_RESOLUTION)
+  for (let i = 0; i < POINTS_RESOLUTION; i++) {
+    const v = splineCurve[i] + (residual[i] ?? 0)
+    out[i] = v < -1 ? -1 : v > 1 ? 1 : v
+  }
+  return out
 }
 
 // Normalise/valide un tableau d'ancres : filtre les entrées non-finies, clampe
@@ -148,23 +163,6 @@ function sanitizeAmplitudes(raw, N) {
   return out
 }
 
-// iter-M phase-2 : extrait les champs spécifiques au mode d'un patchData pour
-// SAVE_PATCH / UPDATE_PATCH. `mode` absent (anciens call-sites) → 'draw'. On
-// ne stocke que les champs du mode concerné (pas d'`amplitudes` sur un patch
-// dessin, ni de `definition` sur un patch harmonique).
-function patchModeFields(patchData) {
-  if (patchData.mode === 'harmonic') {
-    const N = clampHarmonicN(patchData.N)
-    return { mode: 'harmonic', N, amplitudes: sanitizeAmplitudes(patchData.amplitudes, N) }
-  }
-  if (patchData.mode === 'spline') {
-    const anchors = sanitizeAnchors(patchData.anchors) ?? defaultSplineAnchors()
-    const interpolation = patchData.interpolation === 'hard' ? 'hard' : 'soft'
-    return { mode: 'spline', anchors, interpolation }
-  }
-  return { mode: 'draw', definition: patchData.definition ?? DEFAULT_DEFINITION }
-}
-
 // Jeu d'ancres par défaut (DEFAULT_SPLINE_ANCHOR_COUNT équiréparties, courbe
 // plate) — filet de sécurité quand un patch spline arrive sans ancres
 // exploitables (rétro-compat / .osa corrompu). Une courbe plate est inoffensive.
@@ -176,12 +174,11 @@ function defaultSplineAnchors() {
   return out
 }
 
-// iter-M phase-2/3 : proportions par défaut des 3 colonnes (Forme d'onde /
-// Harmoniques / Spectro), pilotées par le mode d'édition (cf. spec §7.1) :
-// harmoniques → Harmoniques large ; dessin ET spline → Forme d'onde large
-// (½¼¼ — l'éditable est la colonne Forme d'onde dans les deux cas).
-export function defaultColumnWidthsForMode(mode) {
-  return mode === 'harmonic' ? [0.25, 0.5, 0.25] : [0.5, 0.25, 0.25]
+// Proportions par défaut des 3 colonnes du Designer selon la lentille active.
+// 'bars' → Harmoniques large [0.25, 0.5, 0.25] ; 'free' | 'spline' → Forme
+// d'onde large [0.5, 0.25, 0.25].
+export function defaultColumnWidthsForLens(lens) {
+  return lens === 'bars' ? [0.25, 0.5, 0.25] : [0.5, 0.25, 0.25]
 }
 
 // Valide un tableau de 3 largeurs (fractions finies > 0) et le renormalise à
@@ -658,7 +655,7 @@ export function buildInitialState() {
     // iter-M phase-2 : proportions des 3 colonnes Designer. Défaut piloté par
     // le mode d'édition courant (Forme d'onde large en 'draw', cf. spec §7.1)
     // tant qu'aucune valeur n'a été persistée.
-    designerColumnWidths: persisted?.designerColumnWidths ?? defaultColumnWidthsForMode('draw'),
+    designerColumnWidths: persisted?.designerColumnWidths ?? defaultColumnWidthsForLens('free'),
     // iter-M phase-2-as : toggle auto-sizing (essai). OFF par défaut.
     autoSizing: persisted?.autoSizing ?? false,
     // iter-L phase-2.1 : sidebar TOC Documentation + position de lecture.
@@ -1412,7 +1409,6 @@ export function reducer(state, action) {
         id,
         name: patchData.name,
         color: SOUND_COLORS[colorIndex],
-        points: Array.from(patchData.points),
         amplitude: patchData.amplitude,
         preset: patchData.preset,
         attack: patchData.attack ?? DEFAULT_ADSR.attack,
@@ -1423,8 +1419,12 @@ export function reducer(state, action) {
         defaultTuningSystem: patchData.defaultTuningSystem ?? '12-TET',
         folderId,
         updatedAt: Date.now(),
-        // iter-M phase-2 : champs spécifiques au mode (union discriminée).
-        ...patchModeFields(patchData),
+        // Modèle unifié : canonical + cap + lentille spline (résidu inclus).
+        canonical: Array.from(patchData.canonical),
+        cap: clampCap(patchData.cap),
+        anchors: sanitizeAnchors(patchData.anchors) ?? defaultSplineAnchors(),
+        interpolation: patchData.interpolation === 'hard' ? 'hard' : 'soft',
+        residual: Array.from(patchData.residual),
       }
 
       // SAVE_PATCH non-undoable, mais on rewrite les snapshots LIBRARY
@@ -1452,10 +1452,8 @@ export function reducer(state, action) {
           // (definition / N / amplitudes / anchors / interpolation) du patch
           // existant avant de réinjecter ceux du mode courant, sinon un patch
           // converti garderait un champ orphelin.
-          const { definition: _d, N: _n, amplitudes: _a, anchors: _an, interpolation: _in, ...rest } = p
           return {
-            ...rest,
-            points: Array.from(patchData.points),
+            ...p,
             amplitude: patchData.amplitude,
             preset: patchData.preset,
             attack: patchData.attack,
@@ -1468,7 +1466,12 @@ export function reducer(state, action) {
             // call site oublié), on préserve la valeur existante.
             defaultTuningSystem: patchData.defaultTuningSystem ?? p.defaultTuningSystem ?? '12-TET',
             updatedAt: Date.now(),
-            ...patchModeFields(patchData),
+            // Modèle unifié : canonical + cap + lentille spline (résidu inclus).
+            canonical: Array.from(patchData.canonical),
+            cap: clampCap(patchData.cap),
+            anchors: sanitizeAnchors(patchData.anchors) ?? defaultSplineAnchors(),
+            interpolation: patchData.interpolation === 'hard' ? 'hard' : 'soft',
+            residual: Array.from(patchData.residual),
           }
         }),
       }
@@ -1570,8 +1573,15 @@ export function reducer(state, action) {
         ),
       }
     }
-    case 'SET_EDITOR_POINTS': {
-      return { ...state, editor: { ...state.editor, points: action.payload, preset: null } }
+    case 'SET_EDITOR_CANONICAL': {
+      // Tracé libre : la canonical devient le payload, le résidu est recalculé
+      // sur les ancres courantes (la spline ne bouge pas). preset remis à null.
+      const canonical = action.payload
+      const residual = computeResidual(
+        canonical,
+        splineToPoints(state.editor.anchors, state.editor.interpolation),
+      )
+      return { ...state, editor: { ...state.editor, canonical, residual, preset: null } }
     }
     case 'SET_EDITOR_TEST_NOTE': {
       return { ...state, editor: { ...state.editor, testNoteIndex: action.payload } }
@@ -1688,30 +1698,55 @@ export function reducer(state, action) {
     case 'SET_EDITOR_AMPLITUDE': {
       return { ...state, editor: { ...state.editor, amplitude: action.payload } }
     }
-    case 'SET_EDITOR_DEFINITION': {
-      return { ...state, editor: { ...state.editor, definition: action.payload } }
+    case 'SET_EDITOR_CAP': {
+      // `cap` borne les harmoniques. Ne touche pas canonical (la troncature
+      // vit dans la chaîne audio, pointsToPeriodicWave).
+      return { ...state, editor: { ...state.editor, cap: clampCap(action.payload) } }
     }
-    // iter-M phase-2 : nombre d'harmoniques N (mode barres). Redimensionne
-    // `amplitudes` (tronque / complète par des zéros) et recalcule `points`
-    // (reconstruction iDFT — `points` reste l'entrée audio).
-    case 'SET_EDITOR_N': {
-      const N = clampHarmonicN(action.payload)
-      const amplitudes = sanitizeAmplitudes(state.editor.amplitudes, N)
-      return {
-        ...state,
-        editor: { ...state.editor, N, amplitudes, points: harmonicsToPoints(amplitudes, N) },
-      }
+    // Lentille active (volatile, non undoable). En M.r.1, le switch ne touche
+    // pas canonical/anchors/residual (coexistence vivante câblée en M.r.3).
+    case 'SET_EDITOR_CURRENT_LENS': {
+      if (state.editor.currentLens === action.payload) return state
+      return { ...state, editor: { ...state.editor, currentLens: action.payload } }
     }
-    // Mise à jour d'une barre (index 0-based = harmonique index+1). Recalcule
-    // `points`. Hors-borne ignoré (no-op défensif).
+    // Mise à jour d'une barre (index 0-based = harmonique index+1).
+    // M.r.1 : pas de dialog « normalise avant d'éditer » (M.r.4). On lit les
+    // magnitudes courantes des `cap` premières harmoniques sur la canonical,
+    // on remplace celle à `index`, et on régénère la canonical par iDFT à
+    // phase canonique → la phase est écrasée silencieusement (assumé jusqu'à
+    // M.r.4). Le résidu est recalculé sur les ancres courantes.
     case 'SET_EDITOR_HARMONIC_AMPLITUDE': {
       const { index, value } = action.payload
-      if (index < 0 || index >= state.editor.amplitudes.length) return state
-      const amplitudes = state.editor.amplitudes.slice()
+      const cap = state.editor.cap
+      if (index < 0 || index >= cap) return state
+      const { magnitudes } = pointsToHarmonics(state.editor.canonical)
+      const amplitudes = new Array(cap)
+      for (let k = 0; k < cap; k++) amplitudes[k] = magnitudes[k + 1] ?? 0
       amplitudes[index] = Math.max(0, Math.min(1, value))
+      const canonical = harmonicsToPoints(amplitudes, cap)
+      const residual = computeResidual(
+        canonical,
+        splineToPoints(state.editor.anchors, state.editor.interpolation),
+      )
+      return { ...state, editor: { ...state.editor, canonical, residual } }
+    }
+    // iter-M phase-4 : chargement d'un preset de timbre (domaine harmonique).
+    // M.r.1 : ajoute le handler manquant (bug « preset ne charge pas » absorbé,
+    // spec §11). Régénère la canonical par iDFT, recalcule le résidu. ADSR /
+    // amplitude inchangés (le preset porte un timbre, pas une enveloppe).
+    case 'LOAD_PRESET': {
+      const { cap, amplitudes } = action.payload
+      const clampedCap = clampCap(cap)
+      const sanitized = sanitizeAmplitudes(amplitudes, clampedCap)
+      const canonical = harmonicsToPoints(sanitized, clampedCap)
+      const residual = computeResidual(
+        canonical,
+        splineToPoints(state.editor.anchors, state.editor.interpolation),
+      )
       return {
         ...state,
-        editor: { ...state.editor, amplitudes, points: harmonicsToPoints(amplitudes, state.editor.N) },
+        editor: { ...state.editor, cap: clampedCap, canonical, residual },
+        currentPatchId: null,
       }
     }
     // Passerelle draw→harmonic : DFT du dessin courant, on garde les magnitudes
@@ -1792,7 +1827,7 @@ export function reducer(state, action) {
       next[index] = { x: cx, y: cy }
       return {
         ...state,
-        editor: { ...state.editor, anchors: next, points: splinePoints(next, state.editor.interpolation) },
+        editor: { ...state.editor, anchors: next, canonical: splinePlusResidual(splineToPoints(next, state.editor.interpolation), state.editor.residual) },
       }
     }
     // Ajout d'une ancre (clic sur la courbe). Insérée en maintenant l'ordre
@@ -1812,7 +1847,7 @@ export function reducer(state, action) {
       next.splice(ins, 0, { x, y })
       return {
         ...state,
-        editor: { ...state.editor, anchors: next, points: splinePoints(next, state.editor.interpolation) },
+        editor: { ...state.editor, anchors: next, canonical: splinePlusResidual(splineToPoints(next, state.editor.interpolation), state.editor.residual) },
       }
     }
     // Suppression d'une ancre. Refusé si N == SPLINE_ANCHOR_MIN (minimum).
@@ -1824,7 +1859,7 @@ export function reducer(state, action) {
       const next = anchors.filter((_, i) => i !== index)
       return {
         ...state,
-        editor: { ...state.editor, anchors: next, points: splinePoints(next, state.editor.interpolation) },
+        editor: { ...state.editor, anchors: next, canonical: splinePlusResidual(splineToPoints(next, state.editor.interpolation), state.editor.residual) },
       }
     }
     // Bascule Doux (Catmull-Rom) / Anguleux (polyligne). Mêmes ancres, courbe
@@ -1837,7 +1872,7 @@ export function reducer(state, action) {
         editor: {
           ...state.editor,
           interpolation,
-          points: splinePoints(state.editor.anchors, interpolation),
+          canonical: splinePlusResidual(splineToPoints(state.editor.anchors, interpolation), state.editor.residual),
         },
       }
     }
@@ -1857,7 +1892,11 @@ export function reducer(state, action) {
     }
     case 'APPLY_EDITOR_PRESET': {
       const { preset, points } = action.payload
-      return { ...state, editor: { ...state.editor, points, preset } }
+      const residual = computeResidual(
+        points,
+        splineToPoints(state.editor.anchors, state.editor.interpolation),
+      )
+      return { ...state, editor: { ...state.editor, canonical: points, residual, preset } }
     }
     case 'RESET_EDITOR': {
       // iter-L follow-up : préserve l'état d'exploration Designer (test* +
@@ -1873,12 +1912,10 @@ export function reducer(state, action) {
         ...state,
         editor: {
           ...DEFAULT_EDITOR,
-          points: [...DEFAULT_EDITOR.points],
-          // iter-M phase-2 : un nouveau patch repart en mode 'draw' avec un
-          // vecteur d'amplitudes neuf (clone du défaut).
-          amplitudes: [...DEFAULT_EDITOR.amplitudes],
-          // iter-M phase-3 : ancres spline neuves (clone du défaut vide).
-          anchors: [...DEFAULT_EDITOR.anchors],
+          // Modèle unifié : canonical/residual neufs, ancres plates clonées.
+          canonical: [...DEFAULT_EDITOR.canonical],
+          residual: [...DEFAULT_EDITOR.residual],
+          anchors: DEFAULT_EDITOR.anchors.map((a) => ({ ...a })),
           testTuningSystem,
           testNoteIndex,
           testOctave,
@@ -1898,41 +1935,26 @@ export function reducer(state, action) {
           ...state,
           editor: {
             ...DEFAULT_EDITOR,
-            points: [...DEFAULT_EDITOR.points],
-            amplitudes: [...DEFAULT_EDITOR.amplitudes],
-            anchors: [...DEFAULT_EDITOR.anchors],
+            canonical: [...DEFAULT_EDITOR.canonical],
+            residual: [...DEFAULT_EDITOR.residual],
+            anchors: DEFAULT_EDITOR.anchors.map((a) => ({ ...a })),
           },
         }
       }
-      // iter-M phase-2/3 : on hydrate le mode du patch. 'harmonic' → N +
-      // amplitudes (points = reconstruction iDFT) ; 'spline' → anchors +
-      // interpolation (points = reconstruction de la courbe) ; 'draw' →
-      // definition + vecteurs neufs. Mode absent → 'draw'.
-      const isHarmonic = patch.mode === 'harmonic'
-      const isSpline = patch.mode === 'spline'
-      const N = isHarmonic ? clampHarmonicN(patch.N) : DEFAULT_HARMONIC_N
-      const amplitudes = isHarmonic
-        ? sanitizeAmplitudes(patch.amplitudes, N)
-        : new Array(DEFAULT_HARMONIC_N).fill(0)
-      const anchors = isSpline ? (sanitizeAnchors(patch.anchors) ?? defaultSplineAnchors()) : []
-      const interpolation = isSpline ? (patch.interpolation === 'hard' ? 'hard' : 'soft') : DEFAULT_SPLINE_INTERPOLATION
-      const hydratedPoints = isHarmonic
-        ? harmonicsToPoints(amplitudes, N)
-        : isSpline
-          ? splinePoints(anchors, interpolation)
-          : Array.from(patch.points)
+      // Modèle unifié : on recopie canonical + cap + lentille spline du patch.
+      // currentLens repart à 'free'. test* / visualCue* préservés (non portés
+      // par le patch).
       return {
         ...state,
         editor: {
           ...state.editor,
-          points: hydratedPoints,
+          canonical: Array.from(patch.canonical),
+          cap: clampCap(patch.cap),
+          anchors: (sanitizeAnchors(patch.anchors) ?? defaultSplineAnchors()).map((a) => ({ ...a })),
+          interpolation: patch.interpolation === 'hard' ? 'hard' : 'soft',
+          residual: Array.from(patch.residual),
+          currentLens: 'free',
           amplitude: patch.amplitude,
-          definition: (isHarmonic || isSpline) ? DEFAULT_DEFINITION : (patch.definition ?? DEFAULT_DEFINITION),
-          mode: isHarmonic ? 'harmonic' : isSpline ? 'spline' : 'draw',
-          N,
-          amplitudes,
-          anchors,
-          interpolation,
           preset: patch.preset,
           attack: patch.attack,
           hold: patch.hold ?? DEFAULT_ADSR.hold,
@@ -2464,17 +2486,14 @@ const COMPOSER_UNDOABLE = new Set([
 
 const DESIGNER_UNDOABLE = new Set([
   'UPDATE_PATCH',
-  'SET_EDITOR_POINTS', 'SET_EDITOR_AMPLITUDE', 'SET_EDITOR_DEFINITION',
+  'SET_EDITOR_CANONICAL', 'SET_EDITOR_AMPLITUDE', 'SET_EDITOR_CAP',
   'SET_EDITOR_ADSR', 'SET_EDITOR_ADSR_AND_AMP', 'APPLY_EDITOR_PRESET', 'RESET_EDITOR',
   'SET_EDITOR_VISUAL_CUE_PATTERN', 'SET_EDITOR_VISUAL_CUE_TONIC',
-  // iter-M phase-2 : édition barres + passerelle de conversion (atomique).
-  'SET_EDITOR_N', 'SET_EDITOR_HARMONIC_AMPLITUDE',
-  'CONVERT_EDITOR_TO_HARMONIC', 'CONVERT_EDITOR_TO_DRAW',
-  // iter-M phase-4 : chargement d'un preset de timbre (remplacement atomique).
-  'LOAD_PRESET',
-  // iter-M phase-3 : édition spline + passerelle vers spline (atomique).
+  // Modèle unifié (M rattrapage) : édition d'une barre + chargement de preset.
+  'SET_EDITOR_HARMONIC_AMPLITUDE', 'LOAD_PRESET',
+  // iter-M phase-3 : édition spline (drag/ajout/retrait d'ancre + interpolation).
   'MOVE_SPLINE_ANCHOR', 'ADD_SPLINE_ANCHOR', 'REMOVE_SPLINE_ANCHOR',
-  'SET_SPLINE_INTERPOLATION', 'CONVERT_EDITOR_TO_SPLINE',
+  'SET_SPLINE_INTERPOLATION',
 ])
 
 const LIBRARY_FIELDS = ['patches', 'soundFolders', 'patchCounter', 'folderCounter']
