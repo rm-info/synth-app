@@ -8,6 +8,7 @@
 
 import { OSA_VERSION } from './osaFormat.js'
 import { nextAvailableFolderName } from './folderNames.js'
+import { migrateLegacyPatch } from '../reducer.js'
 
 export class EmptyExportError extends Error {
   constructor() { super('Rien à exporter'); this.name = 'EmptyExportError' }
@@ -17,21 +18,28 @@ export class EmptyExportError extends Error {
 // JSON.stringify drop les clés undefined, ce qui ferait échouer validatePayload
 // à la ré-importation. On normalise donc au moment du build de l'export.
 function normalizePatchForExport(patch, folderId) {
-  const base = {
-    ...patch,
+  // Export v2 (M rattrapage) : on émet explicitement le shape canonique pour
+  // que JSON.stringify ne droppe aucun champ requis par validatePayload.
+  return {
+    id: patch.id,
+    name: patch.name,
+    color: patch.color,
+    preset: patch.preset ?? null,
     defaultTuningSystem: patch.defaultTuningSystem ?? '12-TET',
     folderId: folderId === undefined ? patch.folderId : folderId,
+    updatedAt: patch.updatedAt ?? 0,
+    amplitude: patch.amplitude,
+    attack: patch.attack,
+    hold: patch.hold,
+    decay: patch.decay,
+    sustain: patch.sustain,
+    release: patch.release,
+    canonical: patch.canonical,
+    cap: patch.cap,
+    anchors: patch.anchors,
+    interpolation: patch.interpolation,
+    residual: patch.residual,
   }
-  // iter-M phase-2 : export mode-aware. JSON.stringify drop les clés undefined,
-  // donc on garantit explicitement les champs du mode (sinon validatePayload
-  // échoue à la ré-importation).
-  if (patch.mode === 'harmonic') {
-    return { ...base, mode: 'harmonic', N: patch.N, amplitudes: patch.amplitudes }
-  }
-  if (patch.mode === 'spline') {
-    return { ...base, mode: 'spline', anchors: patch.anchors, interpolation: patch.interpolation }
-  }
-  return { ...base, mode: 'draw', definition: patch.definition ?? 256 }
 }
 
 function getDescendantFolderIds(rootId, soundFolders) {
@@ -119,27 +127,13 @@ export function applyImport(payload, mode, wrapperName, { soundFolders, folderCo
 
   // 3. Construire les nouveaux patches avec folderId remappé.
   const newPatches = payload.patches.map((p) => {
-    const common = {
-      ...p,
+    // Migration v1 → v2 (idempotente) puis remap des IDs. Même implémentation
+    // que l'hydratation localStorage (reducer.migrateLegacyPatch).
+    const migrated = migrateLegacyPatch(p)
+    return {
+      ...migrated,
       id: patchIdMap.get(p.id),
       folderId: p.folderId === null ? null : folderIdMap.get(p.folderId),
-    }
-    // iter-M phase-2/3 : import mode-aware. Mode absent (.osa antérieurs) →
-    // 'draw' + definition 256 (rétro-compat phase-1). 'harmonic' conserve
-    // N/amplitudes ; 'spline' conserve anchors/interpolation (validés par
-    // validatePayload, points exportés cohérents).
-    if (p.mode === 'harmonic') {
-      const { definition: _drop, ...rest } = common
-      return { ...rest, mode: 'harmonic' }
-    }
-    if (p.mode === 'spline') {
-      const { definition: _drop, ...rest } = common
-      return { ...rest, mode: 'spline' }
-    }
-    return {
-      ...common,
-      mode: 'draw',
-      definition: typeof p.definition === 'number' ? p.definition : 256,
     }
   })
 

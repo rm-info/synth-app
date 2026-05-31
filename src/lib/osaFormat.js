@@ -7,7 +7,7 @@
 import { TUNING_SYSTEMS } from './tuningSystems'
 
 export const OSA_MAGIC = new Uint8Array([0x4F, 0x53, 0x41, 0x32]) // "OSA2"
-export const OSA_VERSION = 1
+export const OSA_VERSION = 2
 
 // 4 octets injectés à l'intérieur du flux gzip à GARBAGE_OFFSET (= juste
 // après le header gzip standard de 10 octets). Casse les archiveurs
@@ -60,7 +60,7 @@ function isNumberInRange(v, min, max) {
 
 export function validatePayload(obj) {
   assert(obj && typeof obj === 'object', 'racine du fichier non-objet')
-  assert(obj.version === OSA_VERSION, `version non supportée (attendu ${OSA_VERSION})`)
+  assert(obj.version === 1 || obj.version === 2, 'version non supportée (attendu 1 ou 2)')
   assert(Array.isArray(obj.patches), 'patches absent ou non-tableau')
   assert(Array.isArray(obj.soundFolders), 'soundFolders absent ou non-tableau')
 
@@ -94,30 +94,13 @@ export function validatePayload(obj) {
     assert(typeof p.id === 'string' && p.id.length > 0, 'patch.id invalide')
     assert(typeof p.name === 'string', `patch ${p.id}: name invalide`)
     assert(typeof p.color === 'string' && COLOR_RE.test(p.color), `patch ${p.id}: color invalide`)
-    assert(Array.isArray(p.points) && p.points.length === 600, `patch ${p.id}: points doit être un tableau de 600`)
-    for (let i = 0; i < 600; i++) {
-      assert(isNumberInRange(p.points[i], -1, 1), `patch ${p.id}: point ${i} hors [-1,1]`)
-    }
-    assert(isNumberInRange(p.amplitude, 0, 1), `patch ${p.id}: amplitude hors [0,1]`)
-    // iter-M phase-1 : champ optionnel (absent des .osa antérieurs → 256
-    // injecté à l'import). Présent : entier dans [1, 256].
-    assert(p.definition === undefined ||
-      (isNumberInRange(p.definition, 1, 256) && Number.isInteger(p.definition)),
-      `patch ${p.id}: definition hors [1,256]`)
-    // iter-M phase-2/3 : mode de fabrication. Absent (.osa antérieurs) → 'draw'
-    // à l'import. 'harmonic' exige N (16..256) + amplitudes (longueur N, [0,1]).
-    // 'spline' exige anchors (4..32, x ∈ [0,600), y ∈ [-1,1]) + interpolation.
-    assert(p.mode === undefined || p.mode === 'draw' || p.mode === 'harmonic' || p.mode === 'spline',
-      `patch ${p.id}: mode '${p.mode}' inconnu`)
-    if (p.mode === 'harmonic') {
-      assert(isNumberInRange(p.N, 16, 256) && Number.isInteger(p.N), `patch ${p.id}: N hors [16,256]`)
-      assert(Array.isArray(p.amplitudes) && p.amplitudes.length === p.N,
-        `patch ${p.id}: amplitudes doit être un tableau de longueur N`)
-      for (let i = 0; i < p.N; i++) {
-        assert(isNumberInRange(p.amplitudes[i], 0, 1), `patch ${p.id}: amplitude ${i} hors [0,1]`)
+    if (obj.version === 2) {
+      // v2 (M rattrapage) : modèle canonique unifié.
+      assert(Array.isArray(p.canonical) && p.canonical.length === 600, `patch ${p.id}: canonical doit être un tableau de 600`)
+      for (let i = 0; i < 600; i++) {
+        assert(isNumberInRange(p.canonical[i], -1, 1), `patch ${p.id}: canonical ${i} hors [-1,1]`)
       }
-    }
-    if (p.mode === 'spline') {
+      assert(isNumberInRange(p.cap, 1, 256) && Number.isInteger(p.cap), `patch ${p.id}: cap hors [1,256]`)
       assert(Array.isArray(p.anchors) && p.anchors.length >= 4 && p.anchors.length <= 32,
         `patch ${p.id}: anchors doit être un tableau de 4 à 32`)
       for (let i = 0; i < p.anchors.length; i++) {
@@ -129,6 +112,46 @@ export function validatePayload(obj) {
       }
       assert(p.interpolation === 'soft' || p.interpolation === 'hard',
         `patch ${p.id}: interpolation '${p.interpolation}' inconnue`)
+      // Résidu : peut sortir de [-1, 1] (détails du tracé), borne défensive [-2, 2].
+      assert(Array.isArray(p.residual) && p.residual.length === 600, `patch ${p.id}: residual doit être un tableau de 600`)
+      for (let i = 0; i < 600; i++) {
+        assert(isNumberInRange(p.residual[i], -2, 2), `patch ${p.id}: residual ${i} hors [-2,2]`)
+      }
+      assert(isNumberInRange(p.amplitude, 0, 1), `patch ${p.id}: amplitude hors [0,1]`)
+    } else {
+      // v1 (legacy) : union discriminée par `mode`. Convertie en v2 à
+      // l'hydratation/import (migrateLegacyPatch). Validée telle quelle ici.
+      assert(Array.isArray(p.points) && p.points.length === 600, `patch ${p.id}: points doit être un tableau de 600`)
+      for (let i = 0; i < 600; i++) {
+        assert(isNumberInRange(p.points[i], -1, 1), `patch ${p.id}: point ${i} hors [-1,1]`)
+      }
+      assert(isNumberInRange(p.amplitude, 0, 1), `patch ${p.id}: amplitude hors [0,1]`)
+      assert(p.definition === undefined ||
+        (isNumberInRange(p.definition, 1, 256) && Number.isInteger(p.definition)),
+        `patch ${p.id}: definition hors [1,256]`)
+      assert(p.mode === undefined || p.mode === 'draw' || p.mode === 'harmonic' || p.mode === 'spline',
+        `patch ${p.id}: mode '${p.mode}' inconnu`)
+      if (p.mode === 'harmonic') {
+        assert(isNumberInRange(p.N, 16, 256) && Number.isInteger(p.N), `patch ${p.id}: N hors [16,256]`)
+        assert(Array.isArray(p.amplitudes) && p.amplitudes.length === p.N,
+          `patch ${p.id}: amplitudes doit être un tableau de longueur N`)
+        for (let i = 0; i < p.N; i++) {
+          assert(isNumberInRange(p.amplitudes[i], 0, 1), `patch ${p.id}: amplitude ${i} hors [0,1]`)
+        }
+      }
+      if (p.mode === 'spline') {
+        assert(Array.isArray(p.anchors) && p.anchors.length >= 4 && p.anchors.length <= 32,
+          `patch ${p.id}: anchors doit être un tableau de 4 à 32`)
+        for (let i = 0; i < p.anchors.length; i++) {
+          const a = p.anchors[i]
+          assert(a && typeof a === 'object', `patch ${p.id}: anchor ${i} non-objet`)
+          assert(typeof a.x === 'number' && Number.isFinite(a.x) && a.x >= 0 && a.x < 600,
+            `patch ${p.id}: anchor ${i} x hors [0,600)`)
+          assert(isNumberInRange(a.y, -1, 1), `patch ${p.id}: anchor ${i} y hors [-1,1]`)
+        }
+        assert(p.interpolation === 'soft' || p.interpolation === 'hard',
+          `patch ${p.id}: interpolation '${p.interpolation}' inconnue`)
+      }
     }
     assert(isNumberInRange(p.attack, 0, 1000), `patch ${p.id}: attack hors [0,1000]`)
     assert(isNumberInRange(p.hold, 0, 1000), `patch ${p.id}: hold hors [0,1000]`)

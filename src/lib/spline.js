@@ -98,3 +98,20 @@ export function splineHard(anchors) {
 export function splineToPoints(anchors, interpolation) {
   return interpolation === 'hard' ? splineHard(anchors) : splineSoft(anchors)
 }
+
+// M rattrapage : ajuste `count` ancres équiréparties sur une courbe canonical
+// (x = i·RESOLUTION/count, y = canonical[round(x)]), clampées dans le domaine
+// ancres (x ∈ [0, RESOLUTION), y ∈ [-1, 1]). Utilisé par la migration v1→v2
+// pour donner une lentille spline exploitable à un tracé/harmonique existant.
+export function fitAnchorsToCurve(canonical, count = 8) {
+  const n = Math.max(2, Math.round(count))
+  const out = []
+  for (let i = 0; i < n; i++) {
+    const x = (i * RESOLUTION) / n
+    const xi = Math.min(RESOLUTION - 1, Math.max(0, Math.round(x)))
+    const yRaw = canonical[xi]
+    const y = Number.isFinite(yRaw) ? Math.max(-1, Math.min(1, yRaw)) : 0
+    out.push({ x: Math.min(RESOLUTION - 1, Math.max(0, x)), y })
+  }
+  return out
+}

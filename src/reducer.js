@@ -1,5 +1,5 @@
 import { SOUND_COLORS, HARMONIC_COUNT, harmonicsToPoints, pointsToHarmonics } from './audio'
-import { splineToPoints } from './lib/spline'
+import { splineToPoints, fitAnchorsToCurve } from './lib/spline'
 import { wouldCreateCycle, duplicateItemsToFolder } from './lib/bibTransfer.js'
 import {
   DEFAULT_A4,
@@ -316,6 +316,88 @@ function migrateLegacyClips(clips, a4Ref, xEdoN) {
   })
 }
 
+// M rattrapage — méta d'un patch (tout sauf la forme d'onde). Listée
+// explicitement pour DROPPER au passage les champs v1 obsolètes
+// (mode / definition / N / amplitudes / points).
+function patchMeta(p) {
+  return {
+    id: p.id,
+    name: p.name,
+    color: p.color,
+    preset: p.preset ?? null,
+    defaultTuningSystem: p.defaultTuningSystem ?? '12-TET',
+    folderId: p.folderId ?? null,
+    updatedAt: p.updatedAt ?? 0,
+    amplitude: typeof p.amplitude === 'number' ? p.amplitude : 1,
+    attack: p.attack,
+    hold: p.hold ?? DEFAULT_ADSR.hold,
+    decay: p.decay,
+    sustain: p.sustain,
+    release: p.release,
+  }
+}
+
+const clampToUnit = (v) => (Number.isFinite(v) ? Math.max(-1, Math.min(1, v)) : 0)
+
+// M rattrapage — migration patch v1 (mode discriminé draw/harmonic/spline) →
+// v2 (canonical unifié). Idempotent : un patch déjà v2 (canonical présent) est
+// re-sanitizé sans reconversion. Deux call-sites : hydratation localStorage
+// (loadPersistedState) et import .osa v1 (applyImport). Ne perd jamais un
+// patch (cf. spec §3.3, §12) : un patch illisible retombe sur une courbe plate.
+export function migrateLegacyPatch(p) {
+  if (!p || typeof p !== 'object') return p
+  // Déjà v2 : re-sanitize cap/anchors/residual sans reconvertir.
+  if (Array.isArray(p.canonical)) {
+    const canonical = p.canonical.length === POINTS_RESOLUTION
+      ? p.canonical.map(clampToUnit)
+      : new Array(POINTS_RESOLUTION).fill(0)
+    const anchors = sanitizeAnchors(p.anchors) ?? fitAnchorsToCurve(canonical, DEFAULT_SPLINE_ANCHOR_COUNT)
+    const interpolation = p.interpolation === 'hard' ? 'hard' : 'soft'
+    const residual = Array.isArray(p.residual) && p.residual.length === POINTS_RESOLUTION
+      ? p.residual.slice()
+      : computeResidual(canonical, splineToPoints(anchors, interpolation))
+    return { ...patchMeta(p), canonical, cap: clampCap(p.cap ?? DEFAULT_CAP), anchors, interpolation, residual }
+  }
+  // Legacy harmonique : iDFT des amplitudes à phase canonique, résidu nul.
+  if (p.mode === 'harmonic') {
+    const cap = clampCap(p.N ?? DEFAULT_CAP)
+    const amplitudes = sanitizeAmplitudes(p.amplitudes, cap)
+    const canonical = harmonicsToPoints(amplitudes, cap)
+    return {
+      ...patchMeta(p),
+      canonical,
+      cap,
+      anchors: fitAnchorsToCurve(canonical, DEFAULT_SPLINE_ANCHOR_COUNT),
+      interpolation: 'soft',
+      residual: new Array(POINTS_RESOLUTION).fill(0),
+    }
+  }
+  // Legacy spline : courbe régénérée depuis les ancres, résidu nul.
+  if (p.mode === 'spline') {
+    const anchors = sanitizeAnchors(p.anchors) ?? defaultSplineAnchors()
+    const interpolation = p.interpolation === 'hard' ? 'hard' : 'soft'
+    const canonical = splinePoints(anchors, interpolation)
+    return {
+      ...patchMeta(p),
+      canonical,
+      cap: DEFAULT_CAP,
+      anchors,
+      interpolation,
+      residual: new Array(POINTS_RESOLUTION).fill(0),
+    }
+  }
+  // Legacy dessin (ou mode absent) : points → canonical ; ancres ajustées au
+  // tracé ; résidu = canonical − spline(ancres) (peut sortir de [-1, 1] :
+  // c'est attendu, il porte les détails fins qui survivront au drag d'ancre).
+  const canonical = Array.isArray(p.points) && p.points.length === POINTS_RESOLUTION
+    ? p.points.map(clampToUnit)
+    : new Array(POINTS_RESOLUTION).fill(0)
+  const cap = clampCap(p.definition ?? DEFAULT_CAP)
+  const anchors = fitAnchorsToCurve(canonical, DEFAULT_SPLINE_ANCHOR_COUNT)
+  const residual = computeResidual(canonical, splineToPoints(anchors, 'soft'))
+  return { ...patchMeta(p), canonical, cap, anchors, interpolation: 'soft', residual }
+}
+
 export function loadPersistedState() {
   try {
     const raw = localStorage.getItem(STORAGE_KEY)
@@ -332,27 +414,7 @@ export function loadPersistedState() {
     // iter-M phase-2 : patches antérieurs sans `mode` → 'draw' (pas de
     // migration destructive). Patch 'harmonic' : on sanitize N + amplitudes
     // (clamp défensif des longueurs/bornes, cohérent avec l'invariant F.4.4.3).
-    const patches = (Array.isArray(parsed.patches) ? parsed.patches : []).map((p) => {
-      if (p.mode === 'harmonic') {
-        const N = clampHarmonicN(p.N)
-        const amplitudes = sanitizeAmplitudes(p.amplitudes, N)
-        // `points` peut manquer ou être incohérent : on le reconstruit depuis
-        // les amplitudes (source de vérité du mode harmonique).
-        return { ...p, mode: 'harmonic', N, amplitudes, points: harmonicsToPoints(amplitudes, N) }
-      }
-      if (p.mode === 'spline') {
-        // iter-M phase-3 : forward-compat (aucun patch antérieur n'a ce mode).
-        // `points` reconstruit depuis les ancres (vérité du mode spline).
-        const anchors = sanitizeAnchors(p.anchors) ?? defaultSplineAnchors()
-        const interpolation = p.interpolation === 'hard' ? 'hard' : 'soft'
-        return { ...p, mode: 'spline', anchors, interpolation, points: splinePoints(anchors, interpolation) }
-      }
-      return {
-        ...p,
-        mode: 'draw',
-        definition: typeof p.definition === 'number' ? p.definition : DEFAULT_DEFINITION,
-      }
-    })
+    const patches = (Array.isArray(parsed.patches) ? parsed.patches : []).map(migrateLegacyPatch)
     const rawClips = Array.isArray(parsed.clips) ? parsed.clips : []
     const tracks = (Array.isArray(parsed.tracks) && parsed.tracks.length > 0
       ? parsed.tracks
@@ -1749,66 +1811,10 @@ export function reducer(state, action) {
         currentPatchId: null,
       }
     }
-    // Passerelle draw→harmonic : DFT du dessin courant, on garde les magnitudes
-    // k=1..N (phase abandonnée, cf. spec §4), reconstruction iDFT dans `points`.
-    // Action atomique (un seul cran undo annule toute la conversion).
-    case 'CONVERT_EDITOR_TO_HARMONIC': {
-      const N = clampHarmonicN(action.payload?.N)
-      const { magnitudes } = pointsToHarmonics(state.editor.points)
-      const amplitudes = new Array(N).fill(0)
-      for (let k = 1; k <= N; k++) {
-        const m = magnitudes[k]
-        amplitudes[k - 1] = typeof m === 'number' ? Math.max(0, Math.min(1, m)) : 0
-      }
-      return {
-        ...state,
-        // M.2 follow-up : snap des proportions au défaut du mode cible (la vue
-        // Harmoniques devient éditable → on lui donne sa largeur de référence).
-        designerColumnWidths: defaultColumnWidthsForMode('harmonic'),
-        editor: {
-          ...state.editor,
-          mode: 'harmonic',
-          N,
-          amplitudes,
-          points: harmonicsToPoints(amplitudes, N),
-        },
-      }
-    }
-    // Passerelle harmonic/spline → draw : `editor.points` est déjà l'ombre à
-    // jour de la vérité du mode courant (iDFT pour harmonic, courbe pour spline)
-    // → il devient le tracé ré-éditable. `definition` remise à fond (la courbe
-    // reconstruite est déjà propre). Non destructif.
-    case 'CONVERT_EDITOR_TO_DRAW': {
-      const points = Array.from(state.editor.points)
-      return {
-        ...state,
-        // M.2 follow-up : snap des proportions au défaut du mode cible (la vue
-        // Forme d'onde redevient éditable → on lui rend sa largeur de référence).
-        designerColumnWidths: defaultColumnWidthsForMode('draw'),
-        editor: { ...state.editor, mode: 'draw', definition: DEFAULT_DEFINITION, points },
-      }
-    }
-    // Passerelle draw/harmonic → spline : on échantillonne N ancres équiréparties
-    // depuis `editor.points` (déjà l'ombre du mode source). La courbe est ensuite
-    // reconstruite à partir des ancres. Action atomique (un cran undo).
-    case 'CONVERT_EDITOR_TO_SPLINE': {
-      const N = clampAnchorCount(action.payload?.anchorCount)
-      const interpolation = action.payload?.interpolation === 'hard' ? 'hard' : 'soft'
-      const src = state.editor.points
-      const anchors = []
-      for (let i = 0; i < N; i++) {
-        const x = (i * POINTS_RESOLUTION) / N
-        const yi = Math.min(POINTS_RESOLUTION - 1, Math.round(x))
-        const y = Math.max(-1, Math.min(1, src[yi] ?? 0))
-        anchors.push({ x, y })
-      }
-      return {
-        ...state,
-        // Snap des proportions au défaut du mode cible (½¼¼, comme draw).
-        designerColumnWidths: defaultColumnWidthsForMode('spline'),
-        editor: { ...state.editor, mode: 'spline', anchors, interpolation, points: splinePoints(anchors, interpolation) },
-      }
-    }
+    // Modele unifie (M rattrapage) : plus de conversions destructives. Les
+    // trois lentilles regardent toutes la meme canonical. Les anciens
+    // CONVERT_EDITOR_TO_HARMONIC / _TO_DRAW / _TO_SPLINE sont supprimes.
+
     // iter-M phase-3 : déplacement d'une ancre spline. X clampé pour ne pas
     // dépasser les voisins (préserve l'ordre des x) ; Y libre dans [-1, 1].
     // Dispatchée une seule fois au commit du drag (draft local côté éditeur),
