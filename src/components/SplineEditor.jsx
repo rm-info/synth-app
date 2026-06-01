@@ -35,10 +35,9 @@ function SplineEditor({
   onMoveAnchor,
   onAddAnchor,
   onRemoveAnchor,
-  onSetInterpolation,
   autoSizing,
   autoSizeFocusGuardRef,
-  convertButtons,
+  headerControls,
 }) {
   const canvasRef = useRef(null)
   const containerRef = useRef(null)
@@ -300,24 +299,11 @@ function SplineEditor({
         <div className="we-header-left">
           <h3 className="we-area-title">{STRINGS.editor.waveformTitle}</h3>
         </div>
+        {/* iter-M phase-r.2.4 : le switch Libre/Ancres + le toggle
+            Doux/Anguleux + le nombre d'ancres sont remontés dans WaveformEditor
+            (header partagé) et passés ici via `headerControls`. */}
         <div className="spline-header-controls">
-          <div className="spline-interp-toggle" role="group" aria-label={STRINGS.editor.splineInterpolation}>
-            <button
-              type="button"
-              className={`spline-interp-btn${interpolation !== 'hard' ? ' is-active' : ''}`}
-              onClick={() => onSetInterpolation('soft')}
-              title={STRINGS.editor.splineSoftTitle}
-              aria-pressed={interpolation !== 'hard'}
-            >{STRINGS.editor.splineSoft}</button>
-            <button
-              type="button"
-              className={`spline-interp-btn${interpolation === 'hard' ? ' is-active' : ''}`}
-              onClick={() => onSetInterpolation('hard')}
-              title={STRINGS.editor.splineHardTitle}
-              aria-pressed={interpolation === 'hard'}
-            >{STRINGS.editor.splineHard}</button>
-          </div>
-          {convertButtons}
+          {headerControls}
         </div>
       </header>
       <p className="spline-hint">{STRINGS.editor.splineAddHint}</p>

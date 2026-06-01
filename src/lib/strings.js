@@ -49,6 +49,13 @@ const fr = {
     // iter-M phase-2-as : toggle auto-sizing des 3 colonnes (essai).
     autoSizing: 'Dimension auto',
     autoSizingTitle: 'La colonne en cours d’édition s’élargit automatiquement',
+    // iter-M phase-r.2.4 : switch des deux modes d'édition de la zone Forme
+    // d'onde (Libre = tracé main levée, Ancres = spline) + nombre d'ancres.
+    lensSwitchLabel: 'Mode d’édition de la forme d’onde',
+    lensFree: 'Libre',
+    lensAnchors: 'Ancres',
+    anchorCount: 'Ancres',
+    anchorCountTitle: 'Nombre d’ancres de la spline',
     // iter-M phase-3 : éditeur spline (points/courbe).
     splineInterpolation: 'Interpolation',
     splineSoft: 'Doux',

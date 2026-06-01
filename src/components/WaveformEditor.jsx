@@ -1,7 +1,7 @@
 import { useRef, useState, useCallback, useEffect, useImperativeHandle, useMemo } from 'react'
 import { Plus, Save, SaveAll, Undo2, Redo2, Sliders, X, Lock } from 'lucide-react'
 import { pointsToPeriodicWave, MIN_ATTACK, HARMONIC_COUNT, harmonicsToPoints, canonicalToBars } from '../audio'
-import { CAP_MIN, CAP_MAX } from '../reducer'
+import { CAP_MIN, CAP_MAX, SPLINE_ANCHOR_MIN, SPLINE_ANCHOR_MAX } from '../reducer'
 import useWindowSize from '../hooks/useWindowSize'
 import FreqInput from './FreqInput'
 import NumberInput from './NumberInput'
@@ -179,16 +179,6 @@ function formatDefinition(v) {
   return String(v)
 }
 
-// iter-M phase-2.3 : N (nombre d'harmoniques, mode barres). Entier ; le clamp
-// [16, 256] est fait par NumberInput.
-function parseHarmonicN(raw) {
-  if (typeof raw !== 'string') return NaN
-  const s = raw.trim()
-  if (s === '') return NaN
-  const v = parseInt(s, 10)
-  return Number.isFinite(v) ? v : NaN
-}
-
 function stripSuffix(name) {
   let s = name
   for (;;) {
@@ -332,6 +322,10 @@ function WaveformEditor({
   const [draftAdsr, setDraftAdsr] = useState(null)
   const [draftAmp, setDraftAmp] = useState(null)
   const [draftDefinition, setDraftDefinition] = useState(null)
+  // iter-M phase-r.2.4 : draft du nombre d'ancres (slider du header Forme
+  // d'onde). Commit au relâchement → un seul SET_EDITOR_ANCHOR_COUNT (un re-fit
+  // + un cran d'undo par geste, pas par cran de slider).
+  const [draftAnchorCount, setDraftAnchorCount] = useState(null)
   const [draftFreq, setDraftFreq] = useState(null)
   // iter-M phase-2.3 : draft des amplitudes harmoniques (geste continu de drag
   // sur une barre, à la draftPoints). Commit au mouseup → un seul snapshot.
@@ -1773,6 +1767,12 @@ function WaveformEditor({
       setDraftDefinition(null)
     }
   }
+  const commitDraftAnchorCount = () => {
+    if (draftAnchorCount != null) {
+      if (draftAnchorCount !== anchors.length) editorActions.setAnchorCount(draftAnchorCount)
+      setDraftAnchorCount(null)
+    }
+  }
   const commitDraftFreq = () => {
     if (draftFreq != null) {
       if (draftFreq !== editor.testFrequency) editorActions.setTestFrequency(draftFreq)
@@ -1783,14 +1783,76 @@ function WaveformEditor({
     commitDraftAdsr()
   }
 
-  // iter-M phase-2.4 : la Forme d'onde n'est éditable qu'en mode 'draw'. En
-  // 'harmonic' elle affiche la reconstruction iDFT (read-only, 🔒) : on coupe
-  // les handlers de tracé et on masque presets/Effacer (outils du tracé brut).
+  // iter-M phase-r.2.4 : contrôles du header de la zone Forme d'onde, partagés
+  // entre les deux modes d'édition (Libre = tracé main levée ; Ancres =
+  // spline). Le switch Libre/Ancres bascule `currentLens` entre 'free' et
+  // 'spline'. En mode Ancres on ajoute le toggle Doux/Anguleux + le nombre
+  // d'ancres (remonté ici depuis l'intérieur de SplineEditor). Pas de chemin
+  // vers 'bars' : l'édition de barres se fait directement dans la zone
+  // Harmoniques (toujours éditable).
+  const renderWaveformHeaderControls = () => {
+    const anchorCount = draftAnchorCount ?? anchors.length
+    return (
+      <>
+        <div className="we-lens-switch" role="group" aria-label={STRINGS.editor.lensSwitchLabel}>
+          <button
+            type="button"
+            className={`we-lens-btn${currentLens !== 'spline' ? ' is-active' : ''}`}
+            onClick={() => editorActions.setCurrentLens('free')}
+            aria-pressed={currentLens !== 'spline'}
+          >{STRINGS.editor.lensFree}</button>
+          <button
+            type="button"
+            className={`we-lens-btn${currentLens === 'spline' ? ' is-active' : ''}`}
+            onClick={() => editorActions.setCurrentLens('spline')}
+            aria-pressed={currentLens === 'spline'}
+          >{STRINGS.editor.lensAnchors}</button>
+        </div>
+        {currentLens === 'spline' && (
+          <>
+            <div className="spline-interp-toggle" role="group" aria-label={STRINGS.editor.splineInterpolation}>
+              <button
+                type="button"
+                className={`spline-interp-btn${interpolation !== 'hard' ? ' is-active' : ''}`}
+                onClick={() => editorActions.setSplineInterpolation('soft')}
+                title={STRINGS.editor.splineSoftTitle}
+                aria-pressed={interpolation !== 'hard'}
+              >{STRINGS.editor.splineSoft}</button>
+              <button
+                type="button"
+                className={`spline-interp-btn${interpolation === 'hard' ? ' is-active' : ''}`}
+                onClick={() => editorActions.setSplineInterpolation('hard')}
+                title={STRINGS.editor.splineHardTitle}
+                aria-pressed={interpolation === 'hard'}
+              >{STRINGS.editor.splineHard}</button>
+            </div>
+            <label className="we-anchor-count" title={STRINGS.editor.anchorCountTitle}>
+              <span className="we-anchor-count-label">{STRINGS.editor.anchorCount} :</span>
+              <input
+                type="range"
+                min={SPLINE_ANCHOR_MIN}
+                max={SPLINE_ANCHOR_MAX}
+                step="1"
+                value={anchorCount}
+                onChange={(e) => setDraftAnchorCount(Number(e.target.value))}
+                {...sliderCommitter(commitDraftAnchorCount)}
+                className="we-anchor-count-slider"
+                aria-label={STRINGS.editor.anchorCountTitle}
+              />
+              <span className="we-anchor-count-readout">{anchorCount} / {SPLINE_ANCHOR_MAX}</span>
+            </label>
+          </>
+        )}
+      </>
+    )
+  }
+
+  // iter-M phase-r.2.4 : la colonne Forme d'onde a deux modes d'édition
+  // exclusifs pilotés par le switch Libre/Ancres du header. Le header (switch +
+  // extras spline) est partagé : rendu ici en mode Libre, passé à SplineEditor
+  // via `headerControls` en mode Ancres.
   const renderCanvasArea = () => {
-    // iter-M phase-3 : en mode spline, la colonne Forme d'onde devient l'éditeur
-    // de points/courbe (poignées draggables). Boutons de passerelle vers les
-    // deux autres modes (réutilise les dialogs Dessin/Harmoniques existants).
-    if (mode === 'spline') {
+    if (currentLens === 'spline') {
       return (
         <SplineEditor
           points={points}
@@ -1799,68 +1861,36 @@ function WaveformEditor({
           onMoveAnchor={editorActions.moveSplineAnchor}
           onAddAnchor={editorActions.addSplineAnchor}
           onRemoveAnchor={editorActions.removeSplineAnchor}
-          onSetInterpolation={editorActions.setSplineInterpolation}
           autoSizing={autoSizing}
           autoSizeFocusGuardRef={autoSizeFocusGuardRef}
-          convertButtons={
-            <>
-              <button
-                type="button"
-                className="we-convert-btn"
-                onClick={() => editorActions.setCurrentLens('free')}
-                title={STRINGS.editor.convertToDraw}
-              >{STRINGS.editor.convertToDraw}</button>
-              <button
-                type="button"
-                className="we-convert-btn"
-                onClick={() => editorActions.setCurrentLens('bars')}
-                title={STRINGS.editor.convertToHarmonic}
-              >{STRINGS.editor.convertToHarmonic}</button>
-            </>
-          }
+          headerControls={renderWaveformHeaderControls()}
         />
       )
     }
-    const editable = mode === 'draw'
     return (
       <div className="we-canvas-area" data-anchor="designer-waveform">
         <header className="we-area-header">
           <div className="we-header-left">
             <h3 className="we-area-title">{STRINGS.editor.waveformTitle}</h3>
           </div>
-          {editable && (
-            <div className="spline-header-controls">
-              <button
-                type="button"
-                className="we-convert-btn"
-                onClick={() => editorActions.setCurrentLens('bars')}
-                title={STRINGS.editor.convertToHarmonic}
-              >{STRINGS.editor.convertToHarmonic}</button>
-              <button
-                type="button"
-                className="we-convert-btn"
-                onClick={() => editorActions.setCurrentLens('spline')}
-                title={STRINGS.editor.convertToSpline}
-              >{STRINGS.editor.convertToSpline}</button>
-            </div>
-          )}
-        </header>
-        {editable && (
-          <div className="presets">
-            <button onClick={() => loadPreset('sine')}>{STRINGS.presets.sine}</button>
-            <button onClick={() => loadPreset('square')}>{STRINGS.presets.square}</button>
-            <button onClick={() => loadPreset('sawtooth')}>{STRINGS.presets.sawtooth}</button>
-            <button onClick={() => loadPreset('triangle')}>{STRINGS.presets.triangle}</button>
-            <button onClick={clearCanvas}>{STRINGS.editor.clear}</button>
+          <div className="spline-header-controls">
+            {renderWaveformHeaderControls()}
           </div>
-        )}
-        <div className={`canvas-container${editable ? '' : ' is-readonly'}`} ref={canvasContainerRef}>
+        </header>
+        <div className="presets">
+          <button onClick={() => loadPreset('sine')}>{STRINGS.presets.sine}</button>
+          <button onClick={() => loadPreset('square')}>{STRINGS.presets.square}</button>
+          <button onClick={() => loadPreset('sawtooth')}>{STRINGS.presets.sawtooth}</button>
+          <button onClick={() => loadPreset('triangle')}>{STRINGS.presets.triangle}</button>
+          <button onClick={clearCanvas}>{STRINGS.editor.clear}</button>
+        </div>
+        <div className="canvas-container" ref={canvasContainerRef}>
           <canvas
             ref={canvasRef}
-            onMouseDown={editable ? handleMouseDown : undefined}
-            onMouseMove={editable ? handleMouseMove : undefined}
-            onMouseUp={editable ? handleMouseUp : undefined}
-            onMouseLeave={editable ? handleMouseLeave : undefined}
+            onMouseDown={handleMouseDown}
+            onMouseMove={handleMouseMove}
+            onMouseUp={handleMouseUp}
+            onMouseLeave={handleMouseLeave}
           />
           <span className="label top">+1</span>
           <span className="label middle">0</span>
@@ -1870,13 +1900,12 @@ function WaveformEditor({
     )
   }
 
-  // iter-M phase-2.3/2.4 : colonne Harmoniques (centre du layout 3-vues).
-  // - mode 'harmonic' : N barres éditables (drag vertical = amplitude [0..1]).
-  // - mode 'draw' : read-only, magnitudes DFT du dessin courant tronquées à
-  //   `definition` (lues sur editor.points committé, pas le draft — cohérent
-  //   avec le spectro, évite de recomputer la DFT à chaque trait). Indicateur 🔒.
+  // iter-M phase-r.2.4 : colonne Harmoniques (centre du layout 3-vues). Éditeur
+  // direct, TOUJOURS éditable (drag vertical = amplitude [0..1]), indépendant de
+  // la lentille active — il n'y a plus de chemin vers 'bars'. Le header porte le
+  // contrôle unique du `cap` (slider + readout « Harmoniques : N / 256 ») qui
+  // remplace l'ancien NumberInput N + le slider Définition de la sidebar.
   const renderHarmonicsArea = () => {
-    const editable = mode === 'harmonic'
     // Modèle unifié : les barres sont les magnitudes DFT de la canonical
     // tronquées au cap (déjà dérivées dans `amplitudes`).
     const bars = amplitudes
@@ -1887,44 +1916,41 @@ function WaveformEditor({
             <h3 className="we-area-title">{STRINGS.editor.harmonicsTitle}</h3>
           </div>
           <div className="we-harmonics-controls">
-            {editable && (
-              <>
-                <label className="we-n-input" title={STRINGS.editor.harmonicCountTitle}>
-                  <span>{STRINGS.editor.harmonicCount}</span>
-                  <NumberInput
-                    value={N}
-                    onChange={editorActions.setN}
-                    min={CAP_MIN}
-                    max={CAP_MAX}
-                    parse={parseHarmonicN}
-                    format={String}
-                    className="we-n-value-input"
-                    ariaLabel={STRINGS.editor.harmonicCountTitle}
-                  />
-                </label>
-                <button
-                  type="button"
-                  className="we-convert-btn"
-                  onClick={() => editorActions.setCurrentLens('free')}
-                  title={STRINGS.editor.convertToDraw}
-                >{STRINGS.editor.convertToDraw}</button>
-                <button
-                  type="button"
-                  className="we-convert-btn"
-                  onClick={() => editorActions.setCurrentLens('spline')}
-                  title={STRINGS.editor.convertToSpline}
-                >{STRINGS.editor.convertToSpline}</button>
-              </>
-            )}
+            <label className="we-cap-control" title={STRINGS.editor.harmonicCountTitle}>
+              <input
+                type="range"
+                min={CAP_MIN}
+                max={CAP_MAX}
+                step="1"
+                value={definition}
+                onChange={(e) => setDraftDefinition(Number(e.target.value))}
+                {...sliderCommitter(commitDraftDefinition)}
+                className="we-cap-slider"
+                aria-label={STRINGS.editor.harmonicCountTitle}
+              />
+              <span className="we-cap-readout">
+                <NumberInput
+                  value={definition}
+                  onChange={(v) => { setDraftDefinition(null); editorActions.setCap(v) }}
+                  min={CAP_MIN}
+                  max={CAP_MAX}
+                  parse={parseDefinition}
+                  format={formatDefinition}
+                  className="we-cap-value-input"
+                  ariaLabel={STRINGS.editor.harmonicCountTitle}
+                />
+                <span className="we-cap-suffix">/ {CAP_MAX}</span>
+              </span>
+            </label>
           </div>
         </header>
         <div
-          className={`we-harmonics-bars${editable ? '' : ' is-readonly'}`}
+          className="we-harmonics-bars"
           ref={harmonicsContainerRef}
-          onMouseDown={editable ? handleHarmonicMouseDown : undefined}
-          onMouseMove={editable ? handleHarmonicMouseMove : undefined}
-          onMouseUp={editable ? handleHarmonicMouseUp : undefined}
-          onMouseLeave={editable ? handleHarmonicMouseLeave : undefined}
+          onMouseDown={handleHarmonicMouseDown}
+          onMouseMove={handleHarmonicMouseMove}
+          onMouseUp={handleHarmonicMouseUp}
+          onMouseLeave={handleHarmonicMouseLeave}
         >
           {bars.map((v, i) => (
             <div key={i} className="we-bar">
@@ -2340,10 +2366,6 @@ function WaveformEditor({
       setDraftAmp(null)
       editorActions.setAmplitude(v)
     }
-    const commitInputDefinition = (v) => {
-      setDraftDefinition(null)
-      editorActions.setDefinition(v)
-    }
 
     const liveValue = (key) => ({ attack, hold, decay, sustain, release }[key])
 
@@ -2409,40 +2431,8 @@ function WaveformEditor({
       </div>
     )
 
-    // Définition (iter-M phase-1) : plafond d'harmoniques, troncature M/256.
-    // Même pattern draft que l'amplitude — le readout « N / 256 » donne le
-    // feedback live pendant le drag, le commit (relâchement) crée un seul
-    // snapshot undo. Placé en tête de colonne, à côté des paramètres patch.
-    const renderDefinitionSlider = () => (
-      <div className="adsr-slider" data-anchor="designer-definition">
-        <label htmlFor="patch-definition">
-          <span>{STRINGS.editor.definition}</span>
-          <span className="definition-readout">
-            <NumberInput
-              value={definition}
-              onChange={commitInputDefinition}
-              min={1}
-              max={HARMONIC_COUNT}
-              parse={parseDefinition}
-              format={formatDefinition}
-              className="adsr-value-input"
-              ariaLabel={`${STRINGS.editor.definition} (nombre d’harmoniques)`}
-            />
-            <span className="definition-suffix">/ {HARMONIC_COUNT}</span>
-          </span>
-        </label>
-        <input
-          id="patch-definition"
-          type="range"
-          min="1"
-          max={HARMONIC_COUNT}
-          step="1"
-          value={definition}
-          onChange={(e) => setDraftDefinition(Number(e.target.value))}
-          {...sliderCommitter(commitDraftDefinition)}
-        />
-      </div>
-    )
+    // iter-M phase-r.2.4 : le slider Définition (cap) a migré dans le header de
+    // la zone Harmoniques (contrôle unique). Plus de double UI cap.
 
     // L'amplitude vit dans son propre draft (draftAmp / commitDraftAmp).
     // Slider rendu inline ici pour partager le layout colonne avec A/D/S/R
@@ -2500,10 +2490,6 @@ function WaveformEditor({
             />
           </div>
           <div className="adsr-sliders">
-            {/* iter-M phase-2.4 : la définition (troncature M/256) ne
-                s'applique qu'au mode dessin ; en mode harmonique, N joue ce
-                rôle → slider masqué. */}
-            {mode === 'draw' && renderDefinitionSlider()}
             {renderAmpSlider()}
             {renderMsSlider('attack', STRINGS.adsr.attack)}
             {renderMsSlider('hold', STRINGS.adsr.hold)}

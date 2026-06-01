@@ -1936,6 +1936,23 @@ export function reducer(state, action) {
         currentPatchId: null,
       }
     }
+    case 'SET_EDITOR_ANCHOR_COUNT': {
+      // iter-M phase-r.2.4 : ré-équirépartit `count` ancres sur la canonical
+      // courante (fitAnchorsToCurve), puis recompute le résidu = canonical −
+      // spline(nouvelles ancres). Ne touche PAS à la canonical (≠ Reset) :
+      // c'est un re-fit de la lentille spline. Le résidu absorbe la différence,
+      // donc le tracé survit au changement d'ancres.
+      const count = Math.max(
+        SPLINE_ANCHOR_MIN,
+        Math.min(SPLINE_ANCHOR_MAX, Math.round(action.payload.count)),
+      )
+      const anchors = fitAnchorsToCurve(state.editor.canonical, count)
+      const residual = computeResidual(
+        state.editor.canonical,
+        splineToPoints(anchors, state.editor.interpolation),
+      )
+      return { ...state, editor: { ...state.editor, anchors, residual } }
+    }
     case 'NORMALIZE_EDITOR_CANONICAL': {
       // iter-M phase-r.2.3 : iDFT à phase canonique sur les `cap` premières
       // amplitudes véritables. Même opération sous-jacente que l'édition d'une
@@ -2536,8 +2553,9 @@ const DESIGNER_UNDOABLE = new Set([
   'UPDATE_PATCH',
   'SET_EDITOR_CANONICAL', 'SET_EDITOR_AMPLITUDE', 'SET_EDITOR_CAP',
   'SET_EDITOR_ADSR', 'SET_EDITOR_ADSR_AND_AMP', 'APPLY_EDITOR_PRESET', 'RESET_EDITOR',
-  // iter-M phase-r.2 : reset du timbre seul + normalisation (iDFT phase canonique).
-  'RESET_EDITOR_WAVEFORM', 'NORMALIZE_EDITOR_CANONICAL',
+  // iter-M phase-r.2 : reset du timbre seul + normalisation (iDFT phase
+  // canonique) + re-fit du nombre d'ancres.
+  'RESET_EDITOR_WAVEFORM', 'NORMALIZE_EDITOR_CANONICAL', 'SET_EDITOR_ANCHOR_COUNT',
   'SET_EDITOR_VISUAL_CUE_PATTERN', 'SET_EDITOR_VISUAL_CUE_TONIC',
   // Modèle unifié (M rattrapage) : édition d'une barre + chargement de preset.
   'SET_EDITOR_HARMONIC_AMPLITUDE', 'LOAD_PRESET',

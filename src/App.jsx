@@ -1975,12 +1975,11 @@ function App() {
     setTestFrequency: (hz) => dispatch({ type: 'SET_EDITOR_TEST_FREQUENCY', payload: hz }),
     setAmplitude: (a) => dispatch({ type: 'SET_EDITOR_AMPLITUDE', payload: a }),
     // Modèle unifié (M rattrapage) : cap unique (remplace definition + N).
-    // setDefinition/setN conservés comme alias (dispatchent SET_EDITOR_CAP)
-    // pour limiter le churn côté WaveformEditor.
+    // iter-M phase-r.2.4 : alias setDefinition/setN supprimés — un seul setCap.
     setCap: (c) => dispatch({ type: 'SET_EDITOR_CAP', payload: c }),
-    setDefinition: (d) => dispatch({ type: 'SET_EDITOR_CAP', payload: d }),
-    setN: (n) => dispatch({ type: 'SET_EDITOR_CAP', payload: n }),
     setCurrentLens: (l) => dispatch({ type: 'SET_EDITOR_CURRENT_LENS', payload: l }),
+    // iter-M phase-r.2.4 : nombre d'ancres de la spline (re-fit à la canonical).
+    setAnchorCount: (count) => dispatch({ type: 'SET_EDITOR_ANCHOR_COUNT', payload: { count } }),
     setHarmonicAmplitude: (index, value) =>
       dispatch({ type: 'SET_EDITOR_HARMONIC_AMPLITUDE', payload: { index, value } }),
     loadPreset: (preset) =>

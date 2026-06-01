@@ -81,6 +81,88 @@
   color: var(--text-default);
 }
 
+/* iter-M phase-r.2.4 : switch Libre/Ancres (header Forme d'onde). Contrôle
+   segmenté aligné sur .spline-interp-toggle. */
+.we-lens-switch {
+  display: inline-flex;
+  border: 1px solid var(--surface-border-strong);
+  border-radius: 6px;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+.we-lens-btn {
+  font-size: 12px;
+  line-height: 1;
+  padding: 5px 10px;
+  border: none;
+  background: var(--surface-bg);
+  color: var(--text-secondary);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.12s, color 0.12s;
+}
+.we-lens-btn + .we-lens-btn {
+  border-left: 1px solid var(--surface-border-strong);
+}
+.we-lens-btn:hover {
+  color: var(--text-strong);
+}
+.we-lens-btn.is-active {
+  background: var(--accent);
+  color: var(--accent-contrast, #fff);
+}
+
+/* iter-M phase-r.2.4 : nombre d'ancres (slider + readout) dans le header. */
+.we-anchor-count {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--text-secondary);
+  flex-shrink: 0;
+}
+.we-anchor-count-slider {
+  width: 80px;
+}
+.we-anchor-count-readout {
+  min-width: 42px;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+/* iter-M phase-r.2.4 : contrôle unique du cap (slider + readout « N / 256 »)
+   dans le header de la zone Harmoniques. Remplace l'ancien NumberInput N + le
+   slider Définition de la sidebar. */
+.we-cap-control {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--text-secondary);
+  flex-shrink: 0;
+}
+.we-cap-slider {
+  width: 110px;
+}
+.we-cap-readout {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.we-cap-value-input {
+  width: 48px;
+  text-align: center;
+  font-size: 12px;
+  padding: 2px 4px;
+  border-radius: 4px;
+  border: 1px solid var(--surface-border-strong);
+  background: var(--surface-bg);
+  color: var(--text-default);
+}
+.we-cap-suffix {
+  white-space: nowrap;
+}
+
 .we-harmonics-bars {
   flex: 1;
   display: flex;
