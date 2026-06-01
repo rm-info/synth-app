@@ -1996,6 +1996,8 @@ function App() {
     setAdsrAndAmp: (payload) => dispatch({ type: 'SET_EDITOR_ADSR_AND_AMP', payload }),
     applyPreset: (preset, points) =>
       dispatch({ type: 'APPLY_EDITOR_PRESET', payload: { preset, points } }),
+    // iter-M phase-r.2.2 : reset du timbre seul (≠ RESET_EDITOR « Nouveau patch »).
+    resetWaveform: () => dispatch({ type: 'RESET_EDITOR_WAVEFORM' }),
     setVisualCuePattern: (id) => dispatch({ type: 'SET_EDITOR_VISUAL_CUE_PATTERN', payload: id }),
     setVisualCueTonic: (deg) => dispatch({ type: 'SET_EDITOR_VISUAL_CUE_TONIC', payload: deg }),
     setXEdoN: (n) => dispatch({ type: 'SET_X_EDO_N', payload: n }),
@@ -2127,7 +2129,7 @@ function App() {
         autoSizing={autoSizing}
         autoSizeFocusGuardRef={autoSizeFocusGuardRef}
       >
-        {({ renderCanvasArea, renderHarmonicsArea, renderParamsArea, renderAdsrArea, renderActions, patchLabel }) => (
+        {({ renderCanvasArea, renderHarmonicsArea, renderParamsArea, renderAdsrArea, renderActions, patchLabel, openPresetPicker, requestResetWaveform }) => (
           <>
             <main
               className={`designer-layout${isMobile ? ' designer-layout-mobile' : ''}`}
@@ -2279,7 +2281,11 @@ function App() {
                 <div className="designer-main designer-main-mobile">
                   {/* iter-M phase-r.2.1 : barre du haut (identité du patch). Les
                       contrôles de proportions sont desktop-only — non passés ici. */}
-                  <DesignerToolbar patchLabel={patchLabel} />
+                  <DesignerToolbar
+                    patchLabel={patchLabel}
+                    onPresets={openPresetPicker}
+                    onReset={requestResetWaveform}
+                  />
                   {[
                     { id: 'canvas', title: STRINGS.editor.waveformTitle, body: renderCanvasArea() },
                     { id: 'harmonics', title: STRINGS.editor.harmonicsTitle, body: renderHarmonicsArea() },
@@ -2314,6 +2320,8 @@ function App() {
                       patch + proportions des colonnes), au-dessus des 3 colonnes. */}
                   <DesignerToolbar
                     patchLabel={patchLabel}
+                    onPresets={openPresetPicker}
+                    onReset={requestResetWaveform}
                     onWidths={setDesignerColumnWidths}
                     autoSizing={autoSizing}
                     onToggleAutoSizing={toggleAutoSizing}

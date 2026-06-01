@@ -338,6 +338,10 @@ function WaveformEditor({
   const [draftAmplitudes, setDraftAmplitudes] = useState(null)
   // Confirmation "abandonner modifs" pour handleNew
   const [confirmNewOpen, setConfirmNewOpen] = useState(false)
+  // iter-M phase-r.2.2 : confirmation systématique du Reset du timbre (bouton
+  // Reset de la barre du haut). Pas de détection « dirty » — trop coûteuse
+  // pour le gain, l'action est undoable de toute façon.
+  const [confirmResetWaveformOpen, setConfirmResetWaveformOpen] = useState(false)
   // iter-M phase-4 : picker de presets de timbre + garde-fou dirty. Le preset
   // en attente est gardé le temps de la confirmation d'écrasement.
   const [presetPickerOpen, setPresetPickerOpen] = useState(false)
@@ -1232,6 +1236,16 @@ function WaveformEditor({
     setPendingPresetPatch(null)
   }
 
+  // iter-M phase-r.2.2 : déclencheurs exposés à la barre du haut (DesignerToolbar
+  // via l'API children). Le picker de presets et le dialog de reset restent
+  // montés dans cette fenêtre — la barre ne fait que piloter leur ouverture.
+  const openPresetPicker = () => setPresetPickerOpen(true)
+  const requestResetWaveform = () => setConfirmResetWaveformOpen(true)
+  const doResetWaveform = () => {
+    setConfirmResetWaveformOpen(false)
+    editorActions.resetWaveform()
+  }
+
   const flashMessage = (msg) => {
     setSaveMessage(msg)
     if (saveMsgTimerRef.current) clearTimeout(saveMsgTimerRef.current)
@@ -1899,15 +1913,6 @@ function WaveformEditor({
                 >{STRINGS.editor.convertToSpline}</button>
               </>
             )}
-            {/* iter-M phase-4 : presets de timbre — visible dans tous les modes
-                (le chargement bascule en harmonique). */}
-            <button
-              type="button"
-              className="we-convert-btn"
-              onClick={() => setPresetPickerOpen(true)}
-              title={STRINGS.timbrePresets.loadButtonTitle}
-              data-anchor="designer-presets-button"
-            >{STRINGS.timbrePresets.loadButton}</button>
           </div>
         </header>
         <div
@@ -2510,7 +2515,7 @@ function WaveformEditor({
 
   return (
     <>
-      {children({ renderCanvasArea, renderHarmonicsArea, renderParamsArea, renderAdsrArea, renderActions, patchLabel })}
+      {children({ renderCanvasArea, renderHarmonicsArea, renderParamsArea, renderAdsrArea, renderActions, patchLabel, openPresetPicker, requestResetWaveform })}
       <ConfirmDialog
         open={confirmNewOpen}
         title="Nouveau patch ?"
@@ -2520,6 +2525,17 @@ function WaveformEditor({
         variant="danger"
         onConfirm={doNew}
         onCancel={() => setConfirmNewOpen(false)}
+      />
+      {/* iter-M phase-r.2.2 : confirmation du Reset du timbre (barre du haut). */}
+      <ConfirmDialog
+        open={confirmResetWaveformOpen}
+        title="Réinitialiser le timbre ?"
+        message="Tracé, harmoniques et ancres reviendront à leur état neutre (sinusoïde fondamentale)."
+        confirmLabel="Réinitialiser"
+        cancelLabel="Annuler"
+        variant="danger"
+        onConfirm={doResetWaveform}
+        onCancel={() => setConfirmResetWaveformOpen(false)}
       />
       {/* iter-M phase-4 : picker de presets de timbre + garde-fou dirty. */}
       {presetPickerOpen && (

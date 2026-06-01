@@ -504,6 +504,9 @@ export type ActionBody =
   | { type: 'SET_EDITOR_ADSR_AND_AMP'; payload: { adsr?: Partial<AdsrEnvelope>; amplitude?: number } }
   | { type: 'APPLY_EDITOR_PRESET'; payload: { preset: string | null; points: number[] } }
   | { type: 'RESET_EDITOR' }
+  // iter-M phase-r.2.2 : reset du timbre seul (canonical + cap + lentille
+  // spline). Préserve ADSR / amplitude / test* / currentLens / currentPatchId.
+  | { type: 'RESET_EDITOR_WAVEFORM' }
   | { type: 'HYDRATE_EDITOR_FROM_PATCH'; payload: Patch | null }
 
   // ----- Non-undoable -----

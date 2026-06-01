@@ -209,7 +209,10 @@ export const DEFAULT_EDITOR = {
   // `cap` borne les harmoniques, la lentille spline porte ancres + résidu.
   // `currentLens` est volatile (non persisté). Les ancres sont toujours
   // peuplées (8 plates) : la lentille spline est disponible d'emblée.
-  canonical: new Array(POINTS_RESOLUTION).fill(0),
+  // iter-M phase-r.2.2 : état neutre = sinusoïde fondamentale (amp 1) plutôt
+  // que silence — pédagogique, un nouveau patch produit du son d'emblée.
+  // RESET_EDITOR (Ctrl+Alt+N) hérite donc aussi de cette valeur.
+  canonical: harmonicsToPoints([1], 1),
   cap: DEFAULT_CAP,
   anchors: defaultSplineAnchors(),
   interpolation: DEFAULT_SPLINE_INTERPOLATION,
@@ -1933,6 +1936,26 @@ export function reducer(state, action) {
         currentPatchId: null,
       }
     }
+    case 'RESET_EDITOR_WAVEFORM': {
+      // iter-M phase-r.2.2 : réinitialise UNIQUEMENT le timbre (canonical +
+      // cap + lentille spline). Ne touche PAS au reste de l'éditeur (ADSR,
+      // amplitude, test*, visualCue*, currentLens) ni à currentPatchId — c'est
+      // une remise à zéro du son, pas de l'éditeur (≠ RESET_EDITOR). preset →
+      // null : le timbre vient d'être effacé, plus de filiation à un preset.
+      // ConfirmDialog systématique côté UI (pas de détection « dirty »).
+      return {
+        ...state,
+        editor: {
+          ...state.editor,
+          canonical: harmonicsToPoints([1], 1),
+          cap: DEFAULT_CAP,
+          anchors: defaultSplineAnchors(),
+          interpolation: DEFAULT_SPLINE_INTERPOLATION,
+          residual: new Array(POINTS_RESOLUTION).fill(0),
+          preset: null,
+        },
+      }
+    }
     case 'HYDRATE_EDITOR_FROM_PATCH': {
       // Non-undoable : utilisé quand on charge un patch dans l'éditeur. Ne
       // touche PAS aux champs test* (contexte de test de l'utilisateur).
@@ -2495,6 +2518,8 @@ const DESIGNER_UNDOABLE = new Set([
   'UPDATE_PATCH',
   'SET_EDITOR_CANONICAL', 'SET_EDITOR_AMPLITUDE', 'SET_EDITOR_CAP',
   'SET_EDITOR_ADSR', 'SET_EDITOR_ADSR_AND_AMP', 'APPLY_EDITOR_PRESET', 'RESET_EDITOR',
+  // iter-M phase-r.2 : reset du timbre seul.
+  'RESET_EDITOR_WAVEFORM',
   'SET_EDITOR_VISUAL_CUE_PATTERN', 'SET_EDITOR_VISUAL_CUE_TONIC',
   // Modèle unifié (M rattrapage) : édition d'une barre + chargement de preset.
   'SET_EDITOR_HARMONIC_AMPLITUDE', 'LOAD_PRESET',
