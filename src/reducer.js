@@ -1,4 +1,4 @@
-import { SOUND_COLORS, HARMONIC_COUNT, harmonicsToPoints, pointsToHarmonics } from './audio'
+import { SOUND_COLORS, HARMONIC_COUNT, harmonicsToPoints, canonicalToBars } from './audio'
 import { splineToPoints, fitAnchorsToCurve } from './lib/spline'
 import { wouldCreateCycle, duplicateItemsToFolder } from './lib/bibTransfer.js'
 import {
@@ -633,13 +633,14 @@ export function buildInitialState() {
     soundFolders: persisted?.soundFolders ?? [],
     // F.4.4.3 : tous les champs `test*` et `visualCue*` sont restaurés
     // depuis localStorage (validés et clampés dans loadPersistedState).
-    // Les autres champs (points, ADSR, amplitude…) restent vides à
-    // l'init — l'éditeur de patch, lui, n'est pas persisté.
+    // Les autres champs (canonical, residual, ADSR, amplitude…) restent
+    // vides à l'init — l'éditeur de patch, lui, n'est pas persisté. Les
+    // tableaux sont clonés pour éviter le partage avec DEFAULT_EDITOR.
     editor: {
       ...DEFAULT_EDITOR,
-      points: [...DEFAULT_EDITOR.points],
-      amplitudes: [...DEFAULT_EDITOR.amplitudes],
-      anchors: [...DEFAULT_EDITOR.anchors],
+      canonical: [...DEFAULT_EDITOR.canonical],
+      residual: [...DEFAULT_EDITOR.residual],
+      anchors: DEFAULT_EDITOR.anchors.map((a) => ({ ...a })),
       testTuningSystem: persisted?.editorTestTuningSystem ?? DEFAULT_EDITOR.testTuningSystem,
       testNoteIndex: persisted?.editorTestNoteIndex ?? DEFAULT_EDITOR.testNoteIndex,
       testOctave: persisted?.editorTestOctave ?? DEFAULT_EDITOR.testOctave,
@@ -1781,9 +1782,9 @@ export function reducer(state, action) {
       const { index, value } = action.payload
       const cap = state.editor.cap
       if (index < 0 || index >= cap) return state
-      const { magnitudes } = pointsToHarmonics(state.editor.canonical)
-      const amplitudes = new Array(cap)
-      for (let k = 0; k < cap; k++) amplitudes[k] = magnitudes[k + 1] ?? 0
+      // canonicalToBars renvoie des amplitudes véritables (× 2 sur les
+      // magnitudes FFT bilatérales) — c'est ce qu'attend harmonicsToPoints.
+      const amplitudes = canonicalToBars(state.editor.canonical, cap)
       amplitudes[index] = Math.max(0, Math.min(1, value))
       const canonical = harmonicsToPoints(amplitudes, cap)
       const residual = computeResidual(

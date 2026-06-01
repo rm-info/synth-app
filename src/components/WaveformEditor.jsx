@@ -1,6 +1,6 @@
 import { useRef, useState, useCallback, useEffect, useImperativeHandle, useMemo } from 'react'
 import { Plus, Save, SaveAll, Undo2, Redo2, Sliders, X, Lock } from 'lucide-react'
-import { pointsToPeriodicWave, MIN_ATTACK, HARMONIC_COUNT, harmonicsToPoints, pointsToHarmonics } from '../audio'
+import { pointsToPeriodicWave, MIN_ATTACK, HARMONIC_COUNT, harmonicsToPoints, canonicalToBars } from '../audio'
 import { CAP_MIN, CAP_MAX } from '../reducer'
 import useWindowSize from '../hooks/useWindowSize'
 import FreqInput from './FreqInput'
@@ -356,13 +356,15 @@ function WaveformEditor({
   const definition = draftDefinition ?? editor.cap ?? HARMONIC_COUNT
   const effectiveDefinition = definition
   const N = definition
-  // Barres = magnitudes DFT de la canonical (harmonique 1..cap). Pendant un
-  // drag de barre, draftAmplitudes prime.
-  const canonicalMagnitudes = useMemo(
-    () => pointsToHarmonics(editor.canonical).magnitudes,
-    [editor.canonical],
+  // Barres = amplitudes véritables des harmoniques 1..cap de la canonical
+  // (canonicalToBars double les magnitudes FFT bilatérales pour les remettre
+  // dans la convention de harmonicsToPoints). Pendant un drag de barre,
+  // draftAmplitudes prime.
+  const canonicalBars = useMemo(
+    () => canonicalToBars(editor.canonical, definition),
+    [editor.canonical, definition],
   )
-  const amplitudes = draftAmplitudes ?? Array.from(canonicalMagnitudes.slice(1, definition + 1))
+  const amplitudes = draftAmplitudes ?? canonicalBars
   // Courbe affichée = canonical (draft pendant un tracé libre ; reconstruction
   // iDFT pendant un drag de barre — cohérent avec ce que produira le reducer).
   const points = draftPoints
@@ -665,6 +667,11 @@ function WaveformEditor({
   // cf. BACKLOG.)
   const harmonicsContainerRef = useRef(null)
   const dragBarRef = useRef(null)
+  // Valeur de la barre AVANT le drag (lue sur canonical), capturée au mousedown.
+  // Sert de référence pour décider si le drag a effectivement modifié la barre :
+  // pendant le drag, `amplitudes` pointe sur `draftAmplitudes`, donc on ne peut
+  // pas comparer à `amplitudes[index]` (toujours égal à `draftAmplitudes[index]`).
+  const dragBarInitialRef = useRef(null)
 
   const harmonicAmplitudeFromEvent = (e) => {
     const el = harmonicsContainerRef.current
@@ -687,6 +694,7 @@ function WaveformEditor({
     if (autoSizing && autoSizeFocusGuardRef?.current) return
     const index = harmonicIndexFromEvent(e, amplitudes.length)
     dragBarRef.current = index
+    dragBarInitialRef.current = amplitudes[index]
     const next = Array.from(draftAmplitudes ?? amplitudes)
     next[index] = harmonicAmplitudeFromEvent(e)
     setDraftAmplitudes(next)
@@ -700,8 +708,10 @@ function WaveformEditor({
   }
   const commitHarmonicDraft = () => {
     const index = dragBarRef.current
+    const initial = dragBarInitialRef.current
     dragBarRef.current = null
-    if (draftAmplitudes && index !== null && draftAmplitudes[index] !== amplitudes[index]) {
+    dragBarInitialRef.current = null
+    if (draftAmplitudes && index !== null && draftAmplitudes[index] !== initial) {
       editorActions.setHarmonicAmplitude(index, draftAmplitudes[index])
     }
     setDraftAmplitudes(null)

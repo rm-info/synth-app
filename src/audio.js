@@ -181,6 +181,27 @@ export function pointsToPeriodicWave(canonical, audioCtx, cap) {
 // harmonique sans modification — `points` reste l'unique entrée audio.
 //
 // O(CANVAS_WIDTH · N) ≤ 600·256 = 153k multiplications, sub-milliseconde.
+// M rattrapage : lit les `cap` premières amplitudes véritables d'une courbe
+// canonique pour les afficher comme barres. La magnitude renvoyée par
+// pointsToHarmonics est bilatérale (la FFT répartit l'énergie d'un sin réel
+// entre k et N-k), donc on double pour retrouver l'amplitude du sin pur telle
+// que l'écrit harmonicsToPoints (qui prend `a` comme coefficient direct de
+// `sin`). Sans ce facteur 2, le rond-trip `lecture → modif d'une barre →
+// reconstruction → relecture` divisait toutes les barres par 2 à chaque commit.
+// Clamp à [0, 1] : la zone Harmoniques affiche des barres dans cette plage ; un
+// signal dont une harmonique dépasse 1 (ex. signal très non-sinusoïdal) sera
+// tronqué visuellement, mais l'audio reste correct (la canonical brute n'est
+// jamais clampée).
+export function canonicalToBars(canonical, cap) {
+  const { magnitudes } = pointsToHarmonics(canonical)
+  const bars = new Array(cap)
+  for (let k = 0; k < cap; k++) {
+    const m = (magnitudes[k + 1] ?? 0) * 2
+    bars[k] = m < 0 ? 0 : m > 1 ? 1 : m
+  }
+  return bars
+}
+
 export function harmonicsToPoints(amplitudes, N) {
   const count = Math.min(N, amplitudes.length)
   const points = new Array(CANVAS_WIDTH).fill(0)
