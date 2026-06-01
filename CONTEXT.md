@@ -478,8 +478,9 @@ hors scope. **Rattrapage M.r.1 (2026-06-01)** : pivot du Designer vers une
 Spectro), `cap` unifié (ex-`definition`/`N`), résidu spline, plus de conversion
 destructive ; migration localStorage/`.osa` v1→v2, hygiène canvas systématique.
 **Rattrapage M.r.2 (2026-06-01)** : réorganisation UI — une **barre du haut**
-unique (nom du patch | Presets | Reset | Normaliser | proportions des colonnes |
-Auto) au-dessus des 3 colonnes ; **contrôle unique du cap** (slider+readout
+unique (nom du patch | Presets | Reset | proportions des colonnes | Auto ;
+Normaliser déplacé dans le header Forme d'onde en r.2.6.8) au-dessus des 3
+colonnes ; **contrôle unique du cap** (slider+readout
 « N / 256 ») dans le header Harmoniques ; **switch Libre/Ancres** pour les deux
 modes d'édition de la zone Forme d'onde (plus aucun bouton « Convertir vers… ») ;
 barres d'harmoniques toujours éditables ; Reset (timbre seul) + Normaliser
@@ -893,7 +894,9 @@ Seuls les **placements timeline** s'appellent "clips".
     visuel devant le slider Nombre d'ancres. Le toggle **Doux/Anguleux** (icônes
     **SVG custom** `IconDoux`/`IconAnguleux`, style Lucide, **joint en switch
     segmenté** r.2.6.4) + le slider/input « N / 32 » (input aligné sur la hauteur
-    des boutons, r.2.6.4) y sont **toujours rendus** (positions stables),
+    des boutons, r.2.6.4) + le bouton **Normaliser** (icône `Sigma`, déplacé
+    depuis la barre du haut en r.2.6.8 → `NORMALIZE_EDITOR_CANONICAL`) y sont
+    **toujours rendus** (positions stables),
     `disabled` en mode Libre (M.r.2.5.2) ; saisie directe du nombre d'ancres via
     `<NumberInput>` (M.r.2.5.3).
   - **Harmoniques** (`renderHarmonicsArea`) : barres bleues **toujours
@@ -956,12 +959,13 @@ Seuls les **placements timeline** s'appellent "clips".
   les headers de colonne. Rendue par App.jsx en desktop (au-dessus de
   `DesignerColumns`) **et** en mobile (au-dessus de l'accordéon).
 - Gauche : identité du patch (`patchLabel`) + boutons **Presets** (ouvre
-  `PresetPicker`, déplacé depuis le header Harmoniques), **Reset** (timbre seul,
-  ConfirmDialog → `RESET_EDITOR_WAVEFORM`), **Normaliser** (iDFT phase
-  canonique → `NORMALIZE_EDITOR_CANONICAL`, toujours cliquable en M.r.2).
-  **r.2.6.2** : ces trois boutons sont rendus en **icônes Lucide** (Presets →
-  `FolderOpenDot`, Reset → `Eraser`, Normaliser → `Sigma`) via la classe
-  partagée `.icon-btn` — `title` complet + `aria-label` conservés.
+  `PresetPicker`, déplacé depuis le header Harmoniques) et **Reset** (timbre seul,
+  ConfirmDialog → `RESET_EDITOR_WAVEFORM`). **r.2.6.2** : rendus en **icônes
+  Lucide** (Presets → `FolderOpenDot`, Reset → `Eraser`) via la classe partagée
+  `.icon-btn` — `title` complet + `aria-label` conservés. **r.2.6.8** : le bouton
+  **Normaliser** (`Sigma`) a quitté la barre du haut pour le **header de la zone
+  Forme d'onde** (cf. `renderWaveformHeaderControls`), où il est visible dans les
+  deux modes d'édition.
 - **r.2.6.5/.6** : les presets de proportions des colonnes (anciens libellés
   Unicode ⅓⅓⅓ · ½¼¼ · ¼½¼ · ¼¼½) sont rendus par un **aperçu SVG**
   (`IconColumnLayout` : rectangle 48×16 + 2 séparateurs aux proportions).
@@ -2877,6 +2881,11 @@ Phases listées ci-dessous dans l'ordre chronologique d'implémentation.
     coiffées de traits de crête, redessinées en r.2.6.6 ; dB reste texte) +
     presets de proportions des colonnes (`IconColumnLayout` SVG, fin des
     libellés Unicode).
+  - **r.2.6.7** (`feat`) : `IconCrete` redessinée — barres + crêtes en rectangles
+    pleins de **même largeur** (au lieu de traits) ; tooltip « Tenir les pics » →
+    « Maintenir les crêtes ».
+  - **r.2.6.8** (`feat`) : bouton **Normaliser** (Σ) déplacé de la barre du haut
+    vers le **header de la zone Forme d'onde** (partagé Libre/Ancres).
   - **Convention projet actée** : Lucide en priorité, SVG style Lucide en fallback,
     **plus jamais d'Unicode** comme icône ni séparateur graphique — partout, toutes
     phases futures.
@@ -6126,8 +6135,10 @@ et L.7 (exercices guidés) restent des options de backlog, hors périmètre 1.4.
   switch segmenté Doux/Anguleux en SVG custom, indicateur AlignEndHorizontal,
   Spectrogramme Direct→Radio / Crête→SVG mini-barres+crêtes, presets de
   proportions en SVG), classe partagée `.icon-btn`, inputs alignés sur la hauteur
-  des boutons. **Convention projet : plus jamais d'Unicode comme icône.**
-  6 sous-commits dev (r.2.6.1→.6) + docs. Build/lint verts.
+  des boutons. **Normaliser** (Σ) déplacé de la barre du haut vers le header de
+  la zone Forme d'onde (r.2.6.8, visible dans les deux modes). **Convention
+  projet : plus jamais d'Unicode comme icône.** 8 sous-commits dev (r.2.6.1→.8)
+  + docs. Build/lint verts.
 - ⏳ **M.r.3** — Lentilles vivantes : ancres toujours fittées (re-fit auto au
   tracé libre / au switch de lentille), coexistence éditable de toutes les vues
   (fin de la désync ancres/canonical à l'init et au switch).
