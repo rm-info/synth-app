@@ -62,6 +62,18 @@ Items backlog issus de la session :
   false` global laisse passer les accès à des propriétés absentes (retour
   `undefined` au lieu d'erreur). Passer `reducer.js` en `// @ts-check`
   strict est dans la continuité du préalable M.0 (TS incrémental).
+- **Overshoot Catmull-Rom sur transitions verticales** (remonté passe d'usage
+  M.r.3) : quand la canonical présente une chute quasi-verticale (signal carré,
+  pulse rapide), un drag d'ancre proche de la transition produit des
+  overshoots/undershoots visibles. Inhérent à Catmull-Rom : l'interpolation
+  n'est pas monotone par segment, les tangentes calculées via les voisins
+  font des dépassements. Workarounds utilisateur disponibles : densifier les
+  ancres (slider Nombre d'ancres) ou basculer en Anguleux (polyligne stricte).
+  Fix éventuel : interpolation monotone type PCHIP / Fritsch-Carlson (clamp
+  des tangentes pour préserver la monotonie sur chaque segment) — soit en
+  remplacement de « Doux », soit comme 3ᵉ mode. Changement de rendu sur
+  tous les patches existants, donc décision archi à arbitrer si la
+  limitation devient gênante.
 - **Mismatch de grille FFT 600 ↔ 512** (remonté passe d'usage M.r.2.5) :
   `harmonicsToPoints` écrit sur 600 points (`Σ a_k · sin(2πkx/600)`),
   `pointsToHarmonics` resample en 512 (interp. linéaire) avant FFT.
