@@ -26,24 +26,41 @@
   flex-shrink: 0;
 }
 
-/* Boutons d'action (Presets / Reset / Normaliser). Alignés sur .we-convert-btn. */
-.designer-toolbar-btn {
+/* iter-M phase-r.2.6.2 : bouton-icône partagé du Designer (barre du haut +
+   toggles du header Forme d'onde). Classe globale (CSS Vite non modulaire) :
+   homogénéise taille, padding carré, couleur et états hover/active/disabled
+   des icônes Lucide & SVG custom. */
+.icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   flex-shrink: 0;
-  font-size: 12px;
-  line-height: 1;
-  padding: 5px 9px;
+  padding: 5px;
   border-radius: 6px;
   border: 1px solid var(--surface-border-strong);
   background: var(--surface-bg);
   color: var(--text-secondary);
   cursor: pointer;
-  white-space: nowrap;
   transition: background 0.12s, color 0.12s, border-color 0.12s;
 }
-.designer-toolbar-btn:hover {
+.icon-btn:hover {
   background: var(--accent-bg-faint);
   border-color: var(--accent);
   color: var(--text-strong);
+}
+.icon-btn.is-active {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--accent-contrast, #fff);
+}
+.icon-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+.icon-btn:disabled:hover {
+  background: var(--surface-bg);
+  border-color: var(--surface-border-strong);
+  color: var(--text-secondary);
 }
 
 /* Séparateur visuel entre le groupe d'actions et les proportions. */

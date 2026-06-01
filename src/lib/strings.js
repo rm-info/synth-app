@@ -54,8 +54,14 @@ const fr = {
     lensSwitchLabel: 'Mode d’édition de la forme d’onde',
     lensFree: 'Libre',
     lensAnchors: 'Ancres',
+    // iter-M phase-r.2.6.2 : tooltips du toggle unique Libre↔Ancres (icône Spline).
+    lensToggleActiveTitle: 'Lentille Ancres — édition par points de contrôle',
+    lensToggleInactiveTitle: 'Cliquer pour basculer en lentille Ancres',
     anchorCount: 'Ancres',
     anchorCountTitle: 'Nombre d’ancres de la spline',
+    // iter-M phase-r.2.6.2 : tooltip de l'indicateur (icône non interactive)
+    // devant le slider du plafond d'harmoniques.
+    harmonicCapTitle: 'Plafond d’harmoniques (1 à 256)',
     // iter-M phase-3 : éditeur spline (points/courbe).
     splineInterpolation: 'Interpolation',
     splineSoft: 'Doux',

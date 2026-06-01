@@ -1,5 +1,6 @@
 import { useRef, useState, useCallback, useEffect, useImperativeHandle, useMemo } from 'react'
-import { Plus, Save, SaveAll, Undo2, Redo2, Sliders, X, Lock } from 'lucide-react'
+import { Plus, Save, SaveAll, Undo2, Redo2, Sliders, X, Lock, Spline, AlignEndHorizontal } from 'lucide-react'
+import { IconDoux, IconAnguleux } from './icons'
 import { pointsToPeriodicWave, MIN_ATTACK, HARMONIC_COUNT, harmonicsToPoints, canonicalToBars } from '../audio'
 import { CAP_MIN, CAP_MAX, SPLINE_ANCHOR_MIN, SPLINE_ANCHOR_MAX } from '../reducer'
 import useWindowSize from '../hooks/useWindowSize'
@@ -1805,42 +1806,21 @@ function WaveformEditor({
     // TOUJOURS rendus (plus de gating `currentLens === 'spline'` qui faisait
     // sauter le layout au switch), simplement désactivés en mode Libre.
     const splineDisabled = currentLens !== 'spline'
+    const lensActive = currentLens === 'spline'
     return (
       <>
-        <div className="we-lens-switch" role="group" aria-label={STRINGS.editor.lensSwitchLabel}>
-          <button
-            type="button"
-            className={`we-lens-btn${currentLens !== 'spline' ? ' is-active' : ''}`}
-            onClick={() => editorActions.setCurrentLens('free')}
-            aria-pressed={currentLens !== 'spline'}
-          >{STRINGS.editor.lensFree}</button>
-          <button
-            type="button"
-            className={`we-lens-btn${currentLens === 'spline' ? ' is-active' : ''}`}
-            onClick={() => editorActions.setCurrentLens('spline')}
-            aria-pressed={currentLens === 'spline'}
-          >{STRINGS.editor.lensAnchors}</button>
-        </div>
-        <div className="spline-interp-toggle" role="group" aria-label={STRINGS.editor.splineInterpolation}>
-          <button
-            type="button"
-            className={`spline-interp-btn${interpolation !== 'hard' ? ' is-active' : ''}`}
-            onClick={() => editorActions.setSplineInterpolation('soft')}
-            title={STRINGS.editor.splineSoftTitle}
-            aria-pressed={interpolation !== 'hard'}
-            disabled={splineDisabled}
-          >{STRINGS.editor.splineSoft}</button>
-          <button
-            type="button"
-            className={`spline-interp-btn${interpolation === 'hard' ? ' is-active' : ''}`}
-            onClick={() => editorActions.setSplineInterpolation('hard')}
-            title={STRINGS.editor.splineHardTitle}
-            aria-pressed={interpolation === 'hard'}
-            disabled={splineDisabled}
-          >{STRINGS.editor.splineHard}</button>
-        </div>
+        {/* iter-M phase-r.2.6.2 : toggle unique Libre↔Ancres (icône Spline).
+            Toggled = lentille spline ; sert aussi de label visuel devant le
+            slider Nombre d'ancres placé juste à sa droite. */}
+        <button
+          type="button"
+          className={`icon-btn we-lens-toggle${lensActive ? ' is-active' : ''}`}
+          onClick={() => editorActions.setCurrentLens(lensActive ? 'free' : 'spline')}
+          aria-pressed={lensActive}
+          aria-label={STRINGS.editor.lensSwitchLabel}
+          title={lensActive ? STRINGS.editor.lensToggleActiveTitle : STRINGS.editor.lensToggleInactiveTitle}
+        ><Spline size={18} /></button>
         <label className={`we-anchor-count${splineDisabled ? ' is-disabled' : ''}`} title={STRINGS.editor.anchorCountTitle}>
-          <span className="we-anchor-count-label">{STRINGS.editor.anchorCount} :</span>
           <input
             type="range"
             min={SPLINE_ANCHOR_MIN}
@@ -1869,6 +1849,28 @@ function WaveformEditor({
             <span className="we-cap-suffix">/ {SPLINE_ANCHOR_MAX}</span>
           </span>
         </label>
+        {/* iter-M phase-r.2.6.2 : toggle Doux/Anguleux (SVG custom) — 2-state
+            séparé, après le bloc Spline. Désactivé en mode Libre. */}
+        <div className="spline-interp-toggle" role="group" aria-label={STRINGS.editor.splineInterpolation}>
+          <button
+            type="button"
+            className={`icon-btn${interpolation !== 'hard' ? ' is-active' : ''}`}
+            onClick={() => editorActions.setSplineInterpolation('soft')}
+            title={STRINGS.editor.splineSoftTitle}
+            aria-label={STRINGS.editor.splineSoft}
+            aria-pressed={interpolation !== 'hard'}
+            disabled={splineDisabled}
+          ><IconDoux size={18} /></button>
+          <button
+            type="button"
+            className={`icon-btn${interpolation === 'hard' ? ' is-active' : ''}`}
+            onClick={() => editorActions.setSplineInterpolation('hard')}
+            title={STRINGS.editor.splineHardTitle}
+            aria-label={STRINGS.editor.splineHard}
+            aria-pressed={interpolation === 'hard'}
+            disabled={splineDisabled}
+          ><IconAnguleux size={18} /></button>
+        </div>
       </>
     )
   }
@@ -1942,6 +1944,11 @@ function WaveformEditor({
             <h3 className="we-area-title">{STRINGS.editor.harmonicsTitle}</h3>
           </div>
           <div className="we-harmonics-controls">
+            {/* iter-M phase-r.2.6.2 : indicateur non interactif du plafond
+                d'harmoniques (icône Lucide, pas de bouton — tooltip via title). */}
+            <span className="we-cap-icon" title={STRINGS.editor.harmonicCapTitle} aria-hidden="true">
+              <AlignEndHorizontal size={16} />
+            </span>
             <label className="we-cap-control" title={STRINGS.editor.harmonicCountTitle}>
               <input
                 type="range"

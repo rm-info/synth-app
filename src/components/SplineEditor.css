@@ -9,33 +9,12 @@
   flex-shrink: 0;
 }
 
-/* Toggle Doux / Anguleux : contrôle segmenté aligné sur .we-convert-btn. */
+/* iter-M phase-r.2.6.2 : toggle Doux / Anguleux — deux boutons-icônes (.icon-btn,
+   SVG custom). Simple conteneur flex (chaque bouton porte sa propre bordure). */
 .spline-interp-toggle {
   display: inline-flex;
-  border: 1px solid var(--surface-border-strong);
-  border-radius: 6px;
-  overflow: hidden;
-}
-.spline-interp-btn {
-  font-size: 12px;
-  line-height: 1;
-  padding: 5px 9px;
-  border: none;
-  background: var(--surface-bg);
-  color: var(--text-secondary);
-  cursor: pointer;
-  white-space: nowrap;
-  transition: background 0.12s, color 0.12s;
-}
-.spline-interp-btn + .spline-interp-btn {
-  border-left: 1px solid var(--surface-border-strong);
-}
-.spline-interp-btn:hover {
-  color: var(--text-strong);
-}
-.spline-interp-btn.is-active {
-  background: var(--accent);
-  color: var(--accent-contrast, #fff);
+  align-items: center;
+  gap: 4px;
 }
 
 .spline-hint {

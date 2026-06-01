@@ -81,37 +81,6 @@
   color: var(--text-default);
 }
 
-/* iter-M phase-r.2.4 : switch Libre/Ancres (header Forme d'onde). Contrôle
-   segmenté aligné sur .spline-interp-toggle. */
-.we-lens-switch {
-  display: inline-flex;
-  border: 1px solid var(--surface-border-strong);
-  border-radius: 6px;
-  overflow: hidden;
-  flex-shrink: 0;
-}
-.we-lens-btn {
-  font-size: 12px;
-  line-height: 1;
-  padding: 5px 10px;
-  border: none;
-  background: var(--surface-bg);
-  color: var(--text-secondary);
-  cursor: pointer;
-  white-space: nowrap;
-  transition: background 0.12s, color 0.12s;
-}
-.we-lens-btn + .we-lens-btn {
-  border-left: 1px solid var(--surface-border-strong);
-}
-.we-lens-btn:hover {
-  color: var(--text-strong);
-}
-.we-lens-btn.is-active {
-  background: var(--accent);
-  color: var(--accent-contrast, #fff);
-}
-
 /* iter-M phase-r.2.4 : nombre d'ancres (slider + readout) dans le header. */
 .we-anchor-count {
   display: inline-flex;
@@ -131,10 +100,6 @@
 }
 .we-anchor-count.is-disabled,
 .we-anchor-count-slider:disabled {
-  cursor: not-allowed;
-}
-.spline-interp-btn:disabled {
-  opacity: 0.45;
   cursor: not-allowed;
 }
 .we-anchor-count-readout {
@@ -160,6 +125,14 @@
 /* iter-M phase-r.2.4 : contrôle unique du cap (slider + readout « N / 256 »)
    dans le header de la zone Harmoniques. Remplace l'ancien NumberInput N + le
    slider Définition de la sidebar. */
+/* iter-M phase-r.2.6.2 : indicateur (icône) du plafond d'harmoniques — non
+   interactif, simple repère sémantique devant le slider. */
+.we-cap-icon {
+  display: inline-flex;
+  align-items: center;
+  color: var(--text-secondary);
+  flex-shrink: 0;
+}
 .we-cap-control {
   display: inline-flex;
   align-items: center;

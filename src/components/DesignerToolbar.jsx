@@ -1,3 +1,4 @@
+import { FolderOpenDot, Eraser, Sigma } from 'lucide-react'
 import { STRINGS } from '../lib/strings'
 import './DesignerToolbar.css'
 
@@ -28,29 +29,32 @@ function DesignerToolbar({ patchLabel, onPresets, onReset, onNormalize, onWidths
         {onPresets && (
           <button
             type="button"
-            className="designer-toolbar-btn"
+            className="icon-btn"
             onClick={onPresets}
-            title={STRINGS.timbrePresets.loadButtonTitle}
+            title="Charger un preset de timbre"
+            aria-label={STRINGS.timbrePresets.loadButton}
             data-anchor="designer-presets-button"
-          >{STRINGS.timbrePresets.loadButton}</button>
+          ><FolderOpenDot size={18} /></button>
         )}
         {onReset && (
           <button
             type="button"
-            className="designer-toolbar-btn"
+            className="icon-btn"
             onClick={onReset}
-            title="Réinitialiser le timbre (tracé, harmoniques, ancres)"
+            title="Effacer le timbre (canonical, ancres) — préserve le plafond d'harmoniques"
+            aria-label="Réinitialiser le timbre"
             data-anchor="designer-reset-button"
-          >Reset</button>
+          ><Eraser size={18} /></button>
         )}
         {onNormalize && (
           <button
             type="button"
-            className="designer-toolbar-btn"
+            className="icon-btn"
             onClick={onNormalize}
             title="Normaliser : redessiner le tracé comme la somme des harmoniques courantes (phase canonique)"
+            aria-label="Normaliser"
             data-anchor="designer-normalize-button"
-          >Normaliser</button>
+          ><Sigma size={18} /></button>
         )}
       </div>
       {showColumnControls && (
