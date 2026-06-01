@@ -129,6 +129,23 @@ function splinePlusResidual(splineCurve, residual) {
   return out
 }
 
+// M.r.3 — primitive « lentilles vivantes » : après chaque modification de
+// canonical par une voie autre que le drag d'ancre (tracé libre, drag de barre,
+// Normaliser, preset picker, presets rapides), on re-fitte les ancres sur la
+// nouvelle canonical (en préservant leur nombre) puis on recalcule le résidu.
+// Conséquence (spec §4.1) : la lentille Ancres reste toujours synchronisée avec
+// le tracé courant, et un drag d'ancre subséquent produit une déformation
+// cohérente (amplitude du delta proportionnelle à la finesse de la spline,
+// modulée par le résidu). Cinq call-sites (SET_EDITOR_CANONICAL,
+// SET_EDITOR_HARMONIC_AMPLITUDE, NORMALIZE_EDITOR_CANONICAL, LOAD_PRESET,
+// APPLY_EDITOR_PRESET) — voir leur commentaire pour la raison du re-fit.
+function refitAnchorsAndResidual(canonical, currentAnchors, interpolation) {
+  const count = currentAnchors?.length || DEFAULT_SPLINE_ANCHOR_COUNT
+  const anchors = fitAnchorsToCurve(canonical, count)
+  const residual = computeResidual(canonical, splineToPoints(anchors, interpolation))
+  return { anchors, residual }
+}
+
 // Normalise/valide un tableau d'ancres : filtre les entrées non-finies, clampe
 // x ∈ [0, 600) et y ∈ [-1, 1], trie par x et écarte les doublons trop proches.
 // Renvoie null si on ne peut pas garantir au moins SPLINE_ANCHOR_MIN ancres
@@ -1644,14 +1661,15 @@ export function reducer(state, action) {
       }
     }
     case 'SET_EDITOR_CANONICAL': {
-      // Tracé libre : la canonical devient le payload, le résidu est recalculé
-      // sur les ancres courantes (la spline ne bouge pas). preset remis à null.
+      // Tracé libre : la canonical devient le payload. M.r.3 — re-fit des ancres
+      // sur le nouveau tracé (en préservant leur nombre) puis résidu : la
+      // lentille Spline reflète le tracé courant au lieu d'ancres figées à y=0.
+      // preset remis à null.
       const canonical = action.payload
-      const residual = computeResidual(
-        canonical,
-        splineToPoints(state.editor.anchors, state.editor.interpolation),
+      const { anchors, residual } = refitAnchorsAndResidual(
+        canonical, state.editor.anchors, state.editor.interpolation,
       )
-      return { ...state, editor: { ...state.editor, canonical, residual, preset: null } }
+      return { ...state, editor: { ...state.editor, canonical, anchors, residual, preset: null } }
     }
     case 'SET_EDITOR_TEST_NOTE': {
       return { ...state, editor: { ...state.editor, testNoteIndex: action.payload } }
@@ -1794,11 +1812,11 @@ export function reducer(state, action) {
       const amplitudes = canonicalToBars(state.editor.canonical, cap)
       amplitudes[index] = Math.max(0, Math.min(1, value))
       const canonical = harmonicsToPoints(amplitudes, cap)
-      const residual = computeResidual(
-        canonical,
-        splineToPoints(state.editor.anchors, state.editor.interpolation),
+      // M.r.3 — re-fit des ancres sur la canonical reconstruite par iDFT.
+      const { anchors, residual } = refitAnchorsAndResidual(
+        canonical, state.editor.anchors, state.editor.interpolation,
       )
-      return { ...state, editor: { ...state.editor, canonical, residual } }
+      return { ...state, editor: { ...state.editor, canonical, anchors, residual } }
     }
     // iter-M phase-4 : chargement d'un preset de timbre (domaine harmonique).
     // M.r.1 : ajoute le handler manquant (bug « preset ne charge pas » absorbé,
@@ -1809,13 +1827,13 @@ export function reducer(state, action) {
       const clampedCap = clampCap(cap)
       const sanitized = sanitizeAmplitudes(amplitudes, clampedCap)
       const canonical = harmonicsToPoints(sanitized, clampedCap)
-      const residual = computeResidual(
-        canonical,
-        splineToPoints(state.editor.anchors, state.editor.interpolation),
+      // M.r.3 — re-fit des ancres sur la canonical du preset (iDFT).
+      const { anchors, residual } = refitAnchorsAndResidual(
+        canonical, state.editor.anchors, state.editor.interpolation,
       )
       return {
         ...state,
-        editor: { ...state.editor, cap: clampedCap, canonical, residual },
+        editor: { ...state.editor, cap: clampedCap, canonical, anchors, residual },
         currentPatchId: null,
       }
     }
@@ -1905,12 +1923,15 @@ export function reducer(state, action) {
       return { ...state, editor: next }
     }
     case 'APPLY_EDITOR_PRESET': {
+      // Presets rapides (Sinus / Carré / Dent de scie / Triangle) : remplacent
+      // la canonical par une forme générée. M.r.3 — re-fit des ancres comme les
+      // autres voies non-spline (décision archi : 5ᵉ call-site, non listé dans
+      // le prompt initial mais même bizarrerie corrigée).
       const { preset, points } = action.payload
-      const residual = computeResidual(
-        points,
-        splineToPoints(state.editor.anchors, state.editor.interpolation),
+      const { anchors, residual } = refitAnchorsAndResidual(
+        points, state.editor.anchors, state.editor.interpolation,
       )
-      return { ...state, editor: { ...state.editor, canonical: points, residual, preset } }
+      return { ...state, editor: { ...state.editor, canonical: points, anchors, residual, preset } }
     }
     case 'RESET_EDITOR': {
       // iter-L follow-up : préserve l'état d'exploration Designer (test* +
@@ -1969,11 +1990,11 @@ export function reducer(state, action) {
       const cap = state.editor.cap
       const amplitudes = canonicalToBars(state.editor.canonical, cap)
       const canonical = harmonicsToPoints(amplitudes, cap)
-      const residual = computeResidual(
-        canonical,
-        splineToPoints(state.editor.anchors, state.editor.interpolation),
+      // M.r.3 — re-fit des ancres sur la canonical normalisée.
+      const { anchors, residual } = refitAnchorsAndResidual(
+        canonical, state.editor.anchors, state.editor.interpolation,
       )
-      return { ...state, editor: { ...state.editor, canonical, residual } }
+      return { ...state, editor: { ...state.editor, canonical, anchors, residual } }
     }
     case 'RESET_EDITOR_WAVEFORM': {
       // iter-M phase-r.2.6.1/.3 : réinitialise canonical, interpolation et
