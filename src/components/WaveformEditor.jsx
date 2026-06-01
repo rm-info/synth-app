@@ -344,10 +344,11 @@ function WaveformEditor({
 
   // Modèle unifié (M rattrapage) : la canonical est la vérité audio affichée.
   // La lentille active (currentLens) ne change que l'UI ; on la mappe vers les
-  // anciennes valeurs de `mode` (free→draw, bars→harmonic, spline→spline) pour
-  // garder le reste du composant inchangé (M.r.3 câblera la coexistence vivante).
+  // anciennes valeurs de `mode` (free→draw, spline→spline) pour garder le reste
+  // du composant inchangé. M.r.3.2 : `'bars'` retiré du type WaveformLens
+  // (vestigial depuis M.r.2.4) ; la branche 'harmonic' était inatteignable.
   const currentLens = editor.currentLens ?? 'free'
-  const mode = currentLens === 'bars' ? 'harmonic' : currentLens === 'spline' ? 'spline' : 'draw'
+  const mode = currentLens === 'spline' ? 'spline' : 'draw'
   const anchors = editor.anchors ?? []
   const interpolation = editor.interpolation ?? 'soft'
   const amplitude = draftAmp ?? editor.amplitude

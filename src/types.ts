@@ -120,7 +120,7 @@ export interface Track {
 // Lentille active de l'éditeur (M rattrapage). Remplace l'ancien `mode`
 // discriminant : ce n'est plus une propriété du timbre mais un état d'UI
 // volatile (quelle vue regarde l'utilisateur). Voir `Editor.currentLens`.
-export type WaveformLens = 'free' | 'spline' | 'bars'
+export type WaveformLens = 'free' | 'spline'
 
 // iter-M phase-3 : variante d'interpolation de la courbe spline.
 export type SplineInterpolation = 'soft' | 'hard'

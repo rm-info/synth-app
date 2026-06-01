@@ -194,11 +194,13 @@ function defaultSplineAnchors(count = DEFAULT_SPLINE_ANCHOR_COUNT) {
   return out
 }
 
-// Proportions par défaut des 3 colonnes du Designer selon la lentille active.
-// 'bars' → Harmoniques large [0.25, 0.5, 0.25] ; 'free' | 'spline' → Forme
-// d'onde large [0.5, 0.25, 0.25].
-export function defaultColumnWidthsForLens(lens) {
-  return lens === 'bars' ? [0.25, 0.5, 0.25] : [0.5, 0.25, 0.25]
+// Proportions par défaut des 3 colonnes du Designer. M.r.3.2 : `'bars'` retiré
+// du type WaveformLens (vestigial) — il n'existe plus de défaut « Harmoniques
+// large » ; toutes les lentilles ('free' | 'spline') donnent Forme d'onde large
+// [0.5, 0.25, 0.25]. Signature conservée (le caller passe encore une lentille)
+// pour absorber un futur défaut-par-lentille sans re-câbler les call-sites.
+export function defaultColumnWidthsForLens() {
+  return [0.5, 0.25, 0.25]
 }
 
 // Valide un tableau de 3 largeurs (fractions finies > 0) et le renormalise à
