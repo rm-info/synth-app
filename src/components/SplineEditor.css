@@ -9,12 +9,23 @@
   flex-shrink: 0;
 }
 
-/* iter-M phase-r.2.6.2 : toggle Doux / Anguleux — deux boutons-icônes (.icon-btn,
-   SVG custom). Simple conteneur flex (chaque bouton porte sa propre bordure). */
+/* iter-M phase-r.2.6.2/.4 : toggle Doux / Anguleux — deux boutons-icônes
+   (.icon-btn, SVG custom) JOINTS en contrôle segmenté (aspect switch, comme
+   l'ancienne version texte). La bordure et le rayon sont portés par le conteneur ;
+   les boutons internes perdent les leurs et sont séparés par un filet. */
 .spline-interp-toggle {
   display: inline-flex;
-  align-items: center;
-  gap: 4px;
+  align-items: stretch;
+  border: 1px solid var(--surface-border-strong);
+  border-radius: 6px;
+  overflow: hidden;
+}
+.spline-interp-toggle .icon-btn {
+  border: none;
+  border-radius: 0;
+}
+.spline-interp-toggle .icon-btn + .icon-btn {
+  border-left: 1px solid var(--surface-border-strong);
 }
 
 .spline-hint {

@@ -110,6 +110,8 @@
 }
 .we-anchor-count-input {
   width: 40px;
+  height: 30px; /* r.2.6.4 : aligné sur la hauteur des boutons-icônes (.icon-btn) */
+  box-sizing: border-box;
   text-align: center;
   font-size: 12px;
   padding: 2px 4px;
@@ -151,6 +153,8 @@
 }
 .we-cap-value-input {
   width: 48px;
+  height: 30px; /* r.2.6.4 : aligné sur la hauteur des boutons-icônes (.icon-btn) */
+  box-sizing: border-box;
   text-align: center;
   font-size: 12px;
   padding: 2px 4px;
