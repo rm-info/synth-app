@@ -2873,8 +2873,10 @@ Phases listées ci-dessous dans l'ordre chronologique d'implémentation.
     Doux/Anguleux **rejoint en switch segmenté**, inputs nombre d'ancres +
     harmoniques **alignés sur la hauteur des boutons**.
   - **r.2.6.5** (`feat`) : iconographie étendue au fil de l'eau — Spectrogramme
-    (Direct → `Radio`, Crête → `IconCrete` SVG custom ; dB reste texte) + presets
-    de proportions des colonnes (`IconColumnLayout` SVG, fin des libellés Unicode).
+    (Direct → `Radio`, Crête → `IconCrete` SVG custom — mini-barres verticales
+    coiffées de traits de crête, redessinées en r.2.6.6 ; dB reste texte) +
+    presets de proportions des colonnes (`IconColumnLayout` SVG, fin des
+    libellés Unicode).
   - **Convention projet actée** : Lucide en priorité, SVG style Lucide en fallback,
     **plus jamais d'Unicode** comme icône ni séparateur graphique — partout, toutes
     phases futures.
@@ -6122,10 +6124,10 @@ et L.7 (exercices guidés) restent des options de backlog, hors périmètre 1.4.
   remise à zéro totale) ; iconographie Lucide généralisée (barre du haut
   Eraser/FolderOpenDot/Sigma, toggle unique Spline + tooltips sans « lentille »,
   switch segmenté Doux/Anguleux en SVG custom, indicateur AlignEndHorizontal,
-  Spectrogramme Direct→Radio / Crête→SVG, presets de proportions en SVG),
-  classe partagée `.icon-btn`, inputs alignés sur la hauteur des boutons.
-  **Convention projet : plus jamais d'Unicode comme icône.** 6 sous-commits dev
-  (r.2.6.1→.5) + docs. Build/lint verts.
+  Spectrogramme Direct→Radio / Crête→SVG mini-barres+crêtes, presets de
+  proportions en SVG), classe partagée `.icon-btn`, inputs alignés sur la hauteur
+  des boutons. **Convention projet : plus jamais d'Unicode comme icône.**
+  6 sous-commits dev (r.2.6.1→.6) + docs. Build/lint verts.
 - ⏳ **M.r.3** — Lentilles vivantes : ancres toujours fittées (re-fit auto au
   tracé libre / au switch de lentille), coexistence éditable de toutes les vues
   (fin de la désync ancres/canonical à l'init et au switch).
