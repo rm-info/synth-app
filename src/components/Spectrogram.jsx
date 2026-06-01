@@ -476,7 +476,7 @@ function Spectrogram({
             type="button"
             onClick={onTogglePeakHold}
             className={`spectrogram-toggle spectrogram-toggle-icon${peakHold ? ' is-active' : ''}`}
-            title="Tenir les pics (mode Direct)"
+            title="Maintenir les crêtes (mode Direct)"
             aria-label={STRINGS.spectro.peak}
           ><IconCrete size={16} /></button>
         </div>

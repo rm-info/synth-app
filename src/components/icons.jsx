@@ -71,24 +71,36 @@ export function IconColumnLayout({ widths, ...rest }) {
 }
 
 // Crête (peak hold du spectrogramme) : un mini-spectre de barres verticales de
-// hauteurs variées, chacune coiffée d'un court trait horizontal détaché — le
-// « pic tenu » au-dessus de la barre courante. Visuellement une série de « i »
-// de tailles différentes. Rien d'approprié dans Lucide (r.2.6.6).
-export function IconCrete(props) {
-  const baseY = 20
-  const capHalf = 2
+// hauteurs variées, chacune coiffée d'un court rectangle horizontal détaché — la
+// « crête maintenue » au-dessus de la barre courante. Visuellement une série de
+// « i » de tailles différentes. Barres et crêtes partagent la MÊME largeur `w`
+// (rectangles pleins, pas des traits). Rien d'approprié dans Lucide (r.2.6.6).
+export function IconCrete({ size = 24, color = 'currentColor', ...rest }) {
+  const w = 3
+  const baseY = 21
+  const capH = 1.6
+  // x = bord gauche du rectangle ; top = haut de la barre. La crête est posée
+  // 2,4 px au-dessus du haut de barre (rectangle d'épaisseur capH détaché).
   const bars = [
-    { x: 3, top: 13, cap: 10 },
-    { x: 9, top: 6, cap: 3 },
-    { x: 15, top: 9, cap: 6 },
-    { x: 21, top: 14, cap: 11 },
+    { x: 2.5, top: 13 },
+    { x: 8, top: 6 },
+    { x: 13.5, top: 10 },
+    { x: 19, top: 15 },
   ]
   return (
-    <svg {...lucideProps(props)}>
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill={color}
+      stroke="none"
+      {...rest}
+    >
       {bars.map((b) => (
         <g key={b.x}>
-          <line x1={b.x} y1={baseY} x2={b.x} y2={b.top} />
-          <line x1={b.x - capHalf} y1={b.cap} x2={b.x + capHalf} y2={b.cap} />
+          <rect x={b.x} y={b.top} width={w} height={baseY - b.top} rx="0.6" />
+          <rect x={b.x} y={b.top - 4} width={w} height={capH} rx="0.6" />
         </g>
       ))}
     </svg>
