@@ -473,7 +473,10 @@ M.5a (2026-05-31)** : `\sum` réintégré (opérateur à bornes `_{…}`/`^{…}
 rendu sub/sup à droite en inline et empilé sous/dessus le Σ en display
 (grille CSS) — prérequis de la DFT (M.5b). `displayMode` propagé du
 renderer markdown jusqu'à `renderMath`. `\prod`/`\int`/matrices restent
-hors scope.
+hors scope. **Rattrapage M.r.1 (2026-06-01)** : pivot du Designer vers une
+**courbe canonique unique** + trois lentilles (Forme d'onde / Harmoniques /
+Spectro), `cap` unifié (ex-`definition`/`N`), résidu spline, plus de conversion
+destructive ; migration localStorage/`.osa` v1→v2, hygiène canvas systématique.
 
 **Itération L (Documentation) — phase 5 (corpus) + clôture livrées le
 2026-05-28 — release v1.4.0. Itération L close.** Rédaction du contenu
@@ -650,51 +653,41 @@ type SoundFolder = {              // racine virtuelle si parentId === null
 // c'est le clip qui porte la hauteur. Un même patch peut être joué à
 // n'importe quelle hauteur sans duplication.
 //
-// Depuis iter-M phase-2/3 : Patch est une UNION DISCRIMINÉE par `mode`
-// ('draw' | 'harmonic' | 'spline'). `points` est porté par TOUS les modes :
-// en 'harmonic' c'est la reconstruction iDFT des `amplitudes`
-// (audio.harmonicsToPoints), en 'spline' la reconstruction de la courbe
-// (lib/spline.splineToPoints) ; stockée pour que TOUTE la chaîne audio
-// existante (playback / export WAV / miniatures) reste l'unique
-// consommatrice de `points` — aucun chemin audio mode-spécifique.
-type PatchCommon = {
+// Depuis iter-M rattrapage (M.r.1, 2026-06-01) : modèle UNIFIÉ. Plus d'union
+// discriminée — un seul `Patch` porte une courbe `canonical` (LA vérité audio)
+// et trois lentilles qui la lisent/éditent (Forme d'onde / Harmoniques /
+// Spectro). `cap` (ex-`definition` ET ex-`N`) borne les harmoniques. La
+// lentille spline (anchors + interpolation + residual) permet une réédition
+// préservant les détails fins du tracé : le résidu survit au drag d'ancre
+// (cf. spec §4.1). Plus de conversion destructive entre représentations.
+type Patch = {
   id: string                      // "patch-N"
   name: string                    // "Patch N" par défaut
   color: string                   // hex, palette SOUND_COLORS (12 couleurs)
-  points: number[]                // 600 échantillons [-1, 1] (édités en draw,
-                                  // reconstruction iDFT en harmonic)
-  amplitude: number               // 0..1
   preset: 'sine'|'square'|'sawtooth'|'triangle'|null  // null = dessin custom
+  defaultTuningSystem: string     // système musical actif à l'enreg (iter G.2.4)
+  folderId: string | null         // null = racine
+  updatedAt: number
+  amplitude: number               // 0..1
+  canonical: number[]             // 600 échantillons [-1, 1] — LA vérité audio
+                                  // (remplace `points`). Toute la chaîne audio la lit.
+  cap: number                     // 1..256 — plafond d'harmoniques unique
+                                  // (remplace `definition` du tracé ET `N` des barres)
+  anchors: { x: number, y: number }[]  // 4..32 ancres spline, x ∈ [0,600), y ∈ [-1,1]
+  interpolation: 'soft' | 'hard'  // soft = Catmull-Rom périodique, hard = polyligne
+  residual: number[]              // 600 : canonical − spline(anchors) (peut sortir
+                                  // de [-1,1]). Détails du tracé qui survivent au drag.
   attack: number                  // ms, 0-1000 (F.3.11)
   hold: number                    // ms, 0-1000 (F.3.12) — plateau au peak entre attack et decay
   decay: number                   // ms, 0-1000 (F.3.11)
   sustain: number                 // 0..1
   release: number                 // ms, 0-1000 (F.3.11)
-  defaultTuningSystem: string     // système musical actif à l'enreg (iter G.2.4)
-  folderId: string | null         // null = racine
-  updatedAt: number
 }
-type DrawPatch = PatchCommon & {
-  mode: 'draw'
-  definition: number              // 1..256 (iter-M phase-1) — plafond
-                                  // d'harmoniques, troncature M/256 du spectre
-                                  // dessiné. Défaut 256 (= cap, aucune coupe).
-}
-type HarmonicPatch = PatchCommon & {
-  mode: 'harmonic'
-  N: number                       // 16..256 — nombre d'harmoniques (iter-M phase-2)
-  amplitudes: number[]            // longueur N, magnitudes ∈ [0..1] (pas de phase)
-}
-type SplinePatch = PatchCommon & {  // iter-M phase-3
-  mode: 'spline'
-  anchors: { x: number, y: number }[]  // 4..32 ancres, x ∈ [0,600), y ∈ [-1,1],
-                                  // ordre cyclique des x maintenu par le reducer
-  interpolation: 'soft' | 'hard'  // soft = Catmull-Rom périodique, hard = polyligne
-  // PAS de `definition` : courbe propre par construction (band-limitée).
-}
-type Patch = DrawPatch | HarmonicPatch | SplinePatch
-// Hydratation rétro-compat : `mode` absent (localStorage / .osa antérieurs)
-// → 'draw' + definition 256. Pas de migration destructive.
+// Editor : mêmes champs + `currentLens: 'free'|'spline'|'bars'` (volatile, non
+// persisté) = quelle lentille est active. Migration v1→v2 (M.r.1) : les anciens
+// patches (draw/harmonic/spline) sont convertis à l'hydratation localStorage et
+// à l'import .osa v1 (reducer.migrateLegacyPatch, idempotent). OSA_VERSION = 2 ;
+// l'import accepte v1 (legacy) ET v2.
 
 type Track = {
   id: string                      // "track-N"
@@ -949,10 +942,10 @@ Seuls les **placements timeline** s'appellent "clips".
   l'édition sur ce mousedown). Focus volatile (`focusColRef`). OFF → aucun
   listener, comportement M.2 strict. Retrait = supprimer toggle + `useEffect`.
 
-### `ConvertToHarmonicDialog.jsx` (iter-M phase-2.5)
-- Dialog de la passerelle draw→harmonic : choix de N (défaut 24, 16..256)
-  avant DFT + troncature. Réutilise le visuel `ConfirmDialog`. Monté/démonté
-  par le parent (état `n` frais à chaque ouverture, sans setState-in-effect).
+### `ConvertToHarmonicDialog.jsx` — SUPPRIMÉ (M.r.1.4)
+- Dialog de la passerelle draw→harmonic. **Supprimé** avec les conversions
+  destructives : les lentilles partagent désormais la même `canonical`, le
+  toggle bascule via `setCurrentLens` (plus de dialog).
 
 ### `SplineEditor.jsx` (iter-M phase-3)
 - Éditeur du mode spline (points/courbe), rendu dans la colonne Forme d'onde.
@@ -968,10 +961,9 @@ Seuls les **placements timeline** s'appellent "clips".
 - Refs miroir mis à jour en `useEffect` (jamais pendant le render —
   react-hooks/refs), double-rAF ResizeObserver (contournement Firefox).
 
-### `ConvertToSplineDialog.jsx` (iter-M phase-3)
-- Dialog draw/harmonic → spline : nombre d'ancres (4..32, défaut 8) +
-  interpolation (Doux/Anguleux, défaut Doux). Réutilise `ConfirmDialog` +
-  le toggle `.spline-interp-*`. Monté/démonté par le parent.
+### `ConvertToSplineDialog.jsx` — SUPPRIMÉ (M.r.1.4)
+- Dialog draw/harmonic → spline. **Supprimé** avec les conversions destructives
+  (cf. ConvertToHarmonicDialog ci-dessus).
 
 ### `PresetPicker.jsx` (iter-M phase-4)
 - Modal de chargement des presets de timbre, ouvert par le bouton « Presets »
@@ -1092,6 +1084,15 @@ Seuls les **placements timeline** s'appellent "clips".
 Choix non évidents pris pour de bonnes raisons. À ne pas remettre en question
 à la légère — relire ici avant de refactorer.
 
+- **Courbe canonique unique + lentilles (M rattrapage, 2026-06-01)** : le timbre
+  est UNE courbe `canonical` (600 pts, vérité audio) regardée/éditée par trois
+  lentilles toujours synchronisées (Forme d'onde / Harmoniques / Spectro), pas
+  trois représentations silotées. **Plus de `mode` discriminé ni de conversion
+  destructive.** `cap` unifié remplace `definition` (tracé) et `N` (barres). Le
+  résidu (`canonical − spline(anchors)`) préserve les détails fins du tracé au
+  drag d'ancre. **Hygiène canvas systématique** (`src/lib/canvas.js` →
+  `withSavedCtx`) : aucune propriété de contexte ne fuit entre deux rendus. Cf.
+  `docs/superpowers/specs/2026-06-01-waveform-rattrapage-design.md`.
 - **L'éditeur de patch n'est plus détaché** : son state (points, ADSR,
   preset, etc.) vit dans `state.editor` du reducer global, pas en local
   dans `WaveformEditor`. Raison : l'undo/redo doit couvrir l'éditeur.
@@ -1732,6 +1733,13 @@ Conventions tacites. Les enfreindre sans raison crée des bugs subtils.
   pas de big-bang. Les types du modèle vivent dans `src/types.ts` (source de
   vérité du modèle, plus seulement « TS-like » dans ce doc). Ne pas activer
   `strict:true` global ni ajouter de lib de types lourde sans validation archi.
+- **Modèle unifié (M rattrapage)** : `cap` (1..256) remplace `definition` (tracé)
+  ET `N` (barres) ; `editor.currentLens` (`'free'|'spline'|'bars'`) est
+  **volatile** (non persisté en localStorage, non écrit dans `.osa`) ; le résidu
+  (`residual`) vit sur l'editor ET le patch. `.osa` : `OSA_VERSION = 2`, l'import
+  accepte v1 (legacy, migré à l'hydratation) et v2. Migration idempotente
+  `reducer.migrateLegacyPatch` — une implémentation, deux call-sites
+  (localStorage + import .osa).
 - **IDs via compteurs persistés** (`soundCounter`, `clipCounter`,
   `folderCounter`, `trackCounter`) : jamais les recalculer depuis `.length`.
   Après des suppressions, deux créations successives auraient le même
@@ -2736,6 +2744,33 @@ Phases listées ci-dessous dans l'ordre chronologique d'implémentation.
 
 ## Historique (chronologie inverse)
 
+- **2026-06-01 — Iteration M rattrapage phase r.1 : modèle unifié + migration v1→v2 + hygiène canvas**
+  Pivot du Designer silo-té (union discriminée draw/harmonic/spline + conversions
+  destructives + verrou 🔒) vers une **courbe canonique unique** et trois
+  lentilles toujours synchronisées. 5 sous-commits :
+  - **r.1.1** (`refactor`) : `types.ts` — drop `WaveformMode` + `DrawPatch`/
+    `HarmonicPatch`/`SplinePatch` + l'union ; `Patch` unique (`canonical` 600,
+    `cap` 1..256, `anchors`, `interpolation`, `residual` 600). Editor gagne
+    `currentLens` (volatile). Constantes reducer `CAP_MIN/MAX/DEFAULT_CAP/clampCap`.
+  - **r.1.2** (`refactor`) : reducer — `SET_EDITOR_CANONICAL` (ex-POINTS),
+    `SET_EDITOR_CAP` (ex-DEFINITION/N), `SET_EDITOR_CURRENT_LENS` (volatile) ;
+    drop `CONVERT_EDITOR_TO_*`. Édition de barre → iDFT à phase canonique
+    (régression de phase assumée jusqu'à M.r.4). `LOAD_PRESET` (handler ajouté).
+    Drag d'ancre : `canonical = spline(anchors) + residual` (le résidu survit).
+  - **r.1.3** (`feat`) : migration v1→v2 idempotente (`migrateLegacyPatch`,
+    `spline.fitAnchorsToCurve`) à l'hydratation localStorage ET à l'import .osa
+    v1 ; `OSA_VERSION = 2`, `validatePayload` accepte v1+v2.
+  - **r.1.4** (`refactor`) : chaîne audio + composants → `canonical`/`cap` ;
+    anciens boutons de conversion → bascules de lentille (`setCurrentLens`) ;
+    suppression des dialogs `ConvertTo{Harmonic,Spline}Dialog` et des badges 🔒 ;
+    bug « preset ne charge pas » résolu (handler reducer + action creator
+    manquants). Build/typecheck/lint verts.
+  - **r.1.5** (`chore`) : `src/lib/canvas.js` (`withSavedCtx`) appliqué à tous
+    les rendus canvas du Designer (WaveformEditor `drawCanvas`/`drawAdsr`,
+    SplineEditor, Spectrogram `drawStatic`/`drawLive`).
+  Déviation M.r.1 assumée : double contrôle (slider « Définition » + input
+  « Harmoniques ») pilotant `cap`, à consolider en un seul contrôle en M.r.2.
+  Spec : `docs/superpowers/specs/2026-06-01-waveform-rattrapage-design.md`.
 - **2026-05-31 — Iteration M phase M.5a : extension renderer math `\sum`**
   Réintègre `\sum` dans le renderer maison (exclu en L.R avec `\prod`/`\int`/
   matrices), parce que la DFT (`X_k = Σ_{n=0}^{N-1} x_n · e^{-i2πkn/N}`, à
@@ -5869,7 +5904,25 @@ et L.7 (exercices guidés) restent des options de backlog, hors périmètre 1.4.
   `_{…}`/`^{…}` (n'importe quel ordre), rendu sub/sup inline / empilé display
   (grille CSS), `displayMode` propagé jusqu'à `renderMath`. 2 sous-commits.
   `\prod`/`\int`/matrices restent hors scope.
-- ⏳ **M.5b** — Passe doc « cœur de la synthèse » (pose la DFT avec le `\sum`).
+- ✅ **M.r.1 — Rattrapage : modèle canonique unifié** (2026-06-01). Pivot vers
+  une courbe `canonical` unique + trois lentilles, `cap` unifié, résidu spline,
+  migration v1→v2 (localStorage + `.osa`), hygiène canvas. Plus de conversion
+  destructive ni de 🔒. 5 sous-commits (r.1.1 types/constantes, r.1.2 actions,
+  r.1.3 migration, r.1.4 audio/composants/dialogs, r.1.5 canvas). Build/
+  typecheck/lint verts. Spec :
+  `docs/superpowers/specs/2026-06-01-waveform-rattrapage-design.md`.
+- ⏳ **M.r.2** — Réorganisation UI : barre du haut (nom + presets dropdown +
+  Reset + Normaliser + séparateur + proportions/Auto) ; contrôle `cap` unique
+  dans le header Harmoniques (consolide le double contrôle de M.r.1).
+- ⏳ **M.r.3** — Lentilles vivantes : switch Libre/Ancres inline, ancres
+  toujours fittées, coexistence éditable de toutes les vues (fin du gating par
+  lentille active).
+- ⏳ **M.r.4** — Courbe normalisée en arrière-plan + bouton Normaliser
+  fonctionnel + dialog edit-bars-requires-normalize.
+- ⏳ **M.r.5** — Convention d'amplitude (auto-fit Y + marqueur pointillé ±1),
+  repères + axes labellisés zone Harmoniques (`kf`, Y 0/0.5/1).
+- ⏳ **M.5b** — Passe doc « cœur de la synthèse » (pose la DFT avec le `\sum`),
+  **après** le rattrapage (sur modèle stable).
 
 ### Backlog général (à caser quand pertinent)
 
