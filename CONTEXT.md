@@ -477,6 +477,14 @@ hors scope. **Rattrapage M.r.1 (2026-06-01)** : pivot du Designer vers une
 **courbe canonique unique** + trois lentilles (Forme d'onde / Harmoniques /
 Spectro), `cap` unifié (ex-`definition`/`N`), résidu spline, plus de conversion
 destructive ; migration localStorage/`.osa` v1→v2, hygiène canvas systématique.
+**Rattrapage M.r.2 (2026-06-01)** : réorganisation UI — une **barre du haut**
+unique (nom du patch | Presets | Reset | Normaliser | proportions des colonnes |
+Auto) au-dessus des 3 colonnes ; **contrôle unique du cap** (slider+readout
+« N / 256 ») dans le header Harmoniques ; **switch Libre/Ancres** pour les deux
+modes d'édition de la zone Forme d'onde (plus aucun bouton « Convertir vers… ») ;
+barres d'harmoniques toujours éditables ; Reset (timbre seul) + Normaliser
+(iDFT phase canonique) fonctionnels ; `DEFAULT_EDITOR.canonical` = sinusoïde
+fondamentale (un nouveau patch produit du son).
 
 **Itération L (Documentation) — phase 5 (corpus) + clôture livrées le
 2026-05-28 — release v1.4.0. Itération L close.** Rédaction du contenu
@@ -850,37 +858,36 @@ Seuls les **placements timeline** s'appellent "clips".
   - Libre : slider log 2^4-2^15 Hz + FreqInput éditable + bouton
     **Test** (canal mono via `playFreeNote()` lisant `testFrequency`
     direct, raccourci `s`).
-- Children-API (5 slots, iter-M phase-2) : `renderCanvasArea`,
+- Children-API (iter-M phase-2, étendue r.2) : `renderCanvasArea`,
   `renderHarmonicsArea`, `renderParamsArea` (≡ zone "Instrument" depuis
-  G.1.1), `renderAdsrArea`, `renderActions` ({collapsed}). App.jsx compose
-  la moitié haute en 3 colonnes via `DesignerColumns` (Forme d'onde /
-  Harmoniques / Spectrogramme) et garde la moitié basse (Instrument / ADSR).
+  G.1.1), `renderAdsrArea`, `renderActions` ({collapsed}) + valeurs/handlers
+  pour la barre du haut : `patchLabel`, `openPresetPicker`,
+  `requestResetWaveform`, `normalizeWaveform` (le picker de presets et les
+  ConfirmDialog restent montés dans `WaveformEditor` ; la barre ne fait que
+  piloter leur ouverture). App.jsx compose la moitié haute = `DesignerToolbar`
+  (barre du haut) + 3 colonnes via `DesignerColumns` (Forme d'onde /
+  Harmoniques / Spectrogramme), et garde la moitié basse (Instrument / ADSR).
   Le panneau Actions est placé par App.jsx dans la sidebar gauche.
-- **Patch typé (iter-M phase-2/3)** : `editor.mode` ('draw' | 'harmonic' |
-  'spline') pilote la vue éditable ; les autres sont read-only (🔒).
-  - **Forme d'onde** (`renderCanvasArea`) : éditable en 'draw' (tracé) ; en
-    'spline' c'est l'éditeur de points/courbe (`SplineEditor`, dispatch en tête
-    de `renderCanvasArea`) ; read-only en 'harmonic' (reconstruction iDFT de
-    `editor.points`, handlers coupés, presets masqués).
-  - **Harmoniques** (`renderHarmonicsArea`) : en 'harmonic', N barres bleues
-    éditables (drag vertical = amplitude [0..1], 1 barre/geste verrouillée à
-    l'index au mousedown, commit unique → 1 undo ; bouton N 16..256). En
-    'draw', read-only : magnitudes DFT du dessin tronquées à `definition`. En
-    'spline', read-only : DFT **pleine** des `points` (256 composantes, pas de
-    `definition` à appliquer — courbe propre par construction). Grisées + 🔒.
-  - `draftAmplitudes` (geste continu) → reconstruction iDFT live → forme
-    d'onde + audio. Définition neutralisée à l'audio en harmonic ET spline
-    (`effectiveDefinition = HARMONIC_COUNT` ; seul 'draw' applique `definition`).
-  - Slider Définition masqué hors mode dessin.
-- **Passerelle (iter-M phase-2.5 + 3.3)** — 2 boutons par mode actif (vers les
-  deux autres), conversions atomiques undoables :
-  - draw → harmonic (`ConvertToHarmonicDialog`, choix N), draw → spline
-    (`ConvertToSplineDialog`).
-  - harmonic → draw (`ConfirmDialog`), harmonic → spline (`ConvertToSplineDialog`).
-  - spline → draw (`ConfirmDialog`), spline → harmonic (`ConvertToHarmonicDialog`).
-  - draw/harmonic → spline échantillonne N ancres équiréparties depuis
-    `editor.points` ; spline → draw/harmonic part de `editor.points` (ombre du
-    mode). Snap des proportions au défaut du mode cible conservé (spline = ½¼¼).
+- **Modèle unifié + lentilles (M rattrapage r.1 → r.2)** : la vérité audio est
+  `editor.canonical` ; `editor.currentLens` ('free' | 'spline' | 'bars') pilote
+  l'affichage. Plus de mode silotant : les 3 zones regardent la même canonical.
+  - **Forme d'onde** (`renderCanvasArea`) : deux modes d'édition exclusifs
+    pilotés par le **switch Libre/Ancres** du header (bascule `currentLens`
+    free↔spline). Libre = tracé main levée ; Ancres = `SplineEditor` (poignées).
+    Header partagé entre les deux (`renderWaveformHeaderControls` : switch +,
+    en Ancres, toggle Doux/Anguleux + slider « Ancres : N / 32 »).
+  - **Harmoniques** (`renderHarmonicsArea`) : barres bleues **toujours
+    éditables** (drag vertical = amplitude [0..1], 1 barre/geste verrouillée à
+    l'index au mousedown, commit unique → 1 undo), indépendantes de
+    `currentLens` (plus de chemin vers 'bars'). Header : **contrôle unique du
+    cap** (slider 1..256 + readout « N / 256 », NumberInput éditable).
+  - `draftAmplitudes` (geste continu) → reconstruction iDFT live (forme d'onde
+    + audio). `cap` (1..256) borne les harmoniques à la synthèse
+    (`pointsToPeriodicWave`), pas au modèle.
+- **Plus de passerelle « Convertir vers… » (supprimée en M.r.2.4)** : la
+  bascule entre les deux modes d'édition de la Forme d'onde passe par le switch
+  Libre/Ancres ; aucun chemin utilisateur explicite vers 'bars' (l'édition de
+  barres est directe dans la zone Harmoniques).
 - Éditeur AHDSR **visuel** 380×120 : 4 poignées draggables — P1
   (attack+amplitude en 2D), P1h (hold seul en 1D depuis F.3.13.1),
   P2 (decay+sustain en 2D), P4 (release seul en 1D). Courbe cyan +
@@ -919,23 +926,41 @@ Seuls les **placements timeline** s'appellent "clips".
   - "Enregistrer comme nouveau" / "Sauvegarder le patch" : `onSavePatch(payload)`,
     bascule la référence et le `hydratedFromIdRef` vers le nouvel id, déclenche
     `onPatchCreated(id)` pour que App set `currentPatchId`.
-- Header affiche soit "Patch N" (création) soit "Édition : NOM" (chargé).
+- L'identité du patch ("Patch N" en création / "Édition : NOM" chargé) est
+  affichée dans la barre du haut (`DesignerToolbar`) — plus dans le header de
+  la zone Forme d'onde (M.r.2.1).
 
-### `DesignerColumns.jsx` (iter-M phase-2.2)
+### `DesignerToolbar.jsx` (iter-M phase-r.2)
+- Barre du haut unique du Designer, au-dessus des 3 colonnes. Style aligné sur
+  les headers de colonne. Rendue par App.jsx en desktop (au-dessus de
+  `DesignerColumns`) **et** en mobile (au-dessus de l'accordéon).
+- Gauche : identité du patch (`patchLabel`) + boutons **Presets** (ouvre
+  `PresetPicker`, déplacé depuis le header Harmoniques), **Reset** (timbre seul,
+  ConfirmDialog → `RESET_EDITOR_WAVEFORM`), **Normaliser** (iDFT phase
+  canonique → `NORMALIZE_EDITOR_CANONICAL`, toujours cliquable en M.r.2).
+- Droite (desktop seulement, si `onWidths` fourni) : séparateur visuel + presets
+  de proportions ⅓⅓⅓ · ½¼¼ · ¼½¼ · ¼¼½ + toggle « Dimension auto ». En mobile,
+  ces contrôles sont sans objet (accordéon mono-colonne) et non rendus.
+- Présentational : tous les handlers viennent d'App.jsx (proportions/auto) et de
+  `WaveformEditor` via l'API children (Presets/Reset/Normaliser/patchLabel).
+
+### `DesignerColumns.jsx` (iter-M phase-2.2, allégé r.2.1)
 - Moitié haute du Designer en 3 colonnes ajustables (Forme d'onde /
   Harmoniques / Spectrogramme). Props : `widths` (3 fractions sommant à 1,
-  persistées), `onWidths`, `columns` (3 nodes).
-- Presets ⅓⅓⅓ · ½¼¼ · ¼½¼ · ¼¼½ (snap un clic). Séparateurs glissables
-  (`flex-grow` = fractions) : `mousedown` capture l'event (`stopPropagation`,
-  recalcul absolu depuis `startWidths`/`startX`, plancher 12 % par colonne).
-  Le `stopPropagation` isole le drag du clic-colonne (anticipation M.2-AS).
+  persistées), `onWidths`, `columns` (3 nodes), `autoSizing`, `focusGuardRef`.
+- **r.2.1** : les presets de proportions ⅓⅓⅓ · ½¼¼ · ¼½¼ · ¼¼½ et le toggle
+  « Dimension auto » ont migré dans `DesignerToolbar`. Ce composant ne gère plus
+  que les séparateurs glissables + le tracking du focus auto-sizing.
+- Séparateurs glissables (`flex-grow` = fractions) : `mousedown` capture l'event
+  (`stopPropagation`, recalcul absolu depuis `startWidths`/`startX`, plancher
+  12 % par colonne). Le `stopPropagation` isole le drag du clic-colonne.
 - État `designerColumnWidths` (reducer, non-undoable, persisté). Défaut piloté
-  par le mode (½¼¼ en dessin) tant qu'aucune valeur n'est persistée. Le spectro
-  est désormais une **colonne permanente** (toggle « Spectro » retiré ;
-  `spectrogramVisible` devenu vestigial, clé localStorage conservée).
+  par la lentille (½¼¼ en free/spline) tant qu'aucune valeur n'est persistée. Le
+  spectro est une **colonne permanente** (toggle « Spectro » retiré ;
+  `spectrogramVisible` vestigial, clé localStorage conservée).
 - **Auto-sizing (iter-M phase-2-as, essai)** : props `autoSizing`,
-  `onToggleAutoSizing`, `focusGuardRef`. Toggle « Dimension auto » dans la barre
-  presets. Quand ON, un `useEffect` attache un listener `mousedown` (capture)
+  `focusGuardRef` (toggle « Dimension auto » désormais dans `DesignerToolbar`).
+  Quand ON, un `useEffect` attache un listener `mousedown` (capture)
   qui pilote `designerColumnWidths` selon le focus (3 états : `[0.6,0.2,0.2]` /
   `[0.2,0.6,0.2]` / `[0.2,0.2,0.6]`=repos) et lève `focusGuardRef` le temps du
   geste qui change le focus (consommé par `WaveformEditor` pour supprimer
@@ -955,9 +980,12 @@ Seuls les **placements timeline** s'appellent "clips".
   Y ∈ [-1,1], **draft local** committé au mouseup → 1 cran undo, courbe live via
   `splineToPoints`) ; clic hors poignée → `ADD_SPLINE_ANCHOR` à ce point ;
   poignée + Suppr/Backspace **ou** clic droit → menu contextuel « Supprimer »
-  → `REMOVE_SPLINE_ANCHOR`. Toggle Doux/Anguleux (`SET_SPLINE_INTERPOLATION`)
-  dans le header. Curseur grab/grabbing/crosshair. Réutilise `.we-canvas-area`
-  / `.canvas-container` / `.label` (WaveformEditor.css, globaux).
+  → `REMOVE_SPLINE_ANCHOR`. Curseur grab/grabbing/crosshair. Réutilise
+  `.we-canvas-area` / `.canvas-container` / `.label` (WaveformEditor.css, globaux).
+- **r.2.4** : prop `convertButtons` + toggle Doux/Anguleux interne supprimés,
+  remplacés par une prop `headerControls` (le switch Libre/Ancres + Doux/Anguleux
+  + nombre d'ancres sont remontés dans `WaveformEditor.renderWaveformHeaderControls`
+  et rendus dans le header partagé). `onSetInterpolation` retiré des props.
 - Refs miroir mis à jour en `useEffect` (jamais pendant le render —
   react-hooks/refs), double-rAF ResizeObserver (contournement Firefox).
 
@@ -967,9 +995,9 @@ Seuls les **placements timeline** s'appellent "clips".
 
 ### `PresetPicker.jsx` (iter-M phase-4)
 - Modal de chargement des presets de timbre, ouvert par le bouton « Presets »
-  du header de la colonne Harmoniques (visible dans tous les modes — le
-  chargement bascule en harmonique). Reprend le langage visuel des dialogs
-  (backdrop + carte centrée). Escape ferme.
+  de la **barre du haut** (`DesignerToolbar`, déplacé depuis le header
+  Harmoniques en M.r.2.2 ; modale inchangée). Reprend le langage visuel des
+  dialogs (backdrop + carte centrée). Escape ferme.
 - Liste `TIMBRE_PRESETS` groupée par `PRESET_CATEGORIES` (nom + description en
   ligne). Clic → `onPick(preset)` délégué au parent. Le garde-fou dirty
   (`ConfirmDialog` avant écrasement) et le dispatch `LOAD_PRESET` vivent côté
@@ -1093,6 +1121,16 @@ Choix non évidents pris pour de bonnes raisons. À ne pas remettre en question
   drag d'ancre. **Hygiène canvas systématique** (`src/lib/canvas.js` →
   `withSavedCtx`) : aucune propriété de contexte ne fuit entre deux rendus. Cf.
   `docs/superpowers/specs/2026-06-01-waveform-rattrapage-design.md`.
+- **UI Designer « d'une seule voix » (M rattrapage r.2, 2026-06-01)** : une
+  **barre du haut unique** (`DesignerToolbar`) regroupe identité du patch +
+  Presets/Reset/Normaliser + proportions des colonnes. Le **cap a un contrôle
+  unique** (slider+readout dans le header Harmoniques) — fini le double contrôle
+  hérité de M.r.1 (slider « Définition » sidebar + NumberInput « Harmoniques »).
+  Les deux modes d'édition de la zone Forme d'onde se choisissent via un
+  **switch Libre/Ancres** (free↔spline) ; **plus aucun bouton « Convertir
+  vers… »** (reliques du modèle siloté). `WaveformLens` garde 3 valeurs mais
+  'bars' n'a plus de chemin utilisateur — les barres d'harmoniques sont éditées
+  directement (toujours éditables, indépendantes de la lentille).
 - **L'éditeur de patch n'est plus détaché** : son state (points, ADSR,
   preset, etc.) vit dans `state.editor` du reducer global, pas en local
   dans `WaveformEditor`. Raison : l'undo/redo doit couvrir l'éditeur.
@@ -1740,6 +1778,24 @@ Conventions tacites. Les enfreindre sans raison crée des bugs subtils.
   accepte v1 (legacy, migré à l'hydratation) et v2. Migration idempotente
   `reducer.migrateLegacyPatch` — une implémentation, deux call-sites
   (localStorage + import .osa).
+- **Reset vs Normaliser vs Nouveau patch (M.r.2)** : trois actions distinctes.
+  `RESET_EDITOR_WAVEFORM` (bouton Reset) réinitialise **le timbre seul**
+  (canonical = sin fondamentale, cap = 256, 8 ancres plates, résidu nul, preset
+  null) sans toucher ADSR / amplitude / test* / visualCue* / currentLens /
+  currentPatchId — distinct de `RESET_EDITOR` (Ctrl+Alt+N « Nouveau patch », qui
+  réinitialise tout l'éditeur). `NORMALIZE_EDITOR_CANONICAL` (bouton Normaliser)
+  exécute l'iDFT à phase canonique **sans détection d'état** en M.r.2 (toujours
+  cliquable ; si déjà normalisé → quasi no-op + 1 cran undo ; détection en M.r.4).
+- **`DEFAULT_EDITOR.canonical` = sinusoïde fondamentale (M.r.2)**, plus le silence
+  (`harmonicsToPoints([1], 1)`). Un nouveau patch / un reset produit du son
+  d'emblée (pédagogique). `RESET_EDITOR` en hérite. À l'init, la canonical par
+  défaut est désynchronisée des 8 ancres plates (résidu nul) — désync assumée
+  jusqu'à M.r.3 (synchronisation vivante).
+- **Pas de chemin utilisateur vers la lentille 'bars' (M.r.2.4)** : les barres
+  d'harmoniques s'éditent directement (zone Harmoniques toujours éditable), le
+  switch Forme d'onde ne bascule qu'entre 'free' et 'spline'. `cap` a un contrôle
+  unique (header Harmoniques) ; les alias `editorActions.setN`/`setDefinition`
+  sont supprimés (seul `setCap`).
 - **IDs via compteurs persistés** (`soundCounter`, `clipCounter`,
   `folderCounter`, `trackCounter`) : jamais les recalculer depuis `.length`.
   Après des suppressions, deux créations successives auraient le même
@@ -2744,6 +2800,40 @@ Phases listées ci-dessous dans l'ordre chronologique d'implémentation.
 
 ## Historique (chronologie inverse)
 
+- **2026-06-01 — Iteration M rattrapage phase r.2 : réorganisation UI (barre du haut + cap unifié + switch Libre/Ancres + Reset/Normaliser)**
+  Mise en ordre de l'héritage transitoire de M.r.1 : l'UI restait celle de M.4
+  (boutons « Convertir vers… », double contrôle cap, pas de barre globale). 4
+  sous-commits :
+  - **r.2.1** (`refactor`) : `DesignerToolbar` (nouveau) — barre du haut unique
+    au-dessus des 3 colonnes. Gauche = identité du patch (sound tag, déplacé
+    depuis le header Forme d'onde) ; droite = presets de proportions + toggle
+    Auto (déplacés depuis `DesignerColumns`, qui ne garde que les séparateurs +
+    le tracking focus). Rendue desktop **et** mobile (identité seule en mobile).
+    `patchLabel` exposé via l'API children. SplineEditor perd `soundTag`.
+  - **r.2.2** (`feat`) : boutons **Presets** (déplacé depuis le header
+    Harmoniques) et **Reset** dans la barre. Reset → ConfirmDialog systématique
+    → `RESET_EDITOR_WAVEFORM` (réinit du timbre seul : canonical = sin
+    fondamentale, cap 256, 8 ancres plates, résidu nul, preset null ; ADSR /
+    amplitude / test* / currentLens / currentPatchId préservés). Distinct de
+    `RESET_EDITOR` (« Nouveau patch »). `DEFAULT_EDITOR.canonical` : silence →
+    `harmonicsToPoints([1], 1)` (sin fondamentale, un nouveau patch sonne).
+  - **r.2.3** (`feat`) : bouton **Normaliser** + séparateur visuel.
+    `NORMALIZE_EDITOR_CANONICAL` (undoable) — iDFT à phase canonique sur les
+    `cap` premières amplitudes véritables, résidu recalculé. Toujours cliquable,
+    pas de dialog, aucune détection d'état (M.r.4).
+  - **r.2.4** (`feat`) : **contrôle unique du cap** (slider 1..256 + readout
+    « N / 256 ») dans le header Harmoniques — fin du double contrôle (NumberInput
+    N + slider Définition supprimés). Barres **toujours éditables** (décision
+    archi ; plus de chemin vers 'bars'). **Switch Libre/Ancres** dans le header
+    Forme d'onde (free↔spline) + (en Ancres) Doux/Anguleux remonté depuis
+    SplineEditor + slider « Ancres : N / 32 » (`SET_EDITOR_ANCHOR_COUNT`,
+    re-fit `fitAnchorsToCurve`, canonical inchangée). Tous les boutons
+    « Convertir vers… » supprimés ; `SplineEditor.convertButtons` →
+    `headerControls` ; alias `setN`/`setDefinition` supprimés (seul `setCap`).
+  Hors scope (rappel) : synchronisation vivante des lentilles + re-fit auto au
+  tracé → M.r.3 ; détection d'état normalisé + courbe normalisée en background
+  → M.r.4 ; repères/axes Harmoniques + auto-fit Y Forme d'onde → M.r.5.
+  Spec : `docs/superpowers/specs/2026-06-01-waveform-rattrapage-design.md` (§§5.1-5.3, 6).
 - **2026-06-01 — Iteration M rattrapage phase r.1 : modèle unifié + migration v1→v2 + hygiène canvas**
   Pivot du Designer silo-té (union discriminée draw/harmonic/spline + conversions
   destructives + verrou 🔒) vers une **courbe canonique unique** et trois
@@ -5911,14 +6001,22 @@ et L.7 (exercices guidés) restent des options de backlog, hors périmètre 1.4.
   r.1.3 migration, r.1.4 audio/composants/dialogs, r.1.5 canvas). Build/
   typecheck/lint verts. Spec :
   `docs/superpowers/specs/2026-06-01-waveform-rattrapage-design.md`.
-- ⏳ **M.r.2** — Réorganisation UI : barre du haut (nom + presets dropdown +
-  Reset + Normaliser + séparateur + proportions/Auto) ; contrôle `cap` unique
-  dans le header Harmoniques (consolide le double contrôle de M.r.1).
-- ⏳ **M.r.3** — Lentilles vivantes : switch Libre/Ancres inline, ancres
-  toujours fittées, coexistence éditable de toutes les vues (fin du gating par
-  lentille active).
-- ⏳ **M.r.4** — Courbe normalisée en arrière-plan + bouton Normaliser
-  fonctionnel + dialog edit-bars-requires-normalize.
+- ✅ **M.r.2 — Réorganisation UI** (2026-06-01) : barre du haut unique
+  `DesignerToolbar` (nom + Presets + Reset + Normaliser + séparateur +
+  proportions/Auto) ; contrôle `cap` unique (slider+readout) dans le header
+  Harmoniques (fin du double contrôle de M.r.1) ; switch Libre/Ancres pour les
+  deux modes d'édition de la Forme d'onde (plus aucun « Convertir vers… ») ;
+  barres toujours éditables ; Reset (timbre seul) + Normaliser (iDFT phase
+  canonique) fonctionnels ; `DEFAULT_EDITOR.canonical` = sin fondamentale ;
+  `SET_EDITOR_ANCHOR_COUNT` (re-fit). 4 sous-commits (r.2.1 barre, r.2.2
+  Presets/Reset, r.2.3 Normaliser, r.2.4 cap/switch/ancres). Build/typecheck/
+  lint verts.
+- ⏳ **M.r.3** — Lentilles vivantes : ancres toujours fittées (re-fit auto au
+  tracé libre / au switch de lentille), coexistence éditable de toutes les vues
+  (fin de la désync ancres/canonical à l'init et au switch).
+- ⏳ **M.r.4** — Détection d'état normalisé (désactivation conditionnelle du
+  bouton Normaliser, livré en r.2) + courbe normalisée en arrière-plan gris +
+  dialog edit-bars-requires-normalize.
 - ⏳ **M.r.5** — Convention d'amplitude (auto-fit Y + marqueur pointillé ±1),
   repères + axes labellisés zone Harmoniques (`kf`, Y 0/0.5/1).
 - ⏳ **M.5b** — Passe doc « cœur de la synthèse » (pose la DFT avec le `\sum`),
