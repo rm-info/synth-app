@@ -557,10 +557,19 @@ function WaveformEditor({
     })
   }, [])
 
+  // iter-M phase-r.2.5.1 : `currentLens` en dépendance. Au switch Ancres→Libre,
+  // renderCanvasArea passe de <SplineEditor> à un <canvas> nu → React démonte/
+  // remonte le canvas Libre. `points` est inchangé au switch (même canonical),
+  // donc sans cette dépendance l'effet ne se redéclenche pas et le canvas
+  // fraîchement monté reste vide jusqu'à une modif. La relancer force un draw.
   useEffect(() => {
     drawCanvas(points)
-  }, [points, drawCanvas])
+  }, [points, drawCanvas, currentLens])
 
+  // iter-M phase-r.2.5.1 : idem — re-keyer sur `currentLens` réattache le
+  // ResizeObserver au NOUVEAU container/canvas après remount (l'ancien
+  // observer pointait sur un noeud détaché) ; l'observe initial refixe
+  // width/height et redessine.
   useEffect(() => {
     const container = canvasContainerRef.current
     const canvas = canvasRef.current
@@ -590,7 +599,7 @@ function WaveformEditor({
       cancelAnimationFrame(raf2)
       ro.disconnect()
     }
-  }, [drawCanvas])
+  }, [drawCanvas, currentLens])
 
   const getCanvasPoint = (e) => {
     const canvas = canvasRef.current
