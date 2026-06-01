@@ -497,7 +497,14 @@ complète) ; **iconographie Lucide** généralisée — barre du haut
 (icône Spline), switch segmenté Doux/Anguleux en **SVG custom**, indicateur
 AlignEndHorizontal, Spectrogramme (Direct→Radio, Crête→SVG) et presets de
 proportions en SVG. **Convention projet actée : plus jamais d'Unicode comme
-icône, Lucide en priorité, SVG style Lucide en fallback.**
+icône, Lucide en priorité, SVG style Lucide en fallback.** **Rattrapage M.r.3
+(2026-06-01)** : **lentilles vivantes** — les 5 actions qui modifient la
+canonical par une voie non-spline (tracé libre, drag de barre, Normaliser,
+preset picker, presets rapides Sinus/Carré/…) **re-fittent automatiquement les
+ancres** sur la nouvelle canonical (helper `refitAnchorsAndResidual`) avant de
+recalculer le résidu ; la lentille Spline reflète toujours le tracé courant (fini
+les ancres figées à `y=0` après un dessin libre). Cleanup : `'bars'` retiré du
+type `WaveformLens` (vestigial depuis r.2.4).
 
 **Itération L (Documentation) — phase 5 (corpus) + clôture livrées le
 2026-05-28 — release v1.4.0. Itération L close.** Rédaction du contenu
@@ -704,8 +711,9 @@ type Patch = {
   sustain: number                 // 0..1
   release: number                 // ms, 0-1000 (F.3.11)
 }
-// Editor : mêmes champs + `currentLens: 'free'|'spline'|'bars'` (volatile, non
-// persisté) = quelle lentille est active. Migration v1→v2 (M.r.1) : les anciens
+// Editor : mêmes champs + `currentLens: 'free'|'spline'` (volatile, non
+// persisté) = quelle lentille est active (M.r.3.2 : 'bars' retiré, vestigial).
+// Migration v1→v2 (M.r.1) : les anciens
 // patches (draw/harmonic/spline) sont convertis à l'hydratation localStorage et
 // à l'import .osa v1 (reducer.migrateLegacyPatch, idempotent). OSA_VERSION = 2 ;
 // l'import accepte v1 (legacy) ET v2.
@@ -881,9 +889,16 @@ Seuls les **placements timeline** s'appellent "clips".
   (barre du haut) + 3 colonnes via `DesignerColumns` (Forme d'onde /
   Harmoniques / Spectrogramme), et garde la moitié basse (Instrument / ADSR).
   Le panneau Actions est placé par App.jsx dans la sidebar gauche.
-- **Modèle unifié + lentilles (M rattrapage r.1 → r.2)** : la vérité audio est
-  `editor.canonical` ; `editor.currentLens` ('free' | 'spline' | 'bars') pilote
-  l'affichage. Plus de mode silotant : les 3 zones regardent la même canonical.
+- **Modèle unifié + lentilles (M rattrapage r.1 → r.3)** : la vérité audio est
+  `editor.canonical` ; `editor.currentLens` ('free' | 'spline', M.r.3.2 :
+  'bars' retiré) pilote l'affichage. Plus de mode silotant : les 3 zones
+  regardent la même canonical.
+  - **Lentilles vivantes (M.r.3)** : synchronisation **ascendante** câblée — les
+    5 actions qui modifient la canonical par une voie non-spline re-fittent les
+    ancres avant de recalculer le résidu (helper `refitAnchorsAndResidual`,
+    count préservé). La lentille Spline reflète donc toujours le tracé courant
+    (plus d'ancres figées à `y=0` après tracé libre / preset). Cf. « Décisions
+    architecturales » pour la liste exacte des actions concernées / exemptées.
   - **Forme d'onde** (`renderCanvasArea`) : deux modes d'édition exclusifs
     pilotés par le **toggle Libre↔Ancres** du header (bascule `currentLens`
     free↔spline). Libre = tracé main levée ; Ancres = `SplineEditor` (poignées).
@@ -902,7 +917,7 @@ Seuls les **placements timeline** s'appellent "clips".
   - **Harmoniques** (`renderHarmonicsArea`) : barres bleues **toujours
     éditables** (drag vertical = amplitude [0..1], 1 barre/geste verrouillée à
     l'index au mousedown, commit unique → 1 undo), indépendantes de
-    `currentLens` (plus de chemin vers 'bars'). Header : **indicateur non
+    `currentLens` (le type ne porte plus 'bars' depuis M.r.3.2). Header : **indicateur non
     interactif** (icône `AlignEndHorizontal`, r.2.6.2) + **contrôle unique du
     cap** (slider 1..256 + readout « N / 256 », NumberInput éditable).
   - `draftAmplitudes` (geste continu) → reconstruction iDFT live (forme d'onde
@@ -1159,9 +1174,22 @@ Choix non évidents pris pour de bonnes raisons. À ne pas remettre en question
   hérité de M.r.1 (slider « Définition » sidebar + NumberInput « Harmoniques »).
   Les deux modes d'édition de la zone Forme d'onde se choisissent via un
   **switch Libre/Ancres** (free↔spline) ; **plus aucun bouton « Convertir
-  vers… »** (reliques du modèle siloté). `WaveformLens` garde 3 valeurs mais
-  'bars' n'a plus de chemin utilisateur — les barres d'harmoniques sont éditées
-  directement (toujours éditables, indépendantes de la lentille).
+  vers… »** (reliques du modèle siloté). `WaveformLens` ne porte plus que
+  `'free' | 'spline'` (M.r.3.2 : `'bars'` retiré, vestigial depuis r.2.4) — les
+  barres d'harmoniques sont éditées directement (toujours éditables,
+  indépendantes de la lentille).
+- **Lentilles vivantes — re-fit auto des ancres (M.r.3, 2026-06-01)** : les **5
+  actions** qui modifient `canonical` par une voie autre que le drag d'ancre
+  (`SET_EDITOR_CANONICAL`, `SET_EDITOR_HARMONIC_AMPLITUDE`,
+  `NORMALIZE_EDITOR_CANONICAL`, `LOAD_PRESET`, `APPLY_EDITOR_PRESET`) **re-fittent
+  automatiquement les ancres** sur la nouvelle canonical (en préservant leur
+  nombre) puis recalculent le résidu, via le helper unique
+  `refitAnchorsAndResidual(canonical, currentAnchors, interpolation)`. La lentille
+  Spline est donc *toujours* représentative du tracé courant ; un drag d'ancre
+  subséquent produit une déformation cohérente (amplitude du delta proportionnelle
+  à la finesse de la spline, modulée par le résidu). `APPLY_EDITOR_PRESET` (presets
+  rapides Sinus/Carré/…) est le 5ᵉ call-site : non listé dans le prompt initial,
+  ajouté par décision archi car il exhibait la même bizarrerie. Spec §4.1.
 - **Silence comme état neutre (M.r.2.5, 2026-06-01)** : `DEFAULT_EDITOR.canonical`
   et `RESET_EDITOR_WAVEFORM` repartent du **silence** (canonical à zéro). M.r.2.2
   avait tenté une sin fondamentale (« un nouveau patch sonne »), annulée à la
@@ -1824,7 +1852,7 @@ Conventions tacites. Les enfreindre sans raison crée des bugs subtils.
   vérité du modèle, plus seulement « TS-like » dans ce doc). Ne pas activer
   `strict:true` global ni ajouter de lib de types lourde sans validation archi.
 - **Modèle unifié (M rattrapage)** : `cap` (1..256) remplace `definition` (tracé)
-  ET `N` (barres) ; `editor.currentLens` (`'free'|'spline'|'bars'`) est
+  ET `N` (barres) ; `editor.currentLens` (`'free'|'spline'`, M.r.3.2) est
   **volatile** (non persisté en localStorage, non écrit dans `.osa`) ; le résidu
   (`residual`) vit sur l'editor ET le patch. `.osa` : `OSA_VERSION = 2`, l'import
   accepte v1 (legacy, migré à l'hydratation) et v2. Migration idempotente
@@ -1841,6 +1869,18 @@ Conventions tacites. Les enfreindre sans raison crée des bugs subtils.
   de l'éditeur (cap + ancres inclus). `NORMALIZE_EDITOR_CANONICAL` (bouton Normaliser)
   exécute l'iDFT à phase canonique **sans détection d'état** en M.r.2 (toujours
   cliquable ; si déjà normalisé → quasi no-op + 1 cran undo ; détection en M.r.4).
+- **Re-fit auto des ancres = uniquement les voies non-spline (M.r.3)** : seules
+  les 5 actions qui *écrivent* canonical par une autre voie (cf. Décisions
+  architecturales) appellent `refitAnchorsAndResidual`. Les actions suivantes
+  **n'invoquent PAS** le re-fit, chacune pour une raison documentée dans le
+  reducer : `MOVE_SPLINE_ANCHOR` / `ADD_SPLINE_ANCHOR` / `REMOVE_SPLINE_ANCHOR`
+  (édition *explicite* des ancres ; un re-fit annulerait le geste — le résidu
+  préservé porte les détails du tracé original) ; `SET_SPLINE_INTERPOLATION` (ne
+  change pas les ancres, juste `canonical = spline(anchors, new_interp) + résidu`) ;
+  `SET_EDITOR_ANCHOR_COUNT` (re-fit explicite déjà câblé, c'est sa raison d'être) ;
+  `RESET_EDITOR_WAVEFORM` (aplatit explicitement les ancres au count courant) ;
+  `SET_EDITOR_CAP` (ne touche pas la canonical — la troncature vit dans la chaîne
+  audio, `pointsToPeriodicWave`).
 - **`DEFAULT_EDITOR.canonical` = silence (canonical à zéro)**. La passe d'usage
   M.r.2.5 a annulé la sin fondamentale de M.r.2.2 (décision utilisateur : ne pas
   imposer un timbre arbitraire) — `DEFAULT_EDITOR.canonical` et
@@ -2853,6 +2893,30 @@ Phases listées ci-dessous dans l'ordre chronologique d'implémentation.
   prochaine candidate).
 
 ## Historique (chronologie inverse)
+
+- **2026-06-01 — Iteration M rattrapage phase r.3 : lentilles vivantes + cleanup 'bars'**
+  Phase chirurgicale (reducer + type), 2 sous-commits dev + docs :
+  - **r.3.1** (`feat`) : **re-fit auto des ancres**. Nouveau helper
+    `refitAnchorsAndResidual(canonical, currentAnchors, interpolation)` — re-fitte
+    les ancres sur la nouvelle canonical (count préservé) puis recalcule le résidu.
+    Câblé dans **5 actions** qui modifient canonical par voie non-spline :
+    `SET_EDITOR_CANONICAL` (tracé libre), `SET_EDITOR_HARMONIC_AMPLITUDE` (drag de
+    barre), `NORMALIZE_EDITOR_CANONICAL`, `LOAD_PRESET` (preset picker),
+    `APPLY_EDITOR_PRESET` (presets rapides Sinus/Carré/Dent de scie/Triangle).
+    Corrige la bizarrerie « ancres figées à `y=0` après tracé libre puis bascule
+    Spline » (synchronisation ascendante de la spec §2.1/§4.1). Les actions
+    d'édition explicite des ancres (`MOVE/ADD/REMOVE_SPLINE_ANCHOR`,
+    `SET_SPLINE_INTERPOLATION`, `SET_EDITOR_ANCHOR_COUNT`, `RESET_EDITOR_WAVEFORM`,
+    `SET_EDITOR_CAP`) n'invoquent **pas** le re-fit (raisons documentées dans le
+    reducer). `APPLY_EDITOR_PRESET` = 5ᵉ call-site, non listé dans le prompt
+    initial, ajouté par décision archi (même bizarrerie). Test de non-régression
+    manuel (10 scénarios) passé.
+  - **r.3.2** (`refactor`) : **cleanup `'bars'`** du type `WaveformLens`
+    (`'free' | 'spline' | 'bars'` → `'free' | 'spline'`), vestigial depuis r.2.4
+    (suppression des boutons « Convertir vers »). Mapping `currentLens → mode`
+    simplifié dans `WaveformEditor.jsx` (branche `'harmonic'` inatteignable
+    retirée) ; `defaultColumnWidthsForLens` ne teste plus `'bars'`.
+  - Build / typecheck / lint verts.
 
 - **2026-06-01 — Iteration M rattrapage phase r.2.6 : finitions UX (Reset resserré + iconographie Lucide)**
   Passe d'usage, 2 sous-commits dev + docs :
@@ -6139,9 +6203,15 @@ et L.7 (exercices guidés) restent des options de backlog, hors périmètre 1.4.
   la zone Forme d'onde (r.2.6.8, visible dans les deux modes). **Convention
   projet : plus jamais d'Unicode comme icône.** 8 sous-commits dev (r.2.6.1→.8)
   + docs. Build/lint verts.
-- ⏳ **M.r.3** — Lentilles vivantes : ancres toujours fittées (re-fit auto au
-  tracé libre / au switch de lentille), coexistence éditable de toutes les vues
-  (fin de la désync ancres/canonical à l'init et au switch).
+- ✅ **M.r.3 — Lentilles vivantes** (2026-06-01) : re-fit auto des ancres sur la
+  canonical après chaque modification par voie non-spline (helper
+  `refitAnchorsAndResidual`, count préservé), câblé dans **5 actions**
+  (`SET_EDITOR_CANONICAL`, `SET_EDITOR_HARMONIC_AMPLITUDE`,
+  `NORMALIZE_EDITOR_CANONICAL`, `LOAD_PRESET`, `APPLY_EDITOR_PRESET` — 5ᵉ par
+  décision archi) ; fin de la désync ancres/canonical (plus d'ancres à `y=0`
+  après tracé libre / preset). Cleanup : `'bars'` retiré du type `WaveformLens`
+  (vestigial depuis r.2.4). 2 sous-commits (r.3.1 re-fit, r.3.2 cleanup) + docs.
+  Test de non-régression manuel (10 scénarios) passé. Build/typecheck/lint verts.
 - ⏳ **M.r.4** — Détection d'état normalisé (désactivation conditionnelle du
   bouton Normaliser, livré en r.2) + courbe normalisée en arrière-plan gris +
   dialog edit-bars-requires-normalize.
