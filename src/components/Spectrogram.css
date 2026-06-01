@@ -38,6 +38,15 @@
   transition: background 0.15s, color 0.15s, border-color 0.15s;
 }
 
+/* r.2.6.5 : variantes boutons-icônes (Direct → Radio, Crête → SVG custom).
+   Centre l'icône ; align-items:stretch du conteneur égalise la hauteur avec dB. */
+.spectrogram-toggle-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4px 8px;
+}
+
 .spectrogram-toggle:hover {
   background: var(--hover-bg);
   color: var(--text-strong);

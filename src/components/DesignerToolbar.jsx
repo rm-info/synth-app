@@ -1,4 +1,5 @@
 import { FolderOpenDot, Eraser, Sigma } from 'lucide-react'
+import { IconColumnLayout } from './icons'
 import { STRINGS } from '../lib/strings'
 import './DesignerToolbar.css'
 
@@ -10,12 +11,13 @@ import './DesignerToolbar.css'
 // (r.2.2 / r.2.3).
 
 // Presets de répartition des 3 colonnes — déplacés depuis DesignerColumns en
-// phase r.2.1 (cf. spec §7.1). ⅓⅓⅓ · ½¼¼ · ¼½¼ · ¼¼½.
+// phase r.2.1 (cf. spec §7.1). r.2.6.6 : libellés Unicode ⅓⅓⅓ · ½¼¼ · ¼½¼ · ¼¼½
+// remplacés par un aperçu SVG (IconColumnLayout) des proportions.
 const COLUMN_PRESETS = [
-  { id: 'even', label: '⅓ ⅓ ⅓', widths: [1 / 3, 1 / 3, 1 / 3], title: 'Trois colonnes égales' },
-  { id: 'wave', label: '½ ¼ ¼', widths: [0.5, 0.25, 0.25], title: 'Forme d’onde large' },
-  { id: 'harm', label: '¼ ½ ¼', widths: [0.25, 0.5, 0.25], title: 'Harmoniques large' },
-  { id: 'spec', label: '¼ ¼ ½', widths: [0.25, 0.25, 0.5], title: 'Spectrogramme large' },
+  { id: 'even', widths: [1 / 3, 1 / 3, 1 / 3], title: 'Trois colonnes égales' },
+  { id: 'wave', widths: [0.5, 0.25, 0.25], title: 'Forme d’onde large' },
+  { id: 'harm', widths: [0.25, 0.5, 0.25], title: 'Harmoniques large' },
+  { id: 'spec', widths: [0.25, 0.25, 0.5], title: 'Spectrogramme large' },
 ]
 
 function DesignerToolbar({ patchLabel, onPresets, onReset, onNormalize, onWidths, autoSizing, onToggleAutoSizing }) {
@@ -66,8 +68,9 @@ function DesignerToolbar({ patchLabel, onPresets, onReset, onNormalize, onWidths
               type="button"
               className="designer-toolbar-preset-btn"
               title={p.title}
+              aria-label={p.title}
               onClick={() => onWidths(p.widths)}
-            >{p.label}</button>
+            ><IconColumnLayout widths={p.widths} /></button>
           ))}
           <label className="designer-toolbar-auto-toggle" title={STRINGS.editor.autoSizingTitle}>
             <input type="checkbox" checked={autoSizing} onChange={onToggleAutoSizing} />

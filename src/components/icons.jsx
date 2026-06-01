@@ -42,3 +42,42 @@ export function IconAnguleux(props) {
     </svg>
   )
 }
+
+// Aperçu de répartition des 3 colonnes du Designer : un rectangle 48×16 avec
+// deux séparateurs verticaux placés aux proportions `widths` ([a, b, c], somme 1).
+// Remplace les anciens libellés Unicode ⅓⅓⅓ · ½¼¼ · ¼½¼ · ¼¼½ (r.2.6.6).
+export function IconColumnLayout({ widths, ...rest }) {
+  const W = 48
+  const H = 16
+  const x1 = Math.round(W * widths[0])
+  const x2 = Math.round(W * (widths[0] + widths[1]))
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      width={W}
+      height={H}
+      viewBox={`0 0 ${W} ${H}`}
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={1.5}
+      strokeLinejoin="round"
+      {...rest}
+    >
+      <rect x="1" y="1" width={W - 2} height={H - 2} rx="2" />
+      <line x1={x1} y1="1" x2={x1} y2={H - 1} />
+      <line x1={x2} y1="1" x2={x2} y2={H - 1} />
+    </svg>
+  )
+}
+
+// Crête (peak hold du spectrogramme) : une courbe de spectre, surmontée de la
+// même courbe décalée vers le haut, plus fine et moins contrastée — la « ligne
+// de crête » tenue au-dessus du signal courant. Rien d'approprié dans Lucide.
+export function IconCrete(props) {
+  return (
+    <svg {...lucideProps(props)}>
+      <path d="M3 18 Q 12 6 21 18" />
+      <path d="M3 15 Q 12 3 21 15" strokeWidth={1.4} opacity={0.5} />
+    </svg>
+  )
+}

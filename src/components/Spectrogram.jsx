@@ -1,8 +1,10 @@
 import { useRef, useEffect, useCallback } from 'react'
+import { Radio } from 'lucide-react'
 import { pointsToHarmonics } from '../audio'
 import { themeColor } from '../lib/themeColor'
 import { withSavedCtx } from '../lib/canvas'
 import { STRINGS } from '../lib/strings'
+import { IconCrete } from './icons'
 import './Spectrogram.css'
 
 const FREQ_MIN = 16
@@ -460,9 +462,10 @@ function Spectrogram({
           <button
             type="button"
             onClick={onToggleMode}
-            className={`spectrogram-toggle${mode === 'live' ? ' is-active' : ''}`}
+            className={`spectrogram-toggle spectrogram-toggle-icon${mode === 'live' ? ' is-active' : ''}`}
             title="Mode Direct (analyse temps réel)"
-          >{STRINGS.spectro.live}</button>
+            aria-label={STRINGS.spectro.live}
+          ><Radio size={16} /></button>
           <button
             type="button"
             onClick={onToggleDbScale}
@@ -472,9 +475,10 @@ function Spectrogram({
           <button
             type="button"
             onClick={onTogglePeakHold}
-            className={`spectrogram-toggle${peakHold ? ' is-active' : ''}`}
+            className={`spectrogram-toggle spectrogram-toggle-icon${peakHold ? ' is-active' : ''}`}
             title="Tenir les pics (mode Direct)"
-          >{STRINGS.spectro.peak}</button>
+            aria-label={STRINGS.spectro.peak}
+          ><IconCrete size={16} /></button>
         </div>
       </header>
       <div className="spectrogram-canvas-container" ref={containerRef}>

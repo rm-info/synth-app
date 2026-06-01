@@ -71,11 +71,13 @@
   background: var(--surface-border-strong);
 }
 
-/* Presets de répartition (déplacés depuis .designer-columns-preset-btn). */
+/* Presets de répartition (déplacés depuis .designer-columns-preset-btn).
+   r.2.6.6 : aperçu SVG des proportions (IconColumnLayout) au lieu du texte. */
 .designer-toolbar-preset-btn {
-  font-size: 12px;
-  line-height: 1;
-  padding: 4px 8px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4px 6px;
   border-radius: 6px;
   border: 1px solid var(--surface-border-strong);
   background: var(--surface-elevated);
