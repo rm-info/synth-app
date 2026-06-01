@@ -163,13 +163,16 @@ function sanitizeAmplitudes(raw, N) {
   return out
 }
 
-// Jeu d'ancres par défaut (DEFAULT_SPLINE_ANCHOR_COUNT équiréparties, courbe
-// plate) — filet de sécurité quand un patch spline arrive sans ancres
-// exploitables (rétro-compat / .osa corrompu). Une courbe plate est inoffensive.
-function defaultSplineAnchors() {
+// Jeu d'ancres plates équiréparties, `count` ancres (défaut
+// DEFAULT_SPLINE_ANCHOR_COUNT). Filet de sécurité quand un patch spline arrive
+// sans ancres exploitables (rétro-compat / .osa corrompu) ; sert aussi au Reset
+// du timbre, qui préserve le NOMBRE d'ancres courant (cf. RESET_EDITOR_WAVEFORM).
+// Une courbe plate est inoffensive. `count` est clampé aux bornes spline.
+function defaultSplineAnchors(count = DEFAULT_SPLINE_ANCHOR_COUNT) {
+  const n = Math.max(SPLINE_ANCHOR_MIN, Math.min(SPLINE_ANCHOR_MAX, Math.round(count)))
   const out = []
-  for (let i = 0; i < DEFAULT_SPLINE_ANCHOR_COUNT; i++) {
-    out.push({ x: (i * POINTS_RESOLUTION) / DEFAULT_SPLINE_ANCHOR_COUNT, y: 0 })
+  for (let i = 0; i < n; i++) {
+    out.push({ x: (i * POINTS_RESOLUTION) / n, y: 0 })
   }
   return out
 }
@@ -1973,24 +1976,24 @@ export function reducer(state, action) {
       return { ...state, editor: { ...state.editor, canonical, residual } }
     }
     case 'RESET_EDITOR_WAVEFORM': {
-      // iter-M phase-r.2.6.1 : réinitialise canonical, ancres, interpolation et
-      // résidu. `cap` est PRÉSERVÉ pour ne pas perdre le réglage de plafond
-      // d'harmoniques (resserrement de portée vs r.2.2 qui le remettait à
-      // DEFAULT_CAP). Ne touche PAS au reste de l'éditeur (ADSR, amplitude,
-      // test*, visualCue*, currentLens) ni à currentPatchId. preset → null :
-      // le timbre vient d'être effacé, plus de filiation à un preset.
-      // Ctrl+Alt+N (RESET_EDITOR) reste l'outil de remise à zéro complète.
-      // ConfirmDialog systématique côté UI (pas de détection « dirty »).
+      // iter-M phase-r.2.6.1/.3 : réinitialise canonical, interpolation et
+      // résidu, et aplatit les ancres. `cap` (plafond d'harmoniques) ET le
+      // NOMBRE d'ancres sont PRÉSERVÉS — deux réglages que l'utilisateur a posés
+      // et qu'un simple effacement de timbre ne doit pas perdre (r.2.6.3).
+      // Ne touche PAS au reste de l'éditeur (ADSR, amplitude, test*, visualCue*,
+      // currentLens) ni à currentPatchId. preset → null : le timbre vient d'être
+      // effacé, plus de filiation à un preset. Ctrl+Alt+N (RESET_EDITOR) reste
+      // l'outil de remise à zéro complète. ConfirmDialog systématique côté UI.
       return {
         ...state,
         editor: {
           ...state.editor,
           canonical: new Array(POINTS_RESOLUTION).fill(0),
-          anchors: defaultSplineAnchors(),
+          anchors: defaultSplineAnchors(state.editor.anchors?.length),
           interpolation: DEFAULT_SPLINE_INTERPOLATION,
           residual: new Array(POINTS_RESOLUTION).fill(0),
           preset: null,
-          // cap : PRÉSERVÉ (≠ Nouveau patch Ctrl+Alt+N qui réinitialise tout).
+          // cap & nombre d'ancres : PRÉSERVÉS (≠ Ctrl+Alt+N qui réinitialise tout).
         },
       }
     }
