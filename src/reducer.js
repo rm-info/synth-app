@@ -1973,22 +1973,24 @@ export function reducer(state, action) {
       return { ...state, editor: { ...state.editor, canonical, residual } }
     }
     case 'RESET_EDITOR_WAVEFORM': {
-      // iter-M phase-r.2.2 : réinitialise UNIQUEMENT le timbre (canonical +
-      // cap + lentille spline). Ne touche PAS au reste de l'éditeur (ADSR,
-      // amplitude, test*, visualCue*, currentLens) ni à currentPatchId — c'est
-      // une remise à zéro du son, pas de l'éditeur (≠ RESET_EDITOR). preset →
-      // null : le timbre vient d'être effacé, plus de filiation à un preset.
+      // iter-M phase-r.2.6.1 : réinitialise canonical, ancres, interpolation et
+      // résidu. `cap` est PRÉSERVÉ pour ne pas perdre le réglage de plafond
+      // d'harmoniques (resserrement de portée vs r.2.2 qui le remettait à
+      // DEFAULT_CAP). Ne touche PAS au reste de l'éditeur (ADSR, amplitude,
+      // test*, visualCue*, currentLens) ni à currentPatchId. preset → null :
+      // le timbre vient d'être effacé, plus de filiation à un preset.
+      // Ctrl+Alt+N (RESET_EDITOR) reste l'outil de remise à zéro complète.
       // ConfirmDialog systématique côté UI (pas de détection « dirty »).
       return {
         ...state,
         editor: {
           ...state.editor,
           canonical: new Array(POINTS_RESOLUTION).fill(0),
-          cap: DEFAULT_CAP,
           anchors: defaultSplineAnchors(),
           interpolation: DEFAULT_SPLINE_INTERPOLATION,
           residual: new Array(POINTS_RESOLUTION).fill(0),
           preset: null,
+          // cap : PRÉSERVÉ (≠ Nouveau patch Ctrl+Alt+N qui réinitialise tout).
         },
       }
     }

@@ -2544,8 +2544,8 @@ function WaveformEditor({
       {/* iter-M phase-r.2.2 : confirmation du Reset du timbre (barre du haut). */}
       <ConfirmDialog
         open={confirmResetWaveformOpen}
-        title="Réinitialiser le timbre ?"
-        message="Tracé, harmoniques et ancres reviendront à leur état neutre (sinusoïde fondamentale)."
+        title="Effacer le timbre actuel ?"
+        message="Le tracé, les ancres et le résidu seront réinitialisés. Le plafond d'harmoniques et le reste de l'éditeur sont conservés."
         confirmLabel="Réinitialiser"
         cancelLabel="Annuler"
         variant="danger"
