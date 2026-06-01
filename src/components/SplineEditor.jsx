@@ -1,6 +1,7 @@
 import { useRef, useState, useEffect, useCallback } from 'react'
 import { splineToPoints } from '../lib/spline'
 import { themeColor } from '../lib/themeColor'
+import { withSavedCtx } from '../lib/canvas'
 import { STRINGS } from '../lib/strings'
 import './SplineEditor.css'
 
@@ -69,6 +70,7 @@ function SplineEditor({
     const midY = H / 2
     const { curve, anchors: pts, selectedIdx: sel, hoverIdx: hov } = drawStateRef.current
 
+    withSavedCtx(ctx, () => {
     ctx.fillStyle = themeColor('canvas-bg')
     ctx.fillRect(0, 0, W, H)
 
@@ -121,6 +123,7 @@ function SplineEditor({
       ctx.lineWidth = 1.5
       ctx.stroke()
     }
+    })
   }, [])
 
   useEffect(() => {

@@ -1,6 +1,7 @@
 import { useRef, useEffect, useCallback } from 'react'
 import { pointsToHarmonics } from '../audio'
 import { themeColor } from '../lib/themeColor'
+import { withSavedCtx } from '../lib/canvas'
 import { STRINGS } from '../lib/strings'
 import './Spectrogram.css'
 
@@ -168,6 +169,7 @@ function Spectrogram({
     const H = canvas.height
     if (!W || !H) return false
     const ctx = canvas.getContext('2d')
+    return withSavedCtx(ctx, () => {
     const { points, frequency, definition, dbScale } = propsRef.current
 
     ctx.fillStyle = themeColor('canvas-bg')
@@ -246,6 +248,7 @@ function Spectrogram({
       ctx.fillRect(x - BAR_WIDTH_PX / 2, plotY + plotH - barH, BAR_WIDTH_PX, barH)
     }
     return true
+    })
   }, [])
 
   const drawLive = useCallback(() => {
@@ -256,6 +259,7 @@ function Spectrogram({
     const H = canvas.height
     if (!W || !H) return false
     const ctx = canvas.getContext('2d')
+    return withSavedCtx(ctx, () => {
     const { analyserRef, dbScale, peakHold } = propsRef.current
 
     ctx.fillStyle = themeColor('canvas-bg')
@@ -386,6 +390,7 @@ function Spectrogram({
       ctx.stroke()
     }
     return true
+    })
   }, [])
 
   useEffect(() => {

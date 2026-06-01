@@ -29,6 +29,7 @@ import {
   systemSupportsVisualCues,
 } from '../lib/visualCues'
 import { themeColor } from '../lib/themeColor'
+import { withSavedCtx } from '../lib/canvas'
 import { STRINGS } from '../lib/strings'
 import ConfirmDialog from './ConfirmDialog'
 import PresetPicker from './PresetPicker'
@@ -507,6 +508,7 @@ function WaveformEditor({
     const ctx = canvas.getContext('2d')
     const midY = H / 2
 
+    withSavedCtx(ctx, () => {
     ctx.fillStyle = themeColor('canvas-bg')
     ctx.fillRect(0, 0, W, H)
 
@@ -549,6 +551,7 @@ function WaveformEditor({
       else ctx.lineTo(x, y)
     }
     ctx.stroke()
+    })
   }, [])
 
   useEffect(() => {
@@ -1365,6 +1368,7 @@ function WaveformEditor({
     const H = canvas.height
     if (!W || !H) return
     const ctx = canvas.getContext('2d')
+    withSavedCtx(ctx, () => {
     ctx.setTransform(W / ADSR_W, 0, 0, H / ADSR_H, 0, 0)
 
     ctx.fillStyle = themeColor('canvas-bg')
@@ -1436,6 +1440,7 @@ function WaveformEditor({
       ctx.lineWidth = 1.5
       ctx.stroke()
     }
+    })
   }, [p1.x, p1.y, p1h.x, p1h.y, p2.x, p2.y, p3.x, p3.y, p4.x, p4.y, peakY])
 
   // Sync canvas buffer ↔ container + draw. Sur Firefox, après `canvas.width = N`
