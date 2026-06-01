@@ -62,6 +62,22 @@ Items backlog issus de la session :
   false` global laisse passer les accès à des propriétés absentes (retour
   `undefined` au lieu d'erreur). Passer `reducer.js` en `// @ts-check`
   strict est dans la continuité du préalable M.0 (TS incrémental).
+- **Mismatch de grille FFT 600 ↔ 512** (remonté passe d'usage M.r.2.5) :
+  `harmonicsToPoints` écrit sur 600 points (`Σ a_k · sin(2πkx/600)`),
+  `pointsToHarmonics` resample en 512 (interp. linéaire) avant FFT.
+  Ratio non-entier ⇒ leakage spectral : un sin pur d'harmonique `k` sur
+  600 « fuit » sur les bins voisins en grille 512. Bug visible : éditer
+  une barre haute fait bouger des barres adjacentes (et basses) à la
+  relecture via `canonicalToBars`. Négligeable sur les premières
+  harmoniques, amplifié quand `k` approche de Nyquist du resampling
+  (~256). Le commentaire historique d'`audio.js` (« k ≤ 256 tombe sur
+  un bin FFT à NUM_SAMPLES = 512 ») est trop optimiste — il suppose un
+  alignement de grilles qui n'existe pas. Décision passe d'usage :
+  **accepter, à documenter dans M.5b comme limitation pédagogique
+  honnête**. Fix profond possible (DFT directe O(N²) sur 600 — ~150k
+  multiplications, sub-ms ; OU passage canonical de 600 à 512 partout
+  — refactor transverse `POINTS_RESOLUTION`, validation `.osa`,
+  miniatures, etc.). Hors scope rattrapage.
 
 ---
 
