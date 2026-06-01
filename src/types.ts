@@ -507,6 +507,9 @@ export type ActionBody =
   // iter-M phase-r.2.2 : reset du timbre seul (canonical + cap + lentille
   // spline). Préserve ADSR / amplitude / test* / currentLens / currentPatchId.
   | { type: 'RESET_EDITOR_WAVEFORM' }
+  // iter-M phase-r.2.3 : iDFT à phase canonique sur les `cap` premières
+  // amplitudes — régularise la phase. Sans détection d'état (M.r.4).
+  | { type: 'NORMALIZE_EDITOR_CANONICAL' }
   | { type: 'HYDRATE_EDITOR_FROM_PATCH'; payload: Patch | null }
 
   // ----- Non-undoable -----

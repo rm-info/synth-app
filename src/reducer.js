@@ -1936,6 +1936,24 @@ export function reducer(state, action) {
         currentPatchId: null,
       }
     }
+    case 'NORMALIZE_EDITOR_CANONICAL': {
+      // iter-M phase-r.2.3 : iDFT à phase canonique sur les `cap` premières
+      // amplitudes véritables. Même opération sous-jacente que l'édition d'une
+      // barre (SET_EDITOR_HARMONIC_AMPLITUDE) mais sans modifier d'amplitude :
+      // on relit les barres et on les réécrit, ce qui régularise la phase.
+      // Résidu recalculé sur les ancres courantes (cohérent avec les autres
+      // actions canonical). Pas de dialog (undoable). Aucune détection d'état
+      // normalisé en M.r.2 — si déjà à phase canonique, quasi no-op + 1 cran
+      // d'undo (documenté, amélioré en M.r.4).
+      const cap = state.editor.cap
+      const amplitudes = canonicalToBars(state.editor.canonical, cap)
+      const canonical = harmonicsToPoints(amplitudes, cap)
+      const residual = computeResidual(
+        canonical,
+        splineToPoints(state.editor.anchors, state.editor.interpolation),
+      )
+      return { ...state, editor: { ...state.editor, canonical, residual } }
+    }
     case 'RESET_EDITOR_WAVEFORM': {
       // iter-M phase-r.2.2 : réinitialise UNIQUEMENT le timbre (canonical +
       // cap + lentille spline). Ne touche PAS au reste de l'éditeur (ADSR,
@@ -2518,8 +2536,8 @@ const DESIGNER_UNDOABLE = new Set([
   'UPDATE_PATCH',
   'SET_EDITOR_CANONICAL', 'SET_EDITOR_AMPLITUDE', 'SET_EDITOR_CAP',
   'SET_EDITOR_ADSR', 'SET_EDITOR_ADSR_AND_AMP', 'APPLY_EDITOR_PRESET', 'RESET_EDITOR',
-  // iter-M phase-r.2 : reset du timbre seul.
-  'RESET_EDITOR_WAVEFORM',
+  // iter-M phase-r.2 : reset du timbre seul + normalisation (iDFT phase canonique).
+  'RESET_EDITOR_WAVEFORM', 'NORMALIZE_EDITOR_CANONICAL',
   'SET_EDITOR_VISUAL_CUE_PATTERN', 'SET_EDITOR_VISUAL_CUE_TONIC',
   // Modèle unifié (M rattrapage) : édition d'une barre + chargement de preset.
   'SET_EDITOR_HARMONIC_AMPLITUDE', 'LOAD_PRESET',

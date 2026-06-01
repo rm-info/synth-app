@@ -1241,6 +1241,9 @@ function WaveformEditor({
   // montés dans cette fenêtre — la barre ne fait que piloter leur ouverture.
   const openPresetPicker = () => setPresetPickerOpen(true)
   const requestResetWaveform = () => setConfirmResetWaveformOpen(true)
+  // iter-M phase-r.2.3 : Normaliser — toujours cliquable en M.r.2, pas de
+  // confirmation (undoable). La désactivation conditionnelle arrive en M.r.4.
+  const normalizeWaveform = () => editorActions.normalize()
   const doResetWaveform = () => {
     setConfirmResetWaveformOpen(false)
     editorActions.resetWaveform()
@@ -2515,7 +2518,7 @@ function WaveformEditor({
 
   return (
     <>
-      {children({ renderCanvasArea, renderHarmonicsArea, renderParamsArea, renderAdsrArea, renderActions, patchLabel, openPresetPicker, requestResetWaveform })}
+      {children({ renderCanvasArea, renderHarmonicsArea, renderParamsArea, renderAdsrArea, renderActions, patchLabel, openPresetPicker, requestResetWaveform, normalizeWaveform })}
       <ConfirmDialog
         open={confirmNewOpen}
         title="Nouveau patch ?"

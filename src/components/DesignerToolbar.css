@@ -46,6 +46,14 @@
   color: var(--text-strong);
 }
 
+/* Séparateur visuel entre le groupe d'actions et les proportions. */
+.designer-toolbar-divider {
+  width: 1px;
+  align-self: stretch;
+  margin: 2px 4px;
+  background: var(--surface-border-strong);
+}
+
 /* Presets de répartition (déplacés depuis .designer-columns-preset-btn). */
 .designer-toolbar-preset-btn {
   font-size: 12px;

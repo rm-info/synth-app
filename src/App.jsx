@@ -1998,6 +1998,8 @@ function App() {
       dispatch({ type: 'APPLY_EDITOR_PRESET', payload: { preset, points } }),
     // iter-M phase-r.2.2 : reset du timbre seul (≠ RESET_EDITOR « Nouveau patch »).
     resetWaveform: () => dispatch({ type: 'RESET_EDITOR_WAVEFORM' }),
+    // iter-M phase-r.2.3 : normalisation (iDFT phase canonique).
+    normalize: () => dispatch({ type: 'NORMALIZE_EDITOR_CANONICAL' }),
     setVisualCuePattern: (id) => dispatch({ type: 'SET_EDITOR_VISUAL_CUE_PATTERN', payload: id }),
     setVisualCueTonic: (deg) => dispatch({ type: 'SET_EDITOR_VISUAL_CUE_TONIC', payload: deg }),
     setXEdoN: (n) => dispatch({ type: 'SET_X_EDO_N', payload: n }),
@@ -2129,7 +2131,7 @@ function App() {
         autoSizing={autoSizing}
         autoSizeFocusGuardRef={autoSizeFocusGuardRef}
       >
-        {({ renderCanvasArea, renderHarmonicsArea, renderParamsArea, renderAdsrArea, renderActions, patchLabel, openPresetPicker, requestResetWaveform }) => (
+        {({ renderCanvasArea, renderHarmonicsArea, renderParamsArea, renderAdsrArea, renderActions, patchLabel, openPresetPicker, requestResetWaveform, normalizeWaveform }) => (
           <>
             <main
               className={`designer-layout${isMobile ? ' designer-layout-mobile' : ''}`}
@@ -2285,6 +2287,7 @@ function App() {
                     patchLabel={patchLabel}
                     onPresets={openPresetPicker}
                     onReset={requestResetWaveform}
+                    onNormalize={normalizeWaveform}
                   />
                   {[
                     { id: 'canvas', title: STRINGS.editor.waveformTitle, body: renderCanvasArea() },
@@ -2322,6 +2325,7 @@ function App() {
                     patchLabel={patchLabel}
                     onPresets={openPresetPicker}
                     onReset={requestResetWaveform}
+                    onNormalize={normalizeWaveform}
                     onWidths={setDesignerColumnWidths}
                     autoSizing={autoSizing}
                     onToggleAutoSizing={toggleAutoSizing}

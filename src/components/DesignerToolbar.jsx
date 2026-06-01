@@ -17,7 +17,7 @@ const COLUMN_PRESETS = [
   { id: 'spec', label: '¼ ¼ ½', widths: [0.25, 0.25, 0.5], title: 'Spectrogramme large' },
 ]
 
-function DesignerToolbar({ patchLabel, onPresets, onReset, onWidths, autoSizing, onToggleAutoSizing }) {
+function DesignerToolbar({ patchLabel, onPresets, onReset, onNormalize, onWidths, autoSizing, onToggleAutoSizing }) {
   // Les contrôles de proportions n'ont de sens qu'en layout 3-colonnes : on
   // ne les affiche que si le parent fournit un setter (desktop).
   const showColumnControls = typeof onWidths === 'function'
@@ -43,9 +43,19 @@ function DesignerToolbar({ patchLabel, onPresets, onReset, onWidths, autoSizing,
             data-anchor="designer-reset-button"
           >Reset</button>
         )}
+        {onNormalize && (
+          <button
+            type="button"
+            className="designer-toolbar-btn"
+            onClick={onNormalize}
+            title="Normaliser : redessiner le tracé comme la somme des harmoniques courantes (phase canonique)"
+            data-anchor="designer-normalize-button"
+          >Normaliser</button>
+        )}
       </div>
       {showColumnControls && (
         <div className="designer-toolbar-right" role="group" aria-label="Proportions des colonnes">
+          <span className="designer-toolbar-divider" aria-hidden="true" />
           {COLUMN_PRESETS.map((p) => (
             <button
               key={p.id}
