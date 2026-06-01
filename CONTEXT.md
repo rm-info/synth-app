@@ -490,12 +490,13 @@ contrôles Doux/Anguleux + Nombre d'ancres restent **toujours visibles**
 (désactivés en mode Libre au lieu d'être masqués) + input number pour saisir le
 nombre d'ancres. **Passe d'usage M.r.2.6 (2026-06-01)** : portée du **Reset
 resserrée** (réinitialise canonical + ancres + interpolation + résidu, mais
-**préserve le cap** — Ctrl+Alt+N reste la remise à zéro complète) ;
-**iconographie Lucide** généralisée — barre du haut (Eraser/FolderOpenDot/Sigma),
-switch Libre/Ancres devenu un **toggle unique** (icône Spline), toggles
-Doux/Anguleux en **SVG custom** style Lucide, indicateur AlignEndHorizontal
-devant le slider de plafond. **Convention projet actée : plus jamais d'Unicode
-comme icône, Lucide en priorité, SVG style Lucide en fallback.**
+**préserve le cap ET le nombre d'ancres** — Ctrl+Alt+N reste la remise à zéro
+complète) ; **iconographie Lucide** généralisée — barre du haut
+(Eraser/FolderOpenDot/Sigma), switch Libre/Ancres devenu un **toggle unique**
+(icône Spline), switch segmenté Doux/Anguleux en **SVG custom**, indicateur
+AlignEndHorizontal, Spectrogramme (Direct→Radio, Crête→SVG) et presets de
+proportions en SVG. **Convention projet actée : plus jamais d'Unicode comme
+icône, Lucide en priorité, SVG style Lucide en fallback.**
 
 **Itération L (Documentation) — phase 5 (corpus) + clôture livrées le
 2026-05-28 — release v1.4.0. Itération L close.** Rédaction du contenu
@@ -887,10 +888,12 @@ Seuls les **placements timeline** s'appellent "clips".
     free↔spline). Libre = tracé main levée ; Ancres = `SplineEditor` (poignées).
     Header partagé entre les deux (`renderWaveformHeaderControls`). **r.2.6.2** :
     l'ancien switch 2-boutons est devenu un **toggle unique** porteur de l'icône
-    `Spline` (`is-active`/`aria-pressed` = lentille spline), qui sert aussi de
-    label visuel devant le slider Nombre d'ancres. Le toggle **Doux/Anguleux**
-    (icônes **SVG custom** `IconDoux`/`IconAnguleux`, style Lucide) + le
-    slider/input « N / 32 » y sont **toujours rendus** (positions stables),
+    `Spline` (`is-active`/`aria-pressed` = mode interpolé ; tooltips « Mode Dessin
+    libre/interpolé » sans le mot « lentille », r.2.6.4), qui sert aussi de label
+    visuel devant le slider Nombre d'ancres. Le toggle **Doux/Anguleux** (icônes
+    **SVG custom** `IconDoux`/`IconAnguleux`, style Lucide, **joint en switch
+    segmenté** r.2.6.4) + le slider/input « N / 32 » (input aligné sur la hauteur
+    des boutons, r.2.6.4) y sont **toujours rendus** (positions stables),
     `disabled` en mode Libre (M.r.2.5.2) ; saisie directe du nombre d'ancres via
     `<NumberInput>` (M.r.2.5.3).
   - **Harmoniques** (`renderHarmonicsArea`) : barres bleues **toujours
@@ -959,6 +962,9 @@ Seuls les **placements timeline** s'appellent "clips".
   **r.2.6.2** : ces trois boutons sont rendus en **icônes Lucide** (Presets →
   `FolderOpenDot`, Reset → `Eraser`, Normaliser → `Sigma`) via la classe
   partagée `.icon-btn` — `title` complet + `aria-label` conservés.
+- **r.2.6.5/.6** : les presets de proportions des colonnes (anciens libellés
+  Unicode ⅓⅓⅓ · ½¼¼ · ¼½¼ · ¼¼½) sont rendus par un **aperçu SVG**
+  (`IconColumnLayout` : rectangle 48×16 + 2 séparateurs aux proportions).
 - Droite (desktop seulement, si `onWidths` fourni) : séparateur visuel + presets
   de proportions ⅓⅓⅓ · ½¼¼ · ¼½¼ · ¼¼½ + toggle « Dimension auto ». En mobile,
   ces contrôles sont sans objet (accordéon mono-colonne) et non rendus.
@@ -1157,11 +1163,14 @@ Choix non évidents pris pour de bonnes raisons. À ne pas remettre en question
   avait tenté une sin fondamentale (« un nouveau patch sonne »), annulée à la
   passe d'usage : ne pas imposer un timbre arbitraire à l'utilisateur — il part
   d'une toile vierge et façonne son son.
-- **Reset Designer = effacer le timbre, pas l'éditeur (M.r.2.6.1, 2026-06-01)** :
-  le bouton Reset (`RESET_EDITOR_WAVEFORM`) efface le timbre et ramène les ancres
-  à leur état initial, **mais préserve le plafond d'harmoniques `cap`**. Ctrl+Alt+N
-  (`RESET_EDITOR`) reste l'outil de remise à zéro complète (cap inclus). On a déjà
-  un chemin pour tout réinitialiser ; Reset doit avoir une portée plus restreinte.
+- **Reset Designer = effacer le timbre, pas l'éditeur (M.r.2.6.1/.3, 2026-06-01)** :
+  le bouton Reset (`RESET_EDITOR_WAVEFORM`) efface le timbre (canonical → silence)
+  et aplatit les ancres, **mais préserve le plafond d'harmoniques `cap` ET le
+  nombre d'ancres** — deux réglages posés par l'utilisateur, conservés à
+  l'identique (r.2.6.3 : `defaultSplineAnchors(count)` régénère N ancres plates où
+  N = compte courant). Ctrl+Alt+N (`RESET_EDITOR`) reste l'outil de remise à zéro
+  complète (cap + ancres inclus). On a déjà un chemin pour tout réinitialiser ;
+  Reset doit avoir une portée plus restreinte.
 - **Convention iconographique du projet (M.r.2.6.2, 2026-06-01)** : **Lucide en
   priorité** pour toute icône d'UI. Si rien dans Lucide ne convient
   sémantiquement, **SVG inline dans le style Lucide** (stroke ~2 px, pas de fill,
@@ -1819,12 +1828,13 @@ Conventions tacites. Les enfreindre sans raison crée des bugs subtils.
   (localStorage + import .osa).
 - **Reset vs Normaliser vs Nouveau patch (M.r.2, portée resserrée r.2.6.1)** :
   trois actions distinctes. `RESET_EDITOR_WAVEFORM` (bouton Reset) réinitialise
-  **le timbre seul** (canonical = silence, 8 ancres plates, interpolation =
+  **le timbre seul** (canonical = silence, ancres aplaties, interpolation =
   défaut, résidu nul, preset null) mais **préserve le `cap`** (plafond
-  d'harmoniques) — resserrement r.2.6.1 vs l'ancienne remise du cap à 256. Ne
-  touche pas non plus ADSR / amplitude / test* / visualCue* / currentLens /
-  currentPatchId. Distinct de `RESET_EDITOR` (Ctrl+Alt+N « Nouveau patch »), qui
-  reste l'outil de **remise à zéro complète** de l'éditeur (cap inclus). `NORMALIZE_EDITOR_CANONICAL` (bouton Normaliser)
+  d'harmoniques) **et le nombre d'ancres** — resserrement r.2.6.1/.3 vs l'ancienne
+  remise du cap à 256 et du compte à 8. Ne touche pas non plus ADSR / amplitude /
+  test* / visualCue* / currentLens / currentPatchId. Distinct de `RESET_EDITOR`
+  (Ctrl+Alt+N « Nouveau patch »), qui reste l'outil de **remise à zéro complète**
+  de l'éditeur (cap + ancres inclus). `NORMALIZE_EDITOR_CANONICAL` (bouton Normaliser)
   exécute l'iDFT à phase canonique **sans détection d'état** en M.r.2 (toujours
   cliquable ; si déjà normalisé → quasi no-op + 1 cran undo ; détection en M.r.4).
 - **`DEFAULT_EDITOR.canonical` = silence (canonical à zéro)**. La passe d'usage
@@ -2856,6 +2866,15 @@ Phases listées ci-dessous dans l'ordre chronologique d'implémentation.
     CSS segmentées (`.we-lens-switch`, `.spline-interp-btn`) devenues mortes
     retirées. Toutes les icônes du tableau présentes en `lucide-react` 1.16 (aucun
     fallback nécessaire).
+  - **r.2.6.3** (`fix`) : le **Reset préserve aussi le nombre d'ancres** (pas
+    seulement le cap) — `defaultSplineAnchors(count)` régénère N ancres plates.
+  - **r.2.6.4** (`feat`) : finitions header Forme d'onde — tooltips du toggle
+    reformulés sans « lentille » (Mode Dessin libre/interpolé), toggle
+    Doux/Anguleux **rejoint en switch segmenté**, inputs nombre d'ancres +
+    harmoniques **alignés sur la hauteur des boutons**.
+  - **r.2.6.5** (`feat`) : iconographie étendue au fil de l'eau — Spectrogramme
+    (Direct → `Radio`, Crête → `IconCrete` SVG custom ; dB reste texte) + presets
+    de proportions des colonnes (`IconColumnLayout` SVG, fin des libellés Unicode).
   - **Convention projet actée** : Lucide en priorité, SVG style Lucide en fallback,
     **plus jamais d'Unicode** comme icône ni séparateur graphique — partout, toutes
     phases futures.
@@ -6099,11 +6118,14 @@ et L.7 (exercices guidés) restent des options de backlog, hors périmètre 1.4.
   1 fix archi + 3 sous-commits dev. Build/typecheck/lint verts.
 - ✅ **M.r.2.6 — Finitions UX (Reset resserré + iconographie Lucide)**
   (2026-06-01) : portée du Reset resserrée (canonical + ancres + interpolation +
-  résidu réinitialisés, **`cap` préservé** ; Ctrl+Alt+N = remise à zéro totale) ;
-  iconographie Lucide généralisée (barre du haut Eraser/FolderOpenDot/Sigma,
-  toggle unique Spline, SVG custom Doux/Anguleux, indicateur AlignEndHorizontal),
-  classe partagée `.icon-btn`. **Convention projet : plus jamais d'Unicode comme
-  icône.** 2 sous-commits dev + docs. Build/lint verts.
+  résidu réinitialisés, **`cap` ET nombre d'ancres préservés** ; Ctrl+Alt+N =
+  remise à zéro totale) ; iconographie Lucide généralisée (barre du haut
+  Eraser/FolderOpenDot/Sigma, toggle unique Spline + tooltips sans « lentille »,
+  switch segmenté Doux/Anguleux en SVG custom, indicateur AlignEndHorizontal,
+  Spectrogramme Direct→Radio / Crête→SVG, presets de proportions en SVG),
+  classe partagée `.icon-btn`, inputs alignés sur la hauteur des boutons.
+  **Convention projet : plus jamais d'Unicode comme icône.** 6 sous-commits dev
+  (r.2.6.1→.5) + docs. Build/lint verts.
 - ⏳ **M.r.3** — Lentilles vivantes : ancres toujours fittées (re-fit auto au
   tracé libre / au switch de lentille), coexistence éditable de toutes les vues
   (fin de la désync ancres/canonical à l'init et au switch).
