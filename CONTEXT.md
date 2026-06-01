@@ -483,8 +483,12 @@ Auto) au-dessus des 3 colonnes ; **contrôle unique du cap** (slider+readout
 « N / 256 ») dans le header Harmoniques ; **switch Libre/Ancres** pour les deux
 modes d'édition de la zone Forme d'onde (plus aucun bouton « Convertir vers… ») ;
 barres d'harmoniques toujours éditables ; Reset (timbre seul) + Normaliser
-(iDFT phase canonique) fonctionnels ; `DEFAULT_EDITOR.canonical` = sinusoïde
-fondamentale (un nouveau patch produit du son).
+(iDFT phase canonique) fonctionnels. **Passe d'usage M.r.2.5 (2026-06-01)** :
+Reset / Nouveau patch reviennent au **silence** (canonical à zéro, pas de timbre
+imposé) ; fix du redraw de la canvas Forme d'onde au switch Ancres→Libre ; les
+contrôles Doux/Anguleux + Nombre d'ancres restent **toujours visibles**
+(désactivés en mode Libre au lieu d'être masqués) + input number pour saisir le
+nombre d'ancres.
 
 **Itération L (Documentation) — phase 5 (corpus) + clôture livrées le
 2026-05-28 — release v1.4.0. Itération L close.** Rédaction du contenu
@@ -874,8 +878,10 @@ Seuls les **placements timeline** s'appellent "clips".
   - **Forme d'onde** (`renderCanvasArea`) : deux modes d'édition exclusifs
     pilotés par le **switch Libre/Ancres** du header (bascule `currentLens`
     free↔spline). Libre = tracé main levée ; Ancres = `SplineEditor` (poignées).
-    Header partagé entre les deux (`renderWaveformHeaderControls` : switch +,
-    en Ancres, toggle Doux/Anguleux + slider « Ancres : N / 32 »).
+    Header partagé entre les deux (`renderWaveformHeaderControls`). Le toggle
+    Doux/Anguleux + le slider/input « Ancres : N / 32 » y sont **toujours rendus**
+    (positions stables), `disabled` en mode Libre (M.r.2.5.2) ; saisie directe du
+    nombre d'ancres via `<NumberInput>` (M.r.2.5.3).
   - **Harmoniques** (`renderHarmonicsArea`) : barres bleues **toujours
     éditables** (drag vertical = amplitude [0..1], 1 barre/geste verrouillée à
     l'index au mousedown, commit unique → 1 undo), indépendantes de
@@ -1131,6 +1137,11 @@ Choix non évidents pris pour de bonnes raisons. À ne pas remettre en question
   vers… »** (reliques du modèle siloté). `WaveformLens` garde 3 valeurs mais
   'bars' n'a plus de chemin utilisateur — les barres d'harmoniques sont éditées
   directement (toujours éditables, indépendantes de la lentille).
+- **Silence comme état neutre (M.r.2.5, 2026-06-01)** : `DEFAULT_EDITOR.canonical`
+  et `RESET_EDITOR_WAVEFORM` repartent du **silence** (canonical à zéro). M.r.2.2
+  avait tenté une sin fondamentale (« un nouveau patch sonne »), annulée à la
+  passe d'usage : ne pas imposer un timbre arbitraire à l'utilisateur — il part
+  d'une toile vierge et façonne son son.
 - **L'éditeur de patch n'est plus détaché** : son state (points, ADSR,
   preset, etc.) vit dans `state.editor` du reducer global, pas en local
   dans `WaveformEditor`. Raison : l'undo/redo doit couvrir l'éditeur.
@@ -1780,17 +1791,16 @@ Conventions tacites. Les enfreindre sans raison crée des bugs subtils.
   (localStorage + import .osa).
 - **Reset vs Normaliser vs Nouveau patch (M.r.2)** : trois actions distinctes.
   `RESET_EDITOR_WAVEFORM` (bouton Reset) réinitialise **le timbre seul**
-  (canonical = sin fondamentale, cap = 256, 8 ancres plates, résidu nul, preset
+  (canonical = silence, cap = 256, 8 ancres plates, résidu nul, preset
   null) sans toucher ADSR / amplitude / test* / visualCue* / currentLens /
   currentPatchId — distinct de `RESET_EDITOR` (Ctrl+Alt+N « Nouveau patch », qui
   réinitialise tout l'éditeur). `NORMALIZE_EDITOR_CANONICAL` (bouton Normaliser)
   exécute l'iDFT à phase canonique **sans détection d'état** en M.r.2 (toujours
   cliquable ; si déjà normalisé → quasi no-op + 1 cran undo ; détection en M.r.4).
-- **`DEFAULT_EDITOR.canonical` = sinusoïde fondamentale (M.r.2)**, plus le silence
-  (`harmonicsToPoints([1], 1)`). Un nouveau patch / un reset produit du son
-  d'emblée (pédagogique). `RESET_EDITOR` en hérite. À l'init, la canonical par
-  défaut est désynchronisée des 8 ancres plates (résidu nul) — désync assumée
-  jusqu'à M.r.3 (synchronisation vivante).
+- **`DEFAULT_EDITOR.canonical` = silence (canonical à zéro)**. La passe d'usage
+  M.r.2.5 a annulé la sin fondamentale de M.r.2.2 (décision utilisateur : ne pas
+  imposer un timbre arbitraire) — `DEFAULT_EDITOR.canonical` et
+  `RESET_EDITOR_WAVEFORM` repartent du silence. `RESET_EDITOR` en hérite.
 - **Pas de chemin utilisateur vers la lentille 'bars' (M.r.2.4)** : les barres
   d'harmoniques s'éditent directement (zone Harmoniques toujours éditable), le
   switch Forme d'onde ne bascule qu'entre 'free' et 'spline'. `cap` a un contrôle
@@ -2800,6 +2810,27 @@ Phases listées ci-dessous dans l'ordre chronologique d'implémentation.
 
 ## Historique (chronologie inverse)
 
+- **2026-06-01 — Iteration M rattrapage phase r.2.5 : finitions UX (silence au Reset + redraw switch lentille + header stable)**
+  Passe d'usage immédiate après M.r.2. 1 fix archi + 3 sous-commits dev :
+  - **(fix archi)** `RESET_EDITOR_WAVEFORM` + `DEFAULT_EDITOR.canonical` →
+    **retour au silence** (canonical à zéro). Décision utilisateur : la sin
+    fondamentale de r.2.2 imposait un timbre arbitraire ; on repart d'une toile
+    vierge. Commit `fix(iter-M/phase-r.2.5)`.
+  - **r.2.5.1** (`fix`) : redraw de la canvas Forme d'onde au switch
+    Ancres→Libre. `renderCanvasArea` alterne `<SplineEditor>` ↔ `<canvas>` nu →
+    React démonte/remonte le canvas Libre ; les effets draw `[points, drawCanvas]`
+    et ResizeObserver `[drawCanvas]` ne se redéclenchaient pas (même canonical,
+    ancien observer sur container détaché) → canvas vide jusqu'à une modif. Fix :
+    re-keyer les deux effets sur `currentLens`.
+  - **r.2.5.2** (`feat`) : header Forme d'onde — toggle Doux/Anguleux + slider
+    Nombre d'ancres **toujours rendus** (positions stables), `disabled` en mode
+    Libre (opacité + not-allowed) au lieu d'être masqués (fin du saut de layout
+    au switch).
+  - **r.2.5.3** (`feat`) : `<NumberInput>` à côté du slider Nombre d'ancres
+    (saisie directe 4..32, commit Enter/blur → `setAnchorCount`). Prop `disabled`
+    ajoutée à `NumberInput`. Partage l'état désactivé du mode Libre.
+  Hors scope (inchangé) : désync ancres/canonical au switch → M.r.3 ; régression
+  de phase édition barres/Normaliser → M.r.4 ; cosmétique Harmoniques → M.r.5.
 - **2026-06-01 — Iteration M rattrapage phase r.2 : réorganisation UI (barre du haut + cap unifié + switch Libre/Ancres + Reset/Normaliser)**
   Mise en ordre de l'héritage transitoire de M.r.1 : l'UI restait celle de M.4
   (boutons « Convertir vers… », double contrôle cap, pas de barre globale). 4
@@ -2812,11 +2843,11 @@ Phases listées ci-dessous dans l'ordre chronologique d'implémentation.
     `patchLabel` exposé via l'API children. SplineEditor perd `soundTag`.
   - **r.2.2** (`feat`) : boutons **Presets** (déplacé depuis le header
     Harmoniques) et **Reset** dans la barre. Reset → ConfirmDialog systématique
-    → `RESET_EDITOR_WAVEFORM` (réinit du timbre seul : canonical = sin
-    fondamentale, cap 256, 8 ancres plates, résidu nul, preset null ; ADSR /
-    amplitude / test* / currentLens / currentPatchId préservés). Distinct de
-    `RESET_EDITOR` (« Nouveau patch »). `DEFAULT_EDITOR.canonical` : silence →
-    `harmonicsToPoints([1], 1)` (sin fondamentale, un nouveau patch sonne).
+    → `RESET_EDITOR_WAVEFORM` (réinit du timbre seul : canonical, cap 256,
+    8 ancres plates, résidu nul, preset null ; ADSR / amplitude / test* /
+    currentLens / currentPatchId préservés). Distinct de `RESET_EDITOR`
+    (« Nouveau patch »). [r.2.2 avait posé `DEFAULT_EDITOR.canonical` = sin
+    fondamentale ; **annulé en r.2.5** → retour au silence, cf. plus haut.]
   - **r.2.3** (`feat`) : bouton **Normaliser** + séparateur visuel.
     `NORMALIZE_EDITOR_CANONICAL` (undoable) — iDFT à phase canonique sur les
     `cap` premières amplitudes véritables, résidu recalculé. Toujours cliquable,
@@ -6007,10 +6038,15 @@ et L.7 (exercices guidés) restent des options de backlog, hors périmètre 1.4.
   Harmoniques (fin du double contrôle de M.r.1) ; switch Libre/Ancres pour les
   deux modes d'édition de la Forme d'onde (plus aucun « Convertir vers… ») ;
   barres toujours éditables ; Reset (timbre seul) + Normaliser (iDFT phase
-  canonique) fonctionnels ; `DEFAULT_EDITOR.canonical` = sin fondamentale ;
-  `SET_EDITOR_ANCHOR_COUNT` (re-fit). 4 sous-commits (r.2.1 barre, r.2.2
-  Presets/Reset, r.2.3 Normaliser, r.2.4 cap/switch/ancres). Build/typecheck/
-  lint verts.
+  canonique) fonctionnels ; `SET_EDITOR_ANCHOR_COUNT` (re-fit). 4 sous-commits
+  (r.2.1 barre, r.2.2 Presets/Reset, r.2.3 Normaliser, r.2.4 cap/switch/ancres).
+  Build/typecheck/lint verts.
+- ✅ **M.r.2.5 — Finitions UX** (2026-06-01) : Reset / Nouveau patch → **silence**
+  (canonical à zéro ; la sin fondamentale de r.2.2 annulée, pas de timbre
+  imposé) ; fix redraw canvas Forme d'onde au switch Ancres→Libre (re-key des
+  effets sur `currentLens`) ; contrôles Doux/Anguleux + Nombre d'ancres toujours
+  visibles, désactivés en mode Libre ; input number pour le nombre d'ancres.
+  1 fix archi + 3 sous-commits dev. Build/typecheck/lint verts.
 - ⏳ **M.r.3** — Lentilles vivantes : ancres toujours fittées (re-fit auto au
   tracé libre / au switch de lentille), coexistence éditable de toutes les vues
   (fin de la désync ancres/canonical à l'init et au switch).
