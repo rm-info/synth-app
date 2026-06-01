@@ -1801,6 +1801,10 @@ function WaveformEditor({
   // Harmoniques (toujours éditable).
   const renderWaveformHeaderControls = () => {
     const anchorCount = draftAnchorCount ?? anchors.length
+    // iter-M phase-r.2.5.2 : les contrôles spécifiques au mode Ancres sont
+    // TOUJOURS rendus (plus de gating `currentLens === 'spline'` qui faisait
+    // sauter le layout au switch), simplement désactivés en mode Libre.
+    const splineDisabled = currentLens !== 'spline'
     return (
       <>
         <div className="we-lens-switch" role="group" aria-label={STRINGS.editor.lensSwitchLabel}>
@@ -1817,41 +1821,40 @@ function WaveformEditor({
             aria-pressed={currentLens === 'spline'}
           >{STRINGS.editor.lensAnchors}</button>
         </div>
-        {currentLens === 'spline' && (
-          <>
-            <div className="spline-interp-toggle" role="group" aria-label={STRINGS.editor.splineInterpolation}>
-              <button
-                type="button"
-                className={`spline-interp-btn${interpolation !== 'hard' ? ' is-active' : ''}`}
-                onClick={() => editorActions.setSplineInterpolation('soft')}
-                title={STRINGS.editor.splineSoftTitle}
-                aria-pressed={interpolation !== 'hard'}
-              >{STRINGS.editor.splineSoft}</button>
-              <button
-                type="button"
-                className={`spline-interp-btn${interpolation === 'hard' ? ' is-active' : ''}`}
-                onClick={() => editorActions.setSplineInterpolation('hard')}
-                title={STRINGS.editor.splineHardTitle}
-                aria-pressed={interpolation === 'hard'}
-              >{STRINGS.editor.splineHard}</button>
-            </div>
-            <label className="we-anchor-count" title={STRINGS.editor.anchorCountTitle}>
-              <span className="we-anchor-count-label">{STRINGS.editor.anchorCount} :</span>
-              <input
-                type="range"
-                min={SPLINE_ANCHOR_MIN}
-                max={SPLINE_ANCHOR_MAX}
-                step="1"
-                value={anchorCount}
-                onChange={(e) => setDraftAnchorCount(Number(e.target.value))}
-                {...sliderCommitter(commitDraftAnchorCount)}
-                className="we-anchor-count-slider"
-                aria-label={STRINGS.editor.anchorCountTitle}
-              />
-              <span className="we-anchor-count-readout">{anchorCount} / {SPLINE_ANCHOR_MAX}</span>
-            </label>
-          </>
-        )}
+        <div className="spline-interp-toggle" role="group" aria-label={STRINGS.editor.splineInterpolation}>
+          <button
+            type="button"
+            className={`spline-interp-btn${interpolation !== 'hard' ? ' is-active' : ''}`}
+            onClick={() => editorActions.setSplineInterpolation('soft')}
+            title={STRINGS.editor.splineSoftTitle}
+            aria-pressed={interpolation !== 'hard'}
+            disabled={splineDisabled}
+          >{STRINGS.editor.splineSoft}</button>
+          <button
+            type="button"
+            className={`spline-interp-btn${interpolation === 'hard' ? ' is-active' : ''}`}
+            onClick={() => editorActions.setSplineInterpolation('hard')}
+            title={STRINGS.editor.splineHardTitle}
+            aria-pressed={interpolation === 'hard'}
+            disabled={splineDisabled}
+          >{STRINGS.editor.splineHard}</button>
+        </div>
+        <label className={`we-anchor-count${splineDisabled ? ' is-disabled' : ''}`} title={STRINGS.editor.anchorCountTitle}>
+          <span className="we-anchor-count-label">{STRINGS.editor.anchorCount} :</span>
+          <input
+            type="range"
+            min={SPLINE_ANCHOR_MIN}
+            max={SPLINE_ANCHOR_MAX}
+            step="1"
+            value={anchorCount}
+            onChange={(e) => setDraftAnchorCount(Number(e.target.value))}
+            {...sliderCommitter(commitDraftAnchorCount)}
+            className="we-anchor-count-slider"
+            aria-label={STRINGS.editor.anchorCountTitle}
+            disabled={splineDisabled}
+          />
+          <span className="we-anchor-count-readout">{anchorCount} / {SPLINE_ANCHOR_MAX}</span>
+        </label>
       </>
     )
   }

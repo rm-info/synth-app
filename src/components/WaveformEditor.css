@@ -124,6 +124,19 @@
 .we-anchor-count-slider {
   width: 80px;
 }
+/* iter-M phase-r.2.5.2 : état désactivé (mode Libre) — contrôles toujours
+   visibles mais inertes. Label gardé lisible, curseur not-allowed. */
+.we-anchor-count.is-disabled {
+  opacity: 0.45;
+}
+.we-anchor-count.is-disabled,
+.we-anchor-count-slider:disabled {
+  cursor: not-allowed;
+}
+.spline-interp-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
 .we-anchor-count-readout {
   min-width: 42px;
   text-align: right;
