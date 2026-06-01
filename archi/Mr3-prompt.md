@@ -64,6 +64,7 @@ voulu.
 | `SET_EDITOR_HARMONIC_AMPLITUDE` (commit drag de barre) | Idem après iDFT à phase canonique |
 | `NORMALIZE_EDITOR_CANONICAL` | Idem après iDFT à phase canonique |
 | `LOAD_PRESET` | Idem après iDFT du preset |
+| `APPLY_EDITOR_PRESET` | Idem après génération du preset rapide (boutons Sinus / Carré / Dent de scie / Triangle, héritage iter A) |
 
 **À NE PAS toucher** — chacune pour une raison :
 
@@ -80,7 +81,7 @@ voulu.
 - **Helper unique** : extraire la primitive `refitAnchorsAndResidual` (ou
   nom équivalent) dans `src/reducer.js`, qui prend
   `(canonical, currentAnchors, interpolation)` et renvoie
-  `{ anchors, residual }`. Quatre call-sites (les 4 actions à modifier),
+  `{ anchors, residual }`. Cinq call-sites (les 5 actions à modifier),
   donc justifié à factoriser. Évite de répéter la séquence
   fit+spline+residual.
 - **`anchors_old.length` est la source du count préservé** : on re-fitte
@@ -97,7 +98,7 @@ voulu.
 
 ## Découpage en sous-commits
 
-### Sous-commit M.r.3.1 — Re-fit auto des ancres dans les 4 actions clés
+### Sous-commit M.r.3.1 — Re-fit auto des ancres dans les 5 actions clés
 
 `src/reducer.js` :
 
@@ -128,6 +129,11 @@ voulu.
 - **`NORMALIZE_EDITOR_CANONICAL`** : idem après l'iDFT à phase
   canonique.
 - **`LOAD_PRESET`** : idem après l'iDFT du preset.
+- **`APPLY_EDITOR_PRESET`** : idem après génération du preset rapide
+  (Sinus / Carré / Dent de scie / Triangle — héritage iter A,
+  `WaveformEditor.jsx:1219` → `applyPreset` → `APPLY_EDITOR_PRESET`,
+  reducer ~ligne 1907). La refonte de ces presets en séries de Fourier
+  bande-limitées est au backlog — c'est indépendant de la sync des ancres.
 
 **Test de non-régression manuel** (à passer **avant le commit**) :
 
@@ -140,7 +146,10 @@ voulu.
    ancres cohérentes avec la nouvelle canonical reconstituée.
 4. Click Normaliser : les ancres se re-fittent sur la canonical
    normalisée.
-5. Charge preset : ancres re-fittées sur le preset.
+5. Charge preset depuis la modale (`LOAD_PRESET`) ou clic sur un des
+   4 boutons rapides Sinus / Carré / Dent de scie / Triangle
+   (`APPLY_EDITOR_PRESET`) : ancres re-fittées sur la forme du preset
+   dans les deux cas.
 6. Drag d'ancre : pas de re-fit pendant ou après — l'utilisateur édite
    explicitement, son geste survit.
 7. Toggle Doux/Anguleux : les ancres restent en place (changement
@@ -151,7 +160,7 @@ voulu.
 10. Reset (icône Eraser) : ancres aplaties au count courant, canonical
     à zéro. Comportement inchangé.
 
-Tag : `feat(iter-M/phase-r.3.1): lentilles vivantes — re-fit auto des ancres après chaque changement de canonical (tracé libre, drag de barre, normaliser, preset)`.
+Tag : `feat(iter-M/phase-r.3.1): lentilles vivantes — re-fit auto des ancres après chaque changement de canonical (SET_EDITOR_CANONICAL, SET_EDITOR_HARMONIC_AMPLITUDE, NORMALIZE_EDITOR_CANONICAL, LOAD_PRESET, APPLY_EDITOR_PRESET)`.
 
 ### Sous-commit M.r.3.2 — Cleanup `'bars'` du type `WaveformLens`
 
@@ -218,11 +227,12 @@ En fin de phase, commit `docs: CONTEXT.md — Iteration M phase r.3
 - **TL;DR** : mention r.3 (lentilles vivantes — re-fit auto des ancres).
 - **État actuel** :
   - Modèle de données : `WaveformLens = 'free' | 'spline'` (drop `'bars'`).
-  - Décisions architecturales : « les 4 actions qui modifient canonical
+  - Décisions architecturales : « les 5 actions qui modifient canonical
     par voie non-spline (SET_EDITOR_CANONICAL, SET_EDITOR_HARMONIC_AMPLITUDE,
-    NORMALIZE_EDITOR_CANONICAL, LOAD_PRESET) re-fittent automatiquement
-    les ancres sur la nouvelle canonical via `refitAnchorsAndResidual`.
-    Les ancres sont *toujours* représentatives du tracé courant. »
+    NORMALIZE_EDITOR_CANONICAL, LOAD_PRESET, APPLY_EDITOR_PRESET)
+    re-fittent automatiquement les ancres sur la nouvelle canonical via
+    `refitAnchorsAndResidual`. Les ancres sont *toujours* représentatives
+    du tracé courant. »
   - Contraintes implicites : noter que `MOVE_SPLINE_ANCHOR` /
     `SET_SPLINE_INTERPOLATION` / `SET_EDITOR_ANCHOR_COUNT` /
     `RESET_EDITOR_WAVEFORM` / `SET_EDITOR_CAP` n'invoquent **pas** le
