@@ -70,14 +70,27 @@ export function IconColumnLayout({ widths, ...rest }) {
   )
 }
 
-// Crête (peak hold du spectrogramme) : une courbe de spectre, surmontée de la
-// même courbe décalée vers le haut, plus fine et moins contrastée — la « ligne
-// de crête » tenue au-dessus du signal courant. Rien d'approprié dans Lucide.
+// Crête (peak hold du spectrogramme) : un mini-spectre de barres verticales de
+// hauteurs variées, chacune coiffée d'un court trait horizontal détaché — le
+// « pic tenu » au-dessus de la barre courante. Visuellement une série de « i »
+// de tailles différentes. Rien d'approprié dans Lucide (r.2.6.6).
 export function IconCrete(props) {
+  const baseY = 20
+  const capHalf = 2
+  const bars = [
+    { x: 3, top: 13, cap: 10 },
+    { x: 9, top: 6, cap: 3 },
+    { x: 15, top: 9, cap: 6 },
+    { x: 21, top: 14, cap: 11 },
+  ]
   return (
     <svg {...lucideProps(props)}>
-      <path d="M3 18 Q 12 6 21 18" />
-      <path d="M3 15 Q 12 3 21 15" strokeWidth={1.4} opacity={0.5} />
+      {bars.map((b) => (
+        <g key={b.x}>
+          <line x1={b.x} y1={baseY} x2={b.x} y2={b.top} />
+          <line x1={b.x - capHalf} y1={b.cap} x2={b.x + capHalf} y2={b.cap} />
+        </g>
+      ))}
     </svg>
   )
 }
