@@ -26,7 +26,7 @@ function clamp(v, min, max) {
  *   Défaut : parseFloat permissif (virgule = point, espaces ignorés).
  * - format (number → string) : formatter custom (ex. "75%"). Défaut : String.
  */
-function NumberInput({ value, onChange, min, max, parse, format, className, ariaLabel }) {
+function NumberInput({ value, onChange, min, max, parse, format, className, ariaLabel, disabled }) {
   const fmt = format ?? String
   const parser = parse ?? defaultParse
   const [text, setText] = useState(fmt(value))
@@ -70,6 +70,7 @@ function NumberInput({ value, onChange, min, max, parse, format, className, aria
       spellCheck={false}
       className={className}
       aria-label={ariaLabel}
+      disabled={disabled}
       value={text}
       onChange={(e) => setText(e.target.value)}
       onFocus={(e) => {

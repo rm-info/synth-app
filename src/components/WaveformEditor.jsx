@@ -1853,7 +1853,21 @@ function WaveformEditor({
             aria-label={STRINGS.editor.anchorCountTitle}
             disabled={splineDisabled}
           />
-          <span className="we-anchor-count-readout">{anchorCount} / {SPLINE_ANCHOR_MAX}</span>
+          {/* iter-M phase-r.2.5.3 : saisie directe (4..32, commit Enter/blur). */}
+          <span className="we-anchor-count-readout">
+            <NumberInput
+              value={anchorCount}
+              onChange={(v) => { setDraftAnchorCount(null); editorActions.setAnchorCount(v) }}
+              min={SPLINE_ANCHOR_MIN}
+              max={SPLINE_ANCHOR_MAX}
+              parse={parseDefinition}
+              format={formatDefinition}
+              className="we-anchor-count-input"
+              ariaLabel={STRINGS.editor.anchorCountTitle}
+              disabled={splineDisabled}
+            />
+            <span className="we-cap-suffix">/ {SPLINE_ANCHOR_MAX}</span>
+          </span>
         </label>
       </>
     )
