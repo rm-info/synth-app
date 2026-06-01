@@ -209,10 +209,11 @@ export const DEFAULT_EDITOR = {
   // `cap` borne les harmoniques, la lentille spline porte ancres + résidu.
   // `currentLens` est volatile (non persisté). Les ancres sont toujours
   // peuplées (8 plates) : la lentille spline est disponible d'emblée.
-  // iter-M phase-r.2.2 : état neutre = sinusoïde fondamentale (amp 1) plutôt
-  // que silence — pédagogique, un nouveau patch produit du son d'emblée.
-  // RESET_EDITOR (Ctrl+Alt+N) hérite donc aussi de cette valeur.
-  canonical: harmonicsToPoints([1], 1),
+  // iter-M phase-r.2.5 : état neutre = silence (canonical à zéro). Vrai neutre
+  // — Reset efface, point ; charger un preset « Sinus » donne une fondamentale
+  // si on la veut. Cohérent avec « Nouveau patch » (RESET_EDITOR) qui hérite
+  // de cette valeur : pas de timbre arbitraire imposé au démarrage.
+  canonical: new Array(POINTS_RESOLUTION).fill(0),
   cap: DEFAULT_CAP,
   anchors: defaultSplineAnchors(),
   interpolation: DEFAULT_SPLINE_INTERPOLATION,
@@ -1982,7 +1983,7 @@ export function reducer(state, action) {
         ...state,
         editor: {
           ...state.editor,
-          canonical: harmonicsToPoints([1], 1),
+          canonical: new Array(POINTS_RESOLUTION).fill(0),
           cap: DEFAULT_CAP,
           anchors: defaultSplineAnchors(),
           interpolation: DEFAULT_SPLINE_INTERPOLATION,
