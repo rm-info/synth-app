@@ -45,6 +45,23 @@ Items backlog issus de la session :
 - **Itération « timbres riches / évolutifs »** (future) : Monde B inharmonique
   (cloches, métal) + morph A↔B (spectre évolutif). Les deux vrais chemins vers
   les sons « inattendus » qu'une mono-forme-d'onde ne peut pas produire.
+- **Presets `sine`/`square`/`sawtooth`/`triangle` à refondre** (iter A héritage,
+  remonté en passe d'usage M.r.1) : actuellement définis comme **formes
+  géométriques** (carré stepped +1/-1, dent de scie linéaire, etc.). Trois
+  conséquences gênantes : (1) la troncature DFT à `cap` harmoniques produit
+  du ringing de Gibbs sur les discontinuités → forme audible et affichée ≠
+  forme « idéale » ; (2) la fondamentale d'un carré véritable est `4/π ≈
+  1.27`, donc clampée à 1 dans `canonicalToBars` → l'affichage des barres
+  ment légèrement ; (3) l'utilisateur voit un signal carré mais l'audio
+  jouera la version tronquée. Refonte attendue : redéfinir ces presets
+  comme **séries de Fourier bande-limitées** (amplitudes harmoniques pures,
+  pas formes brutes). À planifier après M.r.5, probablement comme un
+  premier remplissage de la bibliothèque de presets harmoniques (M.4).
+- **TS strict opt-in `src/reducer.js`** (remonté M.r.1.6) : l'oubli
+  `DEFAULT_EDITOR.points` n'a pas été attrapé par le typecheck — `strict:
+  false` global laisse passer les accès à des propriétés absentes (retour
+  `undefined` au lieu d'erreur). Passer `reducer.js` en `// @ts-check`
+  strict est dans la continuité du préalable M.0 (TS incrémental).
 
 ---
 
