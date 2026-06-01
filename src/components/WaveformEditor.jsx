@@ -1,10 +1,7 @@
 import { useRef, useState, useCallback, useEffect, useImperativeHandle, useMemo } from 'react'
 import { Plus, Save, SaveAll, Undo2, Redo2, Sliders, X, Lock } from 'lucide-react'
 import { pointsToPeriodicWave, MIN_ATTACK, HARMONIC_COUNT, harmonicsToPoints, pointsToHarmonics } from '../audio'
-import {
-  DEFAULT_HARMONIC_N, HARMONIC_N_MIN, HARMONIC_N_MAX, BRIDGE_DEFAULT_N,
-  DEFAULT_SPLINE_ANCHOR_COUNT, DEFAULT_SPLINE_INTERPOLATION,
-} from '../reducer'
+import { CAP_MIN, CAP_MAX } from '../reducer'
 import useWindowSize from '../hooks/useWindowSize'
 import FreqInput from './FreqInput'
 import NumberInput from './NumberInput'
@@ -34,8 +31,6 @@ import {
 import { themeColor } from '../lib/themeColor'
 import { STRINGS } from '../lib/strings'
 import ConfirmDialog from './ConfirmDialog'
-import ConvertToHarmonicDialog from './ConvertToHarmonicDialog'
-import ConvertToSplineDialog from './ConvertToSplineDialog'
 import PresetPicker from './PresetPicker'
 import SplineEditor from './SplineEditor'
 import './WaveformEditor.css'
@@ -229,18 +224,13 @@ function generatePresetPoints(type) {
   return pts
 }
 
-// Dirty check : on compare uniquement les champs stockés sur le Patch
-// (points + ADSR + amplitude + preset). Les champs test* sont volatils et
-// ne participent pas au dirty (ils n'affectent pas le patch sauvegardé).
-// iter-M phase-2 : le dirty-check est mode-aware. On compare toujours mode +
-// champs communs ; puis `definition` (draw) OU `N` + `amplitudes` (harmonic).
-// `points` est comparé dans les deux cas (pour 'harmonic' il est dérivé des
-// amplitudes par la même fonction → comparaison cohérente bit-à-bit).
+// Dirty check (modèle unifié M rattrapage) : on compare les champs stockés sur
+// le Patch — canonical (vérité audio) + cap + lentille spline (anchors +
+// interpolation) + ADSR + amplitude + preset. Le résidu dérive de
+// canonical/anchors, donc inutile de le comparer. Les champs test* sont
+// volatils et ne participent pas au dirty.
 function patchFieldsEqual(a, b) {
   if (!a || !b) return false
-  const modeA = a.mode ?? 'draw'
-  const modeB = b.mode ?? 'draw'
-  if (modeA !== modeB) return false
   if (a.amplitude !== b.amplitude) return false
   if (a.preset !== b.preset) return false
   if (a.attack !== b.attack) return false
@@ -248,27 +238,18 @@ function patchFieldsEqual(a, b) {
   if (a.decay !== b.decay) return false
   if (a.sustain !== b.sustain) return false
   if (a.release !== b.release) return false
-  if (modeA === 'harmonic') {
-    if ((a.N ?? 0) !== (b.N ?? 0)) return false
-    const aa = a.amplitudes ?? []
-    const ba = b.amplitudes ?? []
-    if (aa.length !== ba.length) return false
-    for (let i = 0; i < aa.length; i++) if (aa[i] !== ba[i]) return false
-  } else if (modeA === 'spline') {
-    if ((a.interpolation ?? 'soft') !== (b.interpolation ?? 'soft')) return false
-    const aa = a.anchors ?? []
-    const ba = b.anchors ?? []
-    if (aa.length !== ba.length) return false
-    for (let i = 0; i < aa.length; i++) {
-      if (aa[i].x !== ba[i].x || aa[i].y !== ba[i].y) return false
-    }
-  } else {
-    if ((a.definition ?? HARMONIC_COUNT) !== (b.definition ?? HARMONIC_COUNT)) return false
+  if ((a.cap ?? HARMONIC_COUNT) !== (b.cap ?? HARMONIC_COUNT)) return false
+  if ((a.interpolation ?? 'soft') !== (b.interpolation ?? 'soft')) return false
+  const aan = a.anchors ?? []
+  const ban = b.anchors ?? []
+  if (aan.length !== ban.length) return false
+  for (let i = 0; i < aan.length; i++) {
+    if (aan[i].x !== ban[i].x || aan[i].y !== ban[i].y) return false
   }
-  if (a.points.length !== b.points.length) return false
-  for (let i = 0; i < a.points.length; i++) {
-    if (a.points[i] !== b.points[i]) return false
-  }
+  const ac = a.canonical ?? []
+  const bc = b.canonical ?? []
+  if (ac.length !== bc.length) return false
+  for (let i = 0; i < ac.length; i++) if (ac[i] !== bc[i]) return false
   return true
 }
 
@@ -278,14 +259,11 @@ function cloneAnchors(anchors) {
 
 function snapshotPatchFields(editor) {
   return {
-    points: Array.from(editor.points),
-    amplitude: editor.amplitude,
-    mode: editor.mode ?? 'draw',
-    definition: editor.definition ?? HARMONIC_COUNT,
-    N: editor.N ?? DEFAULT_HARMONIC_N,
-    amplitudes: Array.from(editor.amplitudes ?? []),
+    canonical: Array.from(editor.canonical),
+    cap: editor.cap,
     anchors: cloneAnchors(editor.anchors),
     interpolation: editor.interpolation ?? 'soft',
+    amplitude: editor.amplitude,
     preset: editor.preset,
     attack: editor.attack,
     hold: editor.hold,
@@ -297,14 +275,11 @@ function snapshotPatchFields(editor) {
 
 function patchToReference(patch) {
   return {
-    points: Array.from(patch.points),
-    amplitude: patch.amplitude,
-    mode: patch.mode ?? 'draw',
-    definition: patch.definition ?? HARMONIC_COUNT,
-    N: patch.N ?? DEFAULT_HARMONIC_N,
-    amplitudes: Array.from(patch.amplitudes ?? []),
+    canonical: Array.from(patch.canonical),
+    cap: patch.cap,
     anchors: cloneAnchors(patch.anchors),
     interpolation: patch.interpolation ?? 'soft',
+    amplitude: patch.amplitude,
     preset: patch.preset,
     attack: patch.attack,
     hold: patch.hold ?? 0,
@@ -362,36 +337,35 @@ function WaveformEditor({
   const [draftAmplitudes, setDraftAmplitudes] = useState(null)
   // Confirmation "abandonner modifs" pour handleNew
   const [confirmNewOpen, setConfirmNewOpen] = useState(false)
-  // iter-M phase-2.5 : dialogs de la passerelle de conversion draw ↔ harmonic.
-  const [convertToHarmonicOpen, setConvertToHarmonicOpen] = useState(false)
-  const [convertToDrawOpen, setConvertToDrawOpen] = useState(false)
-  // iter-M phase-3 : dialog de conversion vers spline (draw→spline / harmonic→spline).
-  const [convertToSplineOpen, setConvertToSplineOpen] = useState(false)
   // iter-M phase-4 : picker de presets de timbre + garde-fou dirty. Le preset
   // en attente est gardé le temps de la confirmation d'écrasement.
   const [presetPickerOpen, setPresetPickerOpen] = useState(false)
   const [pendingPresetPatch, setPendingPresetPatch] = useState(null)
 
-  // iter-M phase-2 : mode de fabrication courant. En 'harmonic', la forme
-  // d'onde affichée (et jouée) est la reconstruction iDFT des amplitudes —
-  // `points` est donc dérivé, pas le tracé édité.
-  const mode = editor.mode ?? 'draw'
-  const amplitudes = draftAmplitudes ?? editor.amplitudes
-  const N = editor.N ?? DEFAULT_HARMONIC_N
-  // iter-M phase-3 : état du mode spline (vérité éditable = ancres + interp).
+  // Modèle unifié (M rattrapage) : la canonical est la vérité audio affichée.
+  // La lentille active (currentLens) ne change que l'UI ; on la mappe vers les
+  // anciennes valeurs de `mode` (free→draw, bars→harmonic, spline→spline) pour
+  // garder le reste du composant inchangé (M.r.3 câblera la coexistence vivante).
+  const currentLens = editor.currentLens ?? 'free'
+  const mode = currentLens === 'bars' ? 'harmonic' : currentLens === 'spline' ? 'spline' : 'draw'
   const anchors = editor.anchors ?? []
   const interpolation = editor.interpolation ?? 'soft'
-  const harmonicPoints = useMemo(
-    () => (mode === 'harmonic' ? harmonicsToPoints(amplitudes, amplitudes.length) : null),
-    [mode, amplitudes],
-  )
   const amplitude = draftAmp ?? editor.amplitude
-  const definition = draftDefinition ?? editor.definition ?? HARMONIC_COUNT
-  // En mode harmonique, `N` joue le rôle de la définition ; en mode spline la
-  // courbe est band-limitée par construction : dans les deux cas on ne tronque
-  // jamais le spectre à l'audio (seul le mode dessin applique `definition`).
-  const effectiveDefinition = mode === 'draw' ? definition : HARMONIC_COUNT
-  const points = mode === 'harmonic' ? harmonicPoints : (draftPoints ?? editor.points)
+  // `cap` (ex-definition/N) borne désormais toutes les lentilles à la synthèse.
+  const definition = draftDefinition ?? editor.cap ?? HARMONIC_COUNT
+  const effectiveDefinition = definition
+  const N = definition
+  // Barres = magnitudes DFT de la canonical (harmonique 1..cap). Pendant un
+  // drag de barre, draftAmplitudes prime.
+  const canonicalMagnitudes = useMemo(
+    () => pointsToHarmonics(editor.canonical).magnitudes,
+    [editor.canonical],
+  )
+  const amplitudes = draftAmplitudes ?? Array.from(canonicalMagnitudes.slice(1, definition + 1))
+  // Courbe affichée = canonical (draft pendant un tracé libre ; reconstruction
+  // iDFT pendant un drag de barre — cohérent avec ce que produira le reducer).
+  const points = draftPoints
+    ?? (draftAmplitudes ? harmonicsToPoints(draftAmplitudes, draftAmplitudes.length) : editor.canonical)
   const testFrequency = draftFreq ?? editor.testFrequency
   const attack = draftAdsr?.attack ?? editor.attack
   const hold = draftAdsr?.hold ?? editor.hold ?? 0
@@ -660,8 +634,8 @@ function WaveformEditor({
 
   const commitDraftPoints = () => {
     if (draftPoints) {
-      const same = draftPoints.length === editor.points.length &&
-        draftPoints.every((v, i) => v === editor.points[i])
+      const same = draftPoints.length === editor.canonical.length &&
+        draftPoints.every((v, i) => v === editor.canonical[i])
       if (!same) editorActions.setPoints(draftPoints)
       setDraftPoints(null)
     }
@@ -708,23 +682,23 @@ function WaveformEditor({
     // AS.3.2 : si ce mousedown vient de donner le focus à la colonne
     // Harmoniques (auto-sizing), il ne fait que focuser — pas d'édition de barre.
     if (autoSizing && autoSizeFocusGuardRef?.current) return
-    const index = harmonicIndexFromEvent(e, editor.amplitudes.length)
+    const index = harmonicIndexFromEvent(e, amplitudes.length)
     dragBarRef.current = index
-    const next = Array.from(draftAmplitudes ?? editor.amplitudes)
+    const next = Array.from(draftAmplitudes ?? amplitudes)
     next[index] = harmonicAmplitudeFromEvent(e)
     setDraftAmplitudes(next)
   }
   const handleHarmonicMouseMove = (e) => {
     if (dragBarRef.current === null) return
     const index = dragBarRef.current
-    const next = Array.from(draftAmplitudes ?? editor.amplitudes)
+    const next = Array.from(draftAmplitudes ?? amplitudes)
     next[index] = harmonicAmplitudeFromEvent(e)
     setDraftAmplitudes(next)
   }
   const commitHarmonicDraft = () => {
     const index = dragBarRef.current
     dragBarRef.current = null
-    if (draftAmplitudes && index !== null && draftAmplitudes[index] !== editor.amplitudes[index]) {
+    if (draftAmplitudes && index !== null && draftAmplitudes[index] !== amplitudes[index]) {
       editorActions.setHarmonicAmplitude(index, draftAmplitudes[index])
     }
     setDraftAmplitudes(null)
@@ -1259,18 +1233,14 @@ function WaveformEditor({
   const buildPayload = (name) => ({
     name,
     preset: activePreset,
-    points: Array.from(points),
     amplitude,
-    // iter-M phase-2 : le mode + ses champs. Le reducer (patchModeFields) ne
-    // conserve que ceux du mode concerné.
-    mode,
-    definition,
-    N,
-    amplitudes: Array.from(amplitudes),
-    // iter-M phase-3 : champs spline (conservés par patchModeFields seulement
-    // si mode === 'spline').
+    // Modèle unifié (M rattrapage) : le patch porte canonical + cap + lentille
+    // spline (anchors + interpolation + residual).
+    canonical: Array.from(points),
+    cap: definition,
     anchors: cloneAnchors(anchors),
     interpolation,
+    residual: Array.from(editor.residual ?? []),
     attack,
     hold,
     decay,
@@ -1764,7 +1734,7 @@ function WaveformEditor({
   }
   const commitDraftDefinition = () => {
     if (draftDefinition != null) {
-      if (draftDefinition !== editor.definition) editorActions.setDefinition(draftDefinition)
+      if (draftDefinition !== editor.cap) editorActions.setCap(draftDefinition)
       setDraftDefinition(null)
     }
   }
@@ -1803,13 +1773,13 @@ function WaveformEditor({
               <button
                 type="button"
                 className="we-convert-btn"
-                onClick={() => setConvertToDrawOpen(true)}
+                onClick={() => editorActions.setCurrentLens('free')}
                 title={STRINGS.editor.convertToDraw}
               >{STRINGS.editor.convertToDraw}</button>
               <button
                 type="button"
                 className="we-convert-btn"
-                onClick={() => setConvertToHarmonicOpen(true)}
+                onClick={() => editorActions.setCurrentLens('bars')}
                 title={STRINGS.editor.convertToHarmonic}
               >{STRINGS.editor.convertToHarmonic}</button>
             </>
@@ -1823,11 +1793,6 @@ function WaveformEditor({
         <header className="we-area-header">
           <div className="we-header-left">
             <h3 className="we-area-title">{STRINGS.editor.waveformTitle}</h3>
-            {!editable && (
-              <span className="we-readonly-badge" title={STRINGS.editor.readOnlyHint}>
-                <Lock size={13} strokeWidth={2} />
-              </span>
-            )}
             <span className="we-sound-tag">
               {currentPatch ? `Édition : ${currentPatch.name}` : defaultName}
             </span>
@@ -1837,13 +1802,13 @@ function WaveformEditor({
               <button
                 type="button"
                 className="we-convert-btn"
-                onClick={() => setConvertToHarmonicOpen(true)}
+                onClick={() => editorActions.setCurrentLens('bars')}
                 title={STRINGS.editor.convertToHarmonic}
               >{STRINGS.editor.convertToHarmonic}</button>
               <button
                 type="button"
                 className="we-convert-btn"
-                onClick={() => setConvertToSplineOpen(true)}
+                onClick={() => editorActions.setCurrentLens('spline')}
                 title={STRINGS.editor.convertToSpline}
               >{STRINGS.editor.convertToSpline}</button>
             </div>
@@ -1881,28 +1846,14 @@ function WaveformEditor({
   //   avec le spectro, évite de recomputer la DFT à chaque trait). Indicateur 🔒.
   const renderHarmonicsArea = () => {
     const editable = mode === 'harmonic'
-    let bars
-    if (editable) {
-      bars = amplitudes
-    } else {
-      const { magnitudes } = pointsToHarmonics(editor.points)
-      // iter-M phase-3 : en mode spline, pas de `definition` à appliquer (la
-      // courbe est propre par construction) → on montre la DFT pleine. En mode
-      // dessin, on tronque au plafond `definition` (cohérent avec l'audio).
-      const cut = mode === 'spline' ? HARMONIC_COUNT : Math.min(definition, HARMONIC_COUNT)
-      bars = []
-      for (let k = 1; k <= cut; k++) bars.push(magnitudes[k] ?? 0)
-    }
+    // Modèle unifié : les barres sont les magnitudes DFT de la canonical
+    // tronquées au cap (déjà dérivées dans `amplitudes`).
+    const bars = amplitudes
     return (
       <div className="we-harmonics-area" data-anchor="designer-harmonics">
         <header className="we-area-header">
           <div className="we-header-left">
             <h3 className="we-area-title">{STRINGS.editor.harmonicsTitle}</h3>
-            {!editable && (
-              <span className="we-readonly-badge" title={STRINGS.editor.readOnlyHint}>
-                <Lock size={13} strokeWidth={2} />
-              </span>
-            )}
           </div>
           <div className="we-harmonics-controls">
             {editable && (
@@ -1912,8 +1863,8 @@ function WaveformEditor({
                   <NumberInput
                     value={N}
                     onChange={editorActions.setN}
-                    min={HARMONIC_N_MIN}
-                    max={HARMONIC_N_MAX}
+                    min={CAP_MIN}
+                    max={CAP_MAX}
                     parse={parseHarmonicN}
                     format={String}
                     className="we-n-value-input"
@@ -1923,13 +1874,13 @@ function WaveformEditor({
                 <button
                   type="button"
                   className="we-convert-btn"
-                  onClick={() => setConvertToDrawOpen(true)}
+                  onClick={() => editorActions.setCurrentLens('free')}
                   title={STRINGS.editor.convertToDraw}
                 >{STRINGS.editor.convertToDraw}</button>
                 <button
                   type="button"
                   className="we-convert-btn"
-                  onClick={() => setConvertToSplineOpen(true)}
+                  onClick={() => editorActions.setCurrentLens('spline')}
                   title={STRINGS.editor.convertToSpline}
                 >{STRINGS.editor.convertToSpline}</button>
               </>
@@ -2556,35 +2507,6 @@ function WaveformEditor({
         onConfirm={doNew}
         onCancel={() => setConfirmNewOpen(false)}
       />
-      {/* iter-M phase-2.5 : passerelle de conversion (actions atomiques
-          undoables côté reducer). */}
-      {convertToHarmonicOpen && (
-        <ConvertToHarmonicDialog
-          defaultN={BRIDGE_DEFAULT_N}
-          onConfirm={(n) => { setConvertToHarmonicOpen(false); editorActions.convertToHarmonic(n) }}
-          onCancel={() => setConvertToHarmonicOpen(false)}
-        />
-      )}
-      <ConfirmDialog
-        open={convertToDrawOpen}
-        title={STRINGS.convert.toDrawTitle}
-        message={STRINGS.convert.toDrawBody}
-        confirmLabel={STRINGS.convert.toDrawConfirm}
-        cancelLabel={STRINGS.convert.cancel}
-        onConfirm={() => { setConvertToDrawOpen(false); editorActions.convertToDraw() }}
-        onCancel={() => setConvertToDrawOpen(false)}
-      />
-      {convertToSplineOpen && (
-        <ConvertToSplineDialog
-          defaultCount={DEFAULT_SPLINE_ANCHOR_COUNT}
-          defaultInterpolation={DEFAULT_SPLINE_INTERPOLATION}
-          onConfirm={(count, interpolation) => {
-            setConvertToSplineOpen(false)
-            editorActions.convertToSpline(count, interpolation)
-          }}
-          onCancel={() => setConvertToSplineOpen(false)}
-        />
-      )}
       {/* iter-M phase-4 : picker de presets de timbre + garde-fou dirty. */}
       {presetPickerOpen && (
         <PresetPicker

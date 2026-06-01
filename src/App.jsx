@@ -1967,19 +1967,23 @@ function App() {
   const libraryCanRedo = history.library.future.length > 0
 
   const editorActions = useMemo(() => ({
-    setPoints: (pts) => dispatch({ type: 'SET_EDITOR_POINTS', payload: pts }),
+    setPoints: (pts) => dispatch({ type: 'SET_EDITOR_CANONICAL', payload: pts }),
     setTestNoteIndex: (n) => dispatch({ type: 'SET_EDITOR_TEST_NOTE', payload: n }),
     setTestOctave: (o) => dispatch({ type: 'SET_EDITOR_TEST_OCTAVE', payload: o }),
     setTestTuningSystem: (ts) => dispatch({ type: 'SET_EDITOR_TEST_TUNING_SYSTEM', payload: ts }),
     setTestFrequency: (hz) => dispatch({ type: 'SET_EDITOR_TEST_FREQUENCY', payload: hz }),
     setAmplitude: (a) => dispatch({ type: 'SET_EDITOR_AMPLITUDE', payload: a }),
-    setDefinition: (d) => dispatch({ type: 'SET_EDITOR_DEFINITION', payload: d }),
-    // iter-M phase-2 : édition barres + passerelle de conversion.
-    setN: (n) => dispatch({ type: 'SET_EDITOR_N', payload: n }),
+    // Modèle unifié (M rattrapage) : cap unique (remplace definition + N).
+    // setDefinition/setN conservés comme alias (dispatchent SET_EDITOR_CAP)
+    // pour limiter le churn côté WaveformEditor.
+    setCap: (c) => dispatch({ type: 'SET_EDITOR_CAP', payload: c }),
+    setDefinition: (d) => dispatch({ type: 'SET_EDITOR_CAP', payload: d }),
+    setN: (n) => dispatch({ type: 'SET_EDITOR_CAP', payload: n }),
+    setCurrentLens: (l) => dispatch({ type: 'SET_EDITOR_CURRENT_LENS', payload: l }),
     setHarmonicAmplitude: (index, value) =>
       dispatch({ type: 'SET_EDITOR_HARMONIC_AMPLITUDE', payload: { index, value } }),
-    convertToHarmonic: (n) => dispatch({ type: 'CONVERT_EDITOR_TO_HARMONIC', payload: { N: n } }),
-    convertToDraw: () => dispatch({ type: 'CONVERT_EDITOR_TO_DRAW' }),
+    loadPreset: (preset) =>
+      dispatch({ type: 'LOAD_PRESET', payload: { cap: preset.cap ?? preset.N, amplitudes: preset.amplitudes } }),
     // iter-M phase-3 : édition spline. moveSplineAnchor est appelée au commit
     // du drag (draft local côté SplineEditor) → un seul cran undo par geste.
     moveSplineAnchor: (index, x, y) =>
@@ -1987,8 +1991,6 @@ function App() {
     addSplineAnchor: (x, y) => dispatch({ type: 'ADD_SPLINE_ANCHOR', payload: { x, y } }),
     removeSplineAnchor: (index) => dispatch({ type: 'REMOVE_SPLINE_ANCHOR', payload: { index } }),
     setSplineInterpolation: (v) => dispatch({ type: 'SET_SPLINE_INTERPOLATION', payload: v }),
-    convertToSpline: (anchorCount, interpolation) =>
-      dispatch({ type: 'CONVERT_EDITOR_TO_SPLINE', payload: { anchorCount, interpolation } }),
     setAdsr: (patch) => dispatch({ type: 'SET_EDITOR_ADSR', payload: patch }),
     setAdsrAndAmp: (payload) => dispatch({ type: 'SET_EDITOR_ADSR_AND_AMP', payload }),
     applyPreset: (preset, points) =>
@@ -2001,8 +2003,8 @@ function App() {
   // Computed once per render — used dans les deux variantes responsive (mobile accordion + desktop grid)
   const spectrogramNode = (
     <Spectrogram
-      points={editor.points}
-      definition={editor.definition}
+      points={editor.canonical}
+      definition={editor.cap}
       frequency={editorFrequency}
       analyserRef={analyserRef}
       activeVoicesCountRef={activeVoicesCountRef}

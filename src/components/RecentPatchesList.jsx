@@ -64,7 +64,7 @@ export default function RecentPatchesList({
           style={{ '--chip-color': patch.color || '#00d4ff' }}
         >
           <PatchThumbnail
-            points={patch.points}
+            points={patch.canonical}
             color={patch.color || '#00d4ff'}
             width={28}
             height={16}

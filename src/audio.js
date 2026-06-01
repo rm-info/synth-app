@@ -146,16 +146,15 @@ export function pointsToHarmonics(points) {
   return result
 }
 
-// `definition` (1..HARMONIC_COUNT) tronque le spectre : les harmoniques
-// k > definition sont mises à zéro avant createPeriodicWave. La troncature
-// est faite ici, en aval du cache `pointsToHarmonics` (mémoïsé par `points`),
-// parce qu'elle est cheap (un parcours O(N)) — un cache composite
-// points × definition n'apporterait rien. `definition` absente/invalide =
-// pas de troncature (spectre complet). On copie real/imag avant de zéroer
-// pour ne pas muter les Float32Array partagés du cache.
-export function pointsToPeriodicWave(points, audioCtx, definition) {
-  const { real, imag } = pointsToHarmonics(points)
-  const cut = Number.isFinite(definition) ? definition : HARMONIC_COUNT
+// `cap` (1..HARMONIC_COUNT) tronque le spectre : les harmoniques k > cap sont
+// mises à zéro avant createPeriodicWave. La troncature est faite ici, en aval
+// du cache `pointsToHarmonics` (mémoïsé par `canonical`), parce qu'elle est
+// cheap (un parcours O(N)) — un cache composite canonical × cap n'apporterait
+// rien. `cap` absent/invalide = pas de troncature (spectre complet). On copie
+// real/imag avant de zéroer pour ne pas muter les Float32Array partagés du cache.
+export function pointsToPeriodicWave(canonical, audioCtx, cap) {
+  const { real, imag } = pointsToHarmonics(canonical)
+  const cut = Number.isFinite(cap) ? cap : HARMONIC_COUNT
   if (cut >= HARMONIC_COUNT) {
     return audioCtx.createPeriodicWave(real, imag, { disableNormalization: false })
   }

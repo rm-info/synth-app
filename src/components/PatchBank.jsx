@@ -713,7 +713,7 @@ function PatchBank({
             {isDetails && (
               <>
                 <PatchThumbnail
-                  points={patch.points}
+                  points={patch.canonical}
                   color={patch.color}
                   width={42}
                   height={16}
@@ -942,7 +942,7 @@ function PatchBank({
         data-bib-item-type="patch"
       >
         <div className="tile-preview">
-          <PatchThumbnail points={patch.points} color={patch.color} />
+          <PatchThumbnail points={patch.canonical} color={patch.color} />
         </div>
         {isEditing ? (
           <input
