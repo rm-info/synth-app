@@ -2130,7 +2130,7 @@ function App() {
         autoSizing={autoSizing}
         autoSizeFocusGuardRef={autoSizeFocusGuardRef}
       >
-        {({ renderCanvasArea, renderHarmonicsArea, renderParamsArea, renderAdsrArea, renderActions, patchLabel, openPresetPicker, requestResetWaveform, normalizeWaveform }) => (
+        {({ renderCanvasArea, renderHarmonicsArea, renderParamsArea, renderAdsrArea, renderActions, patchLabel, openPresetPicker, requestResetWaveform }) => (
           <>
             <main
               className={`designer-layout${isMobile ? ' designer-layout-mobile' : ''}`}
@@ -2286,7 +2286,6 @@ function App() {
                     patchLabel={patchLabel}
                     onPresets={openPresetPicker}
                     onReset={requestResetWaveform}
-                    onNormalize={normalizeWaveform}
                   />
                   {[
                     { id: 'canvas', title: STRINGS.editor.waveformTitle, body: renderCanvasArea() },
@@ -2324,7 +2323,6 @@ function App() {
                     patchLabel={patchLabel}
                     onPresets={openPresetPicker}
                     onReset={requestResetWaveform}
-                    onNormalize={normalizeWaveform}
                     onWidths={setDesignerColumnWidths}
                     autoSizing={autoSizing}
                     onToggleAutoSizing={toggleAutoSizing}

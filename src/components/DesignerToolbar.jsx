@@ -1,4 +1,4 @@
-import { FolderOpenDot, Eraser, Sigma } from 'lucide-react'
+import { FolderOpenDot, Eraser } from 'lucide-react'
 import { IconColumnLayout } from './icons'
 import { STRINGS } from '../lib/strings'
 import './DesignerToolbar.css'
@@ -20,7 +20,7 @@ const COLUMN_PRESETS = [
   { id: 'spec', widths: [0.25, 0.25, 0.5], title: 'Spectrogramme large' },
 ]
 
-function DesignerToolbar({ patchLabel, onPresets, onReset, onNormalize, onWidths, autoSizing, onToggleAutoSizing }) {
+function DesignerToolbar({ patchLabel, onPresets, onReset, onWidths, autoSizing, onToggleAutoSizing }) {
   // Les contrôles de proportions n'ont de sens qu'en layout 3-colonnes : on
   // ne les affiche que si le parent fournit un setter (desktop).
   const showColumnControls = typeof onWidths === 'function'
@@ -47,16 +47,6 @@ function DesignerToolbar({ patchLabel, onPresets, onReset, onNormalize, onWidths
             aria-label="Réinitialiser le timbre"
             data-anchor="designer-reset-button"
           ><Eraser size={18} /></button>
-        )}
-        {onNormalize && (
-          <button
-            type="button"
-            className="icon-btn"
-            onClick={onNormalize}
-            title="Normaliser : redessiner le tracé comme la somme des harmoniques courantes (phase canonique)"
-            aria-label="Normaliser"
-            data-anchor="designer-normalize-button"
-          ><Sigma size={18} /></button>
         )}
       </div>
       {showColumnControls && (

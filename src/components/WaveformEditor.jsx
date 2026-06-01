@@ -1,5 +1,5 @@
 import { useRef, useState, useCallback, useEffect, useImperativeHandle, useMemo } from 'react'
-import { Plus, Save, SaveAll, Undo2, Redo2, Sliders, X, Lock, Spline, AlignEndHorizontal } from 'lucide-react'
+import { Plus, Save, SaveAll, Undo2, Redo2, Sliders, X, Lock, Spline, AlignEndHorizontal, Sigma } from 'lucide-react'
 import { IconDoux, IconAnguleux } from './icons'
 import { pointsToPeriodicWave, MIN_ATTACK, HARMONIC_COUNT, harmonicsToPoints, canonicalToBars } from '../audio'
 import { CAP_MIN, CAP_MAX, SPLINE_ANCHOR_MIN, SPLINE_ANCHOR_MAX } from '../reducer'
@@ -1871,6 +1871,16 @@ function WaveformEditor({
             disabled={splineDisabled}
           ><IconAnguleux size={18} /></button>
         </div>
+        {/* iter-M phase-r.2.6.7 : Normaliser (icône Σ) déplacé depuis la barre du
+            haut vers le header de la zone Forme d'onde — partagé, donc visible
+            en mode Libre comme en Ancres. */}
+        <button
+          type="button"
+          className="icon-btn we-normalize-btn"
+          onClick={normalizeWaveform}
+          title="Normaliser : redessiner le tracé comme la somme des harmoniques courantes (phase canonique)"
+          aria-label="Normaliser"
+        ><Sigma size={18} /></button>
       </>
     )
   }
@@ -2537,7 +2547,7 @@ function WaveformEditor({
 
   return (
     <>
-      {children({ renderCanvasArea, renderHarmonicsArea, renderParamsArea, renderAdsrArea, renderActions, patchLabel, openPresetPicker, requestResetWaveform, normalizeWaveform })}
+      {children({ renderCanvasArea, renderHarmonicsArea, renderParamsArea, renderAdsrArea, renderActions, patchLabel, openPresetPicker, requestResetWaveform })}
       <ConfirmDialog
         open={confirmNewOpen}
         title="Nouveau patch ?"
