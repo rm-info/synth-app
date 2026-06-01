@@ -11,6 +11,7 @@ import Toolbar from './components/Toolbar'
 import PropertiesPanel from './components/PropertiesPanel'
 import Spectrogram from './components/Spectrogram'
 import DesignerColumns from './components/DesignerColumns'
+import DesignerToolbar from './components/DesignerToolbar'
 import SidebarResizer from './components/SidebarResizer'
 import PopupResizer from './components/PopupResizer'
 import RecentPatchesList from './components/RecentPatchesList'
@@ -2126,7 +2127,7 @@ function App() {
         autoSizing={autoSizing}
         autoSizeFocusGuardRef={autoSizeFocusGuardRef}
       >
-        {({ renderCanvasArea, renderHarmonicsArea, renderParamsArea, renderAdsrArea, renderActions }) => (
+        {({ renderCanvasArea, renderHarmonicsArea, renderParamsArea, renderAdsrArea, renderActions, patchLabel }) => (
           <>
             <main
               className={`designer-layout${isMobile ? ' designer-layout-mobile' : ''}`}
@@ -2276,6 +2277,9 @@ function App() {
                    redéclenchent le draw. Sinon les canvas restaient
                    vides après réouverture (cf. ce commit). */
                 <div className="designer-main designer-main-mobile">
+                  {/* iter-M phase-r.2.1 : barre du haut (identité du patch). Les
+                      contrôles de proportions sont desktop-only — non passés ici. */}
+                  <DesignerToolbar patchLabel={patchLabel} />
                   {[
                     { id: 'canvas', title: STRINGS.editor.waveformTitle, body: renderCanvasArea() },
                     { id: 'harmonics', title: STRINGS.editor.harmonicsTitle, body: renderHarmonicsArea() },
@@ -2306,6 +2310,14 @@ function App() {
                 </div>
               ) : (
                 <div className="designer-main">
+                  {/* iter-M phase-r.2.1 : barre du haut homogène (identité du
+                      patch + proportions des colonnes), au-dessus des 3 colonnes. */}
+                  <DesignerToolbar
+                    patchLabel={patchLabel}
+                    onWidths={setDesignerColumnWidths}
+                    autoSizing={autoSizing}
+                    onToggleAutoSizing={toggleAutoSizing}
+                  />
                   {/* iter-M phase-2.2 : moitié haute = 3 colonnes ajustables
                       Forme d'onde / Harmoniques / Spectrogramme (le spectro,
                       read-only, est désormais une colonne permanente). */}
@@ -2313,7 +2325,6 @@ function App() {
                     widths={designerColumnWidths}
                     onWidths={setDesignerColumnWidths}
                     autoSizing={autoSizing}
-                    onToggleAutoSizing={toggleAutoSizing}
                     focusGuardRef={autoSizeFocusGuardRef}
                     columns={[renderCanvasArea(), renderHarmonicsArea(), spectrogramNode]}
                   />

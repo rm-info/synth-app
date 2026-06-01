@@ -399,6 +399,9 @@ function WaveformEditor({
     ? testFrequency
     : previewNoteFrequency(testTuningSystem, testNoteIndex, testOctave, a4Ref, xEdoN)
   const defaultName = nextPatchName
+  // iter-M phase-r.2.1 : identité du patch affichée dans la barre du haut
+  // (DesignerToolbar), plus dans le header de la zone Forme d'onde.
+  const patchLabel = currentPatch ? `Édition : ${currentPatch.name}` : defaultName
 
   const canvasRef = useRef(null)
   const canvasContainerRef = useRef(null)
@@ -1782,7 +1785,6 @@ function WaveformEditor({
           onSetInterpolation={editorActions.setSplineInterpolation}
           autoSizing={autoSizing}
           autoSizeFocusGuardRef={autoSizeFocusGuardRef}
-          soundTag={currentPatch ? `Édition : ${currentPatch.name}` : defaultName}
           convertButtons={
             <>
               <button
@@ -1808,9 +1810,6 @@ function WaveformEditor({
         <header className="we-area-header">
           <div className="we-header-left">
             <h3 className="we-area-title">{STRINGS.editor.waveformTitle}</h3>
-            <span className="we-sound-tag">
-              {currentPatch ? `Édition : ${currentPatch.name}` : defaultName}
-            </span>
           </div>
           {editable && (
             <div className="spline-header-controls">
@@ -2511,7 +2510,7 @@ function WaveformEditor({
 
   return (
     <>
-      {children({ renderCanvasArea, renderHarmonicsArea, renderParamsArea, renderAdsrArea, renderActions })}
+      {children({ renderCanvasArea, renderHarmonicsArea, renderParamsArea, renderAdsrArea, renderActions, patchLabel })}
       <ConfirmDialog
         open={confirmNewOpen}
         title="Nouveau patch ?"

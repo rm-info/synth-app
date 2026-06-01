@@ -1,0 +1,61 @@
+/* iter-M phase-r.2 : barre d'outils unique du Designer (au-dessus des 3
+   colonnes). Style aligné sur les headers de colonne (.we-area-header). */
+.designer-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-shrink: 0;
+  padding: 4px 6px 8px;
+  margin-bottom: 4px;
+  border-bottom: 1px solid var(--surface-border-strong);
+  min-width: 0;
+}
+
+.designer-toolbar-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.designer-toolbar-right {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+/* Presets de répartition (déplacés depuis .designer-columns-preset-btn). */
+.designer-toolbar-preset-btn {
+  font-size: 12px;
+  line-height: 1;
+  padding: 4px 8px;
+  border-radius: 6px;
+  border: 1px solid var(--surface-border-strong);
+  background: var(--surface-elevated);
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: background 0.12s, color 0.12s, border-color 0.12s;
+}
+.designer-toolbar-preset-btn:hover {
+  background: var(--accent-bg-faint);
+  border-color: var(--accent);
+  color: var(--text-strong);
+}
+
+/* Toggle auto-sizing (déplacé depuis .designer-columns-auto-toggle). */
+.designer-toolbar-auto-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 12px;
+  line-height: 1;
+  color: var(--text-secondary);
+  cursor: pointer;
+  user-select: none;
+}
+.designer-toolbar-auto-toggle input {
+  cursor: pointer;
+  margin: 0;
+}

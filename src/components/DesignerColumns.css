@@ -8,47 +8,6 @@
   min-width: 0;
 }
 
-/* Petite barre dédiée aux presets de répartition (snap en un clic). */
-.designer-columns-presets {
-  display: flex;
-  gap: 6px;
-  align-items: center;
-  flex-shrink: 0;
-}
-.designer-columns-preset-btn {
-  font-size: 12px;
-  line-height: 1;
-  padding: 4px 8px;
-  border-radius: 6px;
-  border: 1px solid var(--surface-border-strong);
-  background: var(--surface-elevated);
-  color: var(--text-secondary);
-  cursor: pointer;
-  transition: background 0.12s, color 0.12s, border-color 0.12s;
-}
-.designer-columns-preset-btn:hover {
-  background: var(--accent-bg-faint);
-  border-color: var(--accent);
-  color: var(--text-strong);
-}
-
-/* iter-M phase-2-as : toggle auto-sizing, poussé à droite de la barre presets. */
-.designer-columns-auto-toggle {
-  margin-left: auto;
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  font-size: 12px;
-  line-height: 1;
-  color: var(--text-secondary);
-  cursor: pointer;
-  user-select: none;
-}
-.designer-columns-auto-toggle input {
-  cursor: pointer;
-  margin: 0;
-}
-
 .designer-columns-row {
   flex: 1;
   display: flex;

@@ -38,7 +38,6 @@ function SplineEditor({
   onSetInterpolation,
   autoSizing,
   autoSizeFocusGuardRef,
-  soundTag,
   convertButtons,
 }) {
   const canvasRef = useRef(null)
@@ -300,7 +299,6 @@ function SplineEditor({
       <header className="we-area-header">
         <div className="we-header-left">
           <h3 className="we-area-title">{STRINGS.editor.waveformTitle}</h3>
-          <span className="we-sound-tag">{soundTag}</span>
         </div>
         <div className="spline-header-controls">
           <div className="spline-interp-toggle" role="group" aria-label={STRINGS.editor.splineInterpolation}>

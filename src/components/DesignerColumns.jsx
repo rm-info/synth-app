@@ -1,19 +1,15 @@
 import { useEffect, useRef } from 'react'
-import { STRINGS } from '../lib/strings'
 import './DesignerColumns.css'
 
 // iter-M phase-2 : les 3 colonnes de la moitié principale du Designer
-// (Forme d'onde / Harmoniques / Spectro) avec proportions ajustables —
-// presets en un clic + séparateurs glissables. L'état de proportions
-// (tableau de 3 fractions sommant à 1) est porté/persisté par le parent.
-
-// Presets de répartition (cf. spec §7.1) : ⅓⅓⅓ · ½¼¼ · ¼½¼ · ¼¼½.
-const PRESETS = [
-  { id: 'even', label: '⅓ ⅓ ⅓', widths: [1 / 3, 1 / 3, 1 / 3], title: 'Trois colonnes égales' },
-  { id: 'wave', label: '½ ¼ ¼', widths: [0.5, 0.25, 0.25], title: 'Forme d’onde large' },
-  { id: 'harm', label: '¼ ½ ¼', widths: [0.25, 0.5, 0.25], title: 'Harmoniques large' },
-  { id: 'spec', label: '¼ ¼ ½', widths: [0.25, 0.25, 0.5], title: 'Spectrogramme large' },
-]
+// (Forme d'onde / Harmoniques / Spectro) avec séparateurs glissables.
+// L'état de proportions (tableau de 3 fractions sommant à 1) est
+// porté/persisté par le parent.
+//
+// iter-M phase-r.2.1 : les presets de répartition (⅓⅓⅓ …) et le toggle
+// auto-sizing ont migré dans la barre du haut (DesignerToolbar). Ce composant
+// ne gère plus que les séparateurs glissables + le tracking du focus
+// auto-sizing.
 
 // Plancher d'une colonne (fraction) pendant le drag : empêche qu'un voisin
 // soit écrasé à zéro et reste re-saisissable.
@@ -29,7 +25,7 @@ const FOCUS_WIDTHS = [
 ]
 const REST_WIDTHS = [0.2, 0.2, 0.6]
 
-function DesignerColumns({ widths, onWidths, autoSizing, onToggleAutoSizing, focusGuardRef, columns }) {
+function DesignerColumns({ widths, onWidths, autoSizing, focusGuardRef, columns }) {
   const rootRef = useRef(null)
   const rowRef = useRef(null)
   // Focus courant (index colonne 0/1/2, ou null = repos). Volatile : vit dans
@@ -132,27 +128,6 @@ function DesignerColumns({ widths, onWidths, autoSizing, onToggleAutoSizing, foc
 
   return (
     <div className="designer-columns" ref={rootRef}>
-      <div className="designer-columns-presets" role="group" aria-label="Proportions des colonnes">
-        {PRESETS.map((p) => (
-          <button
-            key={p.id}
-            type="button"
-            className="designer-columns-preset-btn"
-            title={p.title}
-            onClick={() => onWidths(p.widths)}
-          >{p.label}</button>
-        ))}
-        {/* iter-M phase-2-as : toggle auto-sizing (essai), opt-in, OFF par
-            défaut. Quand ON, les presets restent un override manuel ponctuel. */}
-        <label className="designer-columns-auto-toggle" title={STRINGS.editor.autoSizingTitle}>
-          <input
-            type="checkbox"
-            checked={autoSizing}
-            onChange={onToggleAutoSizing}
-          />
-          <span>{STRINGS.editor.autoSizing}</span>
-        </label>
-      </div>
       <div className="designer-columns-row" ref={rowRef}>
         <div className="designer-column" style={{ flexGrow: widths[0] }}>{columns[0]}</div>
         <div
