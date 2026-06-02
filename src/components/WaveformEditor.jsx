@@ -2091,6 +2091,13 @@ function WaveformEditor({
     // Modèle unifié : les barres sont les magnitudes DFT de la canonical
     // tronquées au cap (déjà dérivées dans `amplitudes`).
     const bars = amplitudes
+    // M.r.5.2 — étiquettes de l'axe X (`kf`). En dessous de 8 harmoniques on les
+    // étiquette toutes ; au-delà on ne garde que les puissances de 2 (sinon
+    // illisible). La première (1f) est toujours présente par construction.
+    const cap = bars.length
+    const xLabels = cap < 8
+      ? Array.from({ length: cap }, (_, i) => i + 1)
+      : [1, 2, 4, 8, 16, 32, 64, 128, 256].filter((k) => k <= cap)
     return (
       <div className="we-harmonics-area" data-anchor="designer-harmonics">
         <header className="we-area-header">
@@ -2131,22 +2138,50 @@ function WaveformEditor({
             </label>
           </div>
         </header>
-        <div
-          className="we-harmonics-bars"
-          ref={harmonicsContainerRef}
-          onMouseDown={handleHarmonicMouseDown}
-          onMouseMove={handleHarmonicMouseMove}
-          onMouseUp={handleHarmonicMouseUp}
-          onMouseLeave={handleHarmonicMouseLeave}
-        >
-          {bars.map((v, i) => (
-            <div key={i} className="we-bar">
-              <div
-                className="we-bar-fill"
-                style={{ height: `${Math.max(0, Math.min(1, v)) * 100}%` }}
-              />
+        {/* M.r.5.2 — plot = axe Y (gauche) + barres + axe X (sous les barres).
+            Le conteneur interactif `.we-harmonics-bars` garde EXACTEMENT sa
+            géométrie (hit-test inchangé) ; repères et étiquettes l'entourent ou
+            se surimposent en overlay non interactif (pointer-events:none). */}
+        <div className="we-harmonics-plot">
+          <div className="we-harmonics-ylabels" aria-hidden="true">
+            <span>1</span>
+            <span>0.5</span>
+            <span>0</span>
+          </div>
+          <div
+            className={`we-harmonics-bars${isNormalized ? '' : ' is-unnormalized'}`}
+            ref={harmonicsContainerRef}
+            onMouseDown={handleHarmonicMouseDown}
+            onMouseMove={handleHarmonicMouseMove}
+            onMouseUp={handleHarmonicMouseUp}
+            onMouseLeave={handleHarmonicMouseLeave}
+          >
+            {/* Repères horizontaux 0 / 0.5 / 1, sous les barres (overlay). */}
+            <div className="we-harmonics-grid" aria-hidden="true">
+              <span className="we-grid-line" style={{ top: '0%' }} />
+              <span className="we-grid-line" style={{ top: '50%' }} />
+              <span className="we-grid-line" style={{ top: '100%' }} />
             </div>
-          ))}
+            {bars.map((v, i) => (
+              <div key={i} className="we-bar">
+                <div
+                  className="we-bar-fill"
+                  style={{ height: `${Math.max(0, Math.min(1, v)) * 100}%` }}
+                />
+              </div>
+            ))}
+          </div>
+          <div className="we-harmonics-xlabels" aria-hidden="true">
+            {xLabels.map((k) => (
+              <span
+                key={k}
+                className="we-xlabel"
+                style={{ left: `${((k - 0.5) / cap) * 100}%` }}
+              >
+                {k}f
+              </span>
+            ))}
+          </div>
         </div>
       </div>
     )

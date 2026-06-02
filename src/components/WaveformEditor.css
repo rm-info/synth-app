@@ -167,13 +167,59 @@
   white-space: nowrap;
 }
 
+/* M.r.5.2 — plot Harmoniques : axe Y (gauche), axe X (sous les barres),
+   repères horizontaux en overlay. Seul `.we-harmonics-bars` reste interactif ;
+   labels et repères sont décoratifs et ne touchent pas sa géométrie de hit-test
+   (le padding vertical est mis à 0 pour que l'amplitude mappe bord-à-bord et que
+   barres / repères / étiquettes Y s'alignent sur les mêmes niveaux 0 / 0.5 / 1). */
+.we-harmonics-plot {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: auto 1fr;
+  grid-template-rows: 1fr auto;
+  column-gap: 4px;
+}
+.we-harmonics-ylabels {
+  grid-column: 1;
+  grid-row: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  align-items: flex-end;
+  font-size: 10px;
+  line-height: 1;
+  color: var(--text-secondary);
+  user-select: none;
+}
+.we-harmonics-xlabels {
+  grid-column: 2;
+  grid-row: 2;
+  position: relative;
+  height: 13px;
+  margin-top: 2px;
+  font-size: 10px;
+  line-height: 1;
+  color: var(--text-secondary);
+  user-select: none;
+}
+.we-xlabel {
+  position: absolute;
+  top: 0;
+  transform: translateX(-50%);
+  white-space: nowrap;
+}
+
 .we-harmonics-bars {
+  grid-column: 2;
+  grid-row: 1;
+  position: relative;
   flex: 1;
   display: flex;
   align-items: flex-end;
   gap: 1px;
   min-height: 0;
-  padding: 6px 4px;
+  padding: 0 4px;
   border-radius: 6px;
   background: var(--canvas-bg, var(--surface-bg));
   cursor: ns-resize;
@@ -181,6 +227,21 @@
 }
 .we-harmonics-bars.is-readonly {
   cursor: default;
+}
+/* Repères 0 / 0.5 / 1 (overlay non interactif, sous les barres). */
+.we-harmonics-grid {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+.we-grid-line {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 0;
+  border-top: 1px dashed var(--text-secondary);
+  opacity: 0.22;
+  transform: translateY(-50%);
 }
 .we-bar {
   flex: 1 1 0;
@@ -192,10 +253,15 @@
 .we-bar-fill {
   width: 100%;
   min-height: 1px;
-  /* Bleu = éditable (cf. mockup layout-v2). En read-only (mode dessin), la
-     magnitude DFT dérivée est grisée pour signifier la non-éditabilité. */
+  /* M.r.5.2 — bleu (accent) quand la canonical est normalisée (édition directe
+     de barre possible), gris quand elle ne l'est pas (un clic ouvre le dialog
+     edit-bars). Signal pédagogique, pas de tooltip. */
   background: var(--accent);
   border-radius: 1px 1px 0 0;
+}
+.we-harmonics-bars.is-unnormalized .we-bar-fill {
+  background: var(--text-secondary);
+  opacity: 0.55;
 }
 .we-harmonics-bars.is-readonly .we-bar-fill {
   background: var(--text-secondary);
