@@ -62,6 +62,36 @@ Items backlog issus de la session :
   false` global laisse passer les accès à des propriétés absentes (retour
   `undefined` au lieu d'erreur). Passer `reducer.js` en `// @ts-check`
   strict est dans la continuité du préalable M.0 (TS incrémental).
+- **Fit intelligent des ancres via Douglas-Peucker** (remonté en cours de
+  passe d'usage M.r.5, à traiter post-M.5b) : `fitAnchorsToCurve` pose
+  actuellement les ancres à `x = i · 600/N` (équiréparties). Sous-optimal :
+  sur un signal carré, deux ancres tombent au plat (inutile) et aucune à la
+  transition (utile). Refactor proposé : remplacer par une simplification
+  Douglas-Peucker (sélection récursive des points de plus grande déviation,
+  jusqu'à atteindre `N` ancres). Bénéfices : drag d'ancre intuitif (ancres
+  aux points qui *comptent*), atténue mécaniquement l'**overshoot Catmull-Rom
+  sur transitions verticales** (densité plus forte autour des transitions
+  raides), résidu plus petit en pratique. API du helper inchangée
+  (`(canonical, count) → SplineAnchor[]`) — 5 call-sites + migration + Reset
+  héritent automatiquement. Coût : ~1 sous-commit dev.
+- **Boutons de lissage du tracé** (remonté en cours de passe d'usage M.r.5,
+  à traiter post-M.5b) : deux opérations distinctes proposées en parallèle,
+  on avise à l'usage si on garde les deux ou une seule.
+  (A) **Filtre passe-bas** sur la canonical : moyenne mobile / Gaussien
+  local. Gomme les tremblements de souris du tracé libre. Ne dépend pas
+  des ancres. Le résidu est recalculé après. Clic répétable pour lisser
+  plus. Icône Lucide candidate : `Brush` ou `Waves`.
+  (B) **Tendre vers la spline pure** : `canonical_new = lerp(canonical,
+  splineToPoints(anchors), alpha)` avec alpha modéré (~0.5), répétable. À
+  alpha=1 la canonical devient exactement la spline et le résidu = 0.
+  Dépend du nombre d'ancres : 4 ancres = lisse vers un signal très plat,
+  32 = peu d'effet. Icône candidate : `WandSparkles` ou `ChartSpline`.
+  Note d'arbitrage : (A) et (B) sont sémantiquement différents — (A)
+  supprime les hautes fréquences spatiales du tracé, (B) force le tracé à
+  respecter la lentille Spline. Tester les deux en passe d'usage avant
+  d'éventuellement supprimer le redondant. Conséquence sur
+  `canonicalNormalized` : passe à `false` après lissage (l'opération ne
+  produit pas une canonical à phase canonique iDFT).
 - **Overshoot Catmull-Rom sur transitions verticales** (remonté passe d'usage
   M.r.3) : quand la canonical présente une chute quasi-verticale (signal carré,
   pulse rapide), un drag d'ancre proche de la transition produit des
