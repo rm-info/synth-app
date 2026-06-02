@@ -534,8 +534,23 @@ des ancres sans résidu) affichée dans les deux lentilles tant que le résidu n
 pas négligeable (écart > 0.01 à la courbe affichée), légende `NormalizeLegend`
 étendue à 3 entrées conditionnelles ; (3) **clic droit sur barre d'harmonique =
 mise à zéro** (raccourci « éteindre cette harmonique »), préservant la garde
-edit-bars si non normalisé. **Le code du rattrapage M.r.* est désormais clos ;
-reste M.5b (passe doc writer sur le modèle stabilisé).**
+edit-bars si non normalisé. **Le code du rattrapage M.r.* est désormais clos.**
+
+**Passe doc M.5b livrée le 2026-06-03 — Iteration M close.** Quatre chantiers
+writer sur le modèle stabilisé : **M.5b.2** glossaire technique enrichi (+7
+entrées : Ancre, Cap, iDFT, Normalisation, Phase, Résidu, Son, avec renvois
+bidirectionnels) ; **M.5b.1** `guide-designer.md` refondu (13 sections, intro
+« trois lentilles sur une seule courbe », sections Forme d'onde Libre/Ancres,
+Harmoniques avec code couleur et dialog, Spectrogramme, lecture des courbes
+empilées bleue/grise/orange, barre du haut) ; **M.5b.3** `comprendre-forme-onde.md`
+étendu (+3 sections : trois angles sur la même courbe, l'ombre invisible —
+phase, le calque du dessin — résidu, avec métaphores horloge/calques) ;
+**M.5b.4** `limites-connues.md` actualisé (+5 limites assumées : régression de
+phase, précision finie de la DFT, dépassements splines, latence machine modeste,
+ghosting clavier — distinction explicite app/matériel). Ton « honnête mais
+rassurant » préservé, aucun mot interdit (bug/défaut/anomalie/problème).
+Triangulation pédagogique : glossaire (quoi) → guide (comment) → comprendre
+(pourquoi) → limites (quand pas).
 
 **Itération L (Documentation) — phase 5 (corpus) + clôture livrées le
 2026-05-28 — release v1.4.0. Itération L close.** Rédaction du contenu
@@ -3130,6 +3145,55 @@ Phases listées ci-dessous dans l'ordre chronologique d'implémentation.
   prochaine candidate).
 
 ## Historique (chronologie inverse)
+
+- **2026-06-03 — Iteration M — passe doc M.5b livrée. ITERATION M CLOSE (code + doc).**
+  Quatre chantiers writer enchaînés sur le modèle stabilisé. Triangulation
+  pédagogique : glossaire (quoi) → guide (comment) → comprendre (pourquoi) →
+  limites (quand pas).
+  - **M.5b.2** — `glossaire-technique.md` enrichi de **7 entrées** alphabétiques
+    (Ancre, Cap, iDFT, Normalisation, Phase, Résidu, Son) avec renvois
+    bidirectionnels mis à jour dans 4 entrées existantes (DFT, Forme d'onde,
+    Harmonique, Spectre + Fréquence/Amplitude/Hauteur/Timbre vers Son). 20
+    entrées au total. Volontairement pas d'entrée Magnitude (pollue plus
+    qu'éclaire le lecteur cible). Initiative writer : mention textuelle du
+    « bouton Σ » dans l'entrée Normalisation comme pont UI/concept.
+  - **M.5b.1** — `guide-designer.md` **refondu** (77 → 192 lignes, 7 → 13
+    sections). Concept structurant « Trois lentilles sur une seule courbe »
+    posé en section 2 dès l'intro. Sections lentilles Forme d'onde
+    (Libre/Ancres), Harmoniques (code couleur bleu/gris, dialog, clic droit,
+    bouton Σ), Spectrogramme. Section pédagogique « Lire les courbes
+    empilées » (bleue/grise/orange). Section « La barre du haut » pour les 4
+    outils (Presets/Reset/Σ/proportions). Sections existantes préservées
+    (AHDSR, amplitude, système musical, clavier, enregistrer).
+  - **M.5b.3** — `comprendre-forme-onde.md` **étendu** (62 → 140 lignes, 5 → 8
+    sections). 4 premières sections **intactes** (l'équilibre éditorial était
+    précieux). 3 nouvelles sections ajoutées : « Trois angles sur la même
+    courbe » (les 3 vues comme fait mathématique, pas UI — DFT/iDFT comme
+    voyage réversible), « L'ombre invisible : la phase » (métaphore horloge
+    sous deux angles, justification du dialog edit-bars), « Le calque du
+    dessin : le résidu » (métaphore deux calques, didactique « deux solutions
+    naïves échouent » avant la voie Designer). Conclusion réécrite : « pas
+    *une* boucle, c'est un **réseau** ».
+  - **M.5b.4** — `limites-connues.md` **actualisé** (43 → 99 lignes). 4
+    sections H2 préservées. 5 limites intégrées : (1) régression de phase à
+    l'édition de barre → Synthèse ; (2) précision finie de la DFT (round-trip
+    600↔512 non idempotent, ~15 % de leakage / passe sur signaux riches) →
+    Synthèse, métaphore « toute fenêtre a une bordure » ; (3) dépassements
+    splines sur transitions verticales, workarounds densifier ancres /
+    Anguleux → Synthèse ; (4) latence à l'appui sur machine modeste →
+    Performance ; (5) ghosting clavier QWERTY (S+E+D etc.) → Périmètre audio
+    avec **distinction explicite « Ce n'est pas l'app »** + clin d'œil futur
+    MIDI USB. Ton « rien de bloquant, autant les connaître » préservé. Aucun
+    mot interdit (bug/défaut/anomalie/problème).
+  - **Bilan iter-M complet** : 5 phases principales code (M.r.1 modèle unifié
+    → M.r.2 UI refonte → M.r.3 lentilles vivantes → M.r.4 normalisation
+    explicite → M.r.5 convention d'amplitude) + 3 finitions (M.r.2.5 / r.2.6
+    / r.5.bis) + 4 chantiers doc (M.5b.1 → .4). Le Designer a basculé du
+    modèle siloté (3 modes verrouillés, conversions destructives, 🔒) au
+    modèle unifié (canonical + cap + ancres + résidu, 3 lentilles vivantes
+    toujours synchronisées, normalisation pédagogique, marqueur ±1
+    didactique). Doctrine non-clamp étendue à la persistance, doctrine
+    iconographie Lucide instaurée projet-wide.
 
 - **2026-06-02 — Iteration M rattrapage phase r.5.bis : finitions UX (auto-fit Y en spline + spline parfaite permanente + clic droit barres) — CLÔTURE DÉFINITIVE DU CODE DU RATTRAPAGE**
   Trois finitions remontées en passe d'usage, 3 sous-commits dev + docs.
@@ -6607,9 +6671,13 @@ et L.7 (exercices guidés) restent des options de backlog, hors périmètre 1.4.
   conditionnelles ; (3) **clic droit sur barre = mise à zéro** (garde edit-bars
   conservée si non normalisé). 3 sous-commits (bis.1 / bis.2 / bis.3) + docs.
   Build/lint verts. **→ Le code du rattrapage M.r.* est définitivement clos.**
-- ⏳ **M.5b** — Passe doc « cœur de la synthèse » (pose la DFT avec le `\sum`),
-  **après** le rattrapage (sur modèle stable). **Seul reliquat du rattrapage** :
-  passe d'écriture (rôle writer), à confier hors implémenteur.
+- ✅ **M.5b** *(2026-06-03)* — Passe doc « cœur de la synthèse » livrée par le
+  writer en 4 chantiers (M.5b.2 glossaire +7 entrées → M.5b.1 guide-designer
+  refondu 13 sections → M.5b.3 comprendre-forme-onde +3 sections → M.5b.4
+  limites-connues +5 limites). Triangulation pédagogique glossaire/guide/comprendre/limites.
+  **→ Iteration M intégralement close (code + doc).** Reste hors iter : note de
+  clôture, nettoyage des prompt-fichiers archi consommés (`archi/Mr*` et
+  `archi/M5b*`), audit final.
 
 ### Backlog général (à caser quand pertinent)
 
