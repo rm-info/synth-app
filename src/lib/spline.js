@@ -5,10 +5,11 @@
 //   - splineSoft : Catmull-Rom périodique (courbe lisse, C¹).
 //   - splineHard : polyligne périodique (segments droits).
 //
-// Convention `points` du projet : index = x ∈ [0..RESOLUTION), valeur ∈ [-1..1]
-// (une période complète = le tableau entier). La sortie est clampée à [-1, 1]
-// pour rester dans le domaine attendu par la chaîne audio et la validation .osa
-// (un dépassement Catmull-Rom serait sinon hors borne).
+// Convention `points` du projet : index = x ∈ [0..RESOLUTION), valeur centrée sur
+// [-1..1] (une période complète = le tableau entier). M.r.5.bis : la sortie n'est
+// PLUS clampée à ±1 (alignement non-clamp sur le tracé libre) — un overshoot
+// Catmull-Rom ou des ancres hautes peuvent dépasser ; l'audio est normalisé à la
+// lecture, et la persistance .osa tolère [-10, 10] (borne défensive).
 //
 // Pas une moonshot : c'est l'iDFT du modèle « barres » côté harmonic — ici on
 // reste dans le domaine temporel, la propreté harmonique vient de la régularité
@@ -76,7 +77,11 @@ function sampleSpline(anchors, soft) {
         y = P1.y + (P2.y - P1.y) * t
       }
       const idx = ((xi % RESOLUTION) + RESOLUTION) % RESOLUTION
-      out[idx] = y < -1 ? -1 : y > 1 ? 1 : y
+      // M.r.5.bis (passe d'usage) — plus de clamp à ±1 : aligné sur le tracé
+      // libre, la courbe spline peut dépasser ±1 (overshoot Catmull-Rom, ancres
+      // hautes). L'audio est normalisé à la lecture (disableNormalization: false),
+      // le marqueur ±1 sert de repère pédagogique. Garde anti-NaN seulement.
+      out[idx] = Number.isFinite(y) ? y : 0
     }
   }
   return out

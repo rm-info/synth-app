@@ -96,9 +96,16 @@ export function validatePayload(obj) {
     assert(typeof p.color === 'string' && COLOR_RE.test(p.color), `patch ${p.id}: color invalide`)
     if (obj.version === 2) {
       // v2 (M rattrapage) : modèle canonique unifié.
+      // M.r.5.bis — borne défensive [-10, 10] (résidu [-12, 12]) au lieu de ±1.
+      // Le pic théorique est Σ amplitudes_k (4-5 pour des patches normaux) ; 10
+      // absorbe les cas extrêmes (résidu accumulé, harmoniques saturées) sans
+      // laisser un fichier corrompu charger n'importe quoi. La canonical brute
+      // n'est volontairement pas clampée à ±1 — l'audio est normalisé à la lecture
+      // par le navigateur (disableNormalization: false), le marqueur ±1 visuel
+      // sert de repère pédagogique.
       assert(Array.isArray(p.canonical) && p.canonical.length === 600, `patch ${p.id}: canonical doit être un tableau de 600`)
       for (let i = 0; i < 600; i++) {
-        assert(isNumberInRange(p.canonical[i], -1, 1), `patch ${p.id}: canonical ${i} hors [-1,1]`)
+        assert(isNumberInRange(p.canonical[i], -10, 10), `patch ${p.id}: canonical ${i} hors [-10,10]`)
       }
       assert(isNumberInRange(p.cap, 1, 256) && Number.isInteger(p.cap), `patch ${p.id}: cap hors [1,256]`)
       assert(Array.isArray(p.anchors) && p.anchors.length >= 4 && p.anchors.length <= 32,
@@ -108,14 +115,15 @@ export function validatePayload(obj) {
         assert(a && typeof a === 'object', `patch ${p.id}: anchor ${i} non-objet`)
         assert(typeof a.x === 'number' && Number.isFinite(a.x) && a.x >= 0 && a.x < 600,
           `patch ${p.id}: anchor ${i} x hors [0,600)`)
-        assert(isNumberInRange(a.y, -1, 1), `patch ${p.id}: anchor ${i} y hors [-1,1]`)
+        assert(isNumberInRange(a.y, -10, 10), `patch ${p.id}: anchor ${i} y hors [-10,10]`)
       }
       assert(p.interpolation === 'soft' || p.interpolation === 'hard',
         `patch ${p.id}: interpolation '${p.interpolation}' inconnue`)
-      // Résidu : peut sortir de [-1, 1] (détails du tracé), borne défensive [-2, 2].
+      // Résidu = canonical − spline : borne défensive [-12, 12] (somme des deux
+      // bornes étendues).
       assert(Array.isArray(p.residual) && p.residual.length === 600, `patch ${p.id}: residual doit être un tableau de 600`)
       for (let i = 0; i < 600; i++) {
-        assert(isNumberInRange(p.residual[i], -2, 2), `patch ${p.id}: residual ${i} hors [-2,2]`)
+        assert(isNumberInRange(p.residual[i], -12, 12), `patch ${p.id}: residual ${i} hors [-12,12]`)
       }
       assert(isNumberInRange(p.amplitude, 0, 1), `patch ${p.id}: amplitude hors [0,1]`)
     } else {

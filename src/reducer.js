@@ -121,9 +121,9 @@ function computeResidual(canonical, splineCurve) {
 // Canonical = spline(anchors) + résidu. Utilisé au drag d'ancre : la spline
 // bouge, le résidu survit. M.r.5.bis (passe d'usage) — PLUS de clamp à [-1, 1] :
 // aligné sur le tracé libre (`SET_EDITOR_CANONICAL` ne clampe pas non plus). La
-// canonical peut dépasser ±1 en édition live ; le navigateur normalise la
-// PeriodicWave à la lecture, et l'hydratation (`clampToUnit`) re-borne au save/
-// reload — comportement identique dans les deux modes.
+// canonical peut dépasser ±1 (édition ET persistance, borne défensive [-10, 10] à
+// l'hydratation / la validation .osa) ; le navigateur normalise la PeriodicWave à
+// la lecture (disableNormalization: false), le marqueur ±1 visuel sert de repère.
 function splinePlusResidual(splineCurve, residual) {
   const out = new Array(POINTS_RESOLUTION)
   for (let i = 0; i < POINTS_RESOLUTION; i++) out[i] = splineCurve[i] + (residual[i] ?? 0)
@@ -148,16 +148,17 @@ function refitAnchorsAndResidual(canonical, currentAnchors, interpolation) {
 }
 
 // Normalise/valide un tableau d'ancres : filtre les entrées non-finies, clampe
-// x ∈ [0, 600) et y ∈ [-1, 1], trie par x et écarte les doublons trop proches.
-// Renvoie null si on ne peut pas garantir au moins SPLINE_ANCHOR_MIN ancres
-// exploitables (le caller retombe alors sur un défaut).
+// x ∈ [0, 600) et y ∈ [-10, 10] (M.r.5.bis — borne défensive cohérente avec la
+// validation .osa, plus le clamp ±1 d'avant), trie par x et écarte les doublons
+// trop proches. Renvoie null si on ne peut pas garantir au moins
+// SPLINE_ANCHOR_MIN ancres exploitables (le caller retombe alors sur un défaut).
 function sanitizeAnchors(raw) {
   if (!Array.isArray(raw)) return null
   const cleaned = raw
     .filter((a) => a && Number.isFinite(a.x) && Number.isFinite(a.y))
     .map((a) => ({
       x: Math.max(0, Math.min(POINTS_RESOLUTION - 1, a.x)),
-      y: Math.max(-1, Math.min(1, a.y)),
+      y: Math.max(-10, Math.min(10, a.y)),
     }))
     .sort((a, b) => a.x - b.x)
   if (cleaned.length < SPLINE_ANCHOR_MIN) return null
@@ -372,7 +373,13 @@ function patchMeta(p) {
   }
 }
 
-const clampToUnit = (v) => (Number.isFinite(v) ? Math.max(-1, Math.min(1, v)) : 0)
+// M.r.5.bis — borne défensive [-10, 10] (et non ±1) à l'hydratation : la canonical
+// brute n'est volontairement pas clampée à ±1 (alignée sur le tracé libre ; l'audio
+// est normalisé à la lecture par le navigateur, disableNormalization: false, et le
+// marqueur ±1 visuel sert de repère). Le pic théorique est Σ amplitudes_k (4-5 pour
+// des patches normaux) ; 10 absorbe les cas extrêmes (résidu accumulé, harmoniques
+// saturées) sans laisser un fichier corrompu charger n'importe quoi.
+const clampToCanonicalRange = (v) => (Number.isFinite(v) ? Math.max(-10, Math.min(10, v)) : 0)
 
 // M rattrapage — migration patch v1 (mode discriminé draw/harmonic/spline) →
 // v2 (canonical unifié). Idempotent : un patch déjà v2 (canonical présent) est
@@ -384,7 +391,7 @@ export function migrateLegacyPatch(p) {
   // Déjà v2 : re-sanitize cap/anchors/residual sans reconvertir.
   if (Array.isArray(p.canonical)) {
     const canonical = p.canonical.length === POINTS_RESOLUTION
-      ? p.canonical.map(clampToUnit)
+      ? p.canonical.map(clampToCanonicalRange)
       : new Array(POINTS_RESOLUTION).fill(0)
     const anchors = sanitizeAnchors(p.anchors) ?? fitAnchorsToCurve(canonical, DEFAULT_SPLINE_ANCHOR_COUNT)
     const interpolation = p.interpolation === 'hard' ? 'hard' : 'soft'
@@ -425,7 +432,7 @@ export function migrateLegacyPatch(p) {
   // tracé ; résidu = canonical − spline(ancres) (peut sortir de [-1, 1] :
   // c'est attendu, il porte les détails fins qui survivront au drag d'ancre).
   const canonical = Array.isArray(p.points) && p.points.length === POINTS_RESOLUTION
-    ? p.points.map(clampToUnit)
+    ? p.points.map(clampToCanonicalRange)
     : new Array(POINTS_RESOLUTION).fill(0)
   const cap = clampCap(p.definition ?? DEFAULT_CAP)
   const anchors = fitAnchorsToCurve(canonical, DEFAULT_SPLINE_ANCHOR_COUNT)
