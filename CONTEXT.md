@@ -1344,18 +1344,24 @@ Choix non évidents pris pour de bonnes raisons. À ne pas remettre en question
   la `PeriodicWave` à la lecture. Cohérent avec « la canonical = vérité audio
   éditée ». Transition douce du zoom (lerp rAF coeff 0.15) car le rendu canvas
   est au pixel — pas de transition CSS possible. Spec §7.
-  **Extension M.r.5.bis (passe d'usage) — le mode Ancres aussi** : r.5.1 n'avait
-  dé-clampé que le tracé libre ; le chemin spline restait borné à ±1 par héritage
-  du canvas fixe pré-r.5.1 (incohérence, et le premier drag d'ancre re-clampait un
-  tracé libre qui dépassait). Les 3 clamps d'édition spline sont levés —
-  `splinePlusResidual` (canonical = spline + résidu, non bornée), `MOVE`/
-  `ADD_SPLINE_ANCHOR` (y d'ancre, garde anti-NaN seulement) et
-  `SplineEditor.eventToData` (borné à ±peak par construction). Les deux modes se
-  comportent désormais à l'identique : non clampé en édition live, re-borné à ±1 à
-  la **persistance** (`clampToUnit` sur la canonical, `sanitizeAnchors` sur les
-  ancres, à l'hydratation) — le dépassement ±1 ne survit donc jamais au save/
-  reload, dans aucun mode. Aucun impact export WAV (toujours depuis des patches
-  hydratés, donc ≤ ±1).
+  **Extension M.r.5.bis (passe d'usage) — le mode Ancres aussi, persistance
+  comprise** : r.5.1 n'avait dé-clampé que le tracé libre ; le chemin spline
+  restait borné à ±1 par héritage du canvas fixe pré-r.5.1 (incohérence, et le
+  premier drag d'ancre re-clampait un tracé libre qui dépassait). **Cinq** clamps
+  sont levés : `splinePlusResidual` (canonical = spline + résidu, non bornée),
+  `MOVE`/`ADD_SPLINE_ANCHOR` (y d'ancre, garde anti-NaN), `SplineEditor.eventToData`
+  (borné à ±peak), **`sampleSpline`** (la courbe spline elle-même ne clampe plus —
+  sinon l'orange/aperçu flatlinaient à ±1), et les **bornes de persistance**. Le
+  dépassement ±1 est désormais **réel et persisté** (pas seulement live) : décision
+  archi de **ne pas re-clamper à ±1** au save/reload, car l'audio est normalisé à
+  la lecture (`createPeriodicWave({ disableNormalization: false })`) — clamper
+  changerait le timbre. À la place, une **borne défensive [-10, 10]** (résidu
+  [-12, 12]) protège contre un fichier corrompu : `validatePayload` (`.osa` v2,
+  sans bump de version), `sanitizeAnchors`, et `clampToCanonicalRange`
+  (ex-`clampToUnit`) à l'hydratation. Le pic théorique étant Σ amplitudes_k (≈ 4-5
+  pour des patches normaux), 10 absorbe les extrêmes (résidu accumulé, harmoniques
+  saturées). Export WAV inchangé (passe par l'oscillateur normalisé). Le marqueur
+  ±1 reste un **repère pédagogique** (niveau audio référence), pas une borne.
 - **Étiquetage de l'axe X de la zone Harmoniques (M.r.5.2, 2026-06-02)** :
   étiquettes `kf` aux **puissances de 2** (`{1,2,4,…,256}` filtré à `≤ cap`) si
   `cap ≥ 8`, **toutes** les harmoniques (1..cap) si `cap < 8` (pas saturé à ce
@@ -3164,12 +3170,16 @@ Phases listées ci-dessous dans l'ordre chronologique d'implémentation.
     de perdre le geste au bord ; esprit du lasso bibliothèque). `strokeWave`
     factorise les boucles de tracé insettées. Marges verticales ensuite portées à
     26/24px (asymétriques) pour loger légende/hint hors du tracé sans frôler ±1.
-    (d) **Alignement non-clamp du mode Ancres sur le tracé libre** : les 3 clamps
-    d'édition à ±1 (`splinePlusResidual`, `MOVE`/`ADD_SPLINE_ANCHOR`,
-    `eventToData`) sont levés — un tracé libre > ±1 n'est plus re-clampé en
-    touchant une ancre, et un drag d'ancre > ±1 dilate l'auto-fit. La persistance
-    re-borne toujours à ±1 à l'hydratation (`clampToUnit` / `sanitizeAnchors`),
-    identique aux deux modes.
+    (d) **Alignement non-clamp du mode Ancres sur le tracé libre, persistance
+    comprise** : 5 clamps levés (`splinePlusResidual`, `MOVE`/`ADD_SPLINE_ANCHOR`,
+    `SplineEditor.eventToData`, **`sampleSpline`** — la courbe spline elle-même,
+    sinon orange/aperçu flatlinaient à ±1 — et les bornes de persistance). Décision
+    archi : le dépassement ±1 est **réel et persisté** (l'audio est normalisé à la
+    lecture, clamper changerait le timbre) ; une **borne défensive [-10, 10]**
+    (résidu [-12, 12]) remplace l'ancien ±1 dans `validatePayload` (.osa v2, sans
+    bump), `sanitizeAnchors` et `clampToCanonicalRange` (ex-`clampToUnit`). Résout
+    les 3 symptômes : orange clampée, auto-fit qui se réduit à la sélection d'ancre,
+    bleu écrêté pendant un drag. Export WAV inchangé (oscillateur normalisé).
   - **Le code du rattrapage M.r.* est définitivement clos.** Bilan : 5 phases
     principales (r.1→r.5) + 3 finitions (r.2.5, r.2.6, r.5.bis). Reste **M.5b**
     (passe doc writer sur le modèle stabilisé), hors implémenteur.
