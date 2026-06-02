@@ -16,3 +16,32 @@ export function withSavedCtx(ctx, fn) {
     ctx.restore()
   }
 }
+
+// M.r.5.bis.1 — marqueur ±1 (niveau audio référence) + étiquettes « 1 » / « -1 »,
+// partagé entre le canvas Forme d'onde libre (`WaveformEditor.drawCanvas`) et le
+// canvas Ancres (`SplineEditor.draw`) pour que l'auto-fit Y soit visuellement
+// identique dans les deux lentilles. `valueToY(v)` mappe une amplitude vers une
+// ordonnée canvas selon l'échelle auto-fit courante ; les étiquettes sont
+// dessinées sur le canvas (pas en DOM) pour suivre cette échelle. À appeler
+// dans un `withSavedCtx` (l'appelant restaure le contexte).
+export function drawAmplitudeMarker(ctx, W, valueToY, color) {
+  ctx.strokeStyle = color
+  ctx.globalAlpha = 0.4
+  ctx.lineWidth = 1
+  ctx.setLineDash([4, 4])
+  ctx.beginPath()
+  ctx.moveTo(0, valueToY(1))
+  ctx.lineTo(W, valueToY(1))
+  ctx.moveTo(0, valueToY(-1))
+  ctx.lineTo(W, valueToY(-1))
+  ctx.stroke()
+  ctx.setLineDash([])
+  ctx.globalAlpha = 0.55
+  ctx.fillStyle = color
+  ctx.font = '10px monospace'
+  ctx.textBaseline = 'top'
+  ctx.fillText('1', 6, valueToY(1) + 2)
+  ctx.textBaseline = 'bottom'
+  ctx.fillText('-1', 6, valueToY(-1) - 2)
+  ctx.globalAlpha = 1
+}

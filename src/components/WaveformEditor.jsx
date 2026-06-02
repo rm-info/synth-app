@@ -30,7 +30,7 @@ import {
   systemSupportsVisualCues,
 } from '../lib/visualCues'
 import { themeColor } from '../lib/themeColor'
-import { withSavedCtx } from '../lib/canvas'
+import { withSavedCtx, drawAmplitudeMarker } from '../lib/canvas'
 import { STRINGS } from '../lib/strings'
 import ConfirmDialog from './ConfirmDialog'
 import PresetPicker from './PresetPicker'
@@ -532,8 +532,11 @@ function WaveformEditor({
   useEffect(() => { pointsRef.current = points }, [points])
   // M.r.5.1 — amplitude Y actuellement affichée par le canvas Forme d'onde,
   // lerpée vers `peakTarget`. Ref car mutée frame-par-frame dans la boucle rAF
-  // d'auto-fit (hors cycle React).
-  const peakDisplayedRef = useRef(1)
+  // d'auto-fit (hors cycle React). M.r.5.bis.1 : lazy-init à la cible courante
+  // (pas 1) pour qu'au montage — notamment au switch Ancres→Libre — l'échelle
+  // soit déjà bonne et n'anime pas un faux « saut » depuis 1.
+  const peakDisplayedRef = useRef(null)
+  if (peakDisplayedRef.current === null) peakDisplayedRef.current = peakTarget
   // M.r.4 — miroir de la courbe normalisée en background pour les repaints
   // hors-render (ResizeObserver, themechange) qui lisent `pointsRef`.
   const normalizedBgRef = useRef(normalizedBg)
@@ -618,31 +621,10 @@ function WaveformEditor({
     }
     ctx.stroke()
 
-    // M.r.5.1 — marqueur ±1 = niveau audio référence. Deux pointillés
-    // symétriques en couleur d'accent atténuée, dessinés PAR-DESSUS la courbe.
-    // À peak=1 ils tangentent les bords haut/bas du canvas (cf. min auto-fit).
-    ctx.strokeStyle = themeColor('accent')
-    ctx.globalAlpha = 0.4
-    ctx.lineWidth = 1
-    ctx.setLineDash([4, 4])
-    ctx.beginPath()
-    ctx.moveTo(0, valueToY(1))
-    ctx.lineTo(W, valueToY(1))
-    ctx.moveTo(0, valueToY(-1))
-    ctx.lineTo(W, valueToY(-1))
-    ctx.stroke()
-    ctx.setLineDash([])
-    // Étiquettes du marqueur, dessinées sur le canvas (pas en DOM) pour suivre
-    // l'auto-fit : à peak=1 elles sont aux bords, au-delà elles rentrent avec la
-    // ligne. Décalées vers l'intérieur pour rester lisibles même collées au bord.
-    ctx.globalAlpha = 0.55
-    ctx.fillStyle = themeColor('accent')
-    ctx.font = '10px monospace'
-    ctx.textBaseline = 'top'
-    ctx.fillText('1', 6, valueToY(1) + 2)
-    ctx.textBaseline = 'bottom'
-    ctx.fillText('-1', 6, valueToY(-1) - 2)
-    ctx.globalAlpha = 1
+    // M.r.5.1 — marqueur ±1 = niveau audio référence, par-dessus la courbe.
+    // Primitive partagée avec SplineEditor (M.r.5.bis.1) pour un rendu identique
+    // dans les deux lentilles. À peak=1 il tangente les bords haut/bas du canvas.
+    drawAmplitudeMarker(ctx, W, valueToY, themeColor('accent'))
     })
   }, [])
 

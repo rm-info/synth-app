@@ -1,7 +1,7 @@
-import { useRef, useState, useEffect, useCallback } from 'react'
+import { useRef, useState, useEffect, useCallback, useMemo } from 'react'
 import { splineToPoints } from '../lib/spline'
 import { themeColor } from '../lib/themeColor'
-import { withSavedCtx } from '../lib/canvas'
+import { withSavedCtx, drawAmplitudeMarker } from '../lib/canvas'
 import { STRINGS } from '../lib/strings'
 import NormalizeLegend from './NormalizeLegend'
 import './SplineEditor.css'
@@ -56,6 +56,19 @@ function SplineEditor({
     ? splineToPoints(draftAnchors, interpolation)
     : points
 
+  // M.r.5.bis.1 — auto-fit Y aligné sur WaveformEditor : même échelle dynamique
+  // `[-peak, +peak]` (peak = max(|courbe|, |normalizedBg|, 1)) + transition douce
+  // par lerp rAF, pour qu'aucun saut visuel n'apparaisse au switch Libre↔Ancres.
+  const peakTarget = useMemo(() => {
+    const pc = liveCurve.reduce((m, v) => Math.max(m, Math.abs(v ?? 0)), 0)
+    const pb = normalizedBg ? normalizedBg.reduce((m, v) => Math.max(m, Math.abs(v)), 0) : 0
+    return Math.max(pc, pb, 1)
+  }, [liveCurve, normalizedBg])
+  // Lazy-init à la cible (pas 1) : au montage du composant (switch depuis Libre)
+  // l'échelle est déjà correcte, pas d'animation parasite depuis 1.
+  const peakDisplayedRef = useRef(null)
+  if (peakDisplayedRef.current === null) peakDisplayedRef.current = peakTarget
+
   // Réf miroir pour le repaint hors-render (ResizeObserver, themechange).
   // Mise à jour dans un effet (jamais pendant le render — cf. react-hooks/refs).
   const drawStateRef = useRef({ curve: points, anchors, selectedIdx: null, hoverIdx: null, bg: normalizedBg })
@@ -69,12 +82,15 @@ function SplineEditor({
     const ctx = canvas.getContext('2d')
     const midY = H / 2
     const { curve, anchors: pts, selectedIdx: sel, hoverIdx: hov, bg } = drawStateRef.current
+    // M.r.5.bis.1 — échelle Y auto-fit (cf. WaveformEditor.drawCanvas).
+    const peak = peakDisplayedRef.current
+    const valueToY = (v) => midY - (v / peak) * (H / 2)
 
     withSavedCtx(ctx, () => {
     ctx.fillStyle = themeColor('canvas-bg')
     ctx.fillRect(0, 0, W, H)
 
-    // Lignes de repère (0, ±0.5) — identiques au canvas freehand.
+    // Lignes de repère (0, ±0.5) — suivent l'échelle auto-fit comme le freehand.
     ctx.strokeStyle = themeColor('canvas-grid-secondary')
     ctx.lineWidth = 1
     ctx.beginPath()
@@ -83,10 +99,10 @@ function SplineEditor({
     ctx.stroke()
     ctx.setLineDash([4, 4])
     ctx.beginPath()
-    ctx.moveTo(0, midY - H / 4)
-    ctx.lineTo(W, midY - H / 4)
-    ctx.moveTo(0, midY + H / 4)
-    ctx.lineTo(W, midY + H / 4)
+    ctx.moveTo(0, valueToY(0.5))
+    ctx.lineTo(W, valueToY(0.5))
+    ctx.moveTo(0, valueToY(-0.5))
+    ctx.lineTo(W, valueToY(-0.5))
     ctx.stroke()
     ctx.setLineDash([])
 
@@ -100,7 +116,7 @@ function SplineEditor({
       for (let x = 0; x < W; x++) {
         const ptFloat = (x / W) * RESOLUTION
         const ptIdx = Math.min(Math.floor(ptFloat), RESOLUTION - 1)
-        const y = midY - (bg[ptIdx] ?? 0) * (H / 2)
+        const y = valueToY(bg[ptIdx] ?? 0)
         if (x === 0) ctx.moveTo(x, y)
         else ctx.lineTo(x, y)
       }
@@ -114,7 +130,7 @@ function SplineEditor({
       for (let x = 0; x < W; x++) {
         const ptFloat = (x / W) * RESOLUTION
         const ptIdx = Math.min(Math.floor(ptFloat), RESOLUTION - 1)
-        const y = midY - (curve[ptIdx] ?? 0) * (H / 2)
+        const y = valueToY(curve[ptIdx] ?? 0)
         if (x === 0) ctx.moveTo(x, y)
         else ctx.lineTo(x, y)
       }
@@ -127,11 +143,14 @@ function SplineEditor({
     ctx.lineWidth = 2
     strokeCurve()
 
+    // M.r.5.bis.1 — marqueur ±1 (primitive partagée), par-dessus la courbe.
+    drawAmplitudeMarker(ctx, W, valueToY, themeColor('accent'))
+
     // Poignées d'ancres (par-dessus). Sélectionnée/survolée = pleine + plus
     // grande ; au repos = pastille claire cerclée d'accent (pattern ADSR).
     for (let i = 0; i < pts.length; i++) {
       const px = (pts[i].x / RESOLUTION) * W
-      const py = midY - pts[i].y * (H / 2)
+      const py = valueToY(pts[i].y)
       const active = i === sel || i === hov
       ctx.beginPath()
       ctx.arc(px, py, active ? HANDLE_RADIUS + 1.5 : HANDLE_RADIUS, 0, 2 * Math.PI)
@@ -148,6 +167,25 @@ function SplineEditor({
     drawStateRef.current = { curve: liveCurve, anchors: liveAnchors, selectedIdx, hoverIdx, bg: normalizedBg }
     draw()
   }, [draw, liveCurve, liveAnchors, selectedIdx, hoverIdx, normalizedBg])
+
+  // M.r.5.bis.1 — transition douce du zoom Y (cf. WaveformEditor) : lerp
+  // `peakDisplayed` vers la cible dans une boucle rAF, repeint à chaque frame.
+  useEffect(() => {
+    if (Math.abs(peakTarget - peakDisplayedRef.current) < 0.01) {
+      peakDisplayedRef.current = peakTarget
+      return
+    }
+    let raf = 0
+    const tick = () => {
+      const cur = peakDisplayedRef.current
+      const next = cur + (peakTarget - cur) * 0.15
+      peakDisplayedRef.current = Math.abs(peakTarget - next) < 0.01 ? peakTarget : next
+      draw()
+      if (peakDisplayedRef.current !== peakTarget) raf = requestAnimationFrame(tick)
+    }
+    raf = requestAnimationFrame(tick)
+    return () => cancelAnimationFrame(raf)
+  }, [peakTarget, draw])
 
   // Sync buffer canvas ↔ container (double rAF — cf. WaveformEditor pour le
   // contournement Firefox du backing store invalidé après canvas.width = N).
@@ -193,20 +231,25 @@ function SplineEditor({
     const rect = canvasRef.current.getBoundingClientRect()
     const xPct = Math.max(0, Math.min(0.9999, (e.clientX - rect.left) / rect.width))
     const yPct = (e.clientY - rect.top) / rect.height
+    // M.r.5.bis.1 — l'échelle d'affichage est [-peak, +peak] ; on dé-projette via
+    // peak puis on clampe à ±1 (domaine des ancres, MOVE/ADD_SPLINE_ANCHOR borne
+    // y à [-1, 1] côté reducer). À peak=1 c'est l'identité d'avant.
+    const peak = peakDisplayedRef.current
     return {
       x: xPct * RESOLUTION,
-      y: Math.max(-1, Math.min(1, -(yPct * 2 - 1))),
+      y: Math.max(-1, Math.min(1, -(yPct * 2 - 1) * peak)),
     }
   }
   const hitTest = (e) => {
     const rect = canvasRef.current.getBoundingClientRect()
     const mx = e.clientX - rect.left
     const my = e.clientY - rect.top
+    const peak = peakDisplayedRef.current
     let picked = null
     let minDist = HANDLE_HIT_RADIUS
     for (let i = 0; i < liveAnchors.length; i++) {
       const px = (liveAnchors[i].x / RESOLUTION) * rect.width
-      const py = (rect.height / 2) - liveAnchors[i].y * (rect.height / 2)
+      const py = (rect.height / 2) - (liveAnchors[i].y / peak) * (rect.height / 2)
       const d = Math.hypot(mx - px, my - py)
       if (d < minDist) { minDist = d; picked = i }
     }
@@ -337,9 +380,9 @@ function SplineEditor({
           onMouseLeave={handleMouseLeave}
           onContextMenu={handleContextMenu}
         />
-        <span className="label top">+1</span>
+        {/* M.r.5.bis.1 — bornes ±1 portées par le marqueur canvas (suit l'auto-fit
+            Y) ; seul le « 0 » médian reste un label DOM fixe. */}
         <span className="label middle">0</span>
-        <span className="label bottom">-1</span>
         {normalizedBg && <NormalizeLegend />}
         {menu && (
           <div
