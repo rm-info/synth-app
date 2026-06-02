@@ -976,11 +976,14 @@ Seuls les **placements timeline** s'appellent "clips".
       `valueToY(v) = midY − (v/peak)·(H/2)` encapsule l'échelle ; le zoom Y suit
       une **transition douce** (`peakDisplayedRef` lerpé `+= (target−cur)·0.15`
       par frame dans une boucle rAF, ~150 ms). **Marqueur ±1** = niveau audio
-      référence, deux pointillés d'accent atténués (`setLineDash([4,4])`, alpha
-      0.4) + étiquettes `1`/`-1` **dessinées sur le canvas** (suivent l'auto-fit ;
-      les labels DOM `+1`/`-1` ont été retirés, seul le `0` médian subsiste). Le
-      tracé libre n'est **pas clampé** à ±1 (`getCanvasPoint` borne à ±peak) — le
-      navigateur normalise la `PeriodicWave` à la lecture.
+      référence, deux pointillés d'accent atténués + étiquettes `+1`/`-1`
+      **dessinées sur le canvas** (suivent l'auto-fit ; labels DOM retirés, seul le
+      `0` médian subsiste). **Grille de repères (M.r.5.bis, passe d'usage)** :
+      `drawAmplitudeGrid` ajoute les niveaux par pas de 0.5 jusqu'au pic affiché —
+      `+0.5`, `+1.5`, `+2`, `+2.5`, `+3`… (et négatifs), donc `+2`/`+3`
+      n'apparaissent que quand l'auto-fit dilate l'échelle ; ±1 reste le marqueur
+      accent. Le tracé libre n'est **pas clampé** à ±1 (`getCanvasPoint` borne à
+      ±peak) — le navigateur normalise la `PeriodicWave` à la lecture.
     - **Auto-fit Y commun aux deux lentilles (M.r.5.bis.1)** : `SplineEditor`
       (lentille Ancres) calcule son propre `peakTarget`/`peakDisplayedRef` (même
       logique + lerp rAF) et mappe `[-peak, +peak]` partout (courbe, normalizedBg,
@@ -3180,6 +3183,14 @@ Phases listées ci-dessous dans l'ordre chronologique d'implémentation.
     bump), `sanitizeAnchors` et `clampToCanonicalRange` (ex-`clampToUnit`). Résout
     les 3 symptômes : orange clampée, auto-fit qui se réduit à la sélection d'ancre,
     bleu écrêté pendant un drag. Export WAV inchangé (oscillateur normalisé).
+    (e) **Grille de repères d'amplitude** (`drawAmplitudeGrid`, partagée) : niveaux
+    par pas de 0.5 jusqu'au pic affiché (`+0.5`, `+1.5`, `+2`, `+2.5`, …) labellisés,
+    apparaissant à mesure que l'auto-fit dilate ; ±1 reste le marqueur accent ; les
+    étiquettes positives reprennent le préfixe `+`. (f) **fix playback** :
+    `scheduleOneClip` (lecture timeline d'un seul clip) oubliait de passer
+    `patch.cap` à `pointsToPeriodicWave` → 256 harmoniques jouées (leakage spectral
+    `[cap+1..256]` audible, exacerbé par les pics > ±1) ; `scheduleAllClips` le
+    faisait déjà.
   - **Le code du rattrapage M.r.* est définitivement clos.** Bilan : 5 phases
     principales (r.1→r.5) + 3 finitions (r.2.5, r.2.6, r.5.bis). Reste **M.5b**
     (passe doc writer sur le modèle stabilisé), hors implémenteur.
