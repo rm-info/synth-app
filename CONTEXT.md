@@ -504,7 +504,15 @@ preset picker, presets rapides Sinus/Carré/…) **re-fittent automatiquement le
 ancres** sur la nouvelle canonical (helper `refitAnchorsAndResidual`) avant de
 recalculer le résidu ; la lentille Spline reflète toujours le tracé courant (fini
 les ancres figées à `y=0` après un dessin libre). Cleanup : `'bars'` retiré du
-type `WaveformLens` (vestigial depuis r.2.4).
+type `WaveformLens` (vestigial depuis r.2.4). **Rattrapage M.r.4 (2026-06-02)** :
+**normalisation explicite**. Flag d'état `editor.canonicalNormalized` (déterministe,
+posé par les actions ; la détection numérique initiale a été abandonnée — le
+round-trip FFT 600↔512 n'est pas idempotent) pilote trois chemins : bouton
+Normaliser **désactivé** quand déjà normalisé, **courbe grise en background**
+(aperçu « phase canonique » sous la canonical, dans les deux modes d'édition) +
+légende, et **dialog edit-bars** qui intercepte l'édition d'une barre sur une
+canonical non normalisée (normalise + applique en un geste). Dompte la régression
+de phase (le « saut » silencieux au premier drag de barre).
 
 **Itération L (Documentation) — phase 5 (corpus) + clôture livrées le
 2026-05-28 — release v1.4.0. Itération L close.** Rédaction du contenu
@@ -899,6 +907,29 @@ Seuls les **placements timeline** s'appellent "clips".
     count préservé). La lentille Spline reflète donc toujours le tracé courant
     (plus d'ancres figées à `y=0` après tracé libre / preset). Cf. « Décisions
     architecturales » pour la liste exacte des actions concernées / exemptées.
+  - **Normalisation explicite (M.r.4)** : un flag d'état
+    `editor.canonicalNormalized: boolean` répond à « la canonical est-elle à
+    phase canonique sinus pur ? ». Posé par chaque action qui écrit canonical
+    (true : NORMALIZE, édition de barre, LOAD_PRESET, `APPLY_EDITOR_PRESET('sine')`,
+    Reset×2 ; false : tracé libre, drag d'ancre, interpolation, `SET_EDITOR_CAP`,
+    hydratation d'un patch, presets carré/dent de scie/triangle ; inchangé :
+    actions qui ne touchent pas canonical). Volatile (non persisté dans le patch
+    ni `.osa`). **Pas** une détection numérique : le round-trip
+    `harmonicsToPoints(canonicalToBars(x))` n'est pas idempotent (resample
+    600↔512 linéaire → leakage). Le flag pilote trois chemins UX :
+    - bouton **Normaliser désactivé** (`disabled`, tooltip « Déjà normalisé »)
+      quand le flag est true ;
+    - **courbe normalisée en background** (`normalizedBg`,
+      `harmonicsToPoints(canonicalToBars(canonical, cap), cap)`) dessinée en gris
+      discret (`canvas-text-primary`, alpha 0.5, 1px) **sous** la canonical, dans
+      le canvas Libre (`drawCanvas`) ET le mode Ancres (`SplineEditor`), tant que
+      le flag est false ; + légende overlay `NormalizeLegend` (« actuelle » /
+      « si normalisée ») ;
+    - **dialog edit-bars** (`pendingBarEdit` → `ConfirmDialog`) : `handleHarmonicMouseDown`
+      intercepte le mousedown sur une barre quand le flag est false (n'initie
+      aucun draft) ; « Normaliser et continuer » enchaîne `normalize()` +
+      `setHarmonicAmplitude(index, value)` du mousedown originel (2 dispatchs =
+      2 crans d'undo, assumé) ; « Annuler » ne dispatch rien.
   - **Forme d'onde** (`renderCanvasArea`) : deux modes d'édition exclusifs
     pilotés par le **toggle Libre↔Ancres** du header (bascule `currentLens`
     free↔spline). Libre = tracé main levée ; Ancres = `SplineEditor` (poignées).
@@ -910,8 +941,9 @@ Seuls les **placements timeline** s'appellent "clips".
     **SVG custom** `IconDoux`/`IconAnguleux`, style Lucide, **joint en switch
     segmenté** r.2.6.4) + le slider/input « N / 32 » (input aligné sur la hauteur
     des boutons, r.2.6.4) + le bouton **Normaliser** (icône `Sigma`, déplacé
-    depuis la barre du haut en r.2.6.8 → `NORMALIZE_EDITOR_CANONICAL`) y sont
-    **toujours rendus** (positions stables),
+    depuis la barre du haut en r.2.6.8 → `NORMALIZE_EDITOR_CANONICAL` ; **M.r.4 :
+    `disabled` quand `editor.canonicalNormalized`**, tooltip « Déjà normalisé »)
+    y sont **toujours rendus** (positions stables) ; les contrôles d'ancres sont
     `disabled` en mode Libre (M.r.2.5.2) ; saisie directe du nombre d'ancres via
     `<NumberInput>` (M.r.2.5.3).
   - **Harmoniques** (`renderHarmonicsArea`) : barres bleues **toujours
@@ -1190,6 +1222,30 @@ Choix non évidents pris pour de bonnes raisons. À ne pas remettre en question
   à la finesse de la spline, modulée par le résidu). `APPLY_EDITOR_PRESET` (presets
   rapides Sinus/Carré/…) est le 5ᵉ call-site : non listé dans le prompt initial,
   ajouté par décision archi car il exhibait la même bizarrerie. Spec §4.1.
+- **Normalisation explicite + détection par flag d'état (M.r.4, 2026-06-02)** :
+  les barres d'harmoniques ne portent que des **magnitudes**, pas de phase. La
+  convention de reconstruction iDFT est la **phase canonique sinus pur** pour
+  toutes les harmoniques (la phase est inaudible, cf. spec §4) — d'où le « saut »
+  visuel de la canonical au premier drag de barre depuis une phase quelconque
+  (régression de phase). M.r.4 l'explicite (dialog edit-bars + courbe grise
+  d'aperçu + bouton désactivé), piloté par un flag `editor.canonicalNormalized`.
+  - **Détection « normalisée » par flag d'état, PAS par comparaison numérique**
+    (amendement 2026-06-02 suite à mesure du dev). La v1 du prompt prévoyait
+    `isCanonicalNormalized(canonical, cap, eps)` comparant la canonical à son
+    round-trip `harmonicsToPoints(canonicalToBars(x))`. Mesure : ce round-trip
+    **n'est pas idempotent** à haut `cap` sur signaux riches en hautes harmoniques
+    (resample 600→512 par **interp linéaire** = leakage ~15 %/passe ; un créneau
+    à `cap=256` demande **4 normalisations** pour converger). Les classes
+    « vraiment normalisé » et « tracé libre quasi-en-phase » se chevauchent sur la
+    métrique → **aucun seuil ne sépare**. Le flag est déterministe, idempotent
+    (1 click → grisé), et sémantiquement plus honnête : « normalisé » est une
+    propriété de l'**histoire de l'éditeur**, pas du tableau `canonical`. Effets
+    par action câblés dans le reducer (cf. Contraintes implicites).
+  - **Commentaire corrigé** dans `audio.js` (`harmonicsToPoints`, ~l.176) : il
+    affirmait à tort que le round-trip « redonne exactement les mêmes magnitudes ».
+    Corrigé : admet le leakage 600→512, pointe le backlog « Mismatch de grille
+    FFT 600 ↔ 512 ». La détection numérique aurait été le 1ᵉʳ symptôme bloquant de
+    ce bug ; le flag d'état la contourne (le bug FFT reste backlog, hors scope).
 - **Silence comme état neutre (M.r.2.5, 2026-06-01)** : `DEFAULT_EDITOR.canonical`
   et `RESET_EDITOR_WAVEFORM` repartent du **silence** (canonical à zéro). M.r.2.2
   avait tenté une sin fondamentale (« un nouveau patch sonne »), annulée à la
@@ -1867,8 +1923,8 @@ Conventions tacites. Les enfreindre sans raison crée des bugs subtils.
   test* / visualCue* / currentLens / currentPatchId. Distinct de `RESET_EDITOR`
   (Ctrl+Alt+N « Nouveau patch »), qui reste l'outil de **remise à zéro complète**
   de l'éditeur (cap + ancres inclus). `NORMALIZE_EDITOR_CANONICAL` (bouton Normaliser)
-  exécute l'iDFT à phase canonique **sans détection d'état** en M.r.2 (toujours
-  cliquable ; si déjà normalisé → quasi no-op + 1 cran undo ; détection en M.r.4).
+  exécute l'iDFT à phase canonique. **M.r.4** : `disabled` quand
+  `editor.canonicalNormalized` (plus de no-op à 1 cran undo possible).
 - **Re-fit auto des ancres = uniquement les voies non-spline (M.r.3)** : seules
   les 5 actions qui *écrivent* canonical par une autre voie (cf. Décisions
   architecturales) appellent `refitAnchorsAndResidual`. Les actions suivantes
@@ -1881,6 +1937,26 @@ Conventions tacites. Les enfreindre sans raison crée des bugs subtils.
   `RESET_EDITOR_WAVEFORM` (aplatit explicitement les ancres au count courant) ;
   `SET_EDITOR_CAP` (ne touche pas la canonical — la troncature vit dans la chaîne
   audio, `pointsToPeriodicWave`).
+- **Flag `editor.canonicalNormalized` (M.r.4)** : propriété de l'histoire de
+  l'éditeur (≠ détection numérique — le round-trip FFT n'est pas idempotent, cf.
+  Décisions). `DEFAULT_EDITOR.canonicalNormalized = true` (canonical = 0 =
+  iDFT(0)). Chaque action qui *écrit* canonical le repositionne explicitement —
+  un oubli n'est PAS attrapé par typecheck/lint. Tableau exhaustif :
+  - **→ `true`** : `NORMALIZE_EDITOR_CANONICAL`, `SET_EDITOR_HARMONIC_AMPLITUDE`
+    (iDFT phase canonique par construction), `LOAD_PRESET`,
+    `APPLY_EDITOR_PRESET('sine')` (sin pur), `RESET_EDITOR_WAVEFORM` (silence),
+    `RESET_EDITOR` (hérite de `DEFAULT_EDITOR`).
+  - **→ `false`** : `SET_EDITOR_CANONICAL` (tracé libre, phase arbitraire),
+    `MOVE`/`ADD`/`REMOVE_SPLINE_ANCHOR` (`splinePlusResidual` ≠ iDFT canonique),
+    `SET_SPLINE_INTERPOLATION`, `SET_EDITOR_CAP` (change l'interprétation des
+    barres — conservative), `HYDRATE_EDITOR_FROM_PATCH` (flag non persisté → phase
+    inconnue au rechargement ; la branche patch null hérite `true` = silence),
+    `APPLY_EDITOR_PRESET('square'|'sawtooth'|'triangle')` (formes stepped, phase
+    non-canonique au sens DFT — la refonte presets en séries de Fourier, backlog,
+    basculera les 4 à `true`).
+  - **inchangé** : `SET_EDITOR_ANCHOR_COUNT` (re-fit ancres + résidu mais NE
+    touche pas canonical), `SET_EDITOR_CURRENT_LENS`, `SET_EDITOR_AMPLITUDE`,
+    `SET_EDITOR_ADSR`, etc. (le spread `...state.editor` préserve la valeur).
 - **`DEFAULT_EDITOR.canonical` = silence (canonical à zéro)**. La passe d'usage
   M.r.2.5 a annulé la sin fondamentale de M.r.2.2 (décision utilisateur : ne pas
   imposer un timbre arbitraire) — `DEFAULT_EDITOR.canonical` et
@@ -2893,6 +2969,37 @@ Phases listées ci-dessous dans l'ordre chronologique d'implémentation.
   prochaine candidate).
 
 ## Historique (chronologie inverse)
+
+- **2026-06-02 — Iteration M rattrapage phase r.4 : normalisation explicite (flag d'état + courbe background + dialog edit-bars)**
+  Phase UX-sémantique, 3 sous-commits dev + docs. **Diagnostic en cours de phase
+  (à retenir)** : le prompt initial prévoyait une détection numérique
+  `isCanonicalNormalized(canonical, cap, eps)` comparant la canonical à son
+  round-trip `harmonicsToPoints(canonicalToBars(x))`, en supposant ce round-trip
+  idempotent. Le dev a **mesuré** que c'est faux : le resample 600→512 par interp
+  linéaire (`pointsToHarmonics`) réinjecte du leakage ~15 %/passe ; un créneau à
+  `cap=256` demande 4 normalisations pour converger, et aucun seuil ne sépare
+  « vraiment normalisé » de « tracé libre quasi-en-phase ». Bug remonté à l'archi
+  → **pivot vers un flag d'état** `editor.canonicalNormalized` (amendement du
+  prompt). Le commentaire d'`audio.js` qui affirmait l'idempotence (faux) a été
+  corrigé.
+  - **r.4.1** (`feat`) : flag `editor.canonicalNormalized: boolean` (type +
+    `DEFAULT_EDITOR = true`), câblé dans toutes les actions qui écrivent canonical
+    (true : NORMALIZE, édition de barre, LOAD_PRESET, `APPLY_EDITOR_PRESET('sine')`,
+    Reset×2 ; false : tracé libre, drag d'ancre, interpolation, `SET_EDITOR_CAP`,
+    hydratation, presets carré/scie/triangle ; inchangé : actions ne touchant pas
+    canonical). Bouton Normaliser `disabled` + tooltip « Déjà normalisé » quand
+    true. Commentaire faux d'`audio.js` (`harmonicsToPoints`) corrigé.
+  - **r.4.2** (`feat`) : **courbe normalisée en background** gris discret
+    (`harmonicsToPoints(canonicalToBars(canonical, cap))`, `canvas-text-primary`
+    alpha 0.5, 1px) sous la canonical, dans `drawCanvas` (Libre) ET `SplineEditor`
+    (Ancres), tant que le flag est false. Légende overlay `NormalizeLegend`
+    (composant partagé) « actuelle » / « si normalisée ».
+  - **r.4.3** (`feat`) : **dialog edit-bars** — `handleHarmonicMouseDown`
+    intercepte le mousedown sur barre quand le flag est false (`pendingBarEdit` →
+    `ConfirmDialog`) ; « Normaliser et continuer » enchaîne `normalize()` +
+    `setHarmonicAmplitude(index, value)` du mousedown originel (2 crans undo,
+    assumé) ; « Annuler » ne dispatch rien.
+  - Build / typecheck / lint verts. Test manuel (9 scénarios) passé.
 
 - **2026-06-01 — Iteration M rattrapage phase r.3 : lentilles vivantes + cleanup 'bars'**
   Phase chirurgicale (reducer + type), 2 sous-commits dev + docs :
@@ -6212,9 +6319,15 @@ et L.7 (exercices guidés) restent des options de backlog, hors périmètre 1.4.
   après tracé libre / preset). Cleanup : `'bars'` retiré du type `WaveformLens`
   (vestigial depuis r.2.4). 2 sous-commits (r.3.1 re-fit, r.3.2 cleanup) + docs.
   Test de non-régression manuel (10 scénarios) passé. Build/typecheck/lint verts.
-- ⏳ **M.r.4** — Détection d'état normalisé (désactivation conditionnelle du
-  bouton Normaliser, livré en r.2) + courbe normalisée en arrière-plan gris +
-  dialog edit-bars-requires-normalize.
+- ✅ **M.r.4 — Normalisation explicite** (2026-06-02) : flag d'état
+  `editor.canonicalNormalized` (déterministe — la détection numérique initiale a
+  été abandonnée, round-trip FFT 600↔512 non idempotent, mesuré par le dev)
+  pilotant 3 chemins : bouton Normaliser désactivé quand normalisé, courbe grise
+  d'aperçu « phase canonique » en background (modes Libre + Ancres) + légende,
+  dialog edit-bars (intercepte l'édition d'une barre non-normalisée → normalise +
+  applique en un geste). Dompte la régression de phase. 3 sous-commits (r.4.1
+  flag+bouton+commentaire audio.js, r.4.2 courbe+légende, r.4.3 dialog) + docs.
+  Test manuel (9 scénarios) passé. Build/typecheck/lint verts.
 - ⏳ **M.r.5** — Convention d'amplitude (auto-fit Y + marqueur pointillé ±1),
   repères + axes labellisés zone Harmoniques (`kf`, Y 0/0.5/1).
 - ⏳ **M.5b** — Passe doc « cœur de la synthèse » (pose la DFT avec le `\sum`),
@@ -6232,6 +6345,16 @@ et L.7 (exercices guidés) restent des options de backlog, hors périmètre 1.4.
 - **(iter-M) Nettoyage `spectrogramVisible`** : vestigial depuis M.2 (spectro =
   colonne permanente). Clé localStorage conservée (consigne « ne pas toucher aux
   clés ») ; retrait complet (état + action + reducer) à faire si jamais.
+- **(iter-M) Mismatch de grille FFT 600 ↔ 512** : `pointsToHarmonics` resample
+  la canonical (600 pts) vers 512 par **interpolation linéaire** avant la FFT, ce
+  qui réinjecte du leakage spectral (~15 %/passe sur un créneau à `cap=256`,
+  mesuré en M.r.4). Conséquence : le round-trip
+  `harmonicsToPoints → pointsToHarmonics` n'est **pas** idempotent à haut `cap` —
+  d'où l'abandon de la détection numérique de normalisation au profit d'un flag
+  d'état (M.r.4). Correctif propre : resample band-limité (sinc/poly-phase) ou
+  travailler nativement sur une grille puissance-de-2. Hors scope tant que l'audio
+  reste acceptable ; deviendra prioritaire si un futur besoin exige un round-trip
+  exact (ex. édition de barres sans « saut » résiduel).
 
 - **Adaptation UI résolutions intermédiaires [924×668..1740×900]**
   (G.1.4 ouvre la voie) : layout repensé pour viewports plus
