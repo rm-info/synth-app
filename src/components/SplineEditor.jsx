@@ -72,17 +72,15 @@ function SplineEditor({
     [draftAnchors, interpolation, committedSpline],
   )
   // Courbe principale (bleu = canonical) : committée au repos ; pendant un drag,
-  // on PRÉVISUALISE spline(draft) + résidu (clampé ±1) — exactement ce que
-  // produira le reducer au commit. Conséquence : le tracé bleu reste visible
-  // pendant le drag (au lieu de devenir la spline pure) et ne saute pas au
-  // relâchement ; bleu, gris et orange coexistent avec leur rôle habituel.
+  // on PRÉVISUALISE spline(draft) + résidu — exactement ce que produira le reducer
+  // au commit (`splinePlusResidual`, non clampé depuis M.r.5.bis). Conséquence : le
+  // tracé bleu reste visible pendant le drag (au lieu de devenir la spline pure),
+  // ne se fait plus écrêter à ±1 puis ré-étendre au relâchement, et l'auto-fit ne
+  // se réduit plus au début du geste ; bleu, gris et orange coexistent.
   const liveCurve = useMemo(() => {
     if (!draftAnchors) return points
     const c = new Array(splinePerfect.length)
-    for (let i = 0; i < splinePerfect.length; i++) {
-      const v = (splinePerfect[i] ?? 0) + (residual[i] ?? 0)
-      c[i] = v < -1 ? -1 : v > 1 ? 1 : v
-    }
+    for (let i = 0; i < splinePerfect.length; i++) c[i] = (splinePerfect[i] ?? 0) + (residual[i] ?? 0)
     return c
   }, [draftAnchors, splinePerfect, residual, points])
   const showSplinePerfect = useMemo(() => {
