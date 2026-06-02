@@ -37,6 +37,33 @@ Hors scope : inharmonique (Monde B), morph A↔B, toggles miroir (inaudibles),
 >600 points.
 
 Items backlog issus de la session :
+- **Latence audio à l'appui de touche** (remonté passe d'usage post-M.r.5.bis,
+  visible sur machine modeste) : impression de retard entre la frappe clavier
+  et le son sortant, apparue depuis les améliorations récentes (M.r.5 + .bis).
+  Pistes d'investigation à mener en perf audit dédié :
+  (a) **rAF lerp auto-fit Y** (M.r.5.1, étendu en M.r.5.bis.1 à SplineEditor)
+  qui ne s'arrête peut-être pas correctement quand la cible est atteinte
+  (boucle perpétuelle qui mange le frame budget) ;
+  (b) **recompute des 3 courbes** (canonical + normalisée + spline parfaite)
+  au render : chaque courbe coûte ~150k mults ; mémoïsation actuelle dépend
+  de `[editor.canonical, editor.cap]` — vérifier que les `useMemo` ne
+  recalculent pas à chaque re-render ;
+  (c) **pression rendu canvas** : `withSavedCtx` + lerp peut déclencher
+  des `requestAnimationFrame` empilés si plusieurs sources lancent leur
+  propre boucle (une pour le peak, une pour le normalizedBg, une pour la
+  spline parfaite) ;
+  (d) **`pointsToHarmonics` cache miss** : WeakMap par référence de
+  `canonical` — si la canonical est rejouée différemment à chaque touche
+  (alias instable), le cache rate et la FFT 512 se refait à chaque note.
+  Audit à mener post-M.5b. Si bloquant en usage, peut justifier un fix
+  ciblé avant M.5b (genre forcer un seuil de convergence du lerp à arrêt
+  rAF, ou downgrader le re-render fréquence).
+- **Support clavier MIDI USB** (longue échéance) : Web MIDI API native,
+  mapping note MIDI → fréquence via le système de tempérament actif,
+  vélocité → amplitude, sustain pedal MIDI → reuse de la pédale Espace
+  actuelle. Vrais avantages au-delà de QWERTY : polyphonie illimitée
+  (pas de ghosting), pression mesurable, gestes musicaux fluides. Hors
+  scope rattrapage et doc M.5b.
 - **i18n / multilingue complet** : la francisation M sème les chaînes
   centralisées ; le multilingue (ajout de langues) vient après.
 - **Auto-sizing au focus** : à confirmer ou jeter avant clôture de M. Critère :
