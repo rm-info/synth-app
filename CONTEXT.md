@@ -1007,15 +1007,17 @@ Seuls les **placements timeline** s'appellent "clips".
       restent donc visibles avec leur rôle (bleu = résultat, orange = spline
       éditée, gris = normalisée) et rien ne saute au relâchement.
     - **Marge tampon aux bords (M.r.5.bis, passe d'usage)** : `DRAW_MARGIN` (12px
-      horizontal) et `DRAW_MARGIN_V` (20px vertical pour les canvas Forme d'onde),
+      horizontal) et `DRAW_MARGIN_TOP`/`DRAW_MARGIN_BOTTOM` (26/24px verticaux,
+      asymétriques, pour les canvas Forme d'onde — médiane tracée à `valueToY(0)`),
       partagés via `lib/canvas`, confinent le tracé / les poignées / les barres à
       l'intérieur (rendu ET mapping d'entrée insettés), tandis que l'élément
       capteur garde sa taille pleine → la souris a une bande tampon avant de
       quitter l'élément et de **perdre le geste** au bord (même esprit que le lasso
       de la bibliothèque). La marge verticale plus large réserve une **gouttière
       haut/bas** où loger la **légende** (haut) et le **hint d'usage** (bas, lentille
-      Ancres) HORS du tracé (ils ne le chevauchent plus) — symétrique pour garder
-      l'amplitude 0 au centre. Appliqué au canvas Libre (`strokeWave`/
+      Ancres) HORS du tracé (ils ne le chevauchent plus) — gouttières asymétriques
+      (26/24px) pour dégager les marqueurs ±1, médiane tracée à `valueToY(0)`.
+      Appliqué au canvas Libre (`strokeWave`/
       `getCanvasPoint`), au canvas Ancres (`SplineEditor`) et à la zone Harmoniques
       (padding 12px + `harmonic*FromEvent` insettés ; pas de gouttière, pas
       d'overlay). Les lignes de repère (0, ±0.5, marqueur ±1) restent pleine largeur.
@@ -1372,15 +1374,17 @@ Choix non évidents pris pour de bonnes raisons. À ne pas remettre en question
   gauche). Menu contextuel natif bloqué (`onContextMenu`).
 - **Marge tampon aux bords des zones d'édition (M.r.5.bis, passe d'usage,
   2026-06-02)** : `DRAW_MARGIN = 12px` (horizontal + zone Harmoniques) et
-  `DRAW_MARGIN_V = 20px` (vertical des canvas Forme d'onde), exportés par
+  `DRAW_MARGIN_TOP`/`DRAW_MARGIN_BOTTOM` (26/24px verticaux, asymétriques pour
+  dégager les marqueurs ±1 des overlays légende/hint), exportés par
   `lib/canvas` (source unique → les deux canvas restent à la même échelle). Le
   tracé / les poignées / les barres sont confinés à l'intérieur (rendu ET mapping
   d'entrée insettés), pendant que l'élément capteur garde sa taille pleine →
   bande tampon avant de quitter l'élément et de perdre le geste (même solution
-  que le lasso de la bibliothèque, qui suit la souris au niveau window). La marge
-  verticale plus large (20 vs 12) réserve une **gouttière haut/bas** où loger la
-  légende et le hint d'usage **hors du tracé** ; symétrique pour garder
-  l'amplitude 0 au centre (`midY = H/2`). Les lignes de repère restent pleine
+  que le lasso de la bibliothèque, qui suit la souris au niveau window). Les marges
+  verticales plus larges (26/24 vs 12) réservent une **gouttière haut/bas** où
+  loger la légende et le hint d'usage **hors du tracé** ; asymétriques (la légende
+  du haut, plus haute, a besoin de plus de jeu) → l'amplitude 0 n'est plus à H/2,
+  la ligne médiane est tracée à `valueToY(0)`. Les lignes de repère restent pleine
   largeur.
 - **Silence comme état neutre (M.r.2.5, 2026-06-01)** : `DEFAULT_EDITOR.canonical`
   et `RESET_EDITOR_WAVEFORM` repartent du **silence** (canonical à zéro). M.r.2.2
