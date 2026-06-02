@@ -50,20 +50,40 @@ function SplineEditor({
   const [hoverIdx, setHoverIdx] = useState(null)
   const [menu, setMenu] = useState(null) // { index, px, py } | null
 
-  // Ancres et courbe affichées : draft pendant le drag, valeurs committées sinon.
+  // Ancres affichées : draft pendant le drag, committées sinon.
   const liveAnchors = draftAnchors ?? anchors
-  const liveCurve = draftAnchors
-    ? splineToPoints(draftAnchors, interpolation)
-    : points
-
-  // M.r.5.bis.2 — spline parfaite = squelette des ancres affichées (draft pendant
-  // un drag), sans résidu. Visible tant qu'elle s'écarte de la courbe affichée
-  // (résidu non négligeable) ; pendant un drag d'ancre, liveCurve EST la spline
-  // → écart nul → cachée (le bleu et l'orange se confondraient).
-  const splinePerfect = useMemo(
-    () => Array.from(splineToPoints(liveAnchors, interpolation)),
-    [liveAnchors, interpolation],
+  // Spline committée (squelette des ancres validées) — sert à isoler le résidu.
+  const committedSpline = useMemo(
+    () => Array.from(splineToPoints(anchors, interpolation)),
+    [anchors, interpolation],
   )
+  // Résidu = canonical committée − spline committée. Invariant pendant un drag
+  // d'ancre (le reducer le préserve : canonical = spline(ancres) + résidu).
+  const residual = useMemo(() => {
+    const r = new Array(points.length)
+    for (let i = 0; i < points.length; i++) r[i] = (points[i] ?? 0) - (committedSpline[i] ?? 0)
+    return r
+  }, [points, committedSpline])
+  // M.r.5.bis.2 — spline parfaite (orange) = squelette des ancres AFFICHÉES (draft
+  // pendant un drag, committées sinon).
+  const splinePerfect = useMemo(
+    () => (draftAnchors ? Array.from(splineToPoints(draftAnchors, interpolation)) : committedSpline),
+    [draftAnchors, interpolation, committedSpline],
+  )
+  // Courbe principale (bleu = canonical) : committée au repos ; pendant un drag,
+  // on PRÉVISUALISE spline(draft) + résidu (clampé ±1) — exactement ce que
+  // produira le reducer au commit. Conséquence : le tracé bleu reste visible
+  // pendant le drag (au lieu de devenir la spline pure) et ne saute pas au
+  // relâchement ; bleu, gris et orange coexistent avec leur rôle habituel.
+  const liveCurve = useMemo(() => {
+    if (!draftAnchors) return points
+    const c = new Array(splinePerfect.length)
+    for (let i = 0; i < splinePerfect.length; i++) {
+      const v = (splinePerfect[i] ?? 0) + (residual[i] ?? 0)
+      c[i] = v < -1 ? -1 : v > 1 ? 1 : v
+    }
+    return c
+  }, [draftAnchors, splinePerfect, residual, points])
   const showSplinePerfect = useMemo(() => {
     let m = 0
     for (let i = 0; i < liveCurve.length; i++) {
