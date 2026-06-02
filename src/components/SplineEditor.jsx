@@ -1,7 +1,7 @@
 import { useRef, useState, useEffect, useCallback, useMemo } from 'react'
 import { splineToPoints } from '../lib/spline'
 import { themeColor } from '../lib/themeColor'
-import { withSavedCtx, drawAmplitudeMarker } from '../lib/canvas'
+import { withSavedCtx, drawAmplitudeMarker, DRAW_MARGIN } from '../lib/canvas'
 import { STRINGS } from '../lib/strings'
 import NormalizeLegend from './NormalizeLegend'
 import './SplineEditor.css'
@@ -122,8 +122,23 @@ function SplineEditor({
     const midY = H / 2
     const { curve, anchors: pts, selectedIdx: sel, hoverIdx: hov, bg, sp } = drawStateRef.current
     // M.r.5.bis.1 — échelle Y auto-fit (cf. WaveformEditor.drawCanvas).
+    // M.r.5.bis — marge DRAW_MARGIN : courbe et poignées confinées à
+    // [M, W−M]×[M, H−M] ; lignes de repère pleine largeur.
     const peak = peakDisplayedRef.current
-    const valueToY = (v) => midY - (v / peak) * (H / 2)
+    const M = DRAW_MARGIN
+    const innerW = W - 2 * M
+    const valueToY = (v) => midY - (v / peak) * ((H - 2 * M) / 2)
+    const strokeWave = (arr) => {
+      ctx.beginPath()
+      for (let x = M; x <= W - M; x++) {
+        const ptFloat = ((x - M) / innerW) * RESOLUTION
+        const ptIdx = Math.min(Math.floor(ptFloat), RESOLUTION - 1)
+        const y = valueToY(arr[ptIdx] ?? 0)
+        if (x === M) ctx.moveTo(x, y)
+        else ctx.lineTo(x, y)
+      }
+      ctx.stroke()
+    }
 
     withSavedCtx(ctx, () => {
     ctx.fillStyle = themeColor('canvas-bg')
@@ -151,15 +166,7 @@ function SplineEditor({
       ctx.strokeStyle = themeColor('canvas-text-primary')
       ctx.globalAlpha = 0.5
       ctx.lineWidth = 1
-      ctx.beginPath()
-      for (let x = 0; x < W; x++) {
-        const ptFloat = (x / W) * RESOLUTION
-        const ptIdx = Math.min(Math.floor(ptFloat), RESOLUTION - 1)
-        const y = valueToY(bg[ptIdx] ?? 0)
-        if (x === 0) ctx.moveTo(x, y)
-        else ctx.lineTo(x, y)
-      }
-      ctx.stroke()
+      strokeWave(bg)
       ctx.globalAlpha = 1
     }
 
@@ -169,36 +176,17 @@ function SplineEditor({
       ctx.strokeStyle = themeColor('canvas-spline-perfect')
       ctx.globalAlpha = 0.55
       ctx.lineWidth = 1
-      ctx.beginPath()
-      for (let x = 0; x < W; x++) {
-        const ptFloat = (x / W) * RESOLUTION
-        const ptIdx = Math.min(Math.floor(ptFloat), RESOLUTION - 1)
-        const y = valueToY(sp[ptIdx] ?? 0)
-        if (x === 0) ctx.moveTo(x, y)
-        else ctx.lineTo(x, y)
-      }
-      ctx.stroke()
+      strokeWave(sp)
       ctx.globalAlpha = 1
     }
 
     // Courbe (underlay doux + trait accent), comme le canvas freehand.
-    const strokeCurve = () => {
-      ctx.beginPath()
-      for (let x = 0; x < W; x++) {
-        const ptFloat = (x / W) * RESOLUTION
-        const ptIdx = Math.min(Math.floor(ptFloat), RESOLUTION - 1)
-        const y = valueToY(curve[ptIdx] ?? 0)
-        if (x === 0) ctx.moveTo(x, y)
-        else ctx.lineTo(x, y)
-      }
-      ctx.stroke()
-    }
     ctx.strokeStyle = themeColor('accent-bg-soft')
     ctx.lineWidth = 6
-    strokeCurve()
+    strokeWave(curve)
     ctx.strokeStyle = themeColor('accent')
     ctx.lineWidth = 2
-    strokeCurve()
+    strokeWave(curve)
 
     // M.r.5.bis.1 — marqueur ±1 (primitive partagée), par-dessus la courbe.
     drawAmplitudeMarker(ctx, W, valueToY, themeColor('accent'))
@@ -206,7 +194,7 @@ function SplineEditor({
     // Poignées d'ancres (par-dessus). Sélectionnée/survolée = pleine + plus
     // grande ; au repos = pastille claire cerclée d'accent (pattern ADSR).
     for (let i = 0; i < pts.length; i++) {
-      const px = (pts[i].x / RESOLUTION) * W
+      const px = M + (pts[i].x / RESOLUTION) * innerW
       const py = valueToY(pts[i].y)
       const active = i === sel || i === hov
       ctx.beginPath()
@@ -289,15 +277,18 @@ function SplineEditor({
   // --- Conversion coords ---
   const eventToData = (e) => {
     const rect = canvasRef.current.getBoundingClientRect()
-    const xPct = Math.max(0, Math.min(0.9999, (e.clientX - rect.left) / rect.width))
-    const yPct = (e.clientY - rect.top) / rect.height
+    // M.r.5.bis — mapping insetté de DRAW_MARGIN (cohérent avec draw) : extrêmes
+    // atteints à M px du bord, bande tampon avant le mouseleave.
+    const M = DRAW_MARGIN
+    const xPct = Math.max(0, Math.min(0.9999, (e.clientX - rect.left - M) / (rect.width - 2 * M)))
+    const yFrac = Math.max(0, Math.min(1, (e.clientY - rect.top - M) / (rect.height - 2 * M)))
     // M.r.5.bis.1 — l'échelle d'affichage est [-peak, +peak] ; on dé-projette via
     // peak puis on clampe à ±1 (domaine des ancres, MOVE/ADD_SPLINE_ANCHOR borne
-    // y à [-1, 1] côté reducer). À peak=1 c'est l'identité d'avant.
+    // y à [-1, 1] côté reducer).
     const peak = peakDisplayedRef.current
     return {
       x: xPct * RESOLUTION,
-      y: Math.max(-1, Math.min(1, -(yPct * 2 - 1) * peak)),
+      y: Math.max(-1, Math.min(1, -(yFrac * 2 - 1) * peak)),
     }
   }
   const hitTest = (e) => {
@@ -305,11 +296,14 @@ function SplineEditor({
     const mx = e.clientX - rect.left
     const my = e.clientY - rect.top
     const peak = peakDisplayedRef.current
+    const M = DRAW_MARGIN
+    const innerW = rect.width - 2 * M
+    const innerH = rect.height - 2 * M
     let picked = null
     let minDist = HANDLE_HIT_RADIUS
     for (let i = 0; i < liveAnchors.length; i++) {
-      const px = (liveAnchors[i].x / RESOLUTION) * rect.width
-      const py = (rect.height / 2) - (liveAnchors[i].y / peak) * (rect.height / 2)
+      const px = M + (liveAnchors[i].x / RESOLUTION) * innerW
+      const py = (rect.height / 2) - (liveAnchors[i].y / peak) * (innerH / 2)
       const d = Math.hypot(mx - px, my - py)
       if (d < minDist) { minDist = d; picked = i }
     }

@@ -8,6 +8,14 @@
 // changement de lentille / variation de cap observés en M.3.
 // Renvoie la valeur de `fn` (utile pour les rendus qui retournent un drapeau,
 // p.ex. le Spectrogramme qui signale s'il a effectivement dessiné).
+// M.r.5.bis — marge de sécurité (px) à chaque bord des canvas d'édition Forme
+// d'onde (libre + ancres). Le tracé est confiné à l'intérieur (il ne « sort »
+// pas), tandis que l'élément capteur garde sa taille pleine : la souris dispose
+// d'une bande tampon de DRAW_MARGIN px avant de quitter l'élément et de perdre le
+// geste en cours (esprit du lasso de la bibliothèque). Partagé entre les deux
+// composants canvas pour qu'ils restent à la MÊME échelle (zéro saut au switch).
+export const DRAW_MARGIN = 12
+
 export function withSavedCtx(ctx, fn) {
   ctx.save()
   try {

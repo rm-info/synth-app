@@ -31,7 +31,7 @@ import {
   systemSupportsVisualCues,
 } from '../lib/visualCues'
 import { themeColor } from '../lib/themeColor'
-import { withSavedCtx, drawAmplitudeMarker } from '../lib/canvas'
+import { withSavedCtx, drawAmplitudeMarker, DRAW_MARGIN } from '../lib/canvas'
 import { STRINGS } from '../lib/strings'
 import ConfirmDialog from './ConfirmDialog'
 import PresetPicker from './PresetPicker'
@@ -40,6 +40,8 @@ import NormalizeLegend from './NormalizeLegend'
 import './WaveformEditor.css'
 
 const POINTS_RESOLUTION = 600
+// DRAW_MARGIN (marge tampon des bords) est partagé via lib/canvas — utilisé ici
+// par le canvas Forme d'onde libre ET par les helpers de la zone Harmoniques.
 
 // Durée (secondes) du micro-fade-out appliqué à la voix précédente quand
 // une note est retriggerée (rejouée alors qu'elle est déjà active ou
@@ -579,11 +581,26 @@ function WaveformEditor({
     if (!W || !H) return
     const ctx = canvas.getContext('2d')
     const midY = H / 2
-    // M.r.5.1 — échelle Y auto-fit : la courbe est mappée sur [-peak, +peak] au
-    // lieu de [-1, +1] fixe. `peakDisplayedRef` est lerpé vers la cible par
-    // l'effet d'animation (transition douce). valueToY encapsule l'inversion Y.
+    // M.r.5.1 — échelle Y auto-fit ([-peak, +peak] au lieu de [-1, +1] fixe).
+    // M.r.5.bis — marge DRAW_MARGIN à chaque bord : le tracé est confiné à
+    // [M, W−M]×[M, H−M] (valueToY mappe l'amplitude dans la hauteur intérieure,
+    // strokeWave dans la largeur intérieure). Les lignes de repère (0, ±0.5,
+    // marqueur ±1) restent pleine largeur.
     const peak = peakDisplayedRef.current
-    const valueToY = (v) => midY - (v / peak) * (H / 2)
+    const M = DRAW_MARGIN
+    const innerW = W - 2 * M
+    const valueToY = (v) => midY - (v / peak) * ((H - 2 * M) / 2)
+    const strokeWave = (arr) => {
+      ctx.beginPath()
+      for (let x = M; x <= W - M; x++) {
+        const ptFloat = ((x - M) / innerW) * POINTS_RESOLUTION
+        const ptIdx = Math.min(Math.floor(ptFloat), POINTS_RESOLUTION - 1)
+        const y = valueToY(arr[ptIdx] ?? 0)
+        if (x === M) ctx.moveTo(x, y)
+        else ctx.lineTo(x, y)
+      }
+      ctx.stroke()
+    }
 
     withSavedCtx(ctx, () => {
     ctx.fillStyle = themeColor('canvas-bg')
@@ -596,8 +613,7 @@ function WaveformEditor({
     ctx.lineTo(W, midY)
     ctx.stroke()
 
-    // Grille secondaire à ±0.5 (amplitude vraie) — suit désormais l'échelle
-    // auto-fit via valueToY (avant : fixée à ±H/4 en pixels).
+    // Grille secondaire à ±0.5 (amplitude vraie) — suit l'échelle auto-fit.
     ctx.setLineDash([4, 4])
     ctx.beginPath()
     ctx.moveTo(0, valueToY(0.5))
@@ -607,71 +623,34 @@ function WaveformEditor({
     ctx.stroke()
     ctx.setLineDash([])
 
-    // M.r.4 — aperçu « phase canonique » en gris discret, dessiné AVANT la
-    // canonical (sous le tracé principal). Présent seulement quand `bg` est
-    // fourni (canonical non normalisée). Stroke fin, pas de fill.
+    // M.r.4 — aperçu « phase canonique » gris, sous la canonical (si `bg` fourni).
     if (bg) {
       ctx.strokeStyle = themeColor('canvas-text-primary')
       ctx.globalAlpha = 0.5
       ctx.lineWidth = 1
-      ctx.beginPath()
-      for (let x = 0; x < W; x++) {
-        const ptFloat = (x / W) * POINTS_RESOLUTION
-        const ptIdx = Math.min(Math.floor(ptFloat), POINTS_RESOLUTION - 1)
-        const y = valueToY(bg[ptIdx] ?? 0)
-        if (x === 0) ctx.moveTo(x, y)
-        else ctx.lineTo(x, y)
-      }
-      ctx.stroke()
+      strokeWave(bg)
       ctx.globalAlpha = 1
     }
 
-    // M.r.5.bis.2 — spline parfaite (squelette des ancres) en orange, après le
-    // gris normalisé et avant la canonical bleue. Présente seulement quand `sp`
-    // est fourni (résidu non négligeable). Stroke fin, pas de fill.
+    // M.r.5.bis.2 — spline parfaite (orange), entre le gris et la canonical.
     if (sp) {
       ctx.strokeStyle = themeColor('canvas-spline-perfect')
       ctx.globalAlpha = 0.55
       ctx.lineWidth = 1
-      ctx.beginPath()
-      for (let x = 0; x < W; x++) {
-        const ptFloat = (x / W) * POINTS_RESOLUTION
-        const ptIdx = Math.min(Math.floor(ptFloat), POINTS_RESOLUTION - 1)
-        const y = valueToY(sp[ptIdx] ?? 0)
-        if (x === 0) ctx.moveTo(x, y)
-        else ctx.lineTo(x, y)
-      }
-      ctx.stroke()
+      strokeWave(sp)
       ctx.globalAlpha = 1
     }
 
     ctx.strokeStyle = themeColor('accent')
     ctx.lineWidth = 2
-    ctx.beginPath()
-    for (let x = 0; x < W; x++) {
-      const ptFloat = (x / W) * POINTS_RESOLUTION
-      const ptIdx = Math.min(Math.floor(ptFloat), POINTS_RESOLUTION - 1)
-      const y = valueToY(pts[ptIdx])
-      if (x === 0) ctx.moveTo(x, y)
-      else ctx.lineTo(x, y)
-    }
-    ctx.stroke()
+    strokeWave(pts)
 
     ctx.strokeStyle = themeColor('accent-bg-soft')
     ctx.lineWidth = 6
-    ctx.beginPath()
-    for (let x = 0; x < W; x++) {
-      const ptFloat = (x / W) * POINTS_RESOLUTION
-      const ptIdx = Math.min(Math.floor(ptFloat), POINTS_RESOLUTION - 1)
-      const y = valueToY(pts[ptIdx])
-      if (x === 0) ctx.moveTo(x, y)
-      else ctx.lineTo(x, y)
-    }
-    ctx.stroke()
+    strokeWave(pts)
 
-    // M.r.5.1 — marqueur ±1 = niveau audio référence, par-dessus la courbe.
-    // Primitive partagée avec SplineEditor (M.r.5.bis.1) pour un rendu identique
-    // dans les deux lentilles. À peak=1 il tangente les bords haut/bas du canvas.
+    // M.r.5.1 — marqueur ±1 = niveau audio référence, par-dessus la courbe
+    // (primitive partagée avec SplineEditor). valueToY l'inset déjà à M du bord.
     drawAmplitudeMarker(ctx, W, valueToY, themeColor('accent'))
     })
   }, [])
@@ -745,9 +724,13 @@ function WaveformEditor({
   const getCanvasPoint = (e) => {
     const canvas = canvasRef.current
     const rect = canvas.getBoundingClientRect()
-    const xPct = Math.max(0, Math.min(0.9999, (e.clientX - rect.left) / rect.width))
-    const yPct = (e.clientY - rect.top) / rect.height
-    const normalized = -(yPct * 2 - 1)
+    // M.r.5.bis — mapping insetté de DRAW_MARGIN (cohérent avec drawCanvas) : la
+    // souris atteint les extrêmes à M px du bord, et la bande de M px restante
+    // sert de zone tampon (clampée) avant le mouseleave qui perdrait le geste.
+    const M = DRAW_MARGIN
+    const xPct = Math.max(0, Math.min(0.9999, (e.clientX - rect.left - M) / (rect.width - 2 * M)))
+    const yFrac = Math.max(0, Math.min(1, (e.clientY - rect.top - M) / (rect.height - 2 * M)))
+    const normalized = -(yFrac * 2 - 1)
     const x = Math.floor(xPct * POINTS_RESOLUTION)
     // M.r.5.1 — l'axe Y est auto-fit à [-peak, +peak]. Le tracé libre n'est PAS
     // clampé à ±1 (décision archi) : l'utilisateur peut dessiner au-delà du
@@ -829,18 +812,21 @@ function WaveformEditor({
   // pas comparer à `amplitudes[index]` (toujours égal à `draftAmplitudes[index]`).
   const dragBarInitialRef = useRef(null)
 
+  // M.r.5.bis — mappings insettés de DRAW_MARGIN (cohérents avec le padding 12px
+  // du conteneur des barres) : amplitude/index atteignent leurs extrêmes à M px
+  // du bord, la bande tampon restante évite de perdre le drag de barre au bord.
   const harmonicAmplitudeFromEvent = (e) => {
     const el = harmonicsContainerRef.current
     if (!el) return 0
     const rect = el.getBoundingClientRect()
-    const yPct = (e.clientY - rect.top) / rect.height
-    return Math.max(0, Math.min(1, 1 - yPct))
+    const yFrac = (e.clientY - rect.top - DRAW_MARGIN) / (rect.height - 2 * DRAW_MARGIN)
+    return Math.max(0, Math.min(1, 1 - yFrac))
   }
   const harmonicIndexFromEvent = (e, count) => {
     const el = harmonicsContainerRef.current
     if (!el) return 0
     const rect = el.getBoundingClientRect()
-    const xPct = Math.max(0, Math.min(0.9999, (e.clientX - rect.left) / rect.width))
+    const xPct = Math.max(0, Math.min(0.9999, (e.clientX - rect.left - DRAW_MARGIN) / (rect.width - 2 * DRAW_MARGIN)))
     return Math.min(count - 1, Math.floor(xPct * count))
   }
 
@@ -2225,7 +2211,9 @@ function WaveformEditor({
               <span
                 key={k}
                 className="we-xlabel"
-                style={{ left: `${((k - 0.5) / cap) * 100}%` }}
+                /* M.r.5.bis — centre de la barre k dans la zone intérieure (barres
+                   insettées de 12px de chaque côté via le padding du conteneur). */
+                style={{ left: `calc(12px + (100% - 24px) * ${(k - 0.5) / cap})` }}
               >
                 {k}f
               </span>

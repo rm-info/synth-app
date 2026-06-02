@@ -169,9 +169,11 @@
 
 /* M.r.5.2 — plot Harmoniques : axe Y (gauche), axe X (sous les barres),
    repères horizontaux en overlay. Seul `.we-harmonics-bars` reste interactif ;
-   labels et repères sont décoratifs et ne touchent pas sa géométrie de hit-test
-   (le padding vertical est mis à 0 pour que l'amplitude mappe bord-à-bord et que
-   barres / repères / étiquettes Y s'alignent sur les mêmes niveaux 0 / 0.5 / 1). */
+   labels et repères sont décoratifs et ne touchent pas sa géométrie de hit-test.
+   M.r.5.bis — le conteneur porte un padding de DRAW_MARGIN (12px) à chaque bord :
+   les barres ne touchent pas le bord et le drag dispose d'une bande tampon avant
+   le mouseleave. Repères (inset 12px), étiquettes Y (padding 12px) et X (calc
+   avec 12px) sont alignés sur la même zone intérieure 0 / 0.5 / 1. */
 .we-harmonics-plot {
   flex: 1;
   min-height: 0;
@@ -187,6 +189,10 @@
   flex-direction: column;
   justify-content: space-between;
   align-items: flex-end;
+  /* M.r.5.bis — inset vertical 12px pour aligner 1 / 0.5 / 0 sur les repères
+     (eux-mêmes insettés du padding des barres). */
+  padding: 12px 0;
+  box-sizing: border-box;
   font-size: 10px;
   line-height: 1;
   color: var(--text-secondary);
@@ -219,7 +225,7 @@
   align-items: flex-end;
   gap: 1px;
   min-height: 0;
-  padding: 0 4px;
+  padding: 12px;
   border-radius: 6px;
   background: var(--canvas-bg, var(--surface-bg));
   cursor: ns-resize;
@@ -228,10 +234,11 @@
 .we-harmonics-bars.is-readonly {
   cursor: default;
 }
-/* Repères 0 / 0.5 / 1 (overlay non interactif, sous les barres). */
+/* Repères 0 / 0.5 / 1 (overlay non interactif, sous les barres). Insettés du
+   padding 12px du conteneur pour coïncider avec la zone des barres. */
 .we-harmonics-grid {
   position: absolute;
-  inset: 0;
+  inset: 12px;
   pointer-events: none;
 }
 .we-grid-line {
