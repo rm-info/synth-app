@@ -40,9 +40,14 @@ Repo : git@github.com:rm-info/synth-app.git (branche main)
 
 # Contexte projet
 
-Tu peux consulter le ../CONTEXT.md en début de session. Il est 
-maintenu automatiquement par Claude Code à chaque fin de phase. 
-Lis-le attentivement, c'est l'état de référence du projet.
+Le contexte est scindé en deux fichiers, maintenus par Claude Code :
+
+- `../CONTEXT.md` = **brief vivant** (état présent, modèle, composants,
+  décisions en vigueur, contraintes, roadmap active). À lire en début
+  de session : c'est l'état de référence du projet.
+- `../CONTEXT-ARCHIVE.md` = **trace** (saga narrative, itérations
+  terminées, historique chronologique, roadmaps des itérations closes).
+  À consulter seulement si tu as besoin du détail rétrospectif.
 
 # Style d'interaction
 

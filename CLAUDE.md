@@ -75,15 +75,30 @@ indépendants (cf. historique : 7.1, 7.2, 7.3… dans une même phase).
 Tu push toi-même sur `origin/main` après chaque commit validé. Pas
 de PR, commits linéaires sur `main`.
 
-### Mise à jour du CONTEXT.md
+### Mise à jour de la doc de contexte (brief + archive)
 
-**En fin de phase, tu mets `CONTEXT.md` à jour** avec ce que tu viens
-de livrer : section "État actuel", section "Roadmap & Backlog" (coche
-les phases livrées), section "Historique" si entrée majeure, et TL;DR
-si l'état global du projet change. Commit séparé `docs: CONTEXT.md —
-Iteration X phase N (résumé)`.
+Le contexte est scindé en deux fichiers frères à la racine. Principe :
+une section « brief » se met à jour **par remplacement**, une section
+« trace » **par append**.
 
-Si l'archi te passe un prompt de recadrage sur le `CONTEXT.md`, tu
+- **`CONTEXT.md` (brief vivant, par remplacement)** — c'est le seul
+  fichier lu en début de session. En fin de phase, mets à jour :
+  `## État actuel`, le `## TL;DR` (**garde-le court** : ne jamais le
+  laisser redevenir une saga ; au plus, une ligne au tableau des
+  itérations quand l'une clôture), et le `### Backlog général` / la
+  prochaine itération dans `## Roadmap & Backlog`. La section
+  `## Décisions architecturales` se met à jour **par réécriture sur
+  place** (on corrige/remplace une décision périmée, on n'empile pas
+  à côté).
+- **`CONTEXT-ARCHIVE.md` (trace, par append)** — n'y consulte qu'à la
+  demande. Écris-y les entrées d'`## Historique`. Quand une itération
+  clôture, **déplace** le détail de sa roadmap depuis `CONTEXT.md` vers
+  `## Roadmaps des itérations closes (B→M…)` de l'archive, et ajoute au
+  besoin une section `## Itération terminée : X`.
+- Commit doc séparé : `docs: CONTEXT.md — Iteration X phase N (résumé)`
+  (étends à `CONTEXT-ARCHIVE.md` quand il est touché).
+
+Si l'archi te passe un prompt de recadrage sur le contexte, tu
 appliques tel quel.
 
 ## Comportement attendu
