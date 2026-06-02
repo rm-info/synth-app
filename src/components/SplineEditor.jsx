@@ -1,7 +1,7 @@
 import { useRef, useState, useEffect, useCallback, useMemo } from 'react'
 import { splineToPoints } from '../lib/spline'
 import { themeColor } from '../lib/themeColor'
-import { withSavedCtx, drawAmplitudeMarker, DRAW_MARGIN, DRAW_MARGIN_V } from '../lib/canvas'
+import { withSavedCtx, drawAmplitudeMarker, DRAW_MARGIN, DRAW_MARGIN_TOP, DRAW_MARGIN_BOTTOM } from '../lib/canvas'
 import { STRINGS } from '../lib/strings'
 import NormalizeLegend from './NormalizeLegend'
 import './SplineEditor.css'
@@ -119,17 +119,18 @@ function SplineEditor({
     const H = canvas.height
     if (!W || !H) return
     const ctx = canvas.getContext('2d')
-    const midY = H / 2
     const { curve, anchors: pts, selectedIdx: sel, hoverIdx: hov, bg, sp } = drawStateRef.current
     // M.r.5.bis.1 — échelle Y auto-fit (cf. WaveformEditor.drawCanvas).
-    // M.r.5.bis — marges tampon : horizontale MH (12px), verticale MV (20px, plus
-    // large pour les gouttières légende/hint). Courbe et poignées confinées à
-    // [MH, W−MH]×[MV, H−MV] ; lignes de repère pleine largeur.
+    // M.r.5.bis — marges tampon : horizontale MH (12px), verticales MT/MB (haut/
+    // bas, asymétriques pour le jeu des overlays). Courbe et poignées confinées à
+    // [MH, W−MH]×[MT, H−MB] ; médiane à valueToY(0) ; repères pleine largeur.
     const peak = peakDisplayedRef.current
     const MH = DRAW_MARGIN
-    const MV = DRAW_MARGIN_V
+    const MT = DRAW_MARGIN_TOP
+    const MB = DRAW_MARGIN_BOTTOM
     const innerW = W - 2 * MH
-    const valueToY = (v) => midY - (v / peak) * ((H - 2 * MV) / 2)
+    const drawMid = (MT + (H - MB)) / 2
+    const valueToY = (v) => drawMid - (v / peak) * ((H - MT - MB) / 2)
     const strokeWave = (arr) => {
       ctx.beginPath()
       for (let x = MH; x <= W - MH; x++) {
@@ -150,8 +151,8 @@ function SplineEditor({
     ctx.strokeStyle = themeColor('canvas-grid-secondary')
     ctx.lineWidth = 1
     ctx.beginPath()
-    ctx.moveTo(0, midY)
-    ctx.lineTo(W, midY)
+    ctx.moveTo(0, valueToY(0))
+    ctx.lineTo(W, valueToY(0))
     ctx.stroke()
     ctx.setLineDash([4, 4])
     ctx.beginPath()
@@ -280,11 +281,12 @@ function SplineEditor({
   const eventToData = (e) => {
     const rect = canvasRef.current.getBoundingClientRect()
     // M.r.5.bis — mapping insetté (cohérent avec draw) : extrêmes atteints à
-    // MH/MV px du bord, bande tampon avant le mouseleave.
+    // MH (horizontal) / MT-MB (vertical) du bord, bande tampon avant le mouseleave.
     const MH = DRAW_MARGIN
-    const MV = DRAW_MARGIN_V
+    const MT = DRAW_MARGIN_TOP
+    const MB = DRAW_MARGIN_BOTTOM
     const xPct = Math.max(0, Math.min(0.9999, (e.clientX - rect.left - MH) / (rect.width - 2 * MH)))
-    const yFrac = Math.max(0, Math.min(1, (e.clientY - rect.top - MV) / (rect.height - 2 * MV)))
+    const yFrac = Math.max(0, Math.min(1, (e.clientY - rect.top - MT) / (rect.height - MT - MB)))
     // M.r.5.bis.1 — l'échelle d'affichage est [-peak, +peak] ; on dé-projette via
     // peak puis on clampe à ±1 (domaine des ancres, MOVE/ADD_SPLINE_ANCHOR borne
     // y à [-1, 1] côté reducer).
@@ -300,14 +302,16 @@ function SplineEditor({
     const my = e.clientY - rect.top
     const peak = peakDisplayedRef.current
     const MH = DRAW_MARGIN
-    const MV = DRAW_MARGIN_V
+    const MT = DRAW_MARGIN_TOP
+    const MB = DRAW_MARGIN_BOTTOM
     const innerW = rect.width - 2 * MH
-    const innerH = rect.height - 2 * MV
+    const drawMid = (MT + (rect.height - MB)) / 2
+    const innerHHalf = (rect.height - MT - MB) / 2
     let picked = null
     let minDist = HANDLE_HIT_RADIUS
     for (let i = 0; i < liveAnchors.length; i++) {
       const px = MH + (liveAnchors[i].x / RESOLUTION) * innerW
-      const py = (rect.height / 2) - (liveAnchors[i].y / peak) * (innerH / 2)
+      const py = drawMid - (liveAnchors[i].y / peak) * innerHHalf
       const d = Math.hypot(mx - px, my - py)
       if (d < minDist) { minDist = d; picked = i }
     }

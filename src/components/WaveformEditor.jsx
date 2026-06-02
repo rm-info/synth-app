@@ -31,7 +31,7 @@ import {
   systemSupportsVisualCues,
 } from '../lib/visualCues'
 import { themeColor } from '../lib/themeColor'
-import { withSavedCtx, drawAmplitudeMarker, DRAW_MARGIN, DRAW_MARGIN_V } from '../lib/canvas'
+import { withSavedCtx, drawAmplitudeMarker, DRAW_MARGIN, DRAW_MARGIN_TOP, DRAW_MARGIN_BOTTOM } from '../lib/canvas'
 import { STRINGS } from '../lib/strings'
 import ConfirmDialog from './ConfirmDialog'
 import PresetPicker from './PresetPicker'
@@ -580,17 +580,18 @@ function WaveformEditor({
     const H = canvas.height
     if (!W || !H) return
     const ctx = canvas.getContext('2d')
-    const midY = H / 2
     // M.r.5.1 — échelle Y auto-fit ([-peak, +peak] au lieu de [-1, +1] fixe).
-    // M.r.5.bis — marges tampon : horizontale MH (12px), verticale MV (20px, plus
-    // large pour réserver les gouttières haut/bas où vivent légende et hint hors
-    // du tracé). Le tracé est confiné à [MH, W−MH]×[MV, H−MV]. Les lignes de
-    // repère (0, ±0.5, marqueur ±1) restent pleine largeur.
+    // M.r.5.bis — marges tampon : horizontale MH (12px), verticales MT/MB
+    // (haut/bas, asymétriques pour le jeu des overlays). Le tracé est confiné à
+    // [MH, W−MH]×[MT, H−MB] ; la médiane (amplitude 0) est `valueToY(0)`, pas
+    // forcément H/2. Les repères (0, ±0.5, marqueur ±1) restent pleine largeur.
     const peak = peakDisplayedRef.current
     const MH = DRAW_MARGIN
-    const MV = DRAW_MARGIN_V
+    const MT = DRAW_MARGIN_TOP
+    const MB = DRAW_MARGIN_BOTTOM
     const innerW = W - 2 * MH
-    const valueToY = (v) => midY - (v / peak) * ((H - 2 * MV) / 2)
+    const drawMid = (MT + (H - MB)) / 2
+    const valueToY = (v) => drawMid - (v / peak) * ((H - MT - MB) / 2)
     const strokeWave = (arr) => {
       ctx.beginPath()
       for (let x = MH; x <= W - MH; x++) {
@@ -610,8 +611,8 @@ function WaveformEditor({
     ctx.strokeStyle = themeColor('canvas-grid-secondary')
     ctx.lineWidth = 1
     ctx.beginPath()
-    ctx.moveTo(0, midY)
-    ctx.lineTo(W, midY)
+    ctx.moveTo(0, valueToY(0))
+    ctx.lineTo(W, valueToY(0))
     ctx.stroke()
 
     // Grille secondaire à ±0.5 (amplitude vraie) — suit l'échelle auto-fit.
@@ -726,12 +727,13 @@ function WaveformEditor({
     const canvas = canvasRef.current
     const rect = canvas.getBoundingClientRect()
     // M.r.5.bis — mapping insetté (cohérent avec drawCanvas) : extrêmes atteints à
-    // MH/MV px du bord, bande tampon restante clampée avant le mouseleave qui
-    // perdrait le geste. Marge verticale plus large (gouttières légende/hint).
+    // MH (horizontal) / MT-MB (vertical) du bord, bande tampon restante clampée
+    // avant le mouseleave qui perdrait le geste. Gouttières légende/hint.
     const MH = DRAW_MARGIN
-    const MV = DRAW_MARGIN_V
+    const MT = DRAW_MARGIN_TOP
+    const MB = DRAW_MARGIN_BOTTOM
     const xPct = Math.max(0, Math.min(0.9999, (e.clientX - rect.left - MH) / (rect.width - 2 * MH)))
-    const yFrac = Math.max(0, Math.min(1, (e.clientY - rect.top - MV) / (rect.height - 2 * MV)))
+    const yFrac = Math.max(0, Math.min(1, (e.clientY - rect.top - MT) / (rect.height - MT - MB)))
     const normalized = -(yFrac * 2 - 1)
     const x = Math.floor(xPct * POINTS_RESOLUTION)
     // M.r.5.1 — l'axe Y est auto-fit à [-peak, +peak]. Le tracé libre n'est PAS
