@@ -999,9 +999,23 @@ Seuls les **placements timeline** s'appellent "clips".
       de voir simultanément la spline éditée et le tracé résultant (spline +
       résidu). `peakTarget` l'inclut quand affichée pour ne pas l'écrêter.
       `NormalizeLegend` étendue à 3 entrées conditionnelles (bleu « actuelle »
-      toujours ; gris « si normalisée » si `!canonicalNormalized` ; orange
-      « spline des ancres » si visible) ; montée seulement si ≥ 1 entrée
-      conditionnelle active.
+      toujours ; gris « normalisée » si `!canonicalNormalized` ; orange « spline
+      des ancres » si visible) ; montée seulement si ≥ 1 entrée conditionnelle
+      active. **Passe d'usage** : pendant un **drag d'ancre**, le tracé bleu
+      (canonical) est prévisualisé comme `spline(draft) + résidu` (clampé ±1, =
+      sortie reducer au commit) au lieu de la spline pure — les trois courbes
+      restent donc visibles avec leur rôle (bleu = résultat, orange = spline
+      éditée, gris = normalisée) et rien ne saute au relâchement.
+    - **Marge tampon aux bords (M.r.5.bis, passe d'usage)** : `DRAW_MARGIN` (12px,
+      partagé via `lib/canvas`) confine le tracé / les poignées / les barres à
+      l'intérieur d'une marge de 12px (rendu ET mapping d'entrée insettés), mais
+      l'élément capteur garde sa taille pleine → la souris a une bande tampon de
+      12px avant de quitter l'élément et de **perdre le geste** au bord (même
+      esprit que le lasso de la bibliothèque). Appliqué au canvas Libre
+      (`strokeWave`/`getCanvasPoint`), au canvas Ancres (`SplineEditor`) et à la
+      zone Harmoniques (padding 12px + `harmonic*FromEvent` insettés). Les lignes
+      de repère (0, ±0.5, marqueur ±1) restent pleine largeur. Le hint d'usage de
+      la lentille Ancres est passé en overlay bas du canvas (cf. légende en haut).
   - **Harmoniques** (`renderHarmonicsArea`) : barres **toujours
     éditables** (drag vertical = amplitude [0..1], 1 barre/geste verrouillée à
     l'index au mousedown, commit unique → 1 undo), indépendantes de
@@ -1014,9 +1028,8 @@ Seuls les **placements timeline** s'appellent "clips".
       M.r.4.3). **Repères horizontaux** 0/0.5/1 en overlay pointillé sous les
       barres ; **axe Y** étiqueté 0/0.5/1 à gauche, **axe X** étiqueté `kf` sous
       les barres (toutes les harmoniques si cap < 8, puissances de 2 sinon). Plot
-      en grille CSS (`.we-harmonics-plot`) ; le conteneur interactif des barres
-      garde sa géométrie de hit-test (padding vertical mis à 0 pour aligner
-      barres / repères / étiquettes sur les mêmes niveaux). Pur DOM/CSS.
+      en grille CSS (`.we-harmonics-plot`) ; repères, étiquettes Y et X alignés
+      sur la zone des barres. Pur DOM/CSS.
     - **Clic droit = mise à zéro (M.r.5.bis.3)** : clic droit sur une barre éteint
       l'harmonique (`setHarmonicAmplitude(index, 0)`), sans initier de draft/drag.
       `onContextMenu` bloque le menu natif. La garde de phase edit-bars s'applique
@@ -1340,10 +1353,12 @@ Choix non évidents pris pour de bonnes raisons. À ne pas remettre en question
   drag d'ancre — apparition/disparition contextuelle perçue comme perturbante. Le
   critère de visibilité est **dérivé de l'écart aux courbes effectivement
   affichées** (et non de `editor.residual`) : il reste juste pendant un tracé
-  libre (résidu committé périmé) et masque automatiquement la spline pendant un
-  drag d'ancre (où la courbe affichée EST la spline). Seuil 0.01 pragmatique
-  (baisser à 0.005 si elle disparaît trop tôt, monter à 0.02 si elle reste
-  visible alors qu'elle se confond). Couleur via `--canvas-spline-perfect`
+  libre (résidu committé périmé). **Passe d'usage** : pendant un drag d'ancre, la
+  courbe affichée (bleu) est désormais la prévisualisation `spline(draft) +
+  résidu` (et non la spline pure), de sorte que l'orange (spline) reste visible et
+  distincte du bleu — les trois courbes coexistent pendant le geste. Seuil 0.01
+  pragmatique (baisser à 0.005 si elle disparaît trop tôt, monter à 0.02 si elle
+  reste visible alors qu'elle se confond). Couleur via `--canvas-spline-perfect`
   (orange, déclinée clair/sombre).
 - **Clic droit sur barre = mise à zéro, garde de phase conservée (M.r.5.bis.3,
   2026-06-02)** : le clic droit éteint l'harmonique mais **passe par la même garde
@@ -1352,6 +1367,16 @@ Choix non évidents pris pour de bonnes raisons. À ne pas remettre en question
   silencieux qui contournerait la convention de phase canonique). Aucun draft/drag
   initié au bouton droit (sinon un draft resterait coincé en attente d'un mouseup
   gauche). Menu contextuel natif bloqué (`onContextMenu`).
+- **Marge tampon aux bords des zones d'édition (M.r.5.bis, passe d'usage,
+  2026-06-02)** : `DRAW_MARGIN = 12px` (exporté par `lib/canvas`, source unique
+  partagée entre les deux canvas pour qu'ils restent à la même échelle). Le tracé
+  / les poignées / les barres sont confinés à l'intérieur d'une marge de 12px
+  (rendu ET mapping d'entrée insettés du même montant), pendant que l'élément
+  capteur garde sa taille pleine. Conséquence : la souris dispose d'une bande
+  tampon de 12px avant de quitter l'élément et de perdre le geste en cours —
+  même solution que le lasso de la bibliothèque (qui, lui, suit la souris au
+  niveau window). Les lignes de repère restent pleine largeur ; seules
+  l'amplitude (vertical) et les courbes/barres (horizontal) sont insettées.
 - **Silence comme état neutre (M.r.2.5, 2026-06-01)** : `DEFAULT_EDITOR.canonical`
   et `RESET_EDITOR_WAVEFORM` repartent du **silence** (canonical à zéro). M.r.2.2
   avait tenté une sin fondamentale (« un nouveau patch sonne »), annulée à la
@@ -3107,6 +3132,15 @@ Phases listées ci-dessous dans l'ordre chronologique d'implémentation.
     index, 0)`, sans draft/drag. Garde de phase conservée : si non normalisé, le
     dialog edit-bars (`value:0`) précède l'opération. `onContextMenu` bloque le
     menu natif.
+  - **Passe d'usage post-bis** (mêmes specs, 3 commits) : (a) pendant un drag
+    d'ancre, le tracé bleu prévisualise `spline(draft) + résidu` (au lieu de la
+    spline pure) → bleu/gris/orange restent visibles avec leur rôle, pas de saut
+    au relâchement ; (b) hint d'usage de la lentille Ancres reformulé en
+    « Action : geste » et déplacé en overlay bas du canvas ; (c) **marge tampon
+    `DRAW_MARGIN = 12px`** aux bords des zones Forme d'onde et Harmoniques (tracé/
+    barres confinés à l'intérieur, élément capteur plein → 12px de tolérance avant
+    de perdre le geste au bord ; esprit du lasso bibliothèque). `strokeWave`
+    factorise les boucles de tracé insettées.
   - **Le code du rattrapage M.r.* est définitivement clos.** Bilan : 5 phases
     principales (r.1→r.5) + 3 finitions (r.2.5, r.2.6, r.5.bis). Reste **M.5b**
     (passe doc writer sur le modèle stabilisé), hors implémenteur.
