@@ -29,7 +29,7 @@ L'ampleur des oscillations d'une onde sonore — autrement dit son
 volume. Plus l'amplitude est grande, plus le son est fort. Dans un
 patch, l'amplitude globale fixe le niveau général, et l'enveloppe
 *ADSR* en module le volume au fil du temps. Voir aussi *Forme
-d'onde*.
+d'onde*, *Son*.
 
 ## Ancre
 
@@ -74,14 +74,14 @@ du Designer. Sa forme détermine le *timbre* : une sinusoïde sonne
 « pure », une dent de scie « riche » et nasillarde. C'est le cœur
 d'un patch. Tu la modèles à main levée ou par *ancres*, ses détails
 fins étant alors conservés dans le *résidu*. Voir aussi *Ancre*,
-*Période*, *Résidu*, *Timbre*.
+*Période*, *Résidu*, *Son*, *Timbre*.
 
 ## Fréquence
 
 Le nombre de répétitions d'une onde par seconde, mesuré en *hertz*
 (Hz). Elle détermine la *hauteur* perçue : plus la fréquence est
 élevée, plus le son est aigu. Doubler la fréquence monte d'une
-octave. Voir aussi *Hauteur*, *Période*.
+octave. Voir aussi *Hauteur*, *Période*, *Son*.
 
 ## Harmonique
 
@@ -102,7 +102,7 @@ c'est la « note » que tu entends. Dans l'app, le système musical
 choisi décide quelles hauteurs sont disponibles et à quelles
 fréquences elles correspondent — tu les joues sur
 <DocLink target="designer:designer-keyboard">le clavier</DocLink>.
-Voir aussi *A4*, *Fréquence*.
+Voir aussi *A4*, *Fréquence*, *Son*.
 
 ## Hertz (Hz)
 
@@ -181,6 +181,18 @@ squelette, le résidu en est la chair — c'est lui qui te laisse éditer
 par ancres un tracé dessiné librement sans lui ôter sa personnalité.
 Voir aussi *Ancre*, *Forme d'onde*.
 
+## Son
+
+Une variation de pression dans l'air — ou un autre milieu — qui se
+propage en onde jusqu'à ton oreille, où elle devient une sensation.
+Trois propriétés le caractérisent : sa *fréquence* (la vitesse à
+laquelle la pression oscille) fixe la *hauteur* perçue, son
+*amplitude* le volume, et sa *forme d'onde* le *timbre*. La plupart
+des sons musicaux ne sont pas des sinusoïdes pures mais des
+empilements d'*harmoniques* — c'est cette recette-là que tu sculptes
+dans le Designer. Voir aussi *Amplitude*, *Forme d'onde*, *Fréquence*,
+*Harmonique*, *Hertz (Hz)*, *Timbre*.
+
 ## Spectre et spectrogramme
 
 Le **spectre** d'un son est la liste des fréquences qui le composent
@@ -197,5 +209,5 @@ Voir aussi *Cap (plafond d'harmoniques)*, *DFT*, *Harmonique*.
 Ce qui distingue deux sons de même hauteur et même volume — pourquoi
 un violon et une flûte jouant le même *la* ne se confondent pas. Le
 timbre dépend surtout du nombre et du dosage des *harmoniques*, donc
-de la *forme d'onde*. Voir aussi *Forme d'onde*, *Spectre et
+de la *forme d'onde*. Voir aussi *Forme d'onde*, *Son*, *Spectre et
 spectrogramme*.
