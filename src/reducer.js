@@ -118,14 +118,15 @@ function computeResidual(canonical, splineCurve) {
   return out
 }
 
-// Canonical = spline(anchors) + résidu, clampée [-1, 1] (la somme peut pousser
-// hors borne). Utilisé au drag d'ancre : la spline bouge, le résidu survit.
+// Canonical = spline(anchors) + résidu. Utilisé au drag d'ancre : la spline
+// bouge, le résidu survit. M.r.5.bis (passe d'usage) — PLUS de clamp à [-1, 1] :
+// aligné sur le tracé libre (`SET_EDITOR_CANONICAL` ne clampe pas non plus). La
+// canonical peut dépasser ±1 en édition live ; le navigateur normalise la
+// PeriodicWave à la lecture, et l'hydratation (`clampToUnit`) re-borne au save/
+// reload — comportement identique dans les deux modes.
 function splinePlusResidual(splineCurve, residual) {
   const out = new Array(POINTS_RESOLUTION)
-  for (let i = 0; i < POINTS_RESOLUTION; i++) {
-    const v = splineCurve[i] + (residual[i] ?? 0)
-    out[i] = v < -1 ? -1 : v > 1 ? 1 : v
-  }
+  for (let i = 0; i < POINTS_RESOLUTION; i++) out[i] = splineCurve[i] + (residual[i] ?? 0)
   return out
 }
 
@@ -1858,7 +1859,8 @@ export function reducer(state, action) {
     // CONVERT_EDITOR_TO_HARMONIC / _TO_DRAW / _TO_SPLINE sont supprimes.
 
     // iter-M phase-3 : déplacement d'une ancre spline. X clampé pour ne pas
-    // dépasser les voisins (préserve l'ordre des x) ; Y libre dans [-1, 1].
+    // dépasser les voisins (préserve l'ordre des x) ; Y libre (non borné à ±1
+    // depuis M.r.5.bis, cf. cy).
     // Dispatchée une seule fois au commit du drag (draft local côté éditeur),
     // donc un seul cran undo par geste. Recalcule `points`.
     case 'MOVE_SPLINE_ANCHOR': {
@@ -1870,7 +1872,9 @@ export function reducer(state, action) {
         ? anchors[index + 1].x - SPLINE_MIN_GAP
         : POINTS_RESOLUTION - SPLINE_MIN_GAP
       const cx = Math.max(lower, Math.min(upper, x))
-      const cy = Math.max(-1, Math.min(1, y))
+      // M.r.5.bis — y non clampé à ±1 (aligné sur le tracé libre) ; l'éditeur le
+      // borne à l'amplitude affichée ±peak. Garde anti-NaN seulement.
+      const cy = Number.isFinite(y) ? y : 0
       const next = anchors.slice()
       next[index] = { x: cx, y: cy }
       // M.r.4 — splinePlusResidual ≠ iDFT canonique → phase non-canonique.
@@ -1886,7 +1890,8 @@ export function reducer(state, action) {
       const anchors = state.editor.anchors
       if (anchors.length >= SPLINE_ANCHOR_MAX) return state
       const x = Math.max(0, Math.min(POINTS_RESOLUTION - 1, action.payload.x))
-      const y = Math.max(-1, Math.min(1, action.payload.y))
+      // M.r.5.bis — y non clampé à ±1 (cf. MOVE_SPLINE_ANCHOR). Garde anti-NaN.
+      const y = Number.isFinite(action.payload.y) ? action.payload.y : 0
       let ins = anchors.findIndex((a) => a.x > x)
       if (ins === -1) ins = anchors.length
       const leftOk = ins === 0 || x - anchors[ins - 1].x >= SPLINE_MIN_GAP

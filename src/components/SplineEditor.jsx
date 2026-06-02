@@ -12,7 +12,8 @@ import './SplineEditor.css'
 // d'onde. La courbe est l'ombre `points` (vérité éditable = les ancres).
 //
 // Interactions :
-//   - drag d'une poignée  → onMoveAnchor (X clampé entre voisins, Y ∈ [-1,1]) ;
+//   - drag d'une poignée  → onMoveAnchor (X clampé entre voisins ; Y libre, borné
+//     à l'amplitude affichée ±peak depuis M.r.5.bis — non clampé à ±1) ;
 //   - clic hors poignée    → onAddAnchor à ce point ;
 //   - poignée + Suppr/⌫    → onRemoveAnchor (refusé au minimum, géré reducer) ;
 //   - clic droit poignée   → menu contextuel « Supprimer ».
@@ -288,12 +289,13 @@ function SplineEditor({
     const xPct = Math.max(0, Math.min(0.9999, (e.clientX - rect.left - MH) / (rect.width - 2 * MH)))
     const yFrac = Math.max(0, Math.min(1, (e.clientY - rect.top - MT) / (rect.height - MT - MB)))
     // M.r.5.bis.1 — l'échelle d'affichage est [-peak, +peak] ; on dé-projette via
-    // peak puis on clampe à ±1 (domaine des ancres, MOVE/ADD_SPLINE_ANCHOR borne
-    // y à [-1, 1] côté reducer).
+    // peak. M.r.5.bis (passe d'usage) — plus de clamp à ±1 : l'ancre peut aller
+    // jusqu'à l'amplitude affichée ±peak (aligné sur le tracé libre ; le reducer
+    // ne clampe plus non plus). yFrac ∈ [0,1] borne déjà y à ±peak.
     const peak = peakDisplayedRef.current
     return {
       x: xPct * RESOLUTION,
-      y: Math.max(-1, Math.min(1, -(yFrac * 2 - 1) * peak)),
+      y: -(yFrac * 2 - 1) * peak,
     }
   }
   const hitTest = (e) => {
