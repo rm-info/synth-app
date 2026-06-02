@@ -5,6 +5,51 @@
 
 ## TL;DR
 
+Synth App — synthétiseur web pédagogique. On **dessine une forme d'onde**
+(librement, par ancres/spline, ou via ses **harmoniques**), on la **place sur
+une timeline multipiste**, on **exporte en WAV**. Quatre onglets :
+Bibliothèque · Designer · Composer · Documentation.
+
+**Stack minimale (non négociable)** : React 19 + Vite + Web Audio API native,
+persistance localStorage (clé `synth-app-state`). **TypeScript incrémental**
+(allowJs, opt-in fichier par fichier, depuis le préalable de l'iter M). Pas de
+lib audio, pas de state manager (un `useReducer` global dans `App.jsx`), pas de
+framework UI (CSS manuscrit), pas de routing, pas de backend.
+
+**Version courante : v1.5.0** (2026-06-03).
+
+**Itérations livrées** (détail complet dans `CONTEXT-ARCHIVE.md`) :
+
+| It. | Sujet | Clôture |
+|-----|-------|---------|
+| A | Refonte UX core (2 onglets, dual save, zoom %, édition clips, undo/redo) | 2026-04-15 |
+| B | Édition avancée (multi-sélection, copier/coller, spectro statique) | 2026-04-17 |
+| C | Multipiste (mute/solo/volume, scheduler look-ahead) | 2026-04-18 |
+| D | Designer UX (`tuningSystem`, clavier piano, sélecteur d'octave) | 2026-04-19 |
+| E | Patches vs Notes (la hauteur passe du patch au clip) | 2026-04-22 |
+| F | Multi-tempérament (Tier 1+2+3 : microtonal, gamelan, maqâm, shrutis…) | 2026-04-25→ |
+| G | Designer UX (layout, dropdowns groupés) | 2026-05-20 |
+| H | Import/Export (`.osa` = magic `OSA2` + gzip(JSON) versionné) | 2026-05-21 |
+| I | Spectrogramme avancé | 2026-05-24 |
+| J | Anti-aliasing audio (DFT truncation) | 2026-05-24 |
+| K | Bibliothèque multi-mode + 3 sous-apps + thème clair/sombre | 2026-05-26 |
+| L | Documentation (onglet + Raccourcis Ctrl+K + Tour Ctrl+J) — v1.4.0 | 2026-05-28 |
+| M | Waveform Designer : modèle canonique unifié + 3 lentilles + patch typé — v1.5.0 | 2026-06-03 |
+
+**État courant** : entre deux itérations. Iteration M close (code + doc).
+Prochaine itération non cadrée — candidats au backlog (Monde B inharmonique +
+morph A↔B, perf/latence audio, recherche plein-texte doc, refonte des presets
+géométriques en séries de Fourier). Hygiène post-M restante : note de clôture,
+purge des prompt-fichiers `archi/Mr*` et `archi/M5b*` consommés.
+
+> **Structure des fichiers de contexte.** Ce `CONTEXT.md` est le **brief
+> vivant** : état présent, modèle de données, composants, architecture,
+> décisions en vigueur, contraintes implicites, roadmap active. C'est le seul
+> fichier à lire en début de session. `CONTEXT-ARCHIVE.md` est la **trace** :
+> saga narrative, itérations terminées, historique chronologique, roadmaps des
+> itérations closes — consulté uniquement à la demande. Tout renvoi à
+> « l'Historique » ou à une itération close pointe vers `CONTEXT-ARCHIVE.md`.
+
 ## Objectif
 
 Synthétiseur web pédagogique / créatif : dessiner des formes d'onde à la souris,
@@ -2283,6 +2328,10 @@ Conventions tacites. Les enfreindre sans raison crée des bugs subtils.
 - CONTEXT.md mis à jour à chaque fin de phase par Claude Code
 
 ## Roadmap & Backlog
+
+> Détail des roadmaps des itérations livrées (A→M) → `CONTEXT-ARCHIVE.md`.
+> Ci-dessous : le backlog général (non planifié) et, une fois cadrée, la
+> prochaine itération.
 
 ### Backlog général (à caser quand pertinent)
 
