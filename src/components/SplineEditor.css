@@ -31,7 +31,8 @@
 /* Hint d'usage en overlay au bas du canvas (cf. NormalizeLegend en haut). */
 .spline-hint {
   position: absolute;
-  bottom: 5px;
+  /* Collé au bord bas (gouttière DRAW_MARGIN_V) pour dégager le marqueur -1. */
+  bottom: 2px;
   left: 50%;
   transform: translateX(-50%);
   margin: 0;
