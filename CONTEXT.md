@@ -987,10 +987,10 @@ Seuls les **placements timeline** s'appellent "clips".
       grille ±0.5, poignées, `eventToData`, `hitTest`). Marqueur ±1 extrait en
       primitive partagée `drawAmplitudeMarker` (`lib/canvas.js`) → rendu identique.
       `peakDisplayedRef` **lazy-init à la cible** dans les deux composants : au
-      switch Libre↔Ancres l'échelle est déjà bonne, **aucun saut animé**. En mode
-      Ancres l'auto-fit ne dilate que via `normalizedBg` ou l'overshoot Catmull-Rom
-      (la canonical y est clampée à ±1 par `splinePlusResidual`, les ancres par
-      `MOVE/ADD_SPLINE_ANCHOR`).
+      switch Libre↔Ancres l'échelle est déjà bonne, **aucun saut animé**. Depuis la
+      passe d'usage (alignement non-clamp, voir Décisions), un drag d'ancre au-delà
+      de ±1 dilate aussi l'auto-fit (les ancres et `splinePlusResidual` ne sont
+      plus bornés à ±1 en édition live).
     - **Spline parfaite — 3ᵉ courbe (M.r.5.bis.2)** : `splineToPoints(anchors,
       interpolation)` (squelette des ancres SANS résidu) dessinée en **orange**
       (`--canvas-spline-perfect`) entre le gris normalisé et la canonical bleue,
@@ -1344,6 +1344,18 @@ Choix non évidents pris pour de bonnes raisons. À ne pas remettre en question
   la `PeriodicWave` à la lecture. Cohérent avec « la canonical = vérité audio
   éditée ». Transition douce du zoom (lerp rAF coeff 0.15) car le rendu canvas
   est au pixel — pas de transition CSS possible. Spec §7.
+  **Extension M.r.5.bis (passe d'usage) — le mode Ancres aussi** : r.5.1 n'avait
+  dé-clampé que le tracé libre ; le chemin spline restait borné à ±1 par héritage
+  du canvas fixe pré-r.5.1 (incohérence, et le premier drag d'ancre re-clampait un
+  tracé libre qui dépassait). Les 3 clamps d'édition spline sont levés —
+  `splinePlusResidual` (canonical = spline + résidu, non bornée), `MOVE`/
+  `ADD_SPLINE_ANCHOR` (y d'ancre, garde anti-NaN seulement) et
+  `SplineEditor.eventToData` (borné à ±peak par construction). Les deux modes se
+  comportent désormais à l'identique : non clampé en édition live, re-borné à ±1 à
+  la **persistance** (`clampToUnit` sur la canonical, `sanitizeAnchors` sur les
+  ancres, à l'hydratation) — le dépassement ±1 ne survit donc jamais au save/
+  reload, dans aucun mode. Aucun impact export WAV (toujours depuis des patches
+  hydratés, donc ≤ ±1).
 - **Étiquetage de l'axe X de la zone Harmoniques (M.r.5.2, 2026-06-02)** :
   étiquettes `kf` aux **puissances de 2** (`{1,2,4,…,256}` filtré à `≤ cap`) si
   `cap ≥ 8`, **toutes** les harmoniques (1..cap) si `cap < 8` (pas saturé à ce
@@ -3122,8 +3134,9 @@ Phases listées ci-dessous dans l'ordre chronologique d'implémentation.
     `peakDisplayedRef` **lazy-init à la cible** dans les deux composants : au
     montage (switch) l'échelle est déjà bonne, pas de faux saut animé depuis 1.
     Labels DOM `+1`/`-1` retirés du SplineEditor (portés par le marqueur). Note :
-    les ancres restent clampées à ±1 par le reducer → en mode Ancres l'auto-fit
-    dilate via `normalizedBg` / overshoot Catmull-Rom, pas via un drag d'ancre.
+    à ce stade les ancres restaient clampées à ±1 par le reducer (auto-fit dilaté
+    seulement via `normalizedBg` / overshoot Catmull-Rom) — **clamp levé ensuite**
+    en passe d'usage (cf. ci-dessous).
   - **bis.2** (`feat`) : **spline parfaite en background permanent**. La courbe
     `splineToPoints(anchors, interpolation)` (squelette des ancres SANS résidu) est
     affichée en continu (orange `--canvas-spline-perfect`) dans les deux lentilles,
@@ -3149,7 +3162,14 @@ Phases listées ci-dessous dans l'ordre chronologique d'implémentation.
     `DRAW_MARGIN = 12px`** aux bords des zones Forme d'onde et Harmoniques (tracé/
     barres confinés à l'intérieur, élément capteur plein → 12px de tolérance avant
     de perdre le geste au bord ; esprit du lasso bibliothèque). `strokeWave`
-    factorise les boucles de tracé insettées.
+    factorise les boucles de tracé insettées. Marges verticales ensuite portées à
+    26/24px (asymétriques) pour loger légende/hint hors du tracé sans frôler ±1.
+    (d) **Alignement non-clamp du mode Ancres sur le tracé libre** : les 3 clamps
+    d'édition à ±1 (`splinePlusResidual`, `MOVE`/`ADD_SPLINE_ANCHOR`,
+    `eventToData`) sont levés — un tracé libre > ±1 n'est plus re-clampé en
+    touchant une ancre, et un drag d'ancre > ±1 dilate l'auto-fit. La persistance
+    re-borne toujours à ±1 à l'hydratation (`clampToUnit` / `sanitizeAnchors`),
+    identique aux deux modes.
   - **Le code du rattrapage M.r.* est définitivement clos.** Bilan : 5 phases
     principales (r.1→r.5) + 3 finitions (r.2.5, r.2.6, r.5.bis). Reste **M.5b**
     (passe doc writer sur le modèle stabilisé), hors implémenteur.
