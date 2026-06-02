@@ -34,7 +34,10 @@ function scheduleOneClip(ctx, clip, patch, startTime, trackGainNodes, defaultDes
 
   const dest = trackGainNodes?.[clip.trackId] ?? defaultDest
 
-  const wave = pointsToPeriodicWave(patch.canonical, ctx)
+  // patch.cap borne les harmoniques à la synthèse (sinon 256 par défaut → leakage
+  // spectral [cap+1..256] audible, exacerbé par les pics > ±1). scheduleAllClips
+  // le passe déjà ; scheduleOneClip l'oubliait.
+  const wave = pointsToPeriodicWave(patch.canonical, ctx, patch.cap)
   const osc = ctx.createOscillator()
   const gain = ctx.createGain()
   osc.setPeriodicWave(wave)
