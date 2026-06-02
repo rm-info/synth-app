@@ -56,14 +56,33 @@ function SplineEditor({
     ? splineToPoints(draftAnchors, interpolation)
     : points
 
+  // M.r.5.bis.2 — spline parfaite = squelette des ancres affichées (draft pendant
+  // un drag), sans résidu. Visible tant qu'elle s'écarte de la courbe affichée
+  // (résidu non négligeable) ; pendant un drag d'ancre, liveCurve EST la spline
+  // → écart nul → cachée (le bleu et l'orange se confondraient).
+  const splinePerfect = useMemo(
+    () => Array.from(splineToPoints(liveAnchors, interpolation)),
+    [liveAnchors, interpolation],
+  )
+  const showSplinePerfect = useMemo(() => {
+    let m = 0
+    for (let i = 0; i < liveCurve.length; i++) {
+      const d = Math.abs((liveCurve[i] ?? 0) - (splinePerfect[i] ?? 0))
+      if (d > m) m = d
+    }
+    return m > 0.01
+  }, [liveCurve, splinePerfect])
+
   // M.r.5.bis.1 — auto-fit Y aligné sur WaveformEditor : même échelle dynamique
-  // `[-peak, +peak]` (peak = max(|courbe|, |normalizedBg|, 1)) + transition douce
-  // par lerp rAF, pour qu'aucun saut visuel n'apparaisse au switch Libre↔Ancres.
+  // `[-peak, +peak]` (peak = max(|courbe|, |normalizedBg|, |spline si affichée|,
+  // 1)) + transition douce par lerp rAF, pour qu'aucun saut visuel n'apparaisse
+  // au switch Libre↔Ancres.
   const peakTarget = useMemo(() => {
     const pc = liveCurve.reduce((m, v) => Math.max(m, Math.abs(v ?? 0)), 0)
     const pb = normalizedBg ? normalizedBg.reduce((m, v) => Math.max(m, Math.abs(v)), 0) : 0
-    return Math.max(pc, pb, 1)
-  }, [liveCurve, normalizedBg])
+    const ps = showSplinePerfect ? splinePerfect.reduce((m, v) => Math.max(m, Math.abs(v)), 0) : 0
+    return Math.max(pc, pb, ps, 1)
+  }, [liveCurve, normalizedBg, showSplinePerfect, splinePerfect])
   // Lazy-init à la cible (pas 1) : au montage du composant (switch depuis Libre)
   // l'échelle est déjà correcte, pas d'animation parasite depuis 1.
   const peakDisplayedRef = useRef(null)
@@ -71,7 +90,7 @@ function SplineEditor({
 
   // Réf miroir pour le repaint hors-render (ResizeObserver, themechange).
   // Mise à jour dans un effet (jamais pendant le render — cf. react-hooks/refs).
-  const drawStateRef = useRef({ curve: points, anchors, selectedIdx: null, hoverIdx: null, bg: normalizedBg })
+  const drawStateRef = useRef({ curve: points, anchors, selectedIdx: null, hoverIdx: null, bg: normalizedBg, sp: null })
 
   const draw = useCallback(() => {
     const canvas = canvasRef.current
@@ -81,7 +100,7 @@ function SplineEditor({
     if (!W || !H) return
     const ctx = canvas.getContext('2d')
     const midY = H / 2
-    const { curve, anchors: pts, selectedIdx: sel, hoverIdx: hov, bg } = drawStateRef.current
+    const { curve, anchors: pts, selectedIdx: sel, hoverIdx: hov, bg, sp } = drawStateRef.current
     // M.r.5.bis.1 — échelle Y auto-fit (cf. WaveformEditor.drawCanvas).
     const peak = peakDisplayedRef.current
     const valueToY = (v) => midY - (v / peak) * (H / 2)
@@ -117,6 +136,24 @@ function SplineEditor({
         const ptFloat = (x / W) * RESOLUTION
         const ptIdx = Math.min(Math.floor(ptFloat), RESOLUTION - 1)
         const y = valueToY(bg[ptIdx] ?? 0)
+        if (x === 0) ctx.moveTo(x, y)
+        else ctx.lineTo(x, y)
+      }
+      ctx.stroke()
+      ctx.globalAlpha = 1
+    }
+
+    // M.r.5.bis.2 — spline parfaite (squelette des ancres) en orange, après le
+    // gris normalisé et avant la canonical. Présente seulement quand `sp` fourni.
+    if (sp) {
+      ctx.strokeStyle = themeColor('canvas-spline-perfect')
+      ctx.globalAlpha = 0.55
+      ctx.lineWidth = 1
+      ctx.beginPath()
+      for (let x = 0; x < W; x++) {
+        const ptFloat = (x / W) * RESOLUTION
+        const ptIdx = Math.min(Math.floor(ptFloat), RESOLUTION - 1)
+        const y = valueToY(sp[ptIdx] ?? 0)
         if (x === 0) ctx.moveTo(x, y)
         else ctx.lineTo(x, y)
       }
@@ -164,9 +201,12 @@ function SplineEditor({
   }, [])
 
   useEffect(() => {
-    drawStateRef.current = { curve: liveCurve, anchors: liveAnchors, selectedIdx, hoverIdx, bg: normalizedBg }
+    drawStateRef.current = {
+      curve: liveCurve, anchors: liveAnchors, selectedIdx, hoverIdx,
+      bg: normalizedBg, sp: showSplinePerfect ? splinePerfect : null,
+    }
     draw()
-  }, [draw, liveCurve, liveAnchors, selectedIdx, hoverIdx, normalizedBg])
+  }, [draw, liveCurve, liveAnchors, selectedIdx, hoverIdx, normalizedBg, showSplinePerfect, splinePerfect])
 
   // M.r.5.bis.1 — transition douce du zoom Y (cf. WaveformEditor) : lerp
   // `peakDisplayed` vers la cible dans une boucle rAF, repeint à chaque frame.
@@ -383,7 +423,9 @@ function SplineEditor({
         {/* M.r.5.bis.1 — bornes ±1 portées par le marqueur canvas (suit l'auto-fit
             Y) ; seul le « 0 » médian reste un label DOM fixe. */}
         <span className="label middle">0</span>
-        {normalizedBg && <NormalizeLegend />}
+        {(normalizedBg || showSplinePerfect) && (
+          <NormalizeLegend showNormalized={!!normalizedBg} showSpline={showSplinePerfect} />
+        )}
         {menu && (
           <div
             className="spline-context-menu"

@@ -65,6 +65,9 @@
   --canvas-text-primary: #8a8fa8;
   --canvas-text-secondary: #7a7e96;
   --canvas-marker: #ffffff;
+  /* M.r.5.bis.2 — 3ᵉ courbe « spline parfaite » (squelette des ancres). Orange
+     chaud, distinct du bleu accent (canonical) et du gris (forme normalisée). */
+  --canvas-spline-perfect: #ff9d42;
 
   /* Tuple RGB du playhead (vert success) — exposé séparément pour que
      Timeline.jsx puisse composer rgba(var, alpha) à intensité variable.
@@ -124,6 +127,8 @@
   --canvas-text-primary: #5a5e70;
   --canvas-text-secondary: #7a7e90;
   --canvas-marker: #1a1a2e;
+  /* M.r.5.bis.2 — spline parfaite (orange, assombri pour contraster sur fond clair). */
+  --canvas-spline-perfect: #d9690a;
 
   --playhead-rgb: 22, 163, 74;
 

@@ -2,6 +2,7 @@ import { useRef, useState, useCallback, useEffect, useImperativeHandle, useMemo 
 import { Plus, Save, SaveAll, Undo2, Redo2, Sliders, X, Lock, Spline, AlignEndHorizontal, Sigma } from 'lucide-react'
 import { IconDoux, IconAnguleux } from './icons'
 import { pointsToPeriodicWave, MIN_ATTACK, HARMONIC_COUNT, harmonicsToPoints, canonicalToBars } from '../audio'
+import { splineToPoints } from '../lib/spline'
 import { CAP_MIN, CAP_MAX, SPLINE_ANCHOR_MIN, SPLINE_ANCHOR_MAX } from '../reducer'
 import useWindowSize from '../hooks/useWindowSize'
 import FreqInput from './FreqInput'
@@ -353,7 +354,10 @@ function WaveformEditor({
   // (vestigial depuis M.r.2.4) ; la branche 'harmonic' était inatteignable.
   const currentLens = editor.currentLens ?? 'free'
   const mode = currentLens === 'spline' ? 'spline' : 'draw'
-  const anchors = editor.anchors ?? []
+  // M.r.5.bis.2 — stabilisé via useMemo : `anchors` alimente le useMemo de la
+  // spline parfaite ; le fallback `[]` créerait sinon une nouvelle référence à
+  // chaque render et le recalculerait inutilement.
+  const anchors = useMemo(() => editor.anchors ?? [], [editor.anchors])
   const interpolation = editor.interpolation ?? 'soft'
   const amplitude = draftAmp ?? editor.amplitude
   // `cap` (ex-definition/N) borne désormais toutes les lentilles à la synthèse.
@@ -387,15 +391,36 @@ function WaveformEditor({
   // iDFT pendant un drag de barre — cohérent avec ce que produira le reducer).
   const points = draftPoints
     ?? (draftAmplitudes ? harmonicsToPoints(draftAmplitudes, draftAmplitudes.length) : editor.canonical)
+  // M.r.5.bis.2 — « spline parfaite » = squelette des ancres SANS résidu
+  // (`splineToPoints(anchors, interpolation)`). Affichée en permanence (3ᵉ courbe
+  // orange) tant qu'elle ne se confond pas avec la canonical, c.-à-d. tant que le
+  // résidu (canonical − spline) n'est pas négligeable. Critère dérivé de l'écart
+  // aux courbes effectivement affichées (et non `editor.residual`) → reste juste
+  // pendant un tracé libre où le résidu committé est encore périmé.
+  const splinePerfect = useMemo(
+    () => Array.from(splineToPoints(anchors, interpolation)),
+    [anchors, interpolation],
+  )
+  const showSplinePerfect = useMemo(() => {
+    let m = 0
+    for (let i = 0; i < points.length; i++) {
+      const d = Math.abs((points[i] ?? 0) - (splinePerfect[i] ?? 0))
+      if (d > m) m = d
+    }
+    return m > 0.01
+  }, [points, splinePerfect])
   // M.r.5.1 — cible d'auto-fit de l'axe Y de la zone Forme d'onde. La canonical
   // peut dépasser ±1 (en cumul, le pic vaut Σ|amplitudes_k|) ; on dilate
   // l'échelle pour tout afficher. Min à 1 pour que le marqueur ±1 reste visible
-  // même au silence ou sur de petites amplitudes.
+  // même au silence ou sur de petites amplitudes. M.r.5.bis.2 : on inclut la
+  // spline parfaite quand elle est affichée pour ne pas l'écrêter (son overshoot
+  // Catmull-Rom peut dépasser la canonical, elle, clampée à ±1 en mode Ancres).
   const peakTarget = useMemo(() => {
     const pp = points.reduce((m, v) => Math.max(m, Math.abs(v)), 0)
     const pb = normalizedBg ? normalizedBg.reduce((m, v) => Math.max(m, Math.abs(v)), 0) : 0
-    return Math.max(pp, pb, 1)
-  }, [points, normalizedBg])
+    const ps = showSplinePerfect ? splinePerfect.reduce((m, v) => Math.max(m, Math.abs(v)), 0) : 0
+    return Math.max(pp, pb, ps, 1)
+  }, [points, normalizedBg, showSplinePerfect, splinePerfect])
   const testFrequency = draftFreq ?? editor.testFrequency
   const attack = draftAdsr?.attack ?? editor.attack
   const hold = draftAdsr?.hold ?? editor.hold ?? 0
@@ -541,8 +566,12 @@ function WaveformEditor({
   // hors-render (ResizeObserver, themechange) qui lisent `pointsRef`.
   const normalizedBgRef = useRef(normalizedBg)
   useEffect(() => { normalizedBgRef.current = normalizedBg }, [normalizedBg])
+  // M.r.5.bis.2 — miroir de la spline parfaite (null quand non affichée) pour les
+  // mêmes repaints hors-render.
+  const splinePerfectRef = useRef(null)
+  useEffect(() => { splinePerfectRef.current = showSplinePerfect ? splinePerfect : null }, [showSplinePerfect, splinePerfect])
 
-  const drawCanvas = useCallback((pts, bg = null) => {
+  const drawCanvas = useCallback((pts, bg = null, sp = null) => {
     const canvas = canvasRef.current
     if (!canvas) return
     const W = canvas.width
@@ -597,6 +626,25 @@ function WaveformEditor({
       ctx.globalAlpha = 1
     }
 
+    // M.r.5.bis.2 — spline parfaite (squelette des ancres) en orange, après le
+    // gris normalisé et avant la canonical bleue. Présente seulement quand `sp`
+    // est fourni (résidu non négligeable). Stroke fin, pas de fill.
+    if (sp) {
+      ctx.strokeStyle = themeColor('canvas-spline-perfect')
+      ctx.globalAlpha = 0.55
+      ctx.lineWidth = 1
+      ctx.beginPath()
+      for (let x = 0; x < W; x++) {
+        const ptFloat = (x / W) * POINTS_RESOLUTION
+        const ptIdx = Math.min(Math.floor(ptFloat), POINTS_RESOLUTION - 1)
+        const y = valueToY(sp[ptIdx] ?? 0)
+        if (x === 0) ctx.moveTo(x, y)
+        else ctx.lineTo(x, y)
+      }
+      ctx.stroke()
+      ctx.globalAlpha = 1
+    }
+
     ctx.strokeStyle = themeColor('accent')
     ctx.lineWidth = 2
     ctx.beginPath()
@@ -634,8 +682,8 @@ function WaveformEditor({
   // donc sans cette dépendance l'effet ne se redéclenche pas et le canvas
   // fraîchement monté reste vide jusqu'à une modif. La relancer force un draw.
   useEffect(() => {
-    drawCanvas(points, normalizedBg)
-  }, [points, normalizedBg, drawCanvas, currentLens])
+    drawCanvas(points, normalizedBg, showSplinePerfect ? splinePerfect : null)
+  }, [points, normalizedBg, showSplinePerfect, splinePerfect, drawCanvas, currentLens])
 
   // M.r.5.1 — transition douce du zoom Y. Le rendu canvas étant au pixel, pas
   // de transition CSS possible : on lerp `peakDisplayed` vers la cible dans une
@@ -652,7 +700,7 @@ function WaveformEditor({
       const cur = peakDisplayedRef.current
       const next = cur + (peakTarget - cur) * 0.15
       peakDisplayedRef.current = Math.abs(peakTarget - next) < 0.01 ? peakTarget : next
-      drawCanvas(pointsRef.current, normalizedBgRef.current)
+      drawCanvas(pointsRef.current, normalizedBgRef.current, splinePerfectRef.current)
       if (peakDisplayedRef.current !== peakTarget) raf = requestAnimationFrame(tick)
     }
     raf = requestAnimationFrame(tick)
@@ -677,11 +725,11 @@ function WaveformEditor({
         if (w !== canvas.width || h !== canvas.height) {
           canvas.width = w
           canvas.height = h
-          drawCanvas(pointsRef.current, normalizedBgRef.current)
+          drawCanvas(pointsRef.current, normalizedBgRef.current, splinePerfectRef.current)
           cancelAnimationFrame(raf1)
           cancelAnimationFrame(raf2)
           raf1 = requestAnimationFrame(() => {
-            raf2 = requestAnimationFrame(() => drawCanvas(pointsRef.current, normalizedBgRef.current))
+            raf2 = requestAnimationFrame(() => drawCanvas(pointsRef.current, normalizedBgRef.current, splinePerfectRef.current))
           })
         }
       }
@@ -1634,7 +1682,7 @@ function WaveformEditor({
   // restent gravées jusqu'à la prochaine édition (point d'onde, ADSR slider).
   useEffect(() => {
     const repaint = () => {
-      drawCanvas(pointsRef.current, normalizedBgRef.current)
+      drawCanvas(pointsRef.current, normalizedBgRef.current, splinePerfectRef.current)
       drawAdsr()
     }
     window.addEventListener('themechange', repaint)
@@ -2058,7 +2106,9 @@ function WaveformEditor({
               pointillé dessiné dans le canvas (il suit l'auto-fit Y) ; seul le
               repère « 0 » de la ligne médiane reste un label DOM fixe. */}
           <span className="label middle">0</span>
-          {normalizedBg && <NormalizeLegend />}
+          {(normalizedBg || showSplinePerfect) && (
+            <NormalizeLegend showNormalized={!!normalizedBg} showSpline={showSplinePerfect} />
+          )}
         </div>
       </div>
     )
