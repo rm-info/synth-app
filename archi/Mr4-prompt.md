@@ -30,16 +30,53 @@ quoi s'attendre.
 
 ## Décisions techniques actées avant le découpage
 
-- **Détection numérique d'état normalisé** : `isCanonicalNormalized(canonical, cap)`
-  compare la canonical à sa propre normalisation (`harmonicsToPoints(canonicalToBars(canonical, cap), cap)`)
-  via une **norme L∞ pondérée** ou simplement `max(|delta_i|)`, avec
-  une tolérance `EPS`. Calibration empirique attendue : commencer à
-  `EPS = 0.01` (1% en amplitude). À ajuster si trop strict (rare false
-  negative après normalisation due au leakage FFT 600↔512) ou trop
-  laxiste (un tracé libre passe pour normalisé). À tester en passe
-  d'usage avec : (a) tracé libre quelconque → `false` attendu ;
-  (b) post-Normaliser → `true` attendu ; (c) après drag de barre →
-  `true` attendu (l'iDFT régénère la canonical à phase canonique).
+- **Détection d'état normalisé par flag d'état** (amendement 2026-06-02
+  suite à investigation du dev). La première version du prompt
+  prévoyait une détection numérique `isCanonicalNormalized(canonical, cap, eps)`
+  reposant sur l'idempotence du round-trip `R(x) = harmonicsToPoints(canonicalToBars(x))`.
+  Cette idempotence est **fausse** : le resample 600↔512 par interpolation
+  linéaire réinjecte du leakage à chaque passe (mesuré : ~15 %/passe sur
+  un créneau à `cap=256`, 4 normalisations nécessaires pour converger).
+  Les deux classes (« vraiment normalisé » vs « tracé libre quasi-en-phase »)
+  se chevauchent sur la métrique → impossible de séparer par un seuil.
+  → **Nouvelle stratégie** : champ `editor.canonicalNormalized: boolean`
+  comme état d'éditeur, mis à `true`/`false` par les actions selon
+  qu'elles produisent un signal à phase canonique sinus pur. Déterministe,
+  idempotent (1 click Normaliser → grisé), zéro fragilité FFT.
+  Sémantiquement plus honnête : « normalisé » est une propriété de
+  l'histoire de l'éditeur, pas une propriété intrinsèque du tableau
+  `canonical`. Pas persisté dans le patch ni dans `.osa` (coût/bénéfice
+  défavorable — un patch rechargé repart à `false`).
+
+  **Effets par action** (tableau exhaustif) :
+
+  | Action | `canonicalNormalized` |
+  |---|---|
+  | `NORMALIZE_EDITOR_CANONICAL` | → `true` |
+  | `SET_EDITOR_HARMONIC_AMPLITUDE` | → `true` (iDFT phase canonique) |
+  | `LOAD_PRESET` (modale, amplitudes définies) | → `true` |
+  | `APPLY_EDITOR_PRESET('sine')` | → `true` (sin pur = phase canonique) |
+  | `APPLY_EDITOR_PRESET('square'\|'sawtooth'\|'triangle')` | → `false` (formes stepped, phase non-canonique au sens DFT) |
+  | `RESET_EDITOR_WAVEFORM` | → `true` (canonical = 0) |
+  | `SET_EDITOR_CANONICAL` (tracé libre) | → `false` |
+  | `MOVE_SPLINE_ANCHOR` / `ADD` / `REMOVE` | → `false` (`splinePlusResidual` ≠ iDFT canonique) |
+  | `SET_SPLINE_INTERPOLATION` | → `false` |
+  | `SET_EDITOR_CAP` | → `false` (cap change l'interprétation, conservative) |
+  | `HYDRATE_EDITOR_FROM_PATCH` | → `false` |
+  | `SET_EDITOR_ANCHOR_COUNT` / `SET_EDITOR_CURRENT_LENS` / `SET_EDITOR_AMPLITUDE` / `SET_EDITOR_ADSR` / autres | inchangé |
+
+  **Valeur initiale** : `DEFAULT_EDITOR.canonicalNormalized = true`
+  (canonical = `[0,…,0]` = iDFT(magnitudes nulles), trivialement
+  normalisée).
+
+- **Correction du commentaire faux dans `src/audio.js`** : les lignes
+  ~176-181 (commentaire de `harmonicsToPoints`) affirment « son résultat,
+  repassé dans `pointsToHarmonics` → `createPeriodicWave`, redonne
+  exactement les mêmes magnitudes (k ≤ 256 tombe sur un bin FFT à
+  NUM_SAMPLES = 512) ». C'est faux dès qu'il y a du contenu haute-
+  fréquence (resample linéaire 600→512 → leakage). À corriger dans le
+  même sous-commit r.4.1 : mentionner honnêtement le leakage et
+  pointer vers l'entrée backlog « Mismatch de grille FFT 600 ↔ 512 ».
 - **Courbe normalisée en background** : un second tracé sur le **même
   canvas** que la canonical de la lentille Forme d'onde, dessiné
   **avant** la canonical, en gris discret (couleur dérivée de la
@@ -48,13 +85,16 @@ quoi s'attendre.
   `harmonicsToPoints(canonicalToBars(canonical, cap), cap)`. Coût :
   sub-ms (≈ `cap × 600` mults, déjà toléré ailleurs).
 - **Quand est-ce que la courbe normalisée est visible ?** Toujours
-  dans la lentille Forme d'onde, *tant que la canonical n'est pas
-  normalisée*. Si elle l'est, la normalisée se confond avec la canonical
-  → pas besoin de la dessiner (économie de bruit visuel). La détection
-  utilise `isCanonicalNormalized` (même primitive que pour le bouton).
+  dans la lentille Forme d'onde, *tant que `editor.canonicalNormalized`
+  vaut `false`*. Quand elle vaut `true`, la normalisée se confond avec
+  la canonical → pas besoin de la dessiner (économie de bruit visuel).
+  Note : la courbe normalisée dessinée en background reste calculée par
+  `harmonicsToPoints(canonicalToBars(canonical, cap), cap)` — son rendu
+  n'a pas besoin d'être pixel-perfect (juste un aperçu), donc le
+  leakage FFT y est tolérable.
 - **Dialog edit-bars-requires-normalize** : modale (`ConfirmDialog`
   existant) qui apparaît quand l'utilisateur essaie d'éditer une barre
-  *alors que* `!isCanonicalNormalized`. Deux issues :
+  *alors que* `!editor.canonicalNormalized`. Deux issues :
   - **Normaliser et continuer** : dispatch `NORMALIZE_EDITOR_CANONICAL`
     puis dispatch `SET_EDITOR_HARMONIC_AMPLITUDE` avec la valeur du
     mousedown originel. L'utilisateur fait son édition de barre comme
@@ -67,72 +107,98 @@ quoi s'attendre.
   remet la canonical en phase non-canonique (tracé libre, chargement
   de preset, etc.), le dialog réapparaîtra au prochain drag de barre.
 - **Bouton Normaliser désactivé visuellement quand déjà normalisé** :
-  `disabled={isCanonicalNormalized}`, style atténué via CSS
+  `disabled={editor.canonicalNormalized}`, style atténué via CSS
   (`:disabled` ou classe). Tooltip change : « Déjà normalisé »
   au lieu de l'explication. Le bouton reste sémantiquement présent
   (l'utilisateur sait qu'il existe et apprend ce qu'il signifie).
 
 ## Découpage en sous-commits
 
-### Sous-commit M.r.4.1 — Détection d'état normalisé + désactivation Normaliser
+### Sous-commit M.r.4.1 — Flag d'état `canonicalNormalized` + désactivation Normaliser + correction commentaire audio.js
 
-`src/audio.js` ou `src/lib/` (à toi de juger l'emplacement le plus
-cohérent — probablement `audio.js` à côté de `canonicalToBars`) :
+**Côté type / état :**
 
+- `src/types.ts` : ajouter `canonicalNormalized: boolean` à l'interface
+  `Editor`. Pas de modification de `Patch` ni de `PatchData` (le flag
+  n'est pas persisté — décision archi).
+- `src/reducer.js` : `DEFAULT_EDITOR.canonicalNormalized = true`
+  (canonical par défaut = zéros = iDFT(magnitudes nulles), trivialement
+  normalisée).
+
+**Côté reducer** — chaque action concernée propage explicitement le flag
+selon le tableau en tête du prompt. Suggestion d'implémentation :
+
+- Pour les actions qui mettent `true` : ajouter `canonicalNormalized: true`
+  au spread de l'editor (`{ ...state.editor, canonical, residual,
+  canonicalNormalized: true, ... }`).
+- Pour les actions qui mettent `false` : idem avec `false`.
+- Pour celles qui ne touchent pas (`SET_EDITOR_ANCHOR_COUNT`,
+  `SET_EDITOR_CURRENT_LENS`, `SET_EDITOR_AMPLITUDE`, `SET_EDITOR_ADSR`,
+  `SET_EDITOR_ADSR_AND_AMP`, etc.) : aucune mention (le spread `...state.editor`
+  préserve la valeur courante).
+
+**Cas spécial `APPLY_EDITOR_PRESET`** : la valeur dépend du sous-preset.
+Concrètement :
 ```js
-// M.r.4 : la canonical est dite « normalisée » quand elle coïncide
-// (à `eps` près) avec sa reconstruction iDFT à phase canonique sur les
-// `cap` premières harmoniques. C'est le critère qui dit si éditer une
-// barre va « sauter » ou pas : si déjà normalisée, l'édition régénère
-// quasi-identiquement la canonical avec juste la barre modifiée.
-export function isCanonicalNormalized(canonical, cap, eps = 0.01) {
-  const bars = canonicalToBars(canonical, cap)
-  const reconstructed = harmonicsToPoints(bars, cap)
-  let maxDelta = 0
-  for (let i = 0; i < canonical.length; i++) {
-    const d = Math.abs(canonical[i] - reconstructed[i])
-    if (d > maxDelta) maxDelta = d
-  }
-  return maxDelta < eps
+case 'APPLY_EDITOR_PRESET': {
+  const { preset, points } = action.payload
+  const canonical = points
+  const canonicalNormalized = preset === 'sine'
+  // ... (reste de la logique inchangée, y compris refitAnchorsAndResidual)
+  return { ...state, editor: {
+    ...state.editor, canonical, anchors, residual, preset,
+    canonicalNormalized,
+  } }
 }
 ```
 
-Câbler ce calcul **comme un `useMemo`** dans `WaveformEditor.jsx`
-(dépendances `editor.canonical`, `editor.cap`) — il est lu par le
-bouton Normaliser ET par la courbe normalisée (sous-commit suivant)
-ET par le mousedown sur barre (sous-commit suivant). Évite trois
-recalculs par render.
+**Côté UI** : passer `disabled={!editor.canonicalNormalized ? false : true}`
+(ou plus clairement `disabled={editor.canonicalNormalized}`) au bouton
+Normaliser dans le header de la zone Forme d'onde (déplacé en M.r.2.6.8).
+Adapter le tooltip dynamiquement : « Déjà normalisé » si désactivé,
+message explicatif sinon. CSS : prévoir l'état `:disabled` cohérent
+avec le reste des boutons icônes du Designer (la classe `.icon-btn`
+existante a-t-elle déjà un style `:disabled` ? Si non, l'ajouter).
 
-Côté UI : passer `disabled={isNormalized}` au bouton Normaliser dans
-le header de la zone Forme d'onde (déplacé en M.r.2.6.8). Adapter le
-tooltip dynamiquement : « Déjà normalisé » si désactivé, message
-explicatif sinon. CSS : prévoir l'état `:disabled` cohérent avec le
-reste des boutons icônes du Designer.
+**Correction du commentaire faux dans `src/audio.js`** : remplacer les
+lignes ~176-181 du commentaire de `harmonicsToPoints` qui affirment
+faussement « redonne exactement les mêmes magnitudes ». Texte suggéré :
+« Note : le round-trip `harmonicsToPoints → pointsToHarmonics` n'est
+**pas** idempotent à haut `cap` sur des signaux riches en hautes
+harmoniques. Le resample 600→512 par interpolation linéaire (cf.
+ligne 111) réinjecte du leakage spectral à chaque passe (mesuré
+~15 %/passe sur un créneau à `cap=256`). Conséquence : la détection
+"canonical normalisée" repose sur un flag d'état dans l'editor
+(`editor.canonicalNormalized`), pas sur une comparaison numérique
+de round-trip. Voir entrée backlog "Mismatch de grille FFT 600 ↔ 512". »
 
 **Test de non-régression manuel** :
-1. Patch neuf (canonical = 0) : `isCanonicalNormalized` → `true`
-   (zéros + zéros = zéros). Bouton Normaliser désactivé.
-2. Tracé libre quelconque : `isCanonicalNormalized` → `false`. Bouton
-   actif.
-3. Click Normaliser : la canonical se redessine, bouton repasse à
-   désactivé.
-4. Drag d'une barre depuis l'état normalisé : `isCanonicalNormalized`
-   doit rester `true` (l'iDFT à phase canonique préserve l'invariance).
-5. Charge preset (modale ou bouton rapide) : selon que le preset
-   produit une canonical déjà à phase canonique ou non.
-6. Calibration EPS : si le scénario 4 passe à `false` après quelques
-   drags consécutifs (à cause du leakage FFT 600↔512 qui s'accumule),
-   augmenter `EPS` jusqu'à ce que ça stabilise. Si le scénario 2 passe
-   à `true` sur un tracé doux, diminuer.
+1. Patch neuf (canonical = 0, flag init à `true`) : bouton Normaliser
+   désactivé, tooltip « Déjà normalisé ».
+2. Tracé libre quelconque → flag passe à `false`. Bouton actif.
+3. Click Normaliser → flag remis à `true`. Bouton redésactivé en un
+   seul click (≠ la version numérique qui demandait 3-4 clicks).
+4. Drag d'une barre depuis l'état normalisé → flag reste à `true`
+   (l'iDFT régénère la canonical à phase canonique sinus, et l'action
+   met explicitement `true`).
+5. Drag d'une barre depuis l'état non-normalisé → flag passe à `true`
+   (après dialog — voir r.4.3 — l'action de normalisation + édition
+   produit une canonical normalisée).
+6. Charge preset modale (LOAD_PRESET) → flag à `true`.
+7. APPLY_EDITOR_PRESET('sine') → `true`. APPLY_EDITOR_PRESET('square'|
+   'sawtooth'|'triangle') → `false`.
+8. Drag d'ancre, changement d'interpolation, changement de cap → `false`.
+9. Hydratation d'un patch sauvegardé → `false` (l'utilisateur cliquera
+   Normaliser explicitement avant d'éditer une barre si besoin).
 
-Tag : `feat(iter-M/phase-r.4.1): détection isCanonicalNormalized + désactivation bouton Normaliser quand déjà normalisé`.
+Tag : `feat(iter-M/phase-r.4.1): flag editor.canonicalNormalized + désactivation bouton Normaliser quand normalisé + correction commentaire audio.js`.
 
 ### Sous-commit M.r.4.2 — Courbe normalisée en background dans la lentille Forme d'onde
 
 Dans le `useEffect` (ou layout effect) de rendu canvas de la zone Forme
 d'onde, **avant** le tracé de la canonical :
 
-- Si `isNormalized` → ne rien dessiner en background (la normalisée se
+- Si `editor.canonicalNormalized` → ne rien dessiner en background (la normalisée se
   confond avec la canonical, ce serait du bruit visuel).
 - Sinon → calculer
   `normalized = harmonicsToPoints(canonicalToBars(canonical, cap), cap)`
@@ -144,18 +210,18 @@ d'onde, **avant** le tracé de la canonical :
 
 Petite légende discrète dans le header de la zone Forme d'onde
 (spec §5.2) : « bleu = forme actuelle, gris = forme si normalisée ».
-Ne s'affiche que quand `!isNormalized` (sinon pas de gris à
+Ne s'affiche que quand `!editor.canonicalNormalized` (sinon pas de gris à
 légender). Position : sous le toggle Spline, en petit gris (CSS
 `opacity: 0.6` ou similaire). À adapter si le layout est trop chargé.
 
 **Test manuel** :
 1. Patch neuf : pas de courbe grise (canonical = normalisée = zéro,
-   isNormalized = true).
+   editor.canonicalNormalized = true).
 2. Tracé libre : courbe grise apparaît, montre la version « phase
    canonique » du tracé. La différence est visible aux points où la
    phase compte (transitions raides, asymétries).
 3. Click Normaliser : la canonical bondit pour coller à la grise, la
-   grise disparaît (isNormalized devient true).
+   grise disparaît (editor.canonicalNormalized devient true).
 4. Drag d'ancre depuis état normalisé : la canonical se remet à
    diverger de la normalisée → la grise réapparaît (l'utilisateur
    voit que son geste a remis le tracé en phase non-canonique).
@@ -172,7 +238,7 @@ const handleHarmonicMouseDown = (e) => {
   const index = harmonicIndexFromEvent(e, amplitudes.length)
   const value = harmonicAmplitudeFromEvent(e)
 
-  if (!isNormalized) {
+  if (!editor.canonicalNormalized) {
     // Dialog interceptif : on n'initie pas le draft tant que la
     // décision n'est pas prise. Au confirme, on enchaîne normalize
     // + édition de la barre cliquée (sans re-clic utilisateur).
@@ -216,7 +282,7 @@ d'état modifié. L'utilisateur peut continuer son édition normalement
 manuellement avant de retourner sur la barre).
 
 **Comportement après le dialog confirme** : la canonical devient
-normalisée (donc `isNormalized` → `true`), la courbe grise disparaît,
+normalisée (donc `editor.canonicalNormalized` → `true`), la courbe grise disparaît,
 le bouton Normaliser passe à désactivé. Une session ultérieure de
 drags de barres ne déclenchera plus le dialog (tant qu'aucune action
 non-spline n'a remis la canonical en phase non-canonique).
@@ -256,9 +322,10 @@ Tag : `feat(iter-M/phase-r.4.3): dialog edit-bars-requires-normalize avant édit
 
 - **Auto-fit Y axis + marqueur ±1** dans la zone Forme d'onde : M.r.5.
 - **Repères pointillés / axes labellisés** zone Harmoniques : M.r.5.
-- **Bug FFT 600↔512** : backlog accepté. Si le calibrage d'EPS révèle
-  des cas borderline, les noter en commentaire mais ne pas refondre
-  la chaîne FFT en M.r.4.
+- **Bug FFT 600↔512** : backlog accepté. La détection numérique de
+  normalisation aurait été son premier symptôme bloquant, mais le
+  passage au flag d'état (amendement 2026-06-02) la contourne. La
+  refonte de `pointsToHarmonics` reste hors scope.
 - **Overshoot Catmull-Rom sur transitions verticales** : backlog
   (M.r.3 follow-up).
 - **Refonte presets sine/square/sawtooth/triangle** : backlog.
@@ -271,8 +338,10 @@ edit-bars)`. Sections à toucher :
 
 - **TL;DR** : mention r.4 (normalisation explicite).
 - **État actuel** :
-  - Mention `isCanonicalNormalized` + son rôle pour les 3 chemins
-    (bouton désactivé, courbe background, dialog edit-bars).
+  - Mention du champ `editor.canonicalNormalized: boolean` + son rôle
+    pour les 3 chemins (bouton désactivé, courbe background, dialog
+    edit-bars). Tableau des actions qui le mettent à `true`/`false`/
+    inchangé.
   - Décrire la courbe normalisée en background et la légende.
   - Décrire le dialog edit-bars-requires-normalize + le double
     dispatch normalize + setHarmonicAmplitude au confirme.
@@ -280,17 +349,24 @@ edit-bars)`. Sections à toucher :
   - « Phase canonique sinus pour toutes les harmoniques » comme
     convention de normalisation (la phase n'étant pas portée par les
     barres, c'est un choix de défaut).
-  - `EPS` de détection (valeur retenue après calibrage).
+  - **Détection « normalisée » par flag d'état, pas par comparaison
+    numérique** : amendement 2026-06-02 suite à mesure du round-trip
+    non idempotent. Voir entrée historique r.4 pour le diagnostic
+    complet.
+  - **Commentaire corrigé** dans `audio.js` (lignes ~176-181) : le
+    round-trip `harmonicsToPoints → pointsToHarmonics` n'est PAS exact
+    sur signaux riches en hautes harmoniques (resample 600→512
+    linéaire = leakage).
 - **Historique** : entrée r.4.
 
 ## Workflow
 
 - Commits linéaires sur `main`. Ne push pas tout seul.
-- Le sous-commit r.4.1 (détection) est le plus délicat : la
-  calibration d'`EPS` ne peut être validée qu'empiriquement. Si tu
-  hésites entre deux valeurs (`0.005` vs `0.01` vs `0.02`), commit
-  avec une valeur de départ et mentionne dans le commit message les
-  alternatives à valider en passe d'usage.
+- Le sous-commit r.4.1 demande de propager `canonicalNormalized` à
+  travers toutes les actions concernées du reducer. Vérifie
+  exhaustivement le tableau du prompt avant commit — un oubli sur une
+  action mineure (par exemple `APPLY_EDITOR_PRESET('triangle')`) ne
+  sera pas attrapé par typecheck/lint.
 - Le double dispatch dans r.4.3 (normalize + setHarmonicAmplitude) est
   un choix UX. Si à l'usage tu trouves que l'expérience d'undo est
   étrange (deux Ctrl+Z pour revenir, ou Ctrl+Z une fois remet juste
