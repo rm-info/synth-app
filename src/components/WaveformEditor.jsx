@@ -849,6 +849,22 @@ function WaveformEditor({
     // Harmoniques (auto-sizing), il ne fait que focuser — pas d'édition de barre.
     if (autoSizing && autoSizeFocusGuardRef?.current) return
     const index = harmonicIndexFromEvent(e, amplitudes.length)
+    // M.r.5.bis.3 — clic droit = raccourci « éteindre cette harmonique » (mise à
+    // zéro). Aucun draft/drag initié (sinon un draft resterait coincé à attendre
+    // un mouseup gauche qui ne viendra pas). La garde de phase edit-bars
+    // s'applique comme au clic gauche : si la canonical n'est pas normalisée, le
+    // dialog (value:0) précède l'opération — pas de raccourci silencieux qui
+    // contournerait la convention de phase. Le menu contextuel natif est bloqué
+    // par onContextMenu sur le conteneur des barres.
+    if (e.button === 2) {
+      e.preventDefault()
+      if (!isNormalized) {
+        setPendingBarEdit({ index, value: 0 })
+        return
+      }
+      editorActions.setHarmonicAmplitude(index, 0)
+      return
+    }
     const value = harmonicAmplitudeFromEvent(e)
     // M.r.4.3 — garde-fou phase : éditer une barre sur une canonical à phase
     // non-canonique force l'iDFT à choisir la phase canonique → la forme
@@ -2187,6 +2203,7 @@ function WaveformEditor({
             onMouseMove={handleHarmonicMouseMove}
             onMouseUp={handleHarmonicMouseUp}
             onMouseLeave={handleHarmonicMouseLeave}
+            onContextMenu={(e) => e.preventDefault()}
           >
             {/* Repères horizontaux 0 / 0.5 / 1, sous les barres (overlay). */}
             <div className="we-harmonics-grid" aria-hidden="true">
