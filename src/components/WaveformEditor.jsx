@@ -342,6 +342,9 @@ function WaveformEditor({
   // en attente est gardé le temps de la confirmation d'écrasement.
   const [presetPickerOpen, setPresetPickerOpen] = useState(false)
   const [pendingPresetPatch, setPendingPresetPatch] = useState(null)
+  // M.r.4.3 — { index, value } d'une édition de barre interceptée parce que la
+  // canonical n'était pas normalisée. Non null = dialog ouvert.
+  const [pendingBarEdit, setPendingBarEdit] = useState(null)
 
   // Modèle unifié (M rattrapage) : la canonical est la vérité audio affichée.
   // La lentille active (currentLens) ne change que l'UI ; on la mappe vers les
@@ -743,10 +746,20 @@ function WaveformEditor({
     // Harmoniques (auto-sizing), il ne fait que focuser — pas d'édition de barre.
     if (autoSizing && autoSizeFocusGuardRef?.current) return
     const index = harmonicIndexFromEvent(e, amplitudes.length)
+    const value = harmonicAmplitudeFromEvent(e)
+    // M.r.4.3 — garde-fou phase : éditer une barre sur une canonical à phase
+    // non-canonique force l'iDFT à choisir la phase canonique → la forme
+    // « saute ». On intercepte AVANT d'initier le draft : le dialog propose de
+    // normaliser puis d'appliquer l'édition cliquée (sans re-clic). Annuler
+    // n'initie aucun draft, l'état reste intact.
+    if (!isNormalized) {
+      setPendingBarEdit({ index, value })
+      return
+    }
     dragBarRef.current = index
     dragBarInitialRef.current = amplitudes[index]
     const next = Array.from(draftAmplitudes ?? amplitudes)
-    next[index] = harmonicAmplitudeFromEvent(e)
+    next[index] = value
     setDraftAmplitudes(next)
   }
   const handleHarmonicMouseMove = (e) => {
@@ -1290,6 +1303,19 @@ function WaveformEditor({
   const doResetWaveform = () => {
     setConfirmResetWaveformOpen(false)
     editorActions.resetWaveform()
+  }
+  // M.r.4.3 — confirme du dialog edit-bars : normalise PUIS applique l'édition
+  // de la barre cliquée (la valeur du mousedown originel). Deux dispatchs
+  // distincts = deux crans d'undo (1× = retour à l'état normalisé pré-barre,
+  // 2× = retour à l'état non-normalisé d'origine). Choix assumé (cf. prompt) :
+  // l'utilisateur peut « réannuler la normalisation » si le geste était non
+  // voulu. À regrouper en action atomique si l'UX d'undo gêne en passe d'usage.
+  const confirmNormalizeAndEditBar = () => {
+    if (!pendingBarEdit) return
+    const { index, value } = pendingBarEdit
+    editorActions.normalize()
+    editorActions.setHarmonicAmplitude(index, value)
+    setPendingBarEdit(null)
   }
 
   const flashMessage = (msg) => {
@@ -2629,6 +2655,17 @@ function WaveformEditor({
         variant="danger"
         onConfirm={confirmLoadPreset}
         onCancel={() => setPendingPresetPatch(null)}
+      />
+      {/* M.r.4.3 : garde-fou avant l'édition d'une barre sur canonical
+          non-normalisée (écrasement de phase). */}
+      <ConfirmDialog
+        open={pendingBarEdit !== null}
+        title="Normaliser le tracé ?"
+        message="Pour modifier une harmonique, le tracé doit être normalisé. La phase sera abandonnée, la forme reconstruite à partir des magnitudes."
+        confirmLabel="Normaliser et continuer"
+        cancelLabel="Annuler"
+        onConfirm={confirmNormalizeAndEditBar}
+        onCancel={() => setPendingBarEdit(null)}
       />
     </>
   )
