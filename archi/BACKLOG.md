@@ -37,6 +37,19 @@ Hors scope : inharmonique (Monde B), morph A↔B, toggles miroir (inaudibles),
 >600 points.
 
 Items backlog issus de la session :
+- **Moteur de recherche dans la doc** (remonté passe d'usage M.5b.2,
+  2026-06-02) : l'onglet Documentation a déjà ~24 articles (à enrichir par
+  M.5b.1/.3/.4) — l'absence de recherche plein-texte commence à se faire
+  sentir. Approches possibles :
+  (a) **Recherche client pure JS** sur le `?raw` Markdown déjà importé —
+  tokenisation simple, scoring TF-IDF naïf, ~100 lignes. Zéro dépendance,
+  cohérent avec la philosophie minimaliste du projet. Limite : pas de
+  fuzzy / stemming.
+  (b) **Lunr / FlexSearch** : index plus riche, fuzzy matching,
+  internationalisation. Ajout d'une dépendance npm — à valider archi.
+  Côté UX : champ de recherche dans la sidebar de l'onglet Documentation,
+  résultats avec aperçu contextuel (titre article + ligne où le terme
+  apparaît, lien direct). À prioriser si la doc continue de grossir.
 - **Latence audio à l'appui de touche** (remonté passe d'usage post-M.r.5.bis,
   visible sur machine modeste) : impression de retard entre la frappe clavier
   et le son sortant, apparue depuis les améliorations récentes (M.r.5 + .bis).

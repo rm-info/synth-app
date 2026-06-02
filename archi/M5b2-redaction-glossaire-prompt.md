@@ -40,7 +40,7 @@ qu'elles soient cibles disponibles.
 
 ## Objectif
 
-Ajouter **6 entrées** au fichier `src/docs/articles/glossaire-technique.md`
+Ajouter **7 entrées** au fichier `src/docs/articles/glossaire-technique.md`
 existant, **insérées en ordre alphabétique strict** (le glossaire est
 alphabétique — la position actuelle de Hauteur avant Hertz vient de
 « Ha- » < « He- », confirmation que c'est strict).
@@ -142,8 +142,8 @@ le timbre.
 
 ### 6. Résidu
 
-**Position** : entre `## Période` et `## Spectre et spectrogramme`
-(alphabétique).
+**Position** : entre `## Période` et `## Son` (alphabétique :
+« R » < « S »).
 
 **Scope sémantique** : différence entre la *forme d'onde* éditée et
 ce que produirait la spline passant par les seules *ancres*
@@ -155,6 +155,31 @@ résultante. C'est ce qui permet d'éditer une forme dessinée librement
 par ancres sans perdre sa personnalité.
 
 **Renvois croisés** : *Ancre* (nouvelle), *Forme d'onde* (existante).
+
+### 7. Son
+
+**Position** : entre `## Résidu` (nouvelle) et `## Spectre et
+spectrogramme` (alphabétique : « So- » < « Sp- »).
+
+**Scope sémantique** : variation de pression dans l'air (ou un autre
+milieu) qui se propage en onde jusqu'à ton oreille. Sa *fréquence* —
+la vitesse à laquelle la pression oscille — détermine la *hauteur*
+perçue, son *amplitude* le volume, sa *forme d'onde* le *timbre*. La
+plupart des sons musicaux ne sont pas des *sinusoïdes* pures mais des
+empilements d'*harmoniques* — c'est ce que l'analyse de Fourier rend
+visible, et c'est ce que tu sculptes dans le Designer.
+
+**Renvois croisés** : *Fréquence* (existante), *Amplitude* (existante),
+*Forme d'onde* (existante), *Timbre* (existante), *Harmonique*
+(existante), *Hertz (Hz)* (existante).
+
+**Nuance importante** : entrée fondamentale, à écrire avec soin. Le
+risque est de la rendre triviale (« un son, c'est ce que tu entends »)
+ou inversement trop physique (Pascal, ondes longitudinales,
+conduction). Trouver le juste milieu : phénomène physique mesurable
+**et** sensation perceptive, avec les trois propriétés qui structurent
+le reste du glossaire (fréquence → hauteur, amplitude → volume, forme
+→ timbre).
 
 ## Concepts subtils à manier avec soin
 
@@ -187,6 +212,7 @@ créer de fausses pistes chez le lecteur :
 | Normalisation | iDFT (nouvelle), Phase (nouvelle), Harmonique (existante) |
 | Phase | Harmonique (existante), Normalisation (nouvelle), Forme d'onde (existante) |
 | Résidu | Ancre (nouvelle), Forme d'onde (existante) |
+| Son | Fréquence, Amplitude, Forme d'onde, Timbre, Harmonique, Hertz (toutes existantes) |
 
 **Renvois inverses à ajouter dans les entrées existantes** : oui, c'est
 bidirectionnel quand pertinent. Modifier les entrées suivantes :
@@ -195,12 +221,19 @@ bidirectionnel quand pertinent. Modifier les entrées suivantes :
   réciproque ») et vers *Phase* (« en plus des magnitudes, une DFT
   rend les phases »).
 - **Forme d'onde** (existante) → ajouter renvoi vers *Ancre* et
-  *Résidu* (les deux composantes du modèle d'édition).
+  *Résidu* (les deux composantes du modèle d'édition). Ajouter aussi
+  un renvoi vers *Son* (la forme d'onde décrit la *manière* dont le
+  son varie en pression).
 - **Harmonique** (existante) → ajouter renvoi vers *Cap* (« plafonné
   par le cap dans la synthèse ») et *Phase* (« chaque harmonique a
   une phase qui détermine son alignement »).
 - **Spectre et spectrogramme** (existante) → ajouter renvoi vers
   *Cap* (« la liste s'arrête au cap »).
+- **Fréquence** / **Amplitude** / **Hauteur** / **Timbre** (existantes)
+  → vérifier qu'elles renvoient toutes vers *Son* comme phénomène
+  englobant. Ces 4 entrées décrivent des propriétés du son ; sans
+  pointeur vers Son, le lecteur n'a pas la maille de référence.
+  Modification minimale (un demi-ajout de « Voir aussi »).
 
 Garder ces modifs **minimales** : juste un « Voir aussi » étendu ou
 une demi-phrase. Ne pas refondre les entrées existantes.
