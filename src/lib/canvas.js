@@ -42,6 +42,38 @@ export function withSavedCtx(ctx, fn) {
 // ordonnée canvas selon l'échelle auto-fit courante ; les étiquettes sont
 // dessinées sur le canvas (pas en DOM) pour suivre cette échelle. À appeler
 // dans un `withSavedCtx` (l'appelant restaure le contexte).
+// M.r.5.bis (passe d'usage) — grille de repères d'amplitude par pas de 0.5
+// jusqu'au pic affiché (`peak`) : 0.5, 1.5, 2, 2.5, 3, … apparaissent au fur et à
+// mesure que l'auto-fit dilate l'échelle (« lorsqu'utile »). ±1 est EXCLU ici —
+// c'est le marqueur accent (niveau audio référence), dessiné par
+// `drawAmplitudeMarker`. Lignes pointillées discrètes (`lineColor`) + étiquettes
+// lisibles (`labelColor`) au bord gauche. À appeler PAR-DESSUS la courbe, dans un
+// `withSavedCtx`.
+export function drawAmplitudeGrid(ctx, W, peak, valueToY, lineColor, labelColor) {
+  ctx.lineWidth = 1
+  ctx.font = '10px monospace'
+  for (let m = 0.5; m < peak - 1e-3; m += 0.5) {
+    if (Math.abs(m - 1) < 1e-6) continue // ±1 = marqueur accent, traité à part
+    const label = String(m) // 0.5 → "0.5", 2 → "2", 2.5 → "2.5"
+    for (const sign of [1, -1]) {
+      const y = valueToY(m * sign)
+      ctx.strokeStyle = lineColor
+      ctx.globalAlpha = 0.4
+      ctx.setLineDash([4, 4])
+      ctx.beginPath()
+      ctx.moveTo(0, y)
+      ctx.lineTo(W, y)
+      ctx.stroke()
+      ctx.setLineDash([])
+      ctx.fillStyle = labelColor
+      ctx.globalAlpha = 0.75
+      ctx.textBaseline = sign > 0 ? 'top' : 'bottom'
+      ctx.fillText(sign > 0 ? `+${label}` : `-${label}`, 6, y + (sign > 0 ? 2 : -2))
+    }
+  }
+  ctx.globalAlpha = 1
+}
+
 export function drawAmplitudeMarker(ctx, W, valueToY, color) {
   ctx.strokeStyle = color
   ctx.globalAlpha = 0.4
@@ -58,7 +90,7 @@ export function drawAmplitudeMarker(ctx, W, valueToY, color) {
   ctx.fillStyle = color
   ctx.font = '10px monospace'
   ctx.textBaseline = 'top'
-  ctx.fillText('1', 6, valueToY(1) + 2)
+  ctx.fillText('+1', 6, valueToY(1) + 2)
   ctx.textBaseline = 'bottom'
   ctx.fillText('-1', 6, valueToY(-1) - 2)
   ctx.globalAlpha = 1

@@ -31,7 +31,7 @@ import {
   systemSupportsVisualCues,
 } from '../lib/visualCues'
 import { themeColor } from '../lib/themeColor'
-import { withSavedCtx, drawAmplitudeMarker, DRAW_MARGIN, DRAW_MARGIN_TOP, DRAW_MARGIN_BOTTOM } from '../lib/canvas'
+import { withSavedCtx, drawAmplitudeMarker, drawAmplitudeGrid, DRAW_MARGIN, DRAW_MARGIN_TOP, DRAW_MARGIN_BOTTOM } from '../lib/canvas'
 import { STRINGS } from '../lib/strings'
 import ConfirmDialog from './ConfirmDialog'
 import PresetPicker from './PresetPicker'
@@ -615,16 +615,6 @@ function WaveformEditor({
     ctx.lineTo(W, valueToY(0))
     ctx.stroke()
 
-    // Grille secondaire à ±0.5 (amplitude vraie) — suit l'échelle auto-fit.
-    ctx.setLineDash([4, 4])
-    ctx.beginPath()
-    ctx.moveTo(0, valueToY(0.5))
-    ctx.lineTo(W, valueToY(0.5))
-    ctx.moveTo(0, valueToY(-0.5))
-    ctx.lineTo(W, valueToY(-0.5))
-    ctx.stroke()
-    ctx.setLineDash([])
-
     // M.r.4 — aperçu « phase canonique » gris, sous la canonical (si `bg` fourni).
     if (bg) {
       ctx.strokeStyle = themeColor('canvas-text-primary')
@@ -651,8 +641,9 @@ function WaveformEditor({
     ctx.lineWidth = 6
     strokeWave(pts)
 
-    // M.r.5.1 — marqueur ±1 = niveau audio référence, par-dessus la courbe
-    // (primitive partagée avec SplineEditor). valueToY l'inset déjà à M du bord.
+    // M.r.5.bis — grille de repères (±0.5, ±1.5, ±2, …) jusqu'au pic affiché, puis
+    // marqueur ±1 accent par-dessus. valueToY inset déjà à M du bord.
+    drawAmplitudeGrid(ctx, W, peak, valueToY, themeColor('canvas-grid-secondary'), themeColor('canvas-text-secondary'))
     drawAmplitudeMarker(ctx, W, valueToY, themeColor('accent'))
     })
   }, [])

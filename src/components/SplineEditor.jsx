@@ -1,7 +1,7 @@
 import { useRef, useState, useEffect, useCallback, useMemo } from 'react'
 import { splineToPoints } from '../lib/spline'
 import { themeColor } from '../lib/themeColor'
-import { withSavedCtx, drawAmplitudeMarker, DRAW_MARGIN, DRAW_MARGIN_TOP, DRAW_MARGIN_BOTTOM } from '../lib/canvas'
+import { withSavedCtx, drawAmplitudeMarker, drawAmplitudeGrid, DRAW_MARGIN, DRAW_MARGIN_TOP, DRAW_MARGIN_BOTTOM } from '../lib/canvas'
 import { STRINGS } from '../lib/strings'
 import NormalizeLegend from './NormalizeLegend'
 import './SplineEditor.css'
@@ -146,21 +146,13 @@ function SplineEditor({
     ctx.fillStyle = themeColor('canvas-bg')
     ctx.fillRect(0, 0, W, H)
 
-    // Lignes de repère (0, ±0.5) — suivent l'échelle auto-fit comme le freehand.
+    // Ligne médiane (amplitude 0) — suit l'échelle auto-fit comme le freehand.
     ctx.strokeStyle = themeColor('canvas-grid-secondary')
     ctx.lineWidth = 1
     ctx.beginPath()
     ctx.moveTo(0, valueToY(0))
     ctx.lineTo(W, valueToY(0))
     ctx.stroke()
-    ctx.setLineDash([4, 4])
-    ctx.beginPath()
-    ctx.moveTo(0, valueToY(0.5))
-    ctx.lineTo(W, valueToY(0.5))
-    ctx.moveTo(0, valueToY(-0.5))
-    ctx.lineTo(W, valueToY(-0.5))
-    ctx.stroke()
-    ctx.setLineDash([])
 
     // M.r.4 — aperçu « phase canonique » en gris discret, sous la courbe
     // (présent seulement quand `bg` est fourni = canonical non normalisée).
@@ -190,7 +182,9 @@ function SplineEditor({
     ctx.lineWidth = 2
     strokeWave(curve)
 
-    // M.r.5.bis.1 — marqueur ±1 (primitive partagée), par-dessus la courbe.
+    // M.r.5.bis — grille de repères (±0.5, ±1.5, ±2, …) + marqueur ±1 accent,
+    // par-dessus la courbe (primitives partagées).
+    drawAmplitudeGrid(ctx, W, peak, valueToY, themeColor('canvas-grid-secondary'), themeColor('canvas-text-secondary'))
     drawAmplitudeMarker(ctx, W, valueToY, themeColor('accent'))
 
     // Poignées d'ancres (par-dessus). Sélectionnée/survolée = pleine + plus
