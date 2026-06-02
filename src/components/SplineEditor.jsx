@@ -3,6 +3,7 @@ import { splineToPoints } from '../lib/spline'
 import { themeColor } from '../lib/themeColor'
 import { withSavedCtx } from '../lib/canvas'
 import { STRINGS } from '../lib/strings'
+import NormalizeLegend from './NormalizeLegend'
 import './SplineEditor.css'
 
 // iter-M phase-3 : éditeur du mode « spline » (points d'ancrage + courbe
@@ -30,6 +31,7 @@ function isFormField(target) {
 
 function SplineEditor({
   points,
+  normalizedBg = null,
   anchors,
   interpolation,
   onMoveAnchor,
@@ -56,7 +58,7 @@ function SplineEditor({
 
   // Réf miroir pour le repaint hors-render (ResizeObserver, themechange).
   // Mise à jour dans un effet (jamais pendant le render — cf. react-hooks/refs).
-  const drawStateRef = useRef({ curve: points, anchors, selectedIdx: null, hoverIdx: null })
+  const drawStateRef = useRef({ curve: points, anchors, selectedIdx: null, hoverIdx: null, bg: normalizedBg })
 
   const draw = useCallback(() => {
     const canvas = canvasRef.current
@@ -66,7 +68,7 @@ function SplineEditor({
     if (!W || !H) return
     const ctx = canvas.getContext('2d')
     const midY = H / 2
-    const { curve, anchors: pts, selectedIdx: sel, hoverIdx: hov } = drawStateRef.current
+    const { curve, anchors: pts, selectedIdx: sel, hoverIdx: hov, bg } = drawStateRef.current
 
     withSavedCtx(ctx, () => {
     ctx.fillStyle = themeColor('canvas-bg')
@@ -87,6 +89,24 @@ function SplineEditor({
     ctx.lineTo(W, midY + H / 4)
     ctx.stroke()
     ctx.setLineDash([])
+
+    // M.r.4 — aperçu « phase canonique » en gris discret, sous la courbe
+    // (présent seulement quand `bg` est fourni = canonical non normalisée).
+    if (bg) {
+      ctx.strokeStyle = themeColor('canvas-text-primary')
+      ctx.globalAlpha = 0.5
+      ctx.lineWidth = 1
+      ctx.beginPath()
+      for (let x = 0; x < W; x++) {
+        const ptFloat = (x / W) * RESOLUTION
+        const ptIdx = Math.min(Math.floor(ptFloat), RESOLUTION - 1)
+        const y = midY - (bg[ptIdx] ?? 0) * (H / 2)
+        if (x === 0) ctx.moveTo(x, y)
+        else ctx.lineTo(x, y)
+      }
+      ctx.stroke()
+      ctx.globalAlpha = 1
+    }
 
     // Courbe (underlay doux + trait accent), comme le canvas freehand.
     const strokeCurve = () => {
@@ -125,9 +145,9 @@ function SplineEditor({
   }, [])
 
   useEffect(() => {
-    drawStateRef.current = { curve: liveCurve, anchors: liveAnchors, selectedIdx, hoverIdx }
+    drawStateRef.current = { curve: liveCurve, anchors: liveAnchors, selectedIdx, hoverIdx, bg: normalizedBg }
     draw()
-  }, [draw, liveCurve, liveAnchors, selectedIdx, hoverIdx])
+  }, [draw, liveCurve, liveAnchors, selectedIdx, hoverIdx, normalizedBg])
 
   // Sync buffer canvas ↔ container (double rAF — cf. WaveformEditor pour le
   // contournement Firefox du backing store invalidé après canvas.width = N).
@@ -320,6 +340,7 @@ function SplineEditor({
         <span className="label top">+1</span>
         <span className="label middle">0</span>
         <span className="label bottom">-1</span>
+        {normalizedBg && <NormalizeLegend />}
         {menu && (
           <div
             className="spline-context-menu"

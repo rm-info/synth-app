@@ -35,6 +35,7 @@ import { STRINGS } from '../lib/strings'
 import ConfirmDialog from './ConfirmDialog'
 import PresetPicker from './PresetPicker'
 import SplineEditor from './SplineEditor'
+import NormalizeLegend from './NormalizeLegend'
 import './WaveformEditor.css'
 
 const POINTS_RESOLUTION = 600
@@ -371,6 +372,14 @@ function WaveformEditor({
   // Normaliser (désactivé si vrai), courbe grise en background (masquée si vrai),
   // dialog edit-bars (intercepte le drag de barre si faux).
   const isNormalized = editor.canonicalNormalized
+  // M.r.4 — courbe « phase canonique » à dessiner en arrière-plan tant que la
+  // canonical n'est pas normalisée (sinon elle se confondrait avec elle = bruit
+  // visuel). null quand normalisée → rien à dessiner. Le leakage FFT du
+  // round-trip est tolérable ici : ce n'est qu'un aperçu, pas du pixel-perfect.
+  const normalizedBg = useMemo(
+    () => (isNormalized ? null : harmonicsToPoints(canonicalToBars(editor.canonical, definition), definition)),
+    [isNormalized, editor.canonical, definition],
+  )
   // Courbe affichée = canonical (draft pendant un tracé libre ; reconstruction
   // iDFT pendant un drag de barre — cohérent avec ce que produira le reducer).
   const points = draftPoints
@@ -509,8 +518,12 @@ function WaveformEditor({
 
   const pointsRef = useRef(points)
   useEffect(() => { pointsRef.current = points }, [points])
+  // M.r.4 — miroir de la courbe normalisée en background pour les repaints
+  // hors-render (ResizeObserver, themechange) qui lisent `pointsRef`.
+  const normalizedBgRef = useRef(normalizedBg)
+  useEffect(() => { normalizedBgRef.current = normalizedBg }, [normalizedBg])
 
-  const drawCanvas = useCallback((pts) => {
+  const drawCanvas = useCallback((pts, bg = null) => {
     const canvas = canvasRef.current
     if (!canvas) return
     const W = canvas.width
@@ -538,6 +551,25 @@ function WaveformEditor({
     ctx.lineTo(W, midY + H / 4)
     ctx.stroke()
     ctx.setLineDash([])
+
+    // M.r.4 — aperçu « phase canonique » en gris discret, dessiné AVANT la
+    // canonical (sous le tracé principal). Présent seulement quand `bg` est
+    // fourni (canonical non normalisée). Stroke fin, pas de fill.
+    if (bg) {
+      ctx.strokeStyle = themeColor('canvas-text-primary')
+      ctx.globalAlpha = 0.5
+      ctx.lineWidth = 1
+      ctx.beginPath()
+      for (let x = 0; x < W; x++) {
+        const ptFloat = (x / W) * POINTS_RESOLUTION
+        const ptIdx = Math.min(Math.floor(ptFloat), POINTS_RESOLUTION - 1)
+        const y = midY - (bg[ptIdx] ?? 0) * (H / 2)
+        if (x === 0) ctx.moveTo(x, y)
+        else ctx.lineTo(x, y)
+      }
+      ctx.stroke()
+      ctx.globalAlpha = 1
+    }
 
     ctx.strokeStyle = themeColor('accent')
     ctx.lineWidth = 2
@@ -571,8 +603,8 @@ function WaveformEditor({
   // donc sans cette dépendance l'effet ne se redéclenche pas et le canvas
   // fraîchement monté reste vide jusqu'à une modif. La relancer force un draw.
   useEffect(() => {
-    drawCanvas(points)
-  }, [points, drawCanvas, currentLens])
+    drawCanvas(points, normalizedBg)
+  }, [points, normalizedBg, drawCanvas, currentLens])
 
   // iter-M phase-r.2.5.1 : idem — re-keyer sur `currentLens` réattache le
   // ResizeObserver au NOUVEAU container/canvas après remount (l'ancien
@@ -592,11 +624,11 @@ function WaveformEditor({
         if (w !== canvas.width || h !== canvas.height) {
           canvas.width = w
           canvas.height = h
-          drawCanvas(pointsRef.current)
+          drawCanvas(pointsRef.current, normalizedBgRef.current)
           cancelAnimationFrame(raf1)
           cancelAnimationFrame(raf2)
           raf1 = requestAnimationFrame(() => {
-            raf2 = requestAnimationFrame(() => drawCanvas(pointsRef.current))
+            raf2 = requestAnimationFrame(() => drawCanvas(pointsRef.current, normalizedBgRef.current))
           })
         }
       }
@@ -1521,7 +1553,7 @@ function WaveformEditor({
   // restent gravées jusqu'à la prochaine édition (point d'onde, ADSR slider).
   useEffect(() => {
     const repaint = () => {
-      drawCanvas(pointsRef.current)
+      drawCanvas(pointsRef.current, normalizedBgRef.current)
       drawAdsr()
     }
     window.addEventListener('themechange', repaint)
@@ -1904,6 +1936,7 @@ function WaveformEditor({
       return (
         <SplineEditor
           points={points}
+          normalizedBg={normalizedBg}
           anchors={anchors}
           interpolation={interpolation}
           onMoveAnchor={editorActions.moveSplineAnchor}
@@ -1943,6 +1976,7 @@ function WaveformEditor({
           <span className="label top">+1</span>
           <span className="label middle">0</span>
           <span className="label bottom">-1</span>
+          {normalizedBg && <NormalizeLegend />}
         </div>
       </div>
     )

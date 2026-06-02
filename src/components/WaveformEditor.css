@@ -364,6 +364,36 @@
 .canvas-container .label.middle { top: 50%; transform: translateY(-50%); }
 .canvas-container .label.bottom { bottom: 4px; }
 
+/* M.r.4 : légende de la courbe normalisée en background (overlay haut-centre du
+   canvas). Discrète, non interactive, présente seulement quand le gris est
+   visible (canonical non normalisée). */
+.we-normalize-legend {
+  position: absolute;
+  top: 5px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 12px;
+  font-size: 10px;
+  color: var(--text-secondary);
+  opacity: 0.8;
+  pointer-events: none;
+  white-space: nowrap;
+}
+.we-legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.we-legend-swatch {
+  display: inline-block;
+  width: 14px;
+  height: 2px;
+  border-radius: 1px;
+}
+.we-legend-swatch.swatch-current { background: var(--accent); }
+.we-legend-swatch.swatch-normalized { background: var(--canvas-text-primary); opacity: 0.6; }
+
 /* --- Params area --- */
 
 .we-params-fields {
