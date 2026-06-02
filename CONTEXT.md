@@ -513,6 +513,18 @@ Normaliser **désactivé** quand déjà normalisé, **courbe grise en background
 légende, et **dialog edit-bars** qui intercepte l'édition d'une barre sur une
 canonical non normalisée (normalise + applique en un geste). Dompte la régression
 de phase (le « saut » silencieux au premier drag de barre).
+**Rattrapage M.r.5 (2026-06-02) — dernier chantier de code du rattrapage.**
+Convention d'amplitude de la zone Forme d'onde : **axe Y auto-fit** à
+`[-peak, +peak]` (peak = max(|canonical|, |normalizedBg|, 1)) au lieu de
+`[-1, +1]` fixe, **marqueur ±1** = niveau audio référence en pointillés
+d'accent atténué (étiquettes 1/-1 dessinées sur le canvas, suivent l'auto-fit),
+**transition douce** du zoom par lerp rAF ; tracé libre non clampé à ±1
+(décision archi). Cosmétique de la zone Harmoniques : **code couleur des barres**
+(bleu = normalisé/éditable, gris = non normalisé/dialog) selon
+`editor.canonicalNormalized`, **repères horizontaux** 0/0.5/1 et **axes
+labellisés** (X en `kf` — puissances de 2 si cap ≥ 8, sinon toutes ; Y en
+0/0.5/1). Pure cosmétique de rendu, reducer intact. **Le code du rattrapage
+M.r.* est clos ; reste M.5b (passe doc writer sur le modèle stabilisé).**
 
 **Itération L (Documentation) — phase 5 (corpus) + clôture livrées le
 2026-05-28 — release v1.4.0. Itération L close.** Rédaction du contenu
@@ -946,12 +958,33 @@ Seuls les **placements timeline** s'appellent "clips".
     y sont **toujours rendus** (positions stables) ; les contrôles d'ancres sont
     `disabled` en mode Libre (M.r.2.5.2) ; saisie directe du nombre d'ancres via
     `<NumberInput>` (M.r.2.5.3).
-  - **Harmoniques** (`renderHarmonicsArea`) : barres bleues **toujours
+    - **Convention d'amplitude (M.r.5.1)** : l'axe Y du canvas s'**auto-fit** à
+      `[-peak, +peak]` (peak = `max(max(|canonical|), max(|normalizedBg|), 1)`,
+      minimum 1 pour garder le marqueur visible) au lieu de `[-1, +1]` fixe — la
+      canonical qui dépasse ±1 (cumul `Σ|amplitudes_k|`) est affichée en entier.
+      `valueToY(v) = midY − (v/peak)·(H/2)` encapsule l'échelle ; le zoom Y suit
+      une **transition douce** (`peakDisplayedRef` lerpé `+= (target−cur)·0.15`
+      par frame dans une boucle rAF, ~150 ms). **Marqueur ±1** = niveau audio
+      référence, deux pointillés d'accent atténués (`setLineDash([4,4])`, alpha
+      0.4) + étiquettes `1`/`-1` **dessinées sur le canvas** (suivent l'auto-fit ;
+      les labels DOM `+1`/`-1` ont été retirés, seul le `0` médian subsiste). Le
+      tracé libre n'est **pas clampé** à ±1 (`getCanvasPoint` borne à ±peak) — le
+      navigateur normalise la `PeriodicWave` à la lecture.
+  - **Harmoniques** (`renderHarmonicsArea`) : barres **toujours
     éditables** (drag vertical = amplitude [0..1], 1 barre/geste verrouillée à
     l'index au mousedown, commit unique → 1 undo), indépendantes de
     `currentLens` (le type ne porte plus 'bars' depuis M.r.3.2). Header : **indicateur non
     interactif** (icône `AlignEndHorizontal`, r.2.6.2) + **contrôle unique du
     cap** (slider 1..256 + readout « N / 256 », NumberInput éditable).
+    - **Cosmétique (M.r.5.2)** : **code couleur des barres** — bleu (accent) quand
+      `editor.canonicalNormalized` est true (édition directe possible), gris
+      (classe `is-unnormalized`) sinon (un clic ouvre le dialog edit-bars
+      M.r.4.3). **Repères horizontaux** 0/0.5/1 en overlay pointillé sous les
+      barres ; **axe Y** étiqueté 0/0.5/1 à gauche, **axe X** étiqueté `kf` sous
+      les barres (toutes les harmoniques si cap < 8, puissances de 2 sinon). Plot
+      en grille CSS (`.we-harmonics-plot`) ; le conteneur interactif des barres
+      garde sa géométrie de hit-test (padding vertical mis à 0 pour aligner
+      barres / repères / étiquettes sur les mêmes niveaux). Pur DOM/CSS.
   - `draftAmplitudes` (geste continu) → reconstruction iDFT live (forme d'onde
     + audio). `cap` (1..256) borne les harmoniques à la synthèse
     (`pointsToPeriodicWave`), pas au modèle.
@@ -1246,6 +1279,23 @@ Choix non évidents pris pour de bonnes raisons. À ne pas remettre en question
     Corrigé : admet le leakage 600→512, pointe le backlog « Mismatch de grille
     FFT 600 ↔ 512 ». La détection numérique aurait été le 1ᵉʳ symptôme bloquant de
     ce bug ; le flag d'état la contourne (le bug FFT reste backlog, hors scope).
+- **Convention d'amplitude Forme d'onde — auto-fit Y, pas de clamp (M.r.5.1,
+  2026-06-02)** : le canvas Forme d'onde affiche `[-peak, +peak]` au lieu de
+  `[-1, +1]` fixe ; le **pic minimum affiché reste 1** pour que le marqueur ±1
+  (niveau audio référence) demeure visible même au silence ou sur de petites
+  amplitudes (sinon écrasé au bord). Le **tracé libre n'est pas clampé à ±1** :
+  l'utilisateur peut dessiner au-delà du niveau audio référence (le marqueur ±1
+  sert de repère), `SET_EDITOR_CANONICAL` ne clampe pas, le navigateur normalise
+  la `PeriodicWave` à la lecture. Cohérent avec « la canonical = vérité audio
+  éditée ». Transition douce du zoom (lerp rAF coeff 0.15) car le rendu canvas
+  est au pixel — pas de transition CSS possible. Spec §7.
+- **Étiquetage de l'axe X de la zone Harmoniques (M.r.5.2, 2026-06-02)** :
+  étiquettes `kf` aux **puissances de 2** (`{1,2,4,…,256}` filtré à `≤ cap`) si
+  `cap ≥ 8`, **toutes** les harmoniques (1..cap) si `cap < 8` (pas saturé à ce
+  niveau). La première (`1f`) est donc toujours présente. Pas d'algorithme de
+  placement fin : positionnement au centre de la barre via `left:%`, overflow
+  occasionnel sur cap dégénéré assumé. Étiquetage Y en 0/0.5/1 (amplitude vraie,
+  plus mathématique que des pourcentages). Spec §5.3.
 - **Silence comme état neutre (M.r.2.5, 2026-06-01)** : `DEFAULT_EDITOR.canonical`
   et `RESET_EDITOR_WAVEFORM` repartent du **silence** (canonical à zéro). M.r.2.2
   avait tenté une sin fondamentale (« un nouveau patch sonne »), annulée à la
@@ -2969,6 +3019,42 @@ Phases listées ci-dessous dans l'ordre chronologique d'implémentation.
   prochaine candidate).
 
 ## Historique (chronologie inverse)
+
+- **2026-06-02 — Iteration M rattrapage phase r.5 : convention d'amplitude (auto-fit Y + marqueur ±1) + cosmétique zone Harmoniques — CLÔTURE DU CODE DU RATTRAPAGE**
+  Dernier chantier de code du rattrapage Iteration M. Deux sujets indépendants,
+  pure cosmétique de rendu (reducer intact), 2 sous-commits dev + docs.
+  - **r.5.1** (`feat`) : zone Forme d'onde — l'axe Y du canvas `drawCanvas`
+    s'**auto-fit** à `[-peak, +peak]` (peak = `max(max(|canonical|),
+    max(|normalizedBg|), 1)`) au lieu de `[-1, +1]` fixe ; la canonical qui
+    dépasse ±1 (cumul `Σ|amplitudes_k|`, ex. preset Carré) est désormais affichée
+    en entier au lieu d'être écrêtée silencieusement. `valueToY` encapsule
+    l'échelle ; `peakDisplayedRef` lerpé (`+= (target−cur)·0.15` par frame, boucle
+    rAF déclenchée par un effet sur `peakTarget` mémoïsé) donne une **transition
+    douce** ~150 ms. **Marqueur ±1** = niveau audio référence, deux pointillés
+    d'accent atténués + étiquettes `1`/`-1` **dessinées sur le canvas** (suivent
+    l'auto-fit). Labels DOM `+1`/`-1` retirés (devenus faux sous auto-fit), `0`
+    médian conservé. `getCanvasPoint` borne le tracé à ±peak (**pas** de clamp à
+    ±1 — décision archi : la canonical reste la vérité audio, le navigateur
+    normalise la `PeriodicWave`). Subtilité : à peak=1 (cas courant), le tracé
+    libre reste de facto dans ±1 puisque le canvas affiche ±1.
+  - **r.5.2** (`feat`) : zone Harmoniques (DOM, pas canvas) — **code couleur des
+    barres** via classe `is-unnormalized` sur `.we-harmonics-bars` : bleu (accent)
+    quand `editor.canonicalNormalized`, gris sinon (signal « un clic ouvre le
+    dialog edit-bars M.r.4.3 »). **Repères horizontaux** 0/0.5/1 en overlay
+    pointillé (`.we-harmonics-grid`, `pointer-events:none`) sous les barres ;
+    **axe Y** étiqueté 0/0.5/1 à gauche, **axe X** `kf` sous les barres
+    (`xLabels` = toutes les harmoniques si cap < 8, sinon `{1,2,4,…,256} ≤ cap`).
+    Plot en grille CSS (`.we-harmonics-plot`) ; le conteneur interactif des barres
+    garde sa géométrie de hit-test, son **padding vertical passe à 0** pour aligner
+    barres / repères / étiquettes sur les mêmes niveaux d'amplitude (corrige au
+    passage un léger décalage hit-test pré-existant lié aux 6px de padding).
+  - **Point signalé en revue** : les labels DOM `+1`/`-1` du canvas Forme d'onde
+    devenaient faux dès que peak > 1 ; le dev les a remplacés par des étiquettes
+    canvas suivant le marqueur (initiative hors prompt strict, à valider — un
+    label « ±1 » textuel ailleurs reste possible si préféré).
+  - **Le code du rattrapage M.r.* est clos.** Reste **M.5b** (passe doc writer
+    sur le modèle stabilisé), hors implémenteur.
+  Spec : `docs/superpowers/specs/2026-06-01-waveform-rattrapage-design.md` (§§5.3, 7).
 
 - **2026-06-02 — Iteration M rattrapage phase r.4 : normalisation explicite (flag d'état + courbe background + dialog edit-bars)**
   Phase UX-sémantique, 3 sous-commits dev + docs. **Diagnostic en cours de phase
@@ -6328,10 +6414,18 @@ et L.7 (exercices guidés) restent des options de backlog, hors périmètre 1.4.
   applique en un geste). Dompte la régression de phase. 3 sous-commits (r.4.1
   flag+bouton+commentaire audio.js, r.4.2 courbe+légende, r.4.3 dialog) + docs.
   Test manuel (9 scénarios) passé. Build/typecheck/lint verts.
-- ⏳ **M.r.5** — Convention d'amplitude (auto-fit Y + marqueur pointillé ±1),
-  repères + axes labellisés zone Harmoniques (`kf`, Y 0/0.5/1).
+- ✅ **M.r.5 — Convention d'amplitude + cosmétique zone Harmoniques** (2026-06-02) :
+  zone Forme d'onde — **axe Y auto-fit** `[-peak, +peak]` (min 1), **marqueur ±1**
+  pointillé d'accent (étiquettes 1/-1 sur canvas), **transition douce** du zoom
+  (lerp rAF 0.15), tracé libre non clampé ; zone Harmoniques — **code couleur
+  barres** (bleu normalisé / gris non normalisé), **repères horizontaux** 0/0.5/1,
+  **axes labellisés** (X `kf` puissances de 2 si cap ≥ 8 / Y 0/0.5/1). Reducer
+  intact (pure cosmétique de rendu). 2 sous-commits (r.5.1 Forme d'onde, r.5.2
+  Harmoniques) + docs. Build/lint verts. **→ Le code du rattrapage M.r.* est
+  clos.**
 - ⏳ **M.5b** — Passe doc « cœur de la synthèse » (pose la DFT avec le `\sum`),
-  **après** le rattrapage (sur modèle stable).
+  **après** le rattrapage (sur modèle stable). **Seul reliquat du rattrapage** :
+  passe d'écriture (rôle writer), à confier hors implémenteur.
 
 ### Backlog général (à caser quand pertinent)
 
