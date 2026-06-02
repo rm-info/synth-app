@@ -16,6 +16,14 @@
 // composants canvas pour qu'ils restent à la MÊME échelle (zéro saut au switch).
 export const DRAW_MARGIN = 12
 
+// M.r.5.bis (passe d'usage) — marge VERTICALE des canvas Forme d'onde (libre +
+// ancres), plus large que DRAW_MARGIN pour réserver une gouttière haut/bas où
+// loger les overlays (légende en haut, hint d'usage en bas) HORS de la zone de
+// tracé — ils ne chevauchent plus la courbe. Symétrique (haut == bas) pour que
+// l'amplitude 0 reste au centre géométrique (midY = H/2). La zone Harmoniques,
+// sans overlay, garde DRAW_MARGIN sur les quatre bords.
+export const DRAW_MARGIN_V = 20
+
 export function withSavedCtx(ctx, fn) {
   ctx.save()
   try {

@@ -1,7 +1,7 @@
 import { useRef, useState, useEffect, useCallback, useMemo } from 'react'
 import { splineToPoints } from '../lib/spline'
 import { themeColor } from '../lib/themeColor'
-import { withSavedCtx, drawAmplitudeMarker, DRAW_MARGIN } from '../lib/canvas'
+import { withSavedCtx, drawAmplitudeMarker, DRAW_MARGIN, DRAW_MARGIN_V } from '../lib/canvas'
 import { STRINGS } from '../lib/strings'
 import NormalizeLegend from './NormalizeLegend'
 import './SplineEditor.css'
@@ -122,19 +122,21 @@ function SplineEditor({
     const midY = H / 2
     const { curve, anchors: pts, selectedIdx: sel, hoverIdx: hov, bg, sp } = drawStateRef.current
     // M.r.5.bis.1 — échelle Y auto-fit (cf. WaveformEditor.drawCanvas).
-    // M.r.5.bis — marge DRAW_MARGIN : courbe et poignées confinées à
-    // [M, W−M]×[M, H−M] ; lignes de repère pleine largeur.
+    // M.r.5.bis — marges tampon : horizontale MH (12px), verticale MV (20px, plus
+    // large pour les gouttières légende/hint). Courbe et poignées confinées à
+    // [MH, W−MH]×[MV, H−MV] ; lignes de repère pleine largeur.
     const peak = peakDisplayedRef.current
-    const M = DRAW_MARGIN
-    const innerW = W - 2 * M
-    const valueToY = (v) => midY - (v / peak) * ((H - 2 * M) / 2)
+    const MH = DRAW_MARGIN
+    const MV = DRAW_MARGIN_V
+    const innerW = W - 2 * MH
+    const valueToY = (v) => midY - (v / peak) * ((H - 2 * MV) / 2)
     const strokeWave = (arr) => {
       ctx.beginPath()
-      for (let x = M; x <= W - M; x++) {
-        const ptFloat = ((x - M) / innerW) * RESOLUTION
+      for (let x = MH; x <= W - MH; x++) {
+        const ptFloat = ((x - MH) / innerW) * RESOLUTION
         const ptIdx = Math.min(Math.floor(ptFloat), RESOLUTION - 1)
         const y = valueToY(arr[ptIdx] ?? 0)
-        if (x === M) ctx.moveTo(x, y)
+        if (x === MH) ctx.moveTo(x, y)
         else ctx.lineTo(x, y)
       }
       ctx.stroke()
@@ -194,7 +196,7 @@ function SplineEditor({
     // Poignées d'ancres (par-dessus). Sélectionnée/survolée = pleine + plus
     // grande ; au repos = pastille claire cerclée d'accent (pattern ADSR).
     for (let i = 0; i < pts.length; i++) {
-      const px = M + (pts[i].x / RESOLUTION) * innerW
+      const px = MH + (pts[i].x / RESOLUTION) * innerW
       const py = valueToY(pts[i].y)
       const active = i === sel || i === hov
       ctx.beginPath()
@@ -277,11 +279,12 @@ function SplineEditor({
   // --- Conversion coords ---
   const eventToData = (e) => {
     const rect = canvasRef.current.getBoundingClientRect()
-    // M.r.5.bis — mapping insetté de DRAW_MARGIN (cohérent avec draw) : extrêmes
-    // atteints à M px du bord, bande tampon avant le mouseleave.
-    const M = DRAW_MARGIN
-    const xPct = Math.max(0, Math.min(0.9999, (e.clientX - rect.left - M) / (rect.width - 2 * M)))
-    const yFrac = Math.max(0, Math.min(1, (e.clientY - rect.top - M) / (rect.height - 2 * M)))
+    // M.r.5.bis — mapping insetté (cohérent avec draw) : extrêmes atteints à
+    // MH/MV px du bord, bande tampon avant le mouseleave.
+    const MH = DRAW_MARGIN
+    const MV = DRAW_MARGIN_V
+    const xPct = Math.max(0, Math.min(0.9999, (e.clientX - rect.left - MH) / (rect.width - 2 * MH)))
+    const yFrac = Math.max(0, Math.min(1, (e.clientY - rect.top - MV) / (rect.height - 2 * MV)))
     // M.r.5.bis.1 — l'échelle d'affichage est [-peak, +peak] ; on dé-projette via
     // peak puis on clampe à ±1 (domaine des ancres, MOVE/ADD_SPLINE_ANCHOR borne
     // y à [-1, 1] côté reducer).
@@ -296,13 +299,14 @@ function SplineEditor({
     const mx = e.clientX - rect.left
     const my = e.clientY - rect.top
     const peak = peakDisplayedRef.current
-    const M = DRAW_MARGIN
-    const innerW = rect.width - 2 * M
-    const innerH = rect.height - 2 * M
+    const MH = DRAW_MARGIN
+    const MV = DRAW_MARGIN_V
+    const innerW = rect.width - 2 * MH
+    const innerH = rect.height - 2 * MV
     let picked = null
     let minDist = HANDLE_HIT_RADIUS
     for (let i = 0; i < liveAnchors.length; i++) {
-      const px = M + (liveAnchors[i].x / RESOLUTION) * innerW
+      const px = MH + (liveAnchors[i].x / RESOLUTION) * innerW
       const py = (rect.height / 2) - (liveAnchors[i].y / peak) * (innerH / 2)
       const d = Math.hypot(mx - px, my - py)
       if (d < minDist) { minDist = d; picked = i }
