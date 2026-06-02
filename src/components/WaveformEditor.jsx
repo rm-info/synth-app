@@ -387,6 +387,15 @@ function WaveformEditor({
   // iDFT pendant un drag de barre — cohérent avec ce que produira le reducer).
   const points = draftPoints
     ?? (draftAmplitudes ? harmonicsToPoints(draftAmplitudes, draftAmplitudes.length) : editor.canonical)
+  // M.r.5.1 — cible d'auto-fit de l'axe Y de la zone Forme d'onde. La canonical
+  // peut dépasser ±1 (en cumul, le pic vaut Σ|amplitudes_k|) ; on dilate
+  // l'échelle pour tout afficher. Min à 1 pour que le marqueur ±1 reste visible
+  // même au silence ou sur de petites amplitudes.
+  const peakTarget = useMemo(() => {
+    const pp = points.reduce((m, v) => Math.max(m, Math.abs(v)), 0)
+    const pb = normalizedBg ? normalizedBg.reduce((m, v) => Math.max(m, Math.abs(v)), 0) : 0
+    return Math.max(pp, pb, 1)
+  }, [points, normalizedBg])
   const testFrequency = draftFreq ?? editor.testFrequency
   const attack = draftAdsr?.attack ?? editor.attack
   const hold = draftAdsr?.hold ?? editor.hold ?? 0
@@ -521,6 +530,10 @@ function WaveformEditor({
 
   const pointsRef = useRef(points)
   useEffect(() => { pointsRef.current = points }, [points])
+  // M.r.5.1 — amplitude Y actuellement affichée par le canvas Forme d'onde,
+  // lerpée vers `peakTarget`. Ref car mutée frame-par-frame dans la boucle rAF
+  // d'auto-fit (hors cycle React).
+  const peakDisplayedRef = useRef(1)
   // M.r.4 — miroir de la courbe normalisée en background pour les repaints
   // hors-render (ResizeObserver, themechange) qui lisent `pointsRef`.
   const normalizedBgRef = useRef(normalizedBg)
@@ -534,6 +547,11 @@ function WaveformEditor({
     if (!W || !H) return
     const ctx = canvas.getContext('2d')
     const midY = H / 2
+    // M.r.5.1 — échelle Y auto-fit : la courbe est mappée sur [-peak, +peak] au
+    // lieu de [-1, +1] fixe. `peakDisplayedRef` est lerpé vers la cible par
+    // l'effet d'animation (transition douce). valueToY encapsule l'inversion Y.
+    const peak = peakDisplayedRef.current
+    const valueToY = (v) => midY - (v / peak) * (H / 2)
 
     withSavedCtx(ctx, () => {
     ctx.fillStyle = themeColor('canvas-bg')
@@ -546,12 +564,14 @@ function WaveformEditor({
     ctx.lineTo(W, midY)
     ctx.stroke()
 
+    // Grille secondaire à ±0.5 (amplitude vraie) — suit désormais l'échelle
+    // auto-fit via valueToY (avant : fixée à ±H/4 en pixels).
     ctx.setLineDash([4, 4])
     ctx.beginPath()
-    ctx.moveTo(0, midY - H / 4)
-    ctx.lineTo(W, midY - H / 4)
-    ctx.moveTo(0, midY + H / 4)
-    ctx.lineTo(W, midY + H / 4)
+    ctx.moveTo(0, valueToY(0.5))
+    ctx.lineTo(W, valueToY(0.5))
+    ctx.moveTo(0, valueToY(-0.5))
+    ctx.lineTo(W, valueToY(-0.5))
     ctx.stroke()
     ctx.setLineDash([])
 
@@ -566,7 +586,7 @@ function WaveformEditor({
       for (let x = 0; x < W; x++) {
         const ptFloat = (x / W) * POINTS_RESOLUTION
         const ptIdx = Math.min(Math.floor(ptFloat), POINTS_RESOLUTION - 1)
-        const y = midY - (bg[ptIdx] ?? 0) * (H / 2)
+        const y = valueToY(bg[ptIdx] ?? 0)
         if (x === 0) ctx.moveTo(x, y)
         else ctx.lineTo(x, y)
       }
@@ -580,7 +600,7 @@ function WaveformEditor({
     for (let x = 0; x < W; x++) {
       const ptFloat = (x / W) * POINTS_RESOLUTION
       const ptIdx = Math.min(Math.floor(ptFloat), POINTS_RESOLUTION - 1)
-      const y = midY - pts[ptIdx] * (H / 2)
+      const y = valueToY(pts[ptIdx])
       if (x === 0) ctx.moveTo(x, y)
       else ctx.lineTo(x, y)
     }
@@ -592,11 +612,37 @@ function WaveformEditor({
     for (let x = 0; x < W; x++) {
       const ptFloat = (x / W) * POINTS_RESOLUTION
       const ptIdx = Math.min(Math.floor(ptFloat), POINTS_RESOLUTION - 1)
-      const y = midY - pts[ptIdx] * (H / 2)
+      const y = valueToY(pts[ptIdx])
       if (x === 0) ctx.moveTo(x, y)
       else ctx.lineTo(x, y)
     }
     ctx.stroke()
+
+    // M.r.5.1 — marqueur ±1 = niveau audio référence. Deux pointillés
+    // symétriques en couleur d'accent atténuée, dessinés PAR-DESSUS la courbe.
+    // À peak=1 ils tangentent les bords haut/bas du canvas (cf. min auto-fit).
+    ctx.strokeStyle = themeColor('accent')
+    ctx.globalAlpha = 0.4
+    ctx.lineWidth = 1
+    ctx.setLineDash([4, 4])
+    ctx.beginPath()
+    ctx.moveTo(0, valueToY(1))
+    ctx.lineTo(W, valueToY(1))
+    ctx.moveTo(0, valueToY(-1))
+    ctx.lineTo(W, valueToY(-1))
+    ctx.stroke()
+    ctx.setLineDash([])
+    // Étiquettes du marqueur, dessinées sur le canvas (pas en DOM) pour suivre
+    // l'auto-fit : à peak=1 elles sont aux bords, au-delà elles rentrent avec la
+    // ligne. Décalées vers l'intérieur pour rester lisibles même collées au bord.
+    ctx.globalAlpha = 0.55
+    ctx.fillStyle = themeColor('accent')
+    ctx.font = '10px monospace'
+    ctx.textBaseline = 'top'
+    ctx.fillText('1', 6, valueToY(1) + 2)
+    ctx.textBaseline = 'bottom'
+    ctx.fillText('-1', 6, valueToY(-1) - 2)
+    ctx.globalAlpha = 1
     })
   }, [])
 
@@ -608,6 +654,28 @@ function WaveformEditor({
   useEffect(() => {
     drawCanvas(points, normalizedBg)
   }, [points, normalizedBg, drawCanvas, currentLens])
+
+  // M.r.5.1 — transition douce du zoom Y. Le rendu canvas étant au pixel, pas
+  // de transition CSS possible : on lerp `peakDisplayed` vers la cible dans une
+  // boucle rAF et on repeint à chaque frame jusqu'à convergence (~10 frames au
+  // coeff 0.15, soit ~150 ms à 60 fps). Le cleanup annule la frame en cours, si
+  // bien qu'un nouveau `peakTarget` repart proprement de la valeur courante.
+  useEffect(() => {
+    if (Math.abs(peakTarget - peakDisplayedRef.current) < 0.01) {
+      peakDisplayedRef.current = peakTarget
+      return
+    }
+    let raf = 0
+    const tick = () => {
+      const cur = peakDisplayedRef.current
+      const next = cur + (peakTarget - cur) * 0.15
+      peakDisplayedRef.current = Math.abs(peakTarget - next) < 0.01 ? peakTarget : next
+      drawCanvas(pointsRef.current, normalizedBgRef.current)
+      if (peakDisplayedRef.current !== peakTarget) raf = requestAnimationFrame(tick)
+    }
+    raf = requestAnimationFrame(tick)
+    return () => cancelAnimationFrame(raf)
+  }, [peakTarget, drawCanvas])
 
   // iter-M phase-r.2.5.1 : idem — re-keyer sur `currentLens` réattache le
   // ResizeObserver au NOUVEAU container/canvas après remount (l'ancien
@@ -651,9 +719,14 @@ function WaveformEditor({
     const yPct = (e.clientY - rect.top) / rect.height
     const normalized = -(yPct * 2 - 1)
     const x = Math.floor(xPct * POINTS_RESOLUTION)
+    // M.r.5.1 — l'axe Y est auto-fit à [-peak, +peak]. Le tracé libre n'est PAS
+    // clampé à ±1 (décision archi) : l'utilisateur peut dessiner au-delà du
+    // niveau audio référence (marqueur ±1), le navigateur normalisera la
+    // PeriodicWave. On borne seulement à l'amplitude affichée.
+    const peak = peakDisplayedRef.current
     return {
       x: Math.max(0, Math.min(POINTS_RESOLUTION - 1, x)),
-      value: Math.max(-1, Math.min(1, normalized)),
+      value: Math.max(-peak, Math.min(peak, normalized * peak)),
     }
   }
 
@@ -1999,9 +2072,10 @@ function WaveformEditor({
             onMouseUp={handleMouseUp}
             onMouseLeave={handleMouseLeave}
           />
-          <span className="label top">+1</span>
+          {/* M.r.5.1 — les bornes ±1 sont désormais portées par le marqueur
+              pointillé dessiné dans le canvas (il suit l'auto-fit Y) ; seul le
+              repère « 0 » de la ligne médiane reste un label DOM fixe. */}
           <span className="label middle">0</span>
-          <span className="label bottom">-1</span>
           {normalizedBg && <NormalizeLegend />}
         </div>
       </div>
