@@ -523,8 +523,19 @@ d'accent atténué (étiquettes 1/-1 dessinées sur le canvas, suivent l'auto-fi
 (bleu = normalisé/éditable, gris = non normalisé/dialog) selon
 `editor.canonicalNormalized`, **repères horizontaux** 0/0.5/1 et **axes
 labellisés** (X en `kf` — puissances de 2 si cap ≥ 8, sinon toutes ; Y en
-0/0.5/1). Pure cosmétique de rendu, reducer intact. **Le code du rattrapage
-M.r.* est clos ; reste M.5b (passe doc writer sur le modèle stabilisé).**
+0/0.5/1). Pure cosmétique de rendu, reducer intact.
+**Rattrapage M.r.5.bis (2026-06-02) — finitions UX, clôture définitive du code
+du rattrapage.** Trois points remontés en passe d'usage : (1) **auto-fit Y aligné
+en mode Ancres** — `SplineEditor` adopte la même échelle dynamique + marqueur ±1
+que `WaveformEditor` (primitive `drawAmplitudeMarker` partagée, `peakDisplayedRef`
+lazy-init pour zéro saut au switch Libre↔Ancres) ; (2) **spline parfaite en
+background permanent** — 3ᵉ courbe orange (`splineToPoints(anchors)`, squelette
+des ancres sans résidu) affichée dans les deux lentilles tant que le résidu n'est
+pas négligeable (écart > 0.01 à la courbe affichée), légende `NormalizeLegend`
+étendue à 3 entrées conditionnelles ; (3) **clic droit sur barre d'harmonique =
+mise à zéro** (raccourci « éteindre cette harmonique »), préservant la garde
+edit-bars si non normalisé. **Le code du rattrapage M.r.* est désormais clos ;
+reste M.5b (passe doc writer sur le modèle stabilisé).**
 
 **Itération L (Documentation) — phase 5 (corpus) + clôture livrées le
 2026-05-28 — release v1.4.0. Itération L close.** Rédaction du contenu
@@ -970,6 +981,27 @@ Seuls les **placements timeline** s'appellent "clips".
       les labels DOM `+1`/`-1` ont été retirés, seul le `0` médian subsiste). Le
       tracé libre n'est **pas clampé** à ±1 (`getCanvasPoint` borne à ±peak) — le
       navigateur normalise la `PeriodicWave` à la lecture.
+    - **Auto-fit Y commun aux deux lentilles (M.r.5.bis.1)** : `SplineEditor`
+      (lentille Ancres) calcule son propre `peakTarget`/`peakDisplayedRef` (même
+      logique + lerp rAF) et mappe `[-peak, +peak]` partout (courbe, normalizedBg,
+      grille ±0.5, poignées, `eventToData`, `hitTest`). Marqueur ±1 extrait en
+      primitive partagée `drawAmplitudeMarker` (`lib/canvas.js`) → rendu identique.
+      `peakDisplayedRef` **lazy-init à la cible** dans les deux composants : au
+      switch Libre↔Ancres l'échelle est déjà bonne, **aucun saut animé**. En mode
+      Ancres l'auto-fit ne dilate que via `normalizedBg` ou l'overshoot Catmull-Rom
+      (la canonical y est clampée à ±1 par `splinePlusResidual`, les ancres par
+      `MOVE/ADD_SPLINE_ANCHOR`).
+    - **Spline parfaite — 3ᵉ courbe (M.r.5.bis.2)** : `splineToPoints(anchors,
+      interpolation)` (squelette des ancres SANS résidu) dessinée en **orange**
+      (`--canvas-spline-perfect`) entre le gris normalisé et la canonical bleue,
+      dans **les deux lentilles**, en permanence tant que l'écart à la courbe
+      affichée (= résidu) dépasse **0.01** (sinon cachée, se confondrait). Permet
+      de voir simultanément la spline éditée et le tracé résultant (spline +
+      résidu). `peakTarget` l'inclut quand affichée pour ne pas l'écrêter.
+      `NormalizeLegend` étendue à 3 entrées conditionnelles (bleu « actuelle »
+      toujours ; gris « si normalisée » si `!canonicalNormalized` ; orange
+      « spline des ancres » si visible) ; montée seulement si ≥ 1 entrée
+      conditionnelle active.
   - **Harmoniques** (`renderHarmonicsArea`) : barres **toujours
     éditables** (drag vertical = amplitude [0..1], 1 barre/geste verrouillée à
     l'index au mousedown, commit unique → 1 undo), indépendantes de
@@ -985,6 +1017,11 @@ Seuls les **placements timeline** s'appellent "clips".
       en grille CSS (`.we-harmonics-plot`) ; le conteneur interactif des barres
       garde sa géométrie de hit-test (padding vertical mis à 0 pour aligner
       barres / repères / étiquettes sur les mêmes niveaux). Pur DOM/CSS.
+    - **Clic droit = mise à zéro (M.r.5.bis.3)** : clic droit sur une barre éteint
+      l'harmonique (`setHarmonicAmplitude(index, 0)`), sans initier de draft/drag.
+      `onContextMenu` bloque le menu natif. La garde de phase edit-bars s'applique
+      comme au clic gauche : si `!canonicalNormalized`, le dialog (`value:0`)
+      précède l'opération — pas de raccourci silencieux contournant la convention.
   - `draftAmplitudes` (geste continu) → reconstruction iDFT live (forme d'onde
     + audio). `cap` (1..256) borne les harmoniques à la synthèse
     (`pointsToPeriodicWave`), pas au modèle.
@@ -1296,6 +1333,25 @@ Choix non évidents pris pour de bonnes raisons. À ne pas remettre en question
   placement fin : positionnement au centre de la barre via `left:%`, overflow
   occasionnel sur cap dégénéré assumé. Étiquetage Y en 0/0.5/1 (amplitude vraie,
   plus mathématique que des pourcentages). Spec §5.3.
+- **Spline parfaite affichée en permanence (M.r.5.bis.2, 2026-06-02)** : la 3ᵉ
+  courbe orange (`splineToPoints(anchors)`, sans résidu) est dessinée en continu
+  dans les deux lentilles, **cachée uniquement quand le résidu est négligeable**
+  (écart à la courbe affichée ≤ 0.01). Avant : elle n'apparaissait que pendant un
+  drag d'ancre — apparition/disparition contextuelle perçue comme perturbante. Le
+  critère de visibilité est **dérivé de l'écart aux courbes effectivement
+  affichées** (et non de `editor.residual`) : il reste juste pendant un tracé
+  libre (résidu committé périmé) et masque automatiquement la spline pendant un
+  drag d'ancre (où la courbe affichée EST la spline). Seuil 0.01 pragmatique
+  (baisser à 0.005 si elle disparaît trop tôt, monter à 0.02 si elle reste
+  visible alors qu'elle se confond). Couleur via `--canvas-spline-perfect`
+  (orange, déclinée clair/sombre).
+- **Clic droit sur barre = mise à zéro, garde de phase conservée (M.r.5.bis.3,
+  2026-06-02)** : le clic droit éteint l'harmonique mais **passe par la même garde
+  edit-bars** que le clic gauche — si la canonical n'est pas normalisée, le dialog
+  `edit-bars-requires-normalize` précède l'opération (au lieu d'un raccourci
+  silencieux qui contournerait la convention de phase canonique). Aucun draft/drag
+  initié au bouton droit (sinon un draft resterait coincé en attente d'un mouseup
+  gauche). Menu contextuel natif bloqué (`onContextMenu`).
 - **Silence comme état neutre (M.r.2.5, 2026-06-01)** : `DEFAULT_EDITOR.canonical`
   et `RESET_EDITOR_WAVEFORM` repartent du **silence** (canonical à zéro). M.r.2.2
   avait tenté une sin fondamentale (« un nouveau patch sonne »), annulée à la
@@ -3020,7 +3076,43 @@ Phases listées ci-dessous dans l'ordre chronologique d'implémentation.
 
 ## Historique (chronologie inverse)
 
-- **2026-06-02 — Iteration M rattrapage phase r.5 : convention d'amplitude (auto-fit Y + marqueur ±1) + cosmétique zone Harmoniques — CLÔTURE DU CODE DU RATTRAPAGE**
+- **2026-06-02 — Iteration M rattrapage phase r.5.bis : finitions UX (auto-fit Y en spline + spline parfaite permanente + clic droit barres) — CLÔTURE DÉFINITIVE DU CODE DU RATTRAPAGE**
+  Trois finitions remontées en passe d'usage, 3 sous-commits dev + docs.
+  - **bis.1** (`fix`) : **auto-fit Y aligné en mode Ancres**. `SplineEditor`
+    rendait encore en `[-1, +1]` fixe (sa propre logique de mapping) → saut visuel
+    au switch Libre↔Ancres dès que l'amplitude dépassait ±1. Il calcule désormais
+    son `peakTarget`/`peakDisplayedRef` (même logique + lerp rAF 0.15) et mappe
+    `[-peak, +peak]` partout (courbe, normalizedBg, grille ±0.5, poignées,
+    `eventToData`, `hitTest`). Marqueur ±1 extrait en primitive partagée
+    `drawAmplitudeMarker` (`lib/canvas.js`) → rendu identique aux deux canvas.
+    `peakDisplayedRef` **lazy-init à la cible** dans les deux composants : au
+    montage (switch) l'échelle est déjà bonne, pas de faux saut animé depuis 1.
+    Labels DOM `+1`/`-1` retirés du SplineEditor (portés par le marqueur). Note :
+    les ancres restent clampées à ±1 par le reducer → en mode Ancres l'auto-fit
+    dilate via `normalizedBg` / overshoot Catmull-Rom, pas via un drag d'ancre.
+  - **bis.2** (`feat`) : **spline parfaite en background permanent**. La courbe
+    `splineToPoints(anchors, interpolation)` (squelette des ancres SANS résidu) est
+    affichée en continu (orange `--canvas-spline-perfect`) dans les deux lentilles,
+    entre le gris normalisé et la canonical bleue, tant que l'écart à la courbe
+    affichée (= résidu) dépasse 0.01. Avant : visible seulement pendant un drag
+    d'ancre (apparition/disparition perturbante). Critère dérivé de l'écart aux
+    courbes affichées (pas de `editor.residual`) → juste pendant les gestes ; masque
+    auto la spline pendant un drag (la courbe affichée EST la spline). `peakTarget`
+    l'inclut quand visible (anti-écrêtage de l'overshoot). `NormalizeLegend` portée
+    à 3 entrées conditionnelles (`{showNormalized, showSpline}`), montée seulement
+    si ≥ 1 entrée conditionnelle. `anchors` stabilisé en `useMemo` (alimente le
+    useMemo de la spline).
+  - **bis.3** (`feat`) : **clic droit sur barre d'harmonique = mise à zéro**.
+    `handleHarmonicMouseDown` intercepte `e.button === 2` → `setHarmonicAmplitude(
+    index, 0)`, sans draft/drag. Garde de phase conservée : si non normalisé, le
+    dialog edit-bars (`value:0`) précède l'opération. `onContextMenu` bloque le
+    menu natif.
+  - **Le code du rattrapage M.r.* est définitivement clos.** Bilan : 5 phases
+    principales (r.1→r.5) + 3 finitions (r.2.5, r.2.6, r.5.bis). Reste **M.5b**
+    (passe doc writer sur le modèle stabilisé), hors implémenteur.
+  Spec : `docs/superpowers/specs/2026-06-01-waveform-rattrapage-design.md`.
+
+- **2026-06-02 — Iteration M rattrapage phase r.5 : convention d'amplitude (auto-fit Y + marqueur ±1) + cosmétique zone Harmoniques**
   Dernier chantier de code du rattrapage Iteration M. Deux sujets indépendants,
   pure cosmétique de rendu (reducer intact), 2 sous-commits dev + docs.
   - **r.5.1** (`feat`) : zone Forme d'onde — l'axe Y du canvas `drawCanvas`
@@ -3052,8 +3144,8 @@ Phases listées ci-dessous dans l'ordre chronologique d'implémentation.
     devenaient faux dès que peak > 1 ; le dev les a remplacés par des étiquettes
     canvas suivant le marqueur (initiative hors prompt strict, à valider — un
     label « ±1 » textuel ailleurs reste possible si préféré).
-  - **Le code du rattrapage M.r.* est clos.** Reste **M.5b** (passe doc writer
-    sur le modèle stabilisé), hors implémenteur.
+  - Pensé comme dernier chantier de code du rattrapage ; trois finitions UX
+    remontées ensuite en passe d'usage ont donné **r.5.bis** (clôture définitive).
   Spec : `docs/superpowers/specs/2026-06-01-waveform-rattrapage-design.md` (§§5.3, 7).
 
 - **2026-06-02 — Iteration M rattrapage phase r.4 : normalisation explicite (flag d'état + courbe background + dialog edit-bars)**
@@ -6421,8 +6513,16 @@ et L.7 (exercices guidés) restent des options de backlog, hors périmètre 1.4.
   barres** (bleu normalisé / gris non normalisé), **repères horizontaux** 0/0.5/1,
   **axes labellisés** (X `kf` puissances de 2 si cap ≥ 8 / Y 0/0.5/1). Reducer
   intact (pure cosmétique de rendu). 2 sous-commits (r.5.1 Forme d'onde, r.5.2
-  Harmoniques) + docs. Build/lint verts. **→ Le code du rattrapage M.r.* est
-  clos.**
+  Harmoniques) + docs. Build/lint verts.
+- ✅ **M.r.5.bis — Finitions UX (auto-fit Y en spline + spline parfaite permanente
+  + clic droit barres)** (2026-06-02) : (1) `SplineEditor` adopte la même échelle
+  auto-fit + marqueur ±1 que `WaveformEditor` (primitive partagée
+  `drawAmplitudeMarker`, lazy-init `peakDisplayedRef` → pas de saut au switch) ;
+  (2) **spline parfaite** (3ᵉ courbe orange, squelette des ancres) en background
+  permanent dans les deux lentilles, cachée si résidu ≤ 0.01, légende à 3 entrées
+  conditionnelles ; (3) **clic droit sur barre = mise à zéro** (garde edit-bars
+  conservée si non normalisé). 3 sous-commits (bis.1 / bis.2 / bis.3) + docs.
+  Build/lint verts. **→ Le code du rattrapage M.r.* est définitivement clos.**
 - ⏳ **M.5b** — Passe doc « cœur de la synthèse » (pose la DFT avec le `\sum`),
   **après** le rattrapage (sur modèle stable). **Seul reliquat du rattrapage** :
   passe d'écriture (rôle writer), à confier hors implémenteur.
