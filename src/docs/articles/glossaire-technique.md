@@ -31,14 +31,39 @@ patch, l'amplitude globale fixe le niveau général, et l'enveloppe
 *ADSR* en module le volume au fil du temps. Voir aussi *Forme
 d'onde*.
 
+## Ancre
+
+Point de contrôle posé sur la *forme d'onde* pour la modeler en
+douceur. En mode Ancres, le Designer en place de $4$ à $32$, reliées
+par une courbe lisse (une *spline*) qui les épouse : déplacer une
+ancre déforme la courbe autour d'elle, sans effacer les détails fins
+du tracé d'origine (le *résidu*). Plus tu poses d'ancres, plus la
+courbe colle au dessin de départ ; moins tu en as, plus chaque ancre
+agit large et plus le résidu porte la personnalité du tracé. Tu les
+manipules dans
+<DocLink target="designer:designer-waveform">la zone de dessin</DocLink>.
+Voir aussi *Forme d'onde*, *Résidu*.
+
+## Cap (plafond d'harmoniques)
+
+Le nombre maximal d'*harmoniques* prises en compte dans la synthèse
+d'un patch, réglable de $1$ à $256$. Au-delà du cap, les harmoniques
+sont coupées : un cap bas donne un son plus doux et lisse, un cap haut
+un son plus riche et brillant. C'est aussi le cap qui fixe le nombre
+de barres affichées dans la lentille
+<DocLink target="designer:designer-harmonics">Harmoniques</DocLink>.
+Voir aussi *Harmonique*, *Spectre et spectrogramme*.
+
 ## DFT
 
 *Discrete Fourier Transform*, ou transformée de Fourier discrète :
 le calcul qui décompose un son en les fréquences qui le composent.
 C'est ce principe qui permet d'obtenir le *spectre* d'une forme
-d'onde — la liste de ses harmoniques et de leur intensité. L'app
-s'en sert pour afficher le spectrogramme du Designer. Voir aussi
-*Harmonique*, *Spectre et spectrogramme*.
+d'onde — la liste de ses harmoniques et de leur intensité, mais aussi
+la *phase* de chacune. L'app s'en sert pour afficher le spectrogramme
+du Designer. L'opération inverse, qui reconstruit une forme à partir
+de cette liste, est l'*iDFT*. Voir aussi *Harmonique*, *iDFT*,
+*Phase*, *Spectre et spectrogramme*.
 
 ## Forme d'onde
 
@@ -47,7 +72,9 @@ souris dans
 <DocLink target="designer:designer-waveform">la zone de dessin</DocLink>
 du Designer. Sa forme détermine le *timbre* : une sinusoïde sonne
 « pure », une dent de scie « riche » et nasillarde. C'est le cœur
-d'un patch. Voir aussi *Période*, *Timbre*.
+d'un patch. Tu la modèles à main levée ou par *ancres*, ses détails
+fins étant alors conservés dans le *résidu*. Voir aussi *Ancre*,
+*Période*, *Résidu*, *Timbre*.
 
 ## Fréquence
 
@@ -62,8 +89,10 @@ Composante d'un son dont la fréquence est un multiple entier de la
 fréquence fondamentale. Un son réel est presque toujours un
 empilement d'harmoniques, et c'est leur dosage qui crée le *timbre*.
 Une forme d'onde anguleuse (dent de scie, carré) en contient
-beaucoup ; une sinusoïde n'en a qu'un seul. Voir aussi *Spectre et
-spectrogramme*, *Timbre*.
+beaucoup ; une sinusoïde n'en a qu'un seul. Dans la synthèse, leur
+nombre est plafonné par le *cap*, et chacune porte une *phase* qui
+règle son alignement avec les autres. Voir aussi *Cap (plafond
+d'harmoniques)*, *Phase*, *Spectre et spectrogramme*, *Timbre*.
 
 ## Hauteur
 
@@ -82,6 +111,31 @@ L'oreille humaine perçoit en gros de 20 Hz (très grave) à 20 000 Hz
 (très aigu). Le *la* de référence, A4, vibre à $440$ Hz. Voir aussi
 *Fréquence*.
 
+## iDFT
+
+*Inverse Discrete Fourier Transform*, ou transformée de Fourier
+inverse : l'opération réciproque de la *DFT*. Là où la DFT décompose
+un son en sa liste d'harmoniques, l'iDFT fait le chemin inverse — elle
+reconstruit une *forme d'onde* à partir d'une telle liste. Le Designer
+l'emploie quand tu modifies une barre de la lentille Harmoniques ou
+que tu cliques sur Normaliser : il rebâtit le tracé depuis les
+intensités courantes, en attribuant à chaque harmonique une *phase*
+canonique (un sinus pur). Voir aussi *DFT*, *Normalisation*, *Phase*.
+
+## Normalisation
+
+Opération qui *redessine* la forme d'onde à partir des seules
+intensités de ses harmoniques, en réimposant à chacune une *phase*
+canonique (sinus pur) — c'est une normalisation de la *phase*, pas du
+volume. La courbe passe donc par l'*iDFT* de ses propres harmoniques :
+le timbre audible reste quasi identique (la phase isolée est
+inaudible), mais le tracé peut sauter visuellement. Le Designer la
+propose comme étape explicite avant l'édition d'une barre, car sans
+elle, toucher une seule barre écraserait en silence la phase de toutes
+les autres. Le bouton Σ, dans le bandeau de la zone Forme d'onde,
+déclenche cette remise en phase. Voir aussi *iDFT*, *Phase*,
+*Harmonique*.
+
 ## Octave
 
 Intervalle entre deux sons dont l'un a exactement le double de la
@@ -93,6 +147,20 @@ systèmes musicaux subdivisent — tu peux changer d'octave avec
 d'octave</DocLink>. Voir aussi
 [intervalle](doc:glossaire-musical).
 
+## Phase
+
+Décalage temporel d'une onde sinusoïdale par rapport à un instant de
+référence. Deux sinusoïdes de même fréquence mais de phases
+différentes sonnent à la même hauteur : prise seule, la phase est
+*inaudible*. Mais dès que plusieurs *harmoniques* se superposent dans
+une forme d'onde, leurs phases relatives décident de la manière dont
+elles s'additionnent — à intensités égales, deux sons peuvent dessiner
+des courbes très différentes selon la phase de chaque harmonique.
+C'est pour cette raison que *normaliser* une forme (imposer la même
+phase de référence à toutes ses harmoniques) en change le tracé sans
+en changer le timbre. Voir aussi *Harmonique*, *Normalisation*,
+*Forme d'onde*.
+
 ## Période
 
 La durée d'un cycle complet d'une onde qui se répète. C'est
@@ -101,15 +169,28 @@ fréquence élevée, donc à un son aigu. La *forme d'onde* dessinée
 dans le Designer représente une seule période. Voir aussi
 *Fréquence*, *Forme d'onde*.
 
+## Résidu
+
+L'écart entre la *forme d'onde* que tu as éditée et la courbe lisse
+que produiraient les seules *ancres* courantes. Quand tu dessines à
+main levée, le résidu retient tous les détails fins de ton geste. En
+basculant en mode Ancres, ces détails ne disparaissent pas : déplacer
+une ancre fait bouger la courbe lisse, mais le résidu reste en place
+et continue de moduler la forme finale. Si la courbe des ancres est le
+squelette, le résidu en est la chair — c'est lui qui te laisse éditer
+par ancres un tracé dessiné librement sans lui ôter sa personnalité.
+Voir aussi *Ancre*, *Forme d'onde*.
+
 ## Spectre et spectrogramme
 
 Le **spectre** d'un son est la liste des fréquences qui le composent
-et de leur intensité — sa « recette » en harmoniques. Le
+et de leur intensité (la magnitude de chaque harmonique) — sa
+« recette ». Cette liste s'arrête au *cap*. Le
 **spectrogramme** en est la représentation visuelle, affichée dans
 le Designer pendant que le son joue : il rend visible ce que la
 *forme d'onde* produit. Tu le vois ici :
 <DocLink target="designer:designer-spectrogram">le spectrogramme</DocLink>.
-Voir aussi *DFT*, *Harmonique*.
+Voir aussi *Cap (plafond d'harmoniques)*, *DFT*, *Harmonique*.
 
 ## Timbre
 
