@@ -241,6 +241,14 @@ export const DEFAULT_EDITOR = {
   interpolation: DEFAULT_SPLINE_INTERPOLATION,
   residual: new Array(POINTS_RESOLUTION).fill(0),
   currentLens: 'free',
+  // M.r.4 — « la canonical est-elle à phase canonique sinus pur ? » Propriété de
+  // l'histoire de l'éditeur (pas du tableau canonical : le round-trip FFT n'est
+  // pas idempotent, cf. audio.js harmonicsToPoints). true par défaut : canonical
+  // = zéros = iDFT(magnitudes nulles), trivialement normalisée. Volatile (non
+  // persisté dans le patch ni le .osa). Pilote : bouton Normaliser (désactivé si
+  // true), courbe grise background (masquée si true), dialog edit-bars (intercepte
+  // si false). Chaque action qui écrit canonical le repositionne explicitement.
+  canonicalNormalized: true,
   testTuningSystem: '12-TET', // '12-TET' | 'free'
   testNoteIndex: 9, // A
   testOctave: 4,
@@ -1671,7 +1679,8 @@ export function reducer(state, action) {
       const { anchors, residual } = refitAnchorsAndResidual(
         canonical, state.editor.anchors, state.editor.interpolation,
       )
-      return { ...state, editor: { ...state.editor, canonical, anchors, residual, preset: null } }
+      // M.r.4 — tracé libre = phase arbitraire ≠ canonique sinus.
+      return { ...state, editor: { ...state.editor, canonical, anchors, residual, preset: null, canonicalNormalized: false } }
     }
     case 'SET_EDITOR_TEST_NOTE': {
       return { ...state, editor: { ...state.editor, testNoteIndex: action.payload } }
@@ -1790,8 +1799,11 @@ export function reducer(state, action) {
     }
     case 'SET_EDITOR_CAP': {
       // `cap` borne les harmoniques. Ne touche pas canonical (la troncature
-      // vit dans la chaîne audio, pointsToPeriodicWave).
-      return { ...state, editor: { ...state.editor, cap: clampCap(action.payload) } }
+      // vit dans la chaîne audio, pointsToPeriodicWave). M.r.4 — mais changer
+      // cap change l'interprétation des barres (combien d'harmoniques lues),
+      // donc on repasse à false par prudence : « normalisé à cap=N » ne garantit
+      // pas « normalisé à cap=M ».
+      return { ...state, editor: { ...state.editor, cap: clampCap(action.payload), canonicalNormalized: false } }
     }
     // Lentille active (volatile, non undoable). En M.r.1, le switch ne touche
     // pas canonical/anchors/residual (coexistence vivante câblée en M.r.3).
@@ -1818,7 +1830,8 @@ export function reducer(state, action) {
       const { anchors, residual } = refitAnchorsAndResidual(
         canonical, state.editor.anchors, state.editor.interpolation,
       )
-      return { ...state, editor: { ...state.editor, canonical, anchors, residual } }
+      // M.r.4 — iDFT à phase canonique = canonical normalisée par construction.
+      return { ...state, editor: { ...state.editor, canonical, anchors, residual, canonicalNormalized: true } }
     }
     // iter-M phase-4 : chargement d'un preset de timbre (domaine harmonique).
     // M.r.1 : ajoute le handler manquant (bug « preset ne charge pas » absorbé,
@@ -1833,9 +1846,10 @@ export function reducer(state, action) {
       const { anchors, residual } = refitAnchorsAndResidual(
         canonical, state.editor.anchors, state.editor.interpolation,
       )
+      // M.r.4 — iDFT d'amplitudes définies = phase canonique → normalisée.
       return {
         ...state,
-        editor: { ...state.editor, cap: clampedCap, canonical, anchors, residual },
+        editor: { ...state.editor, cap: clampedCap, canonical, anchors, residual, canonicalNormalized: true },
         currentPatchId: null,
       }
     }
@@ -1859,9 +1873,10 @@ export function reducer(state, action) {
       const cy = Math.max(-1, Math.min(1, y))
       const next = anchors.slice()
       next[index] = { x: cx, y: cy }
+      // M.r.4 — splinePlusResidual ≠ iDFT canonique → phase non-canonique.
       return {
         ...state,
-        editor: { ...state.editor, anchors: next, canonical: splinePlusResidual(splineToPoints(next, state.editor.interpolation), state.editor.residual) },
+        editor: { ...state.editor, anchors: next, canonical: splinePlusResidual(splineToPoints(next, state.editor.interpolation), state.editor.residual), canonicalNormalized: false },
       }
     }
     // Ajout d'une ancre (clic sur la courbe). Insérée en maintenant l'ordre
@@ -1879,9 +1894,10 @@ export function reducer(state, action) {
       if (!leftOk || !rightOk) return state
       const next = anchors.slice()
       next.splice(ins, 0, { x, y })
+      // M.r.4 — édition d'ancre = phase non-canonique.
       return {
         ...state,
-        editor: { ...state.editor, anchors: next, canonical: splinePlusResidual(splineToPoints(next, state.editor.interpolation), state.editor.residual) },
+        editor: { ...state.editor, anchors: next, canonical: splinePlusResidual(splineToPoints(next, state.editor.interpolation), state.editor.residual), canonicalNormalized: false },
       }
     }
     // Suppression d'une ancre. Refusé si N == SPLINE_ANCHOR_MIN (minimum).
@@ -1891,9 +1907,10 @@ export function reducer(state, action) {
       if (anchors.length <= SPLINE_ANCHOR_MIN) return state
       if (index < 0 || index >= anchors.length) return state
       const next = anchors.filter((_, i) => i !== index)
+      // M.r.4 — édition d'ancre = phase non-canonique.
       return {
         ...state,
-        editor: { ...state.editor, anchors: next, canonical: splinePlusResidual(splineToPoints(next, state.editor.interpolation), state.editor.residual) },
+        editor: { ...state.editor, anchors: next, canonical: splinePlusResidual(splineToPoints(next, state.editor.interpolation), state.editor.residual), canonicalNormalized: false },
       }
     }
     // Bascule Doux (Catmull-Rom) / Anguleux (polyligne). Mêmes ancres, courbe
@@ -1901,12 +1918,14 @@ export function reducer(state, action) {
     case 'SET_SPLINE_INTERPOLATION': {
       const interpolation = action.payload === 'hard' ? 'hard' : 'soft'
       if (state.editor.interpolation === interpolation) return state
+      // M.r.4 — recompose canonical via splinePlusResidual → phase non-canonique.
       return {
         ...state,
         editor: {
           ...state.editor,
           interpolation,
           canonical: splinePlusResidual(splineToPoints(state.editor.anchors, interpolation), state.editor.residual),
+          canonicalNormalized: false,
         },
       }
     }
@@ -1933,7 +1952,12 @@ export function reducer(state, action) {
       const { anchors, residual } = refitAnchorsAndResidual(
         points, state.editor.anchors, state.editor.interpolation,
       )
-      return { ...state, editor: { ...state.editor, canonical: points, anchors, residual, preset } }
+      // M.r.4 — seul 'sine' est un sinus pur (phase canonique). Carré / dent de
+      // scie / triangle sont des formes « stepped » à phase non-canonique au
+      // sens DFT → non normalisées (la refonte presets en séries de Fourier,
+      // backlog, basculera les 4 à true).
+      const canonicalNormalized = preset === 'sine'
+      return { ...state, editor: { ...state.editor, canonical: points, anchors, residual, preset, canonicalNormalized } }
     }
     case 'RESET_EDITOR': {
       // iter-L follow-up : préserve l'état d'exploration Designer (test* +
@@ -1996,7 +2020,8 @@ export function reducer(state, action) {
       const { anchors, residual } = refitAnchorsAndResidual(
         canonical, state.editor.anchors, state.editor.interpolation,
       )
-      return { ...state, editor: { ...state.editor, canonical, anchors, residual } }
+      // M.r.4 — c'est l'opération de normalisation elle-même.
+      return { ...state, editor: { ...state.editor, canonical, anchors, residual, canonicalNormalized: true } }
     }
     case 'RESET_EDITOR_WAVEFORM': {
       // iter-M phase-r.2.6.1/.3 : réinitialise canonical, interpolation et
@@ -2016,6 +2041,8 @@ export function reducer(state, action) {
           interpolation: DEFAULT_SPLINE_INTERPOLATION,
           residual: new Array(POINTS_RESOLUTION).fill(0),
           preset: null,
+          // M.r.4 — canonical = silence = trivialement normalisée.
+          canonicalNormalized: true,
           // cap & nombre d'ancres : PRÉSERVÉS (≠ Ctrl+Alt+N qui réinitialise tout).
         },
       }
@@ -2048,6 +2075,11 @@ export function reducer(state, action) {
           interpolation: patch.interpolation === 'hard' ? 'hard' : 'soft',
           residual: Array.from(patch.residual),
           currentLens: 'free',
+          // M.r.4 — le flag n'est pas persisté dans le patch : phase inconnue au
+          // rechargement → false (l'utilisateur normalisera explicitement avant
+          // d'éditer une barre si besoin). La branche patch null ci-dessus repart
+          // de DEFAULT_EDITOR (silence = true).
+          canonicalNormalized: false,
           amplitude: patch.amplitude,
           preset: patch.preset,
           attack: patch.attack,

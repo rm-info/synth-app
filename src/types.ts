@@ -197,6 +197,12 @@ export interface Editor extends AdsrEnvelope {
   interpolation: SplineInterpolation
   residual: number[]
   currentLens: WaveformLens
+  // M.r.4 — « la canonical est-elle à phase canonique sinus pur ? » Propriété de
+  // l'histoire de l'éditeur (le round-trip FFT n'étant pas idempotent, cf.
+  // audio.js), positionnée par chaque action qui écrit canonical. Volatile :
+  // non persisté dans Patch/PatchData. Pilote bouton Normaliser, courbe grise,
+  // dialog edit-bars.
+  canonicalNormalized: boolean
   testTuningSystem: TuningSystemId
   testNoteIndex: number
   testOctave: number

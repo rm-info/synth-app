@@ -173,12 +173,19 @@ export function pointsToPeriodicWave(canonical, audioCtx, cap) {
 // (la phase est inaudible, cf. spec §4). Échantillonné sur CANVAS_WIDTH points,
 // une période complète = le tableau entier.
 //
-// C'est l'iDFT du modèle « barres » : son résultat, repassé dans
-// pointsToHarmonics → createPeriodicWave, redonne exactement les mêmes
-// magnitudes (k ≤ 256 tombe sur un bin FFT à NUM_SAMPLES = 512). On stocke
-// donc cette reconstruction dans `patch.points` pour que TOUTE la chaîne audio
-// existante (playback timeline, export WAV, miniatures) joue un patch
-// harmonique sans modification — `points` reste l'unique entrée audio.
+// C'est l'iDFT du modèle « barres ». On stocke cette reconstruction dans
+// `patch.points` pour que TOUTE la chaîne audio existante (playback timeline,
+// export WAV, miniatures) joue un patch harmonique sans modification — `points`
+// reste l'unique entrée audio.
+//
+// Note (M.r.4) : le round-trip `harmonicsToPoints → pointsToHarmonics` n'est
+// **pas** idempotent à haut `cap` sur des signaux riches en hautes harmoniques.
+// Le resample 600→512 par interpolation linéaire (cf. ligne 111) réinjecte du
+// leakage spectral à chaque passe (mesuré ~15 %/passe sur un créneau à
+// `cap=256` — 4 normalisations pour converger). Conséquence : la détection
+// « canonical normalisée » repose sur un flag d'état dans l'editor
+// (`editor.canonicalNormalized`), pas sur une comparaison numérique de
+// round-trip. Voir entrée backlog « Mismatch de grille FFT 600 ↔ 512 ».
 //
 // O(CANVAS_WIDTH · N) ≤ 600·256 = 153k multiplications, sub-milliseconde.
 // M rattrapage : lit les `cap` premières amplitudes véritables d'une courbe

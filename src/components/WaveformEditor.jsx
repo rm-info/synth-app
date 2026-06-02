@@ -365,6 +365,12 @@ function WaveformEditor({
     [editor.canonical, definition],
   )
   const amplitudes = draftAmplitudes ?? canonicalBars
+  // M.r.4 — état « canonical normalisée ? » = flag d'éditeur (déterministe,
+  // posé par les actions du reducer ; ≠ détection numérique, le round-trip FFT
+  // n'étant pas idempotent — cf. audio.js). Lu par trois chemins : bouton
+  // Normaliser (désactivé si vrai), courbe grise en background (masquée si vrai),
+  // dialog edit-bars (intercepte le drag de barre si faux).
+  const isNormalized = editor.canonicalNormalized
   // Courbe affichée = canonical (draft pendant un tracé libre ; reconstruction
   // iDFT pendant un drag de barre — cohérent avec ce que produira le reducer).
   const points = draftPoints
@@ -1879,8 +1885,11 @@ function WaveformEditor({
           type="button"
           className="icon-btn we-normalize-btn"
           onClick={normalizeWaveform}
-          title="Normaliser : redessiner le tracé comme la somme des harmoniques courantes (phase canonique)"
+          title={isNormalized
+            ? 'Déjà normalisé'
+            : 'Normaliser : redessiner le tracé comme la somme des harmoniques courantes (phase canonique)'}
           aria-label="Normaliser"
+          disabled={isNormalized}
         ><Sigma size={18} /></button>
       </>
     )
