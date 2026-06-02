@@ -69,7 +69,7 @@ const fr = {
     splineHard: 'Anguleux',
     splineSoftTitle: 'Courbe lisse (Catmull-Rom)',
     splineHardTitle: 'Segments droits (polyligne)',
-    splineAddHint: 'Clic sur la courbe : ajouter une ancre · glisser : déplacer · Suppr / clic droit : retirer',
+    splineAddHint: 'Ajouter : clic gauche sur la courbe · Déplacer : sélectionner et glisser · Retirer : clic droit > supprimer',
     splineRemove: 'Supprimer l’ancre',
   },
 

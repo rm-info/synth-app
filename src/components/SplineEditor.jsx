@@ -429,7 +429,6 @@ function SplineEditor({
           {headerControls}
         </div>
       </header>
-      <p className="spline-hint">{STRINGS.editor.splineAddHint}</p>
       <div className="canvas-container spline-canvas-container" ref={containerRef}>
         <canvas
           ref={canvasRef}
@@ -443,6 +442,8 @@ function SplineEditor({
         {/* M.r.5.bis.1 — bornes ±1 portées par le marqueur canvas (suit l'auto-fit
             Y) ; seul le « 0 » médian reste un label DOM fixe. */}
         <span className="label middle">0</span>
+        {/* Hint d'usage en overlay bas du canvas (comme la légende, mais en bas). */}
+        <span className="spline-hint">{STRINGS.editor.splineAddHint}</span>
         {(normalizedBg || showSplinePerfect) && (
           <NormalizeLegend showNormalized={!!normalizedBg} showSpline={showSplinePerfect} />
         )}
