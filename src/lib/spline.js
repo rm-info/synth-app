@@ -104,19 +104,104 @@ export function splineToPoints(anchors, interpolation) {
   return interpolation === 'hard' ? splineHard(anchors) : splineSoft(anchors)
 }
 
-// M rattrapage : ajuste `count` ancres équiréparties sur une courbe canonical
-// (x = i·RESOLUTION/count, y = canonical[round(x)]), clampées dans le domaine
-// ancres (x ∈ [0, RESOLUTION), y ∈ [-1, 1]). Utilisé par la migration v1→v2
-// pour donner une lentille spline exploitable à un tracé/harmonique existant.
+// iter-N phase-2 : pose `N = max(2, round(count))` ancres aux points qui
+// comptent par simplification Douglas-Peucker à compte fixe (plus d'ancres
+// équiréparties — celles-ci tombaient au plat des créneaux et manquaient les
+// transitions). La déviation est VERTICALE (la courbe est une fonction y(x)) et
+// le nombre d'ancres FIXE : on scinde toujours le segment dont le pire point
+// intérieur dévie le plus, jusqu'à atteindre N.
+//
+// Périodicité : la courbe reboucle modulo RESOLUTION (cf. sampleSpline). On
+// traite donc la polyligne ouverte [0 … RESOLUTION] dont la borne x=RESOLUTION
+// reboucle sur x=0 (même y) — borne VIRTUELLE (non stockée), x=0 servant
+// d'ancre de référence de boucle (stable, comportement historique).
+//
+// Contrat INCHANGÉ : renvoie exactement N ancres {x, y}, triées par x croissant,
+// x ∈ [0, RESOLUTION) entiers distincts, y = canonical[x] clampé [-1, 1]. La
+// déviation est mesurée sur la canonical BRUTE (non clampée) pour bien choisir
+// les points. Aucune mutation de `canonical`.
 export function fitAnchorsToCurve(canonical, count = 8) {
-  const n = Math.max(2, Math.round(count))
-  const out = []
-  for (let i = 0; i < n; i++) {
-    const x = (i * RESOLUTION) / n
-    const xi = Math.min(RESOLUTION - 1, Math.max(0, Math.round(x)))
-    const yRaw = canonical[xi]
-    const y = Number.isFinite(yRaw) ? Math.max(-1, Math.min(1, yRaw)) : 0
-    out.push({ x: Math.min(RESOLUTION - 1, Math.max(0, x)), y })
+  // RESOLUTION positions entières distinctes (0..599) → borne défensive du N.
+  const N = Math.min(RESOLUTION, Math.max(2, Math.round(count)))
+  const EPS = 1e-6
+
+  // Valeur brute au point x ; x=RESOLUTION reboucle sur 0. Garde anti-NaN.
+  const cval = (x) => {
+    const v = x >= RESOLUTION ? canonical[0] : canonical[x]
+    return Number.isFinite(v) ? v : 0
   }
-  return out
+
+  // Pire point intérieur d'un segment [xa, xb] : x entier maximisant l'écart à
+  // la corde. x négatif si le segment n'a pas de point intérieur (largeur 1).
+  const bestSplit = (xa, xb) => {
+    const ya = cval(xa)
+    const yb = cval(xb)
+    const span = xb - xa
+    let bestX = -1
+    let bestDev = -1
+    for (let x = xa + 1; x < xb; x++) {
+      const chord = ya + ((yb - ya) * (x - xa)) / span
+      const dev = Math.abs(cval(x) - chord)
+      if (dev > bestDev) {
+        bestDev = dev
+        bestX = x
+      }
+    }
+    return { x: bestX, dev: bestDev }
+  }
+
+  // Segments toujours triés par xa (splice in-place préserve l'ordre). Leurs
+  // bornes xa SONT les ancres réelles ; x=RESOLUTION est la borne virtuelle.
+  const segments = [{ xa: 0, xb: RESOLUTION, split: bestSplit(0, RESOLUTION) }]
+
+  const splitAt = (idx, x) => {
+    const seg = segments[idx]
+    segments.splice(
+      idx,
+      1,
+      { xa: seg.xa, xb: x, split: bestSplit(seg.xa, x) },
+      { xa: x, xb: seg.xb, split: bestSplit(x, seg.xb) },
+    )
+  }
+
+  // Phase 1 — Douglas-Peucker : scinde au point de plus grande déviation tant
+  // qu'il en reste une significative (> EPS) et qu'on n'a pas atteint N.
+  while (segments.length < N) {
+    let best = -1
+    let bestDev = EPS
+    for (let i = 0; i < segments.length; i++) {
+      const s = segments[i]
+      if (s.split.x >= 0 && s.split.dev > bestDev) {
+        bestDev = s.split.dev
+        best = i
+      }
+    }
+    if (best < 0) break // courbe (quasi) plate : plus rien de significatif
+    splitAt(best, segments[best].split.x)
+  }
+
+  // Phase 2 — complétion géométrique : si la déviation s'est tarie avant N
+  // (courbe plate/quasi), scinde le segment le plus large en son milieu. Borne
+  // garantie : N ≤ RESOLUTION ⇒ il reste toujours un segment scindable.
+  while (segments.length < N) {
+    let best = -1
+    let bestSpan = 1 // span ≥ 2 requis pour un point intérieur
+    for (let i = 0; i < segments.length; i++) {
+      const span = segments[i].xb - segments[i].xa
+      if (span > bestSpan) {
+        bestSpan = span
+        best = i
+      }
+    }
+    if (best < 0) break // défensif : plus aucun segment scindable
+    const seg = segments[best]
+    splitAt(best, Math.round((seg.xa + seg.xb) / 2))
+  }
+
+  // Sortie : les xa (ancres réelles, sans la borne virtuelle), y clampé [-1, 1].
+  return segments.map((s) => {
+    const yRaw = canonical[s.xa]
+    const y = Number.isFinite(yRaw) ? Math.max(-1, Math.min(1, yRaw)) : 0
+    return { x: s.xa, y }
+  })
 }
