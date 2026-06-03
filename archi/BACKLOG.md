@@ -181,7 +181,8 @@ Items backlog issus de la session :
   false` global laisse passer les accès à des propriétés absentes (retour
   `undefined` au lieu d'erreur). Passer `reducer.js` en `// @ts-check`
   strict est dans la continuité du préalable M.0 (TS incrémental).
-- **Fit intelligent des ancres via Douglas-Peucker** (remonté en cours de
+- ✅ **Fit intelligent des ancres via Douglas-Peucker** (livré iter-N phase-2,
+  2026-06-03) — remonté en cours de
   passe d'usage M.r.5, à traiter post-M.5b) : `fitAnchorsToCurve` pose
   actuellement les ancres à `x = i · 600/N` (équiréparties). Sous-optimal :
   sur un signal carré, deux ancres tombent au plat (inutile) et aucune à la

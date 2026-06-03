@@ -39,8 +39,12 @@ framework UI (CSS manuscrit), pas de routing, pas de backend.
 **État courant** : Iteration N « Stabilité & fluidité » ouverte (cadrée
 2026-06-03, cf. `archi/BACKLOG.md`). **Phase N.1 (latence audio) livrée** : seuil
 epsilon anti-leakage sur l'iDFT harmonique (drag de barre 7,6× plus rapide à
-cap=256, transparent). Reste de l'itération : N.2 ancres/Douglas-Peucker, N.3
-overshoot, N.4 lissage du tracé, N.5 presets en séries de Fourier bande-limitées,
+cap=256, transparent). **Phase N.2 (ancres / Douglas-Peucker) livrée** :
+`fitAnchorsToCurve` pose désormais les ancres aux points de plus grande
+déviation (DP à compte fixe) au lieu de l'équiréparti — sur un créneau, ancres
+sur les transitions plutôt qu'au plat ; canonical/son inchangés (le résidu
+absorbe le delta). Reste de l'itération : N.3 overshoot (conditionnel, à juger),
+N.4 lissage du tracé, N.5 presets en séries de Fourier bande-limitées,
 N.6 durcissements. Hygiène post-M restante : note de clôture, purge des
 prompt-fichiers `archi/Mr*` et `archi/M5b*` consommés.
 
@@ -105,7 +109,7 @@ synth-app/
     │   ├── highlightElement.js # halo temporaire ancré (DocLink), retry RAF (iter-L phase-3.1)
     │   ├── markdown.js       # parser Markdown maison + AST, délègue le math à mathParse (iter-L phase-2.2 / R.1)
     │   ├── mathParse.js      # sous-parser math récursif ($…$, $$…$$ → mathAst), \sum à bornes (iter-L phase-R.1 / iter-M phase-5a.1)
-    │   ├── spline.js         # (iter-M M.3) splineSoft Catmull-Rom périodique / splineHard polyligne → points
+    │   ├── spline.js         # (iter-M M.3) splineSoft Catmull-Rom périodique / splineHard polyligne → points ; fitAnchorsToCurve = pose des ancres par Douglas-Peucker à compte fixe (iter-N N.2)
     │   ├── presets.js        # (iter-M M.4) bibliothèque code-only de 12 presets de timbre harmoniques
     │   └── tours/            # déclarations du Tour guidé par onglet (iter-L phase-4)
     │       ├── index.js      # map tabId → étapes + TOUR_TABS (ordre chaînage)
@@ -2380,9 +2384,18 @@ Cadrage et suspects détaillés dans `archi/BACKLOG.md`.
   `PeriodicWave`, arrondi payload localStorage −63 % ; cf. État actuel). Le
   Groupe B/C (re-renders par note/frame, isolation drafts, mémoïsation d'arbre,
   débounce persistance) reste **gelé** jusqu'au verdict du profilage prod.
-- **N.2 — Disposition des ancres / Douglas-Peucker** : ancres aux points qui
-  comptent au lieu de l'équiréparti `x = i·600/N`.
-- **N.3 — Overshoot Catmull-Rom (PCHIP)** — conditionnel, jugé après N.2.
+- ✅ **N.2 — Disposition des ancres / Douglas-Peucker** (livré
+  `feat(iter-N/phase-2)`). `fitAnchorsToCurve` réécrit : simplification
+  Douglas-Peucker à compte fixe (déviation verticale, signal périodique avec
+  borne virtuelle `x=600`) au lieu de l'équiréparti `x = i·600/N`. Ancres aux
+  points qui comptent (sur un créneau : pile sur les transitions, plus au plat ;
+  N=2 → `x=0` + déviation max globale ; courbe plate → complétion par milieu
+  géométrique). API/signature/contrat inchangés (exactement N ancres, x entiers
+  distincts triés, y=canonical[x] clampé) → les ~8 call-sites héritent. Canonical
+  (audio + courbe affichée) INCHANGÉE, le résidu absorbe le delta. Densité plus
+  forte autour des transitions → atténue mécaniquement l'overshoot Catmull-Rom.
+- **N.3 — Overshoot Catmull-Rom (PCHIP)** — conditionnel, à juger maintenant que
+  N.2 densifie déjà les ancres autour des transitions (probablement superflu).
 - **N.4 — Boutons de lissage du tracé** : passe-bas sur la canonical et/ou
   tendre vers la spline pure.
 - **N.5 — Presets `sine`/`square`/`saw`/`triangle` → séries de Fourier
