@@ -43,7 +43,10 @@ cap=256, transparent). **Phase N.2 (ancres / Douglas-Peucker) livrée** :
 `fitAnchorsToCurve` pose désormais les ancres aux points de plus grande
 déviation (DP à compte fixe) au lieu de l'équiréparti — sur un créneau, ancres
 sur les transitions plutôt qu'au plat ; canonical/son inchangés (le résidu
-absorbe le delta). Reste de l'itération : N.3 overshoot (conditionnel, à juger),
+absorbe le delta). **Phase N.2.1 (bascule Doux/Anguleux = no-op) livrée** :
+`SET_SPLINE_INTERPOLATION` garde la canonical strictement identique et recalcule
+le résidu contre le nouveau mode (avant : recomposait depuis le résidu gelé → le
+tracé se déformait sans qu'aucune ancre bouge). Reste de l'itération : N.3 overshoot (conditionnel, à juger),
 N.4 lissage du tracé, N.5 presets en séries de Fourier bande-limitées,
 N.6 durcissements. Hygiène post-M restante : note de clôture, purge des
 prompt-fichiers `archi/Mr*` et `archi/M5b*` consommés.
@@ -2394,6 +2397,12 @@ Cadrage et suspects détaillés dans `archi/BACKLOG.md`.
   distincts triés, y=canonical[x] clampé) → les ~8 call-sites héritent. Canonical
   (audio + courbe affichée) INCHANGÉE, le résidu absorbe le delta. Densité plus
   forte autour des transitions → atténue mécaniquement l'overshoot Catmull-Rom.
+- ✅ **N.2.1 — Bascule Doux/Anguleux = no-op sur la canonical** (livré
+  `fix(iter-N/phase-2.1)`). `SET_SPLINE_INTERPOLATION` ne recompose plus la
+  canonical via `splinePlusResidual` (résidu gelé → tracé déformé sans drag) :
+  canonical strictement inchangée, **résidu recalculé** contre le nouveau mode,
+  `canonicalNormalized` préservé. Le switch ne change donc que la tendance (courbe
+  orange « spline des ancres ») et la façon dont un futur drag d'ancre déformera.
 - **N.3 — Overshoot Catmull-Rom (PCHIP)** — conditionnel, à juger maintenant que
   N.2 densifie déjà les ancres autour des transitions (probablement superflu).
 - **N.4 — Boutons de lissage du tracé** : passe-bas sur la canonical et/ou
