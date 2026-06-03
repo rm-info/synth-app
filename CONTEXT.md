@@ -46,7 +46,12 @@ sur les transitions plutôt qu'au plat ; canonical/son inchangés (le résidu
 absorbe le delta). **Phase N.2.1 (bascule Doux/Anguleux = no-op) livrée** :
 `SET_SPLINE_INTERPOLATION` garde la canonical strictement identique et recalcule
 le résidu contre le nouveau mode (avant : recomposait depuis le résidu gelé → le
-tracé se déformait sans qu'aucune ancre bouge). Reste de l'itération : N.3 overshoot (conditionnel, à juger),
+tracé se déformait sans qu'aucune ancre bouge). **Phase N.3 (drag d'ancre =
+déformation 2D à support local) livrée** : `MOVE_SPLINE_ANCHOR` warpe le résidu
+horizontalement sur le support (ancres voisines, wrap aux bords) au lieu de le
+geler → le détail dessiné « ride » sur la tendance (fin de la double pointe) ;
+réf figée au début du drag, 1 commit = 1 undo. Remplace l'ancien N.3
+(PCHIP/overshoot, abandonné). Reste de l'itération :
 N.4 lissage du tracé, N.5 presets en séries de Fourier bande-limitées,
 N.6 durcissements. Hygiène post-M restante : note de clôture, purge des
 prompt-fichiers `archi/Mr*` et `archi/M5b*` consommés.
@@ -112,7 +117,7 @@ synth-app/
     │   ├── highlightElement.js # halo temporaire ancré (DocLink), retry RAF (iter-L phase-3.1)
     │   ├── markdown.js       # parser Markdown maison + AST, délègue le math à mathParse (iter-L phase-2.2 / R.1)
     │   ├── mathParse.js      # sous-parser math récursif ($…$, $$…$$ → mathAst), \sum à bornes (iter-L phase-R.1 / iter-M phase-5a.1)
-    │   ├── spline.js         # (iter-M M.3) splineSoft Catmull-Rom périodique / splineHard polyligne → points ; fitAnchorsToCurve = pose des ancres par Douglas-Peucker à compte fixe (iter-N N.2)
+    │   ├── spline.js         # (iter-M M.3) splineSoft Catmull-Rom périodique / splineHard polyligne → points ; fitAnchorsToCurve = pose des ancres par Douglas-Peucker à compte fixe (iter-N N.2) ; warpResidualForAnchorMove = warp horizontal du résidu au drag d'ancre, support local + wrap (iter-N N.3)
     │   ├── presets.js        # (iter-M M.4) bibliothèque code-only de 12 presets de timbre harmoniques
     │   └── tours/            # déclarations du Tour guidé par onglet (iter-L phase-4)
     │       ├── index.js      # map tabId → étapes + TOUR_TABS (ordre chaînage)
@@ -192,8 +197,9 @@ type SoundFolder = {              // racine virtuelle si parentId === null
 // et trois lentilles qui la lisent/éditent (Forme d'onde / Harmoniques /
 // Spectro). `cap` (ex-`definition` ET ex-`N`) borne les harmoniques. La
 // lentille spline (anchors + interpolation + residual) permet une réédition
-// préservant les détails fins du tracé : le résidu survit au drag d'ancre
-// (cf. spec §4.1). Plus de conversion destructive entre représentations.
+// préservant les détails fins du tracé : au drag d'ancre, le résidu est remappé
+// (warp 2D à support local, iter-N N.3) pour suivre l'ancre au lieu de rester
+// planté (cf. spec §4.1 + décision dédiée). Plus de conversion destructive.
 type Patch = {
   id: string                      // "patch-N"
   name: string                    // "Patch N" par défaut
@@ -725,6 +731,11 @@ Seuls les **placements timeline** s'appellent "clips".
   `splineHard(anchors)` (polyligne périodique) / `splineToPoints(anchors, interp)`
   (dispatcher). Sortie `Float32Array(600)` clampée [-1,1]. Reconstruction de la
   courbe d'un patch spline ; stockée dans `points` (même rôle que harmonicsToPoints).
+- `fitAnchorsToCurve(canonical, count)` (iter-N N.2) — pose des ancres par
+  Douglas-Peucker à compte fixe (cf. décision dédiée).
+- `warpResidualForAnchorMove(refResidual, refAnchors, index, xN)` (iter-N N.3) —
+  warp horizontal du résidu au drag d'ancre (déformation 2D à support local, cf.
+  décision dédiée). Pur, modulo RESOLUTION (wrap des ancres de bord), garde anti-NaN.
 - `HARMONIC_COUNT = 256` — plafond d'harmoniques (= défaut/max du slider Définition)
 - `SOUND_COLORS` — palette de 12 couleurs
 - `audioBufferToWav(buffer)` — encode PCM 16 bits stéréo (mono dupliqué L+R)
@@ -788,6 +799,29 @@ Choix non évidents pris pour de bonnes raisons. À ne pas remettre en question
   à la finesse de la spline, modulée par le résidu). `APPLY_EDITOR_PRESET` (presets
   rapides Sinus/Carré/…) est le 5ᵉ call-site : non listé dans le prompt initial,
   ajouté par décision archi car il exhibait la même bizarrerie. Spec §4.1.
+- **Drag d'ancre = déformation 2D à support local — « le détail ride sur la
+  tendance » (iter-N N.3, 2026-06-03)** : `MOVE_SPLINE_ANCHOR` ne recompose plus
+  `canonical = spline(nouvelles_ancres) + résidu GELÉ`. Ce modèle laissait le
+  détail dessiné (p. ex. la *netteté* d'une pointe, qui vit dans le résidu car une
+  ancre Catmull-Rom seule ne sait pas faire une pointe) **planté à sa position
+  d'origine** tandis qu'une nouvelle bosse lisse apparaissait à l'ancre → **double
+  pointe**. Désormais le résidu est **remappé** par un **warp horizontal linéaire
+  par morceaux** du support `(ancre_gauche, ancre_droite)` : déplacer l'ancre de
+  `x0` (début du drag) à `xN` emporte le détail en x avec elle (support **local** :
+  hors `(Lx, Rx)`, résidu inchangé). La composante **verticale** est portée par la
+  tendance `spline(ancres, mode)` (le résidu, valeurs inchangées, s'ajoute par-
+  dessus la nouvelle spline). Doux vs Anguleux diffèrent donc par la tendance (le
+  warp du résidu est géométrique, indépendant du mode). Helper pur
+  `warpResidualForAnchorMove` (`lib/spline.js`) ; **wrap périodique** pour les
+  ancres de bord (support déroulé traversant x=0, lecture/écriture modulo 600). Le
+  reducer stocke le résidu remappé (invariant `canonical − spline = résidu`
+  préservé). **Réf figée** : `state.editor.{anchors,residual}` SONT l'état du début
+  de drag — `SplineEditor` isole le geste dans un draft local et ne dispatche qu'au
+  `mouseup` (1 commit = 1 undo = 1 warp par le déplacement total `x0→xN`, jamais
+  frame à frame, sinon ré-échantillonnages cumulés et courbe dégradée). **Pas de
+  re-fit DP** au commit (positions d'ancres voulues conservées). Remplace l'ancien
+  N.3 (PCHIP/overshoot Catmull-Rom), rendu secondaire : avec ce modèle, le détail
+  suit la tendance.
 - **Normalisation explicite + détection par flag d'état (M.r.4, 2026-06-02)** :
   les barres d'harmoniques ne portent que des **magnitudes**, pas de phase. La
   convention de reconstruction iDFT est la **phase canonique sinus pur** pour
@@ -1566,9 +1600,11 @@ Conventions tacites. Les enfreindre sans raison crée des bugs subtils.
   architecturales) appellent `refitAnchorsAndResidual`. Les actions suivantes
   **n'invoquent PAS** le re-fit, chacune pour une raison documentée dans le
   reducer : `MOVE_SPLINE_ANCHOR` / `ADD_SPLINE_ANCHOR` / `REMOVE_SPLINE_ANCHOR`
-  (édition *explicite* des ancres ; un re-fit annulerait le geste — le résidu
-  préservé porte les détails du tracé original) ; `SET_SPLINE_INTERPOLATION` (ne
-  change pas les ancres, juste `canonical = spline(anchors, new_interp) + résidu`) ;
+  (édition *explicite* des ancres ; un re-fit annulerait le geste — pour le drag,
+  le résidu est *remappé* par warp 2D pour suivre l'ancre, cf. décision dédiée
+  N.3) ; `SET_SPLINE_INTERPOLATION` (N.2.1 — ne change ni les ancres ni la
+  canonical : `canonical` inchangée, on recalcule juste `résidu = canonical −
+  spline(anchors, new_interp)`) ;
   `SET_EDITOR_ANCHOR_COUNT` (re-fit explicite déjà câblé, c'est sa raison d'être) ;
   `RESET_EDITOR_WAVEFORM` (aplatit explicitement les ancres au count courant) ;
   `SET_EDITOR_CAP` (ne touche pas la canonical — la troncature vit dans la chaîne
@@ -2403,8 +2439,15 @@ Cadrage et suspects détaillés dans `archi/BACKLOG.md`.
   canonical strictement inchangée, **résidu recalculé** contre le nouveau mode,
   `canonicalNormalized` préservé. Le switch ne change donc que la tendance (courbe
   orange « spline des ancres ») et la façon dont un futur drag d'ancre déformera.
-- **N.3 — Overshoot Catmull-Rom (PCHIP)** — conditionnel, à juger maintenant que
-  N.2 densifie déjà les ancres autour des transitions (probablement superflu).
+- ✅ **N.3 — Drag d'ancre = déformation 2D à support local** (livré
+  `feat(iter-N/phase-3)`). **Remplace** l'ancien N.3 (PCHIP/overshoot) :
+  `MOVE_SPLINE_ANCHOR` warpe horizontalement le résidu sur le support
+  `(ancre_gauche, ancre_droite)` (helper pur `warpResidualForAnchorMove`, wrap
+  périodique aux bords) au lieu de le geler → le détail dessiné « ride » sur la
+  tendance (plus de double pointe), la verticale est portée par la spline. Réf
+  figée au début du drag (draft local SplineEditor, 1 commit/1 undo au mouseup).
+  Pas de re-fit DP. Cf. décision dédiée. PCHIP/overshoot Catmull-Rom **abandonné**
+  (rendu secondaire par ce modèle).
 - **N.4 — Boutons de lissage du tracé** : passe-bas sur la canonical et/ou
   tendre vers la spline pure.
 - **N.5 — Presets `sine`/`square`/`saw`/`triangle` → séries de Fourier
