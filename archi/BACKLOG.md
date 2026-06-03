@@ -20,12 +20,17 @@ remontés pendant M.
 
 Découpage prévu :
 
-- **N.1 — Latence audio** (fondation, prioritaire). L'utilisateur **ressent** un
-  retard frappe→son depuis la complexification M.r.5. Audit guidé par profilage
-  puis correctifs ciblés : seuil epsilon sur le garde anti-zéro de
-  `harmonicsToPoints`, arrêt des boucles rAF du lerp auto-fit à convergence,
-  mémoïsation correcte des 3 courbes, stabilité de référence de la canonical
-  pour le `harmonicsCache`. Prompt : `archi/N1-prompt.md`. **Hors scope : #12.**
+- ✅ **N.1 — Latence audio** (livré 2026-06-03, `fix(iter-N/phase-1.2)`).
+  Profilage N.1.1 (sans commit) : sur 4 suspects, **seul (b) confirmé** — le
+  leakage 600↔512 rend les 256 barres de `canonicalToBars` non-nulles et défait
+  le garde `if (a)` de `harmonicsToPoints` → iDFT 600×cap par mousemove (4,8 ms
+  à cap=256, ligne 395 non mémoïsée + `normalizedBg`). (a) rAF auto-fit, (c)
+  empilement rAF, (d) cache miss : **infirmés** (boucles convergentes, identités
+  `useCallback` stables, cache canonical stable hors édition). Fix N.1.2 :
+  `HARMONIC_EPSILON = 1e-4` (garde à seuil + snap amont du leakage à zéro dans
+  `canonicalToBars`). Drag de barre **7,6× plus rapide** à cap=256, transparent
+  (créneau : Δ=8e-15 ; sparse : 1e-4=−80 dB ; 0 harmonique légitime tuée).
+  Prompt : `archi/N1-prompt.md`. **Hors scope tenu : #12.**
 - **N.2 — Disposition des ancres / Douglas-Peucker** : remplacer le placement
   équiréparti (`x = i·600/N`) par une simplification Douglas-Peucker (ancres aux
   points qui comptent). Atténue mécaniquement N.3.
@@ -96,27 +101,27 @@ Items backlog issus de la session :
   Côté UX : champ de recherche dans la sidebar de l'onglet Documentation,
   résultats avec aperçu contextuel (titre article + ligne où le terme
   apparaît, lien direct). À prioriser si la doc continue de grossir.
-- **Latence audio à l'appui de touche** (remonté passe d'usage post-M.r.5.bis,
-  visible sur machine modeste) : impression de retard entre la frappe clavier
-  et le son sortant, apparue depuis les améliorations récentes (M.r.5 + .bis).
-  Pistes d'investigation à mener en perf audit dédié :
-  (a) **rAF lerp auto-fit Y** (M.r.5.1, étendu en M.r.5.bis.1 à SplineEditor)
-  qui ne s'arrête peut-être pas correctement quand la cible est atteinte
-  (boucle perpétuelle qui mange le frame budget) ;
-  (b) **recompute des 3 courbes** (canonical + normalisée + spline parfaite)
-  au render : chaque courbe coûte ~150k mults ; mémoïsation actuelle dépend
-  de `[editor.canonical, editor.cap]` — vérifier que les `useMemo` ne
-  recalculent pas à chaque re-render ;
-  (c) **pression rendu canvas** : `withSavedCtx` + lerp peut déclencher
-  des `requestAnimationFrame` empilés si plusieurs sources lancent leur
-  propre boucle (une pour le peak, une pour le normalizedBg, une pour la
-  spline parfaite) ;
-  (d) **`pointsToHarmonics` cache miss** : WeakMap par référence de
-  `canonical` — si la canonical est rejouée différemment à chaque touche
-  (alias instable), le cache rate et la FFT 512 se refait à chaque note.
-  Audit à mener post-M.5b. Si bloquant en usage, peut justifier un fix
-  ciblé avant M.5b (genre forcer un seuil de convergence du lerp à arrêt
-  rAF, ou downgrader le re-render fréquence).
+- ✅ **Latence audio à l'appui de touche** — **traité en N.1.2** (2026-06-03).
+  Verdicts du profilage N.1.1 :
+  (a) **rAF lerp auto-fit Y** — ✗ **infirmé** : les deux boucles
+  (`WaveformEditor:665`, `SplineEditor:217`) convergent et s'arrêtent (snap à
+  `peakTarget` sous 0,01, plus de `rAF` planifiée) ; `drawCanvas`/`draw` ont une
+  identité `useCallback` stable (deps `[]`). Pas de boucle perpétuelle.
+  (b) **recompute des 3 courbes** — ✓ **confirmé, c'est LA cause**. Pas les
+  `useMemo` (correctement gatés), mais **`WaveformEditor:395` non mémoïsée**
+  (`harmonicsToPoints(draftAmplitudes, cap)` à chaque mousemove de drag de barre)
+  + `normalizedBg` (au changement de `cap`). Le leakage du mismatch 600↔512 rend
+  les 256 barres non-nulles → le garde `if (a)` ne saute rien → 600×cap `sin()`
+  (4,8 ms à cap=256). Fix : seuil epsilon (`HARMONIC_EPSILON = 1e-4`) + snap
+  amont → 7,6×.
+  (c) **pression rendu canvas** — ✗ **infirmé** : une seule boucle lerp par
+  composant, même `drawCanvas` partout ; pas d'empilement de sources rAF.
+  (d) **`pointsToHarmonics` cache miss** — ✗ **infirmé** : `pointsRef.current ===
+  editor.canonical` et `usePlayback` lit `patch.canonical` (réf stable hors
+  édition) → le `harmonicsCache` tient entre frappes, la FFT 512 ne se refait pas
+  par note. La part audio-pure d'un éventuel retard frappe→son n'est pas
+  reproductible hors navigateur (demanderait une trace Performance) — la
+  contention thread par (b) suffit à l'expliquer.
 - **Support clavier MIDI USB** (longue échéance) : Web MIDI API native,
   mapping note MIDI → fréquence via le système de tempérament actif,
   vélocité → amplitude, sustain pedal MIDI → reuse de la pédale Espace

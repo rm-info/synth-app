@@ -36,11 +36,13 @@ framework UI (CSS manuscrit), pas de routing, pas de backend.
 | L | Documentation (onglet + Raccourcis Ctrl+K + Tour Ctrl+J) — v1.4.0 | 2026-05-28 |
 | M | Waveform Designer : modèle canonique unifié + 3 lentilles + patch typé — v1.5.0 | 2026-06-03 |
 
-**État courant** : entre deux itérations. Iteration M close (code + doc).
-Prochaine itération non cadrée — candidats au backlog (Monde B inharmonique +
-morph A↔B, perf/latence audio, recherche plein-texte doc, refonte des presets
-géométriques en séries de Fourier). Hygiène post-M restante : note de clôture,
-purge des prompt-fichiers `archi/Mr*` et `archi/M5b*` consommés.
+**État courant** : Iteration N « Stabilité & fluidité » ouverte (cadrée
+2026-06-03, cf. `archi/BACKLOG.md`). **Phase N.1 (latence audio) livrée** : seuil
+epsilon anti-leakage sur l'iDFT harmonique (drag de barre 7,6× plus rapide à
+cap=256, transparent). Reste de l'itération : N.2 ancres/Douglas-Peucker, N.3
+overshoot, N.4 lissage du tracé, N.5 presets en séries de Fourier bande-limitées,
+N.6 durcissements. Hygiène post-M restante : note de clôture, purge des
+prompt-fichiers `archi/Mr*` et `archi/M5b*` consommés.
 
 > **Structure des fichiers de contexte.** Ce `CONTEXT.md` est le **brief
 > vivant** : état présent, modèle de données, composants, architecture,
@@ -1612,6 +1614,22 @@ Conventions tacites. Les enfreindre sans raison crée des bugs subtils.
 ## État actuel
 
 ✅ **Terminé**
+- **Iteration N — phase N.1 : latence audio** (`fix(iter-N/phase-1.2)`,
+  2026-06-03). Régression de fluidité depuis M.r.5 corrigée à la cause.
+  Diagnostic N.1.1 (profilage, sans commit) : sur 4 suspects, seul **(b)**
+  confirmé — le leakage du resample 600↔512 rend les 256 barres de
+  `canonicalToBars` non-nulles, défaisant le garde `if (a)` de
+  `harmonicsToPoints` → iDFT 600×cap à chaque mousemove (4,8 ms à cap=256 ;
+  `WaveformEditor:395` non mémoïsée + `normalizedBg` au changement de cap). (a)
+  rAF auto-fit, (c) empilement rAF, (d) cache miss : **infirmés** (boucles lerp
+  convergentes et arrêtées, identités `useCallback` stables, cache canonical
+  stable hors édition). Correctif N.1.2 : constante `HARMONIC_EPSILON = 1e-4`
+  (`audio.js`) — garde anti-zéro à seuil dans `harmonicsToPoints` + snap du
+  leakage sub-epsilon à un vrai zéro dans `canonicalToBars`. Gain re-mesuré :
+  iDFT/frame 4,93→0,65 ms à cap=256 (**7,6×**), 2,40→0,40 ms à cap=128 (6,0×).
+  Transparence tenue (créneau broadband : max|Δ canonical| = 8e-15, quasi
+  bit-identique ; signal sparse : 1e-4 = −80 dB, sous-pixel ; 0 harmonique
+  légitime tuée). Hors scope inchangé : refactor de la grille FFT 600↔512 (#12).
 - Iteration M — phase M.3 (mode points/spline, 2026-05-30). 3ᵉ mode de
   fabrication de timbre, propre par construction. 3 sous-commits :
   - **3.1** `SplinePatch` (`mode:'spline'`, `anchors` 4..32, `interpolation`
@@ -2330,8 +2348,26 @@ Conventions tacites. Les enfreindre sans raison crée des bugs subtils.
 ## Roadmap & Backlog
 
 > Détail des roadmaps des itérations livrées (A→M) → `CONTEXT-ARCHIVE.md`.
-> Ci-dessous : le backlog général (non planifié) et, une fois cadrée, la
-> prochaine itération.
+> Ci-dessous : l'itération en cours, puis le backlog général (non planifié).
+
+### Iteration N « Stabilité & fluidité » (en cours, cadrée 2026-06-03)
+
+Apurement et polish de la base avant le prochain grand saut créatif (Monde B).
+Cadrage et suspects détaillés dans `archi/BACKLOG.md`.
+
+- ✅ **N.1 — Latence audio** (livré, `fix(iter-N/phase-1.2)`). Seuil epsilon
+  anti-leakage sur l'iDFT harmonique (cf. État actuel) : drag de barre 7,6× plus
+  rapide à cap=256, transparent. Cause (b) confirmée au profilage ; (a)/(c)/(d)
+  infirmés.
+- **N.2 — Disposition des ancres / Douglas-Peucker** : ancres aux points qui
+  comptent au lieu de l'équiréparti `x = i·600/N`.
+- **N.3 — Overshoot Catmull-Rom (PCHIP)** — conditionnel, jugé après N.2.
+- **N.4 — Boutons de lissage du tracé** : passe-bas sur la canonical et/ou
+  tendre vers la spline pure.
+- **N.5 — Presets `sine`/`square`/`saw`/`triangle` → séries de Fourier
+  bande-limitées** : fin du ringing de Gibbs, fin du mensonge affichage≠audio.
+- **N.6 — Durcissements** : TS strict opt-in `src/reducer.js` ; décision
+  auto-sizing au focus (keep/drop).
 
 ### Backlog général (à caser quand pertinent)
 
