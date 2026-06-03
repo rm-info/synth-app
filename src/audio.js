@@ -161,25 +161,49 @@ export function pointsToHarmonics(points) {
   return result
 }
 
+// iter-N phase-1.4.2 : cache de PeriodicWave. `pointsToHarmonics` est déjà un
+// cache-hit (WeakMap par réf canonical), mais `createPeriodicWave` reconstruisait
+// la wavetable inconditionnellement à chaque note. En lecture pure, (canonical,
+// cap) sont stables → N notes rebâtissaient N fois la même wavetable. On mémoïse
+// par réf `canonical` (évincée à l'édition quand la réf change), sous-clé par
+// `cut`, avec une garde sur l'identité du `ctx` : une PeriodicWave est liée à son
+// AudioContext, donc si le ctx diffère (ex. OfflineAudioContext de l'export) on
+// rebâtit. Gain absolu faible (createPeriodicWave ≈ 0,13 ms/note) mais propre, et
+// seul item sur le chemin frappe→son.
+const periodicWaveCache = new WeakMap() // canonical -> { ctx, byCap: Map<cut, PeriodicWave> }
+
 // `cap` (1..HARMONIC_COUNT) tronque le spectre : les harmoniques k > cap sont
 // mises à zéro avant createPeriodicWave. La troncature est faite ici, en aval
 // du cache `pointsToHarmonics` (mémoïsé par `canonical`), parce qu'elle est
-// cheap (un parcours O(N)) — un cache composite canonical × cap n'apporterait
-// rien. `cap` absent/invalide = pas de troncature (spectre complet). On copie
-// real/imag avant de zéroer pour ne pas muter les Float32Array partagés du cache.
+// cheap (un parcours O(N)). `cap` absent/invalide = pas de troncature (spectre
+// complet). On copie real/imag avant de zéroer pour ne pas muter les
+// Float32Array partagés du cache.
 export function pointsToPeriodicWave(canonical, audioCtx, cap) {
-  const { real, imag } = pointsToHarmonics(canonical)
   const cut = Number.isFinite(cap) ? cap : HARMONIC_COUNT
+
+  let entry = periodicWaveCache.get(canonical)
+  if (!entry || entry.ctx !== audioCtx) {
+    entry = { ctx: audioCtx, byCap: new Map() }
+    periodicWaveCache.set(canonical, entry)
+  }
+  const cached = entry.byCap.get(cut)
+  if (cached) return cached
+
+  const { real, imag } = pointsToHarmonics(canonical)
+  let wave
   if (cut >= HARMONIC_COUNT) {
-    return audioCtx.createPeriodicWave(real, imag, { disableNormalization: false })
+    wave = audioCtx.createPeriodicWave(real, imag, { disableNormalization: false })
+  } else {
+    const truncReal = Float32Array.from(real)
+    const truncImag = Float32Array.from(imag)
+    for (let k = cut + 1; k < truncReal.length; k++) {
+      truncReal[k] = 0
+      truncImag[k] = 0
+    }
+    wave = audioCtx.createPeriodicWave(truncReal, truncImag, { disableNormalization: false })
   }
-  const truncReal = Float32Array.from(real)
-  const truncImag = Float32Array.from(imag)
-  for (let k = cut + 1; k < truncReal.length; k++) {
-    truncReal[k] = 0
-    truncImag[k] = 0
-  }
-  return audioCtx.createPeriodicWave(truncReal, truncImag, { disableNormalization: false })
+  entry.byCap.set(cut, wave)
+  return wave
 }
 
 // iter-M phase-2 : reconstruction d'une courbe temporelle (600 points) à
