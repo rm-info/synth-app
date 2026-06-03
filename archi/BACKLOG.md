@@ -31,6 +31,26 @@ Découpage prévu :
   `canonicalToBars`). Drag de barre **7,6× plus rapide** à cap=256, transparent
   (créneau : Δ=8e-15 ; sparse : 1e-4=−80 dB ; 0 harmonique légitime tuée).
   Prompt : `archi/N1-prompt.md`. **Hors scope tenu : #12.**
+- ✅ **N.1.3 — Audit perf exhaustif + profilage dev/prod** (2026-06-03). Workflow
+  multi-agents (5 dimensions, vérif adverse : 20 findings → 12 confirmés) + traces
+  Firefox dev & prod analysées par script. **VERDICT : la latence ressentie était
+  un artefact du mode dev.** eventDelay dev→prod : médiane 17→3 ms, p90 99→14 ms,
+  p99 185→63 ms, instants >100 ms : **266→0**. ~1,9 s/9,8 s de coûts dev-only
+  (`jsxDEV`, `SavedStacks`/`SavedFrame`, `defineProperty`, GC 441→12 ms)
+  disparaissent en prod. DSP négligeable (`createPeriodicWave` 4 ms total). Le
+  symptôme « frappe→son » est immune au JS (audio planifié sur l'horloge
+  AudioContext avant le commit React). **Perf prod saine — investigation latence
+  close.** Réflexe acquis : toujours profiler en prod, pas le dev server.
+- ✅ **N.1.4 — Groupe A quick wins** (livré + **validé** 2026-06-03,
+  `fix(iter-N/phase-1.4.{1,2,3})`). Reclassé **hygiène/stockage** — pas un fix de
+  perf (prod déjà fluide) : cache `themeColor`, cache `PeriodicWave` (négligeable),
+  arrondi payload 1e-4 (**−63 % localStorage**, le seul à valeur réelle). Code
+  vérifié transparent (son/courbes/`.osa` intacts). Détail dans CONTEXT.
+  Prompt : `archi/N1-groupeA-prompt.md`.
+- ⛔ **Groupe B/C de l'audit** (re-renders par note/frame, isolation des drafts,
+  mémoïsation d'arbre, mount-gating Timeline, débounce persistance — ranks 1-5/8/9)
+  : **confirmé inutile pour la perf prod** → dette dormante, ne pas investir sans
+  nouvelle preuve d'un résiduel réel en prod.
 - **N.2 — Disposition des ancres / Douglas-Peucker** : remplacer le placement
   équiréparti (`x = i·600/N`) par une simplification Douglas-Peucker (ancres aux
   points qui comptent). Atténue mécaniquement N.3.
