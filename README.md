@@ -1,7 +1,5 @@
 # On_Synth_App
 
-![On_Synth_App](src/assets/hero.png)
-
 Synthétiseur web **pédagogique**. Le geste tient en trois temps : on dessine
 une forme d'onde, on la place sur une timeline multipiste, on exporte en WAV.
 
