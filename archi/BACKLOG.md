@@ -51,11 +51,20 @@ Découpage prévu :
   mémoïsation d'arbre, mount-gating Timeline, débounce persistance — ranks 1-5/8/9)
   : **confirmé inutile pour la perf prod** → dette dormante, ne pas investir sans
   nouvelle preuve d'un résiduel réel en prod.
-- **N.2 — Disposition des ancres / Douglas-Peucker** : remplacer le placement
-  équiréparti (`x = i·600/N`) par une simplification Douglas-Peucker (ancres aux
-  points qui comptent). Atténue mécaniquement N.3.
-- **N.3 — Overshoot Catmull-Rom (PCHIP)** — *conditionnel* : on juge la nécessité
-  après N.2 (Douglas-Peucker densifie déjà autour des transitions).
+- ✅ **N.2 — Disposition des ancres / Douglas-Peucker** (livré + validé). Ancres
+  aux points qui comptent au lieu de l'équiréparti. `src/lib/spline.js`, API
+  inchangée. Prompt : `archi/N2-prompt.md`.
+- 📝 **N.2.1 — Bascule Doux/Anguleux = no-op** (prompt prêt, `archi/N2.1-fix-prompt.md`).
+  Bug : `SET_SPLINE_INTERPOLATION` recomposait la canonical depuis le résidu gelé
+  → le tracé se déformait au switch sans drag. Fix : garder la canonical, recalculer
+  le résidu contre le nouveau mode (switch = no-op sur la courbe).
+- 📝 **N.3 — Drag d'ancre = déformation 2D à support local** (prompt prêt,
+  `archi/N3-prompt.md`). **Remplace l'ancien N.3 PCHIP.** Le drag d'ancre devient
+  une poignée 2D : `canonical = spline(nouvelles_ancres) + résidu_remappé`, le
+  détail ride sur la tendance et suit l'ancre en x (fin de la double-pointe).
+  Référence figée au début du drag, support [voisin_g, voisin_d], Doux/Anguleux
+  via la tendance. Conçu en session avec l'utilisateur (modèle « la spline est la
+  tendance que suit le tracé »). **L'overshoot PCHIP devient secondaire → rayé.**
 - **N.4 — Boutons de lissage du tracé** : (A) filtre passe-bas sur la canonical,
   (B) tendre vers la spline pure. Tester les deux à l'usage, garder le pertinent.
 - **N.5 — Presets `sine`/`square`/`saw`/`triangle` → séries de Fourier
