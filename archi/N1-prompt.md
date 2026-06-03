@@ -79,11 +79,16 @@ C'est le SC qui pilote les suivants : on corrige ce que le profilage confirme.
 risque et transparents :
 
 - **Seuil epsilon sur le garde anti-zéro** de `harmonicsToPoints`
-  (`if (Math.abs(a) > 1e-6)` au lieu de `if (a)`) et/ou nettoyage des
+  (`if (Math.abs(a) > ε)` au lieu de `if (a)`) et/ou nettoyage des
   harmoniques résiduelles en vrais zéros en amont. Neutralise le coût du bump
   `cap` quand peu d'harmoniques portent de l'énergie. **Vérifie l'invariant de
-  transparence** : à 1e-6, l'audio et les courbes ne doivent pas bouger à l'œil
-  ni à l'oreille (le seuil est sous le plancher audible).
+  transparence** : l'audio et les courbes ne doivent pas bouger à l'œil ni à
+  l'oreille (le seuil reste sous le plancher audible).
+  > **Correction post-livraison (N.1.2)** : la valeur `1e-6` suggérée ci-dessus
+  > était **trop basse** — le profilage a mesuré un plancher de leakage à
+  > ~1,75e-5, donc `1e-6` laissait ~20 barres parasites (gain limité à 4,3×).
+  > Valeur retenue et implémentée : **`HARMONIC_EPSILON = 1e-4`** (au-dessus du
+  > plancher de leakage, très en dessous de toute barre légitime). Gain 7,6×.
 - **Arrêt des boucles rAF du lerp auto-fit** dès convergence
   (`|peak - target| < ε` → on cesse de planifier une frame). Couvre (a) et (c).
 - **Mémoïsation correcte des 3 courbes** : confirmer que les `useMemo`
