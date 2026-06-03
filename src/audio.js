@@ -4,6 +4,21 @@ const HALF_HARMONICS = NUM_SAMPLES / 2 + 1   // = 257 (k=0..256)
 
 export const HARMONIC_COUNT = HALF_HARMONICS - 1   // = 256 (k=1..256)
 
+// Seuil de « zéro effectif » pour une amplitude harmonique. Le resample 600→512
+// de pointsToHarmonics (interp. linéaire) réinjecte du leakage spectral dans les
+// harmoniques censées nulles : une canonical bâtie sur 4 harmoniques ressort de
+// canonicalToBars avec les 256 barres non-nulles (~1e-5). Sans seuil, le garde
+// `if (a)` de harmonicsToPoints ne saute plus aucun terme et l'iDFT paie
+// 600×cap sin() pour 4 harmoniques réelles (~4,8 ms/frame à cap=256, mesuré
+// N.1.1) — chemin synchrone d'un drag de barre, d'où le lag. 1e-4 est au-dessus
+// du plancher de leakage (max ~1,75e-5) et très en dessous de toute barre
+// réglable à la souris (~4e-3, résolution canvas) ou audible (−80 dB) : on
+// neutralise l'effet perf du mismatch de grille sans toucher au timbre ni au
+// rendu (les harmoniques légitimes d'un créneau/dent de scie restent ≥ ~3e-3
+// jusqu'à k=256). Le refactor de la grille FFT elle-même reste hors scope
+// (backlog « Mismatch FFT 600↔512 », #12).
+const HARMONIC_EPSILON = 1e-4
+
 // Durée minimale (secondes) de la rampe d'attack appliquée au démarrage
 // d'une voix. Sans ça, un attack utilisateur de 0 (ou sub-ms) fait sauter
 // le gain de 0 à amplitude en un sample-block → discontinuité, clic audible.
@@ -204,7 +219,10 @@ export function canonicalToBars(canonical, cap) {
   const bars = new Array(cap)
   for (let k = 0; k < cap; k++) {
     const m = (magnitudes[k + 1] ?? 0) * 2
-    bars[k] = m < 0 ? 0 : m > 1 ? 1 : m
+    // Nettoyage amont : on snappe le leakage sub-epsilon à un vrai zéro, pour que
+    // l'iDFT le saute et que la zone Harmoniques n'affiche pas 252 micro-barres
+    // parasites. Borne haute inchangée (clamp visuel à 1).
+    bars[k] = m < HARMONIC_EPSILON ? 0 : m > 1 ? 1 : m
   }
   return bars
 }
@@ -217,7 +235,10 @@ export function harmonicsToPoints(amplitudes, N) {
     const base = (2 * Math.PI * x) / CANVAS_WIDTH
     for (let k = 1; k <= count; k++) {
       const a = amplitudes[k - 1]
-      if (a) sum += a * Math.sin(base * k)
+      // Garde anti-zéro à seuil epsilon (et non `if (a)`) : saute le leakage
+      // résiduel du resample 600↔512 qui rend « non-nulles » des harmoniques
+      // censées éteintes. Cf. HARMONIC_EPSILON pour le choix du seuil.
+      if (Math.abs(a) > HARMONIC_EPSILON) sum += a * Math.sin(base * k)
     }
     points[x] = sum
   }
