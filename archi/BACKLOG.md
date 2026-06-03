@@ -122,6 +122,14 @@ Items backlog issus de la session :
   par note. La part audio-pure d'un éventuel retard frappe→son n'est pas
   reproductible hors navigateur (demanderait une trace Performance) — la
   contention thread par (b) suffit à l'expliquer.
+  **Quick wins Groupe A livrés en N.1.4** (sans regret, indép. du verdict prod) :
+  cache `themeColor()` invalidé au `themechange` (rank 6), cache `PeriodicWave`
+  par (canonical, cap, ctx) (rank 7), arrondi 1e-4 du payload localStorage
+  −63 % (rank 4a). **Groupe B/C gelé** (ranks 1-5, 8, 9 : re-renders par
+  note/frame, isolation des drafts, mémoïsation d'arbre, mount-gating Timeline,
+  débounce persistance) jusqu'à ce qu'une re-mesure **prod** prouve un résiduel
+  réel. (Les numéros de rank renvoient à l'audit perf 5-dim de l'archi, hors
+  repo.)
 - **Support clavier MIDI USB** (longue échéance) : Web MIDI API native,
   mapping note MIDI → fréquence via le système de tempérament actif,
   vélocité → amplitude, sustain pedal MIDI → reuse de la pédale Espace

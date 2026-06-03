@@ -1614,6 +1614,24 @@ Conventions tacites. Les enfreindre sans raison crée des bugs subtils.
 ## État actuel
 
 ✅ **Terminé**
+- **Iteration N — phase N.1.4 : quick wins perf (Groupe A, sans regret)**
+  (`fix(iter-N/phase-1.4.{1,2,3})`, 2026-06-03). 3 optimisations indépendantes,
+  transparentes, hors des refactors React gelés (Groupe B/C) :
+  - **1.4.1** Cache de `themeColor()` (`src/lib/themeColor.js`) : `Map`
+    module-level vidée sur l'event `themechange` (window). Évite un
+    `getComputedStyle().getPropertyValue()` (forced style recalc possible) à
+    chaque appel — ~9× par `drawCanvas`, 9+2×N_ancres dans `SplineEditor`, ~13×
+    dans `drawAdsr`, sur le hot path de drag. Les 15 vars lues sont toutes
+    pilotées par `data-theme`. Le meilleur gain du lot.
+  - **1.4.2** Cache de `PeriodicWave` (`src/audio.js`) : WeakMap par réf
+    `canonical` (sous-clé `cut`, garde d'identité du `ctx`). En lecture pure on
+    ne reconstruit plus la wavetable à chaque note. Gain absolu faible
+    (~0,13 ms/note) mais propre, seul item sur le chemin frappe→son.
+  - **1.4.3** Arrondi `canonical`/`residual` à 1e-4 (= `HARMONIC_EPSILON`) **au
+    seul point d'écriture localStorage** (`App.jsx`, `patchForStorage`) : payload
+    forme d'onde **−63 %** (24,2 → 8,9 Ko/patch ; 30 patches 708 → 262 Ko).
+    Idempotent. Modèle mémoire et export `.osa` (lit `state`) en pleine
+    précision, non affectés. Reload transparent à 1e-4 près.
 - **Iteration N — phase N.1 : latence audio** (`fix(iter-N/phase-1.2)`,
   2026-06-03). Régression de fluidité depuis M.r.5 corrigée à la cause.
   Diagnostic N.1.1 (profilage, sans commit) : sur 4 suspects, seul **(b)**
@@ -2355,10 +2373,13 @@ Conventions tacites. Les enfreindre sans raison crée des bugs subtils.
 Apurement et polish de la base avant le prochain grand saut créatif (Monde B).
 Cadrage et suspects détaillés dans `archi/BACKLOG.md`.
 
-- ✅ **N.1 — Latence audio** (livré, `fix(iter-N/phase-1.2)`). Seuil epsilon
-  anti-leakage sur l'iDFT harmonique (cf. État actuel) : drag de barre 7,6× plus
-  rapide à cap=256, transparent. Cause (b) confirmée au profilage ; (a)/(c)/(d)
-  infirmés.
+- ✅ **N.1 — Latence audio** (livré). Deux temps : `fix(iter-N/phase-1.2)` =
+  seuil epsilon anti-leakage sur l'iDFT harmonique (drag de barre 7,6× plus
+  rapide à cap=256 ; cause (b) confirmée, (a)/(c)/(d) infirmés au profilage).
+  `fix(iter-N/phase-1.4.x)` = quick wins perf Groupe A (cache `themeColor`, cache
+  `PeriodicWave`, arrondi payload localStorage −63 % ; cf. État actuel). Le
+  Groupe B/C (re-renders par note/frame, isolation drafts, mémoïsation d'arbre,
+  débounce persistance) reste **gelé** jusqu'au verdict du profilage prod.
 - **N.2 — Disposition des ancres / Douglas-Peucker** : ancres aux points qui
   comptent au lieu de l'équiréparti `x = i·600/N`.
 - **N.3 — Overshoot Catmull-Rom (PCHIP)** — conditionnel, jugé après N.2.
