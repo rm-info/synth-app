@@ -1930,15 +1930,18 @@ export function reducer(state, action) {
     case 'SET_SPLINE_INTERPOLATION': {
       const interpolation = action.payload === 'hard' ? 'hard' : 'soft'
       if (state.editor.interpolation === interpolation) return state
-      // M.r.4 — recompose canonical via splinePlusResidual → phase non-canonique.
+      // N.2.1 — la bascule est un no-op sur la canonical : on garde le tracé
+      // strictement identique et on recalcule le résidu contre le nouveau mode.
+      // (Avant : recompose via splinePlusResidual contre le résidu gelé →
+      // déformait la canonical alors qu'aucune ancre n'a bougé.) `canonical`
+      // inchangée ⇒ son inchangé ET statut de normalisation préservé.
+      const residual = computeResidual(
+        state.editor.canonical,
+        splineToPoints(state.editor.anchors, interpolation),
+      )
       return {
         ...state,
-        editor: {
-          ...state.editor,
-          interpolation,
-          canonical: splinePlusResidual(splineToPoints(state.editor.anchors, interpolation), state.editor.residual),
-          canonicalNormalized: false,
-        },
+        editor: { ...state.editor, interpolation, residual },
       }
     }
     case 'SET_EDITOR_ADSR': {
