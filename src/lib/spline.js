@@ -205,3 +205,52 @@ export function fitAnchorsToCurve(canonical, count = 8) {
     return { x: s.xa, y }
   })
 }
+
+// iter-N phase-3 — déformation 2D à support local du drag d'ancre. Quand l'ancre
+// `index` passe de x0 = refAnchors[index].x à xN, on ré-échantillonne le résidu
+// de DÉPART le long d'un warp horizontal linéaire-par-morceaux du support
+// (Lx, Rx) — les ancres voisines, avec wrap périodique pour les bords — de sorte
+// que le détail dessiné (qui vit dans le résidu) « ride » sur la tendance au lieu
+// de rester planté à sa position d'origine (sinon : double pointe). Hors support,
+// le résidu est inchangé. La composante VERTICALE du drag est portée par la
+// tendance elle-même (spline(anchors avec le nouveau y)) — le warp n'agit qu'en x.
+//
+// Réf figée : l'appelant passe le résidu + les ancres capturés au début du drag
+// (le reducer les a dans son state, intact pendant le drag à draft local ; un seul
+// commit au mouseup → un seul warp par le déplacement TOTAL x0→xN, pas frame à
+// frame — sinon les ré-échantillonnages s'accumuleraient et dégraderaient la courbe).
+//
+// Repère déroulé : pour une ancre de bord, le voisin wrap (Lx < 0 ou Rx >
+// RESOLUTION) et le support traverse x=0 ; lecture du résidu et écriture se font
+// modulo RESOLUTION. Le clamp du handler (Lx + gap ≤ xN ≤ Rx − gap, Lx < x0 < Rx)
+// garantit un warp monotone sans repli. Pur ; garde anti-NaN.
+export function warpResidualForAnchorMove(refResidual, refAnchors, index, xN) {
+  const n = refResidual.length
+  const N = refAnchors.length
+  const out = refResidual.slice()
+  if (N < 2 || index < 0 || index >= N) return out
+  const x0 = refAnchors[index].x
+  const Lx = index > 0 ? refAnchors[index - 1].x : refAnchors[N - 1].x - n
+  const Rx = index < N - 1 ? refAnchors[index + 1].x : refAnchors[0].x + n
+  // Garde-fou : sans support strict valide, on ne touche à rien (warp = identité).
+  if (!(Lx < xN && xN < Rx && Lx < x0 && x0 < Rx)) return out
+  // Lecture périodique interpolée du résidu de départ.
+  const sample = (x) => {
+    const xm = ((x % n) + n) % n
+    const i0 = Math.floor(xm)
+    const f = xm - i0
+    const a = refResidual[i0 % n] ?? 0
+    const b = refResidual[(i0 + 1) % n] ?? 0
+    const v = a + (b - a) * f
+    return Number.isFinite(v) ? v : 0
+  }
+  // Pré-image (inverse du warp), linéaire par morceaux, pour chaque X entier du
+  // support déroulé ; identité aux bornes (continuité avec le résidu voisin).
+  for (let X = Math.ceil(Lx); X <= Math.floor(Rx); X++) {
+    const x = X <= xN
+      ? Lx + ((X - Lx) * (x0 - Lx)) / (xN - Lx)
+      : x0 + ((X - xN) * (Rx - x0)) / (Rx - xN)
+    out[((X % n) + n) % n] = sample(x)
+  }
+  return out
+}

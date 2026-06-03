@@ -1,5 +1,5 @@
 import { useRef, useState, useEffect, useCallback, useMemo } from 'react'
-import { splineToPoints } from '../lib/spline'
+import { splineToPoints, warpResidualForAnchorMove } from '../lib/spline'
 import { themeColor } from '../lib/themeColor'
 import { withSavedCtx, drawAmplitudeMarker, drawAmplitudeGrid, DRAW_MARGIN, DRAW_MARGIN_TOP, DRAW_MARGIN_BOTTOM } from '../lib/canvas'
 import { STRINGS } from '../lib/strings'
@@ -71,18 +71,32 @@ function SplineEditor({
     () => (draftAnchors ? Array.from(splineToPoints(draftAnchors, interpolation)) : committedSpline),
     [draftAnchors, interpolation, committedSpline],
   )
+  // N.3 — résidu prévisualisé pendant le drag : warp horizontal à support local
+  // (le détail « ride » sur la tendance). Réf figée = `residual` (drag-start, stable
+  // tant qu'aucun commit) + `anchors` committées ; index draggé = celui dont l'x
+  // diffère du draft. Drag purement vertical (x inchangé) → résidu intact (le warp
+  // n'agit qu'en x). Au repos, résidu committé. Identique au calcul du reducer.
+  const liveResidual = useMemo(() => {
+    if (!draftAnchors) return residual
+    let di = -1
+    for (let i = 0; i < draftAnchors.length; i++) {
+      if (draftAnchors[i].x !== anchors[i].x) { di = i; break }
+    }
+    if (di === -1) return residual
+    return warpResidualForAnchorMove(residual, anchors, di, draftAnchors[di].x)
+  }, [draftAnchors, anchors, residual])
   // Courbe principale (bleu = canonical) : committée au repos ; pendant un drag,
-  // on PRÉVISUALISE spline(draft) + résidu — exactement ce que produira le reducer
-  // au commit (`splinePlusResidual`, non clampé depuis M.r.5.bis). Conséquence : le
-  // tracé bleu reste visible pendant le drag (au lieu de devenir la spline pure),
-  // ne se fait plus écrêter à ±1 puis ré-étendre au relâchement, et l'auto-fit ne
-  // se réduit plus au début du geste ; bleu, gris et orange coexistent.
+  // on PRÉVISUALISE spline(draft) + résidu remappé — exactement ce que produira le
+  // reducer au commit (`splinePlusResidual`, non clampé depuis M.r.5.bis).
+  // Conséquence : le tracé bleu reste visible pendant le drag (au lieu de devenir
+  // la spline pure), ne se fait plus écrêter à ±1 puis ré-étendre au relâchement,
+  // et l'auto-fit ne se réduit plus au début du geste ; bleu, gris et orange coexistent.
   const liveCurve = useMemo(() => {
     if (!draftAnchors) return points
     const c = new Array(splinePerfect.length)
-    for (let i = 0; i < splinePerfect.length; i++) c[i] = (splinePerfect[i] ?? 0) + (residual[i] ?? 0)
+    for (let i = 0; i < splinePerfect.length; i++) c[i] = (splinePerfect[i] ?? 0) + (liveResidual[i] ?? 0)
     return c
-  }, [draftAnchors, splinePerfect, residual, points])
+  }, [draftAnchors, splinePerfect, liveResidual, points])
   const showSplinePerfect = useMemo(() => {
     let m = 0
     for (let i = 0; i < liveCurve.length; i++) {

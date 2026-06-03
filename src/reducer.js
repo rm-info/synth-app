@@ -1,5 +1,5 @@
 import { SOUND_COLORS, HARMONIC_COUNT, harmonicsToPoints, canonicalToBars } from './audio'
-import { splineToPoints, fitAnchorsToCurve } from './lib/spline'
+import { splineToPoints, fitAnchorsToCurve, warpResidualForAnchorMove } from './lib/spline'
 import { wouldCreateCycle, duplicateItemsToFolder } from './lib/bibTransfer.js'
 import {
   DEFAULT_A4,
@@ -1884,10 +1884,17 @@ export function reducer(state, action) {
       const cy = Number.isFinite(y) ? y : 0
       const next = anchors.slice()
       next[index] = { x: cx, y: cy }
-      // M.r.4 — splinePlusResidual ≠ iDFT canonique → phase non-canonique.
+      // N.3 — déformation 2D à support local : le détail (résidu) suit l'ancre au
+      // lieu de rester planté (plus de double pointe). `state.editor.{anchors,
+      // residual}` SONT la réf figée du début de drag (le drag est un draft local
+      // dans SplineEditor, aucun dispatch n'a eu lieu entre-temps → un seul commit
+      // ici = un seul warp par le déplacement total x0→xN). On ne re-fit PAS les
+      // ancres (positions voulues conservées). M.r.4 — phase non-canonique.
+      const residual = warpResidualForAnchorMove(state.editor.residual, anchors, index, cx)
+      const canonical = splinePlusResidual(splineToPoints(next, state.editor.interpolation), residual)
       return {
         ...state,
-        editor: { ...state.editor, anchors: next, canonical: splinePlusResidual(splineToPoints(next, state.editor.interpolation), state.editor.residual), canonicalNormalized: false },
+        editor: { ...state.editor, anchors: next, residual, canonical, canonicalNormalized: false },
       }
     }
     // Ajout d'une ancre (clic sur la courbe). Insérée en maintenant l'ordre
