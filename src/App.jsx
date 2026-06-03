@@ -80,6 +80,23 @@ function triggerDownload(blob, filename) {
   URL.revokeObjectURL(url)
 }
 
+// iter-N phase-1.4.3 : réduction du payload localStorage. `canonical`(600) +
+// `residual`(600) en floats pleine précision pèsent ~24 Ko JSON/patch. On les
+// arrondit à 4 décimales **au seul point de sérialisation localStorage** ; le
+// modèle en mémoire reste en pleine précision, et l'export `.osa`
+// (buildExportPayload depuis state) n'emprunte pas ce chemin → non affecté.
+// 1e-4 = notre HARMONIC_EPSILON (N.1.2) → sous le plancher audible et sous-pixel.
+// Idempotent (round∘round = round) → pas de dérive au cycle reload→resave ;
+// JSON.stringify sérialise alors la repr. courte (« 0.1235 »).
+const round4 = (x) => Math.round(x * 1e4) / 1e4
+function patchForStorage(p) {
+  return {
+    ...p,
+    canonical: Array.isArray(p.canonical) ? p.canonical.map(round4) : p.canonical,
+    residual: Array.isArray(p.residual) ? p.residual.map(round4) : p.residual,
+  }
+}
+
 function App() {
   const [state, dispatch] = useReducer(wrappedReducer, undefined, buildInitialState)
   const {
@@ -651,7 +668,7 @@ function App() {
       localStorage.setItem(
         STORAGE_KEY,
         JSON.stringify({
-          patches,
+          patches: patches.map(patchForStorage),
           soundFolders,
           tracks,
           clips,
