@@ -2,12 +2,58 @@
 
 > Suivi des idées, pistes et dettes techniques reportées.
 > Tenu par l'archi. Source de vérité pour ce qui n'est pas encore planifié.
-> Dernière mise à jour : 2026-05-29.
+> Dernière mise à jour : 2026-06-03.
 
-> Note : itérations G-L closes côté implémenteur (L = doc, release v1.4.0 ;
-> cf. CONTEXT.md). Prochaine itération cadrée : **Iteration M (Waveform)** —
-> voir section dédiée ci-dessous (spec :
-> `docs/superpowers/specs/2026-05-29-waveform-designer-design.md`).
+> Note : itérations G-M closes (M = Waveform Designer, release v1.5.0 ;
+> cf. CONTEXT.md). Prochaine itération cadrée : **Iteration N (Stabilité &
+> fluidité)** — voir section dédiée ci-dessous.
+
+---
+
+## Iteration N (Stabilité & fluidité) — cadrée 2026-06-03
+
+**Priorité produit (utilisateur)** : la stabilité et la fluidité du système
+passent avant l'ajout de nouvelles fonctionnalités avancées. Après le long
+rattrapage M, on apure et on polit la base avant tout grand saut créatif
+(Monde B). Cette itération absorbe les items de fluidité/qualité/fondation
+remontés pendant M.
+
+Découpage prévu :
+
+- **N.1 — Latence audio** (fondation, prioritaire). L'utilisateur **ressent** un
+  retard frappe→son depuis la complexification M.r.5. Audit guidé par profilage
+  puis correctifs ciblés : seuil epsilon sur le garde anti-zéro de
+  `harmonicsToPoints`, arrêt des boucles rAF du lerp auto-fit à convergence,
+  mémoïsation correcte des 3 courbes, stabilité de référence de la canonical
+  pour le `harmonicsCache`. Prompt : `archi/N1-prompt.md`. **Hors scope : #12.**
+- **N.2 — Disposition des ancres / Douglas-Peucker** : remplacer le placement
+  équiréparti (`x = i·600/N`) par une simplification Douglas-Peucker (ancres aux
+  points qui comptent). Atténue mécaniquement N.3.
+- **N.3 — Overshoot Catmull-Rom (PCHIP)** — *conditionnel* : on juge la nécessité
+  après N.2 (Douglas-Peucker densifie déjà autour des transitions).
+- **N.4 — Boutons de lissage du tracé** : (A) filtre passe-bas sur la canonical,
+  (B) tendre vers la spline pure. Tester les deux à l'usage, garder le pertinent.
+- **N.5 — Presets `sine`/`square`/`saw`/`triangle` → séries de Fourier
+  bande-limitées** : fin du ringing de Gibbs et du mensonge affichage≠audio.
+- **N.6 — Durcissements** : TS strict opt-in `src/reducer.js` ; décision
+  auto-sizing au focus (keep/drop, en suspens depuis M).
+
+Analyse de coût (vérifiée dans `src/audio.js`, à retenir) : la **FFT est
+indépendante de `cap`** (toujours 512 pts) et mémoïsée → pas le suspect. Le coût
+qui scale avec `cap` est l'**iDFT `harmonicsToPoints`** (≈ 600×N `sin()`), mais
+son garde anti-zéro `if (a)` ne saute que les zéros exacts ; le **leakage du
+mismatch 600↔512** contamine les harmoniques inutilisées en micro-non-zéros et
+défait ce garde → d'où l'effet perf du bump 128→256 même à 16 harmoniques
+utilisées. Le seuil epsilon (N.1) neutralise cet effet sans le refactor #12.
+
+**Différés hors itération N** :
+- **#12 Mismatch FFT 600↔512** : correctness, pas perf ; fix « propre » coûteux
+  (DFT directe *plus lente*, ou refactor transverse `POINTS_RESOLUTION`). Reste
+  backlog ci-dessous.
+- **Moteur de recherche dans la doc** : c'est une *feature*, hors thème
+  stabilité/fluidité. À faire en itération dédiée.
+- **Monde B inharmonique + morph, MIDI USB, i18n** : grands arcs / ouvertures
+  futures, après consolidation.
 
 ---
 
