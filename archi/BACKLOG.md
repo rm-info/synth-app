@@ -63,12 +63,18 @@ Découpage prévu :
   double-pointe). Réf figée au début du drag, support [voisin_g, voisin_d], wrap
   périodique. Conçu en session (modèle « la spline est la tendance »).
   Prompt : `archi/N3-prompt.md`. **PCHIP/overshoot rayé.**
-- 📝 **N.3.1 — Warp lisse du résidu en mode doux** (prompt prêt,
-  `archi/N3.1-fix-prompt.md`). Le warp PL du résidu (N.3) crée des angles
-  parasites (en `xN`, `Lx`, `Rx`) invisibles en anguleux mais glaring en doux sur
-  les formes nettes (triangle/carrée). Fix : pré-image **C¹ lisse** (bump
-  smoothstep, pente 1 aux bords) en mode doux, PL conservé en anguleux. Garde
-  anti-repli.
+- 📝 **N.3 polish — édition d'ancres sans surprise** (prompt fusionné prêt,
+  `archi/N3-polish-prompt.md`). Principe : *représentation* (add/remove ancre,
+  switch mode) → canonical inchangée + résidu recalculé ; *forme* (drag) → warp.
+  - **3.1 — warp lisse en doux** : le warp PL du résidu (N.3) crée des angles
+    parasites (`xN`, `Lx`, `Rx`), glaring en doux sur triangle/carrée. Fix :
+    pré-image C¹ (bump smoothstep, pente 1 aux bords) en doux, PL en anguleux.
+  - **3.2 — ADD/REMOVE préservent la canonical** : ADD/REMOVE étaient additifs →
+    déformaient le tracé, et l'ancre ajoutée n'était pas sur le tracé
+    (`canonical(x) = y_ancre + résidu`). Fix : canonical inchangée, résidu
+    recalculé ; **ADD snappe l'ancre sur la courbe** (`y = canonical[x]`, option A
+    validée) → zéro déformation, ancre sur le tracé, on dragge ensuite pour
+    déformer.
 - **N.4 — Boutons de lissage du tracé** : (A) filtre passe-bas sur la canonical,
   (B) tendre vers la spline pure. Tester les deux à l'usage, garder le pertinent.
 - **N.5 — Presets `sine`/`square`/`saw`/`triangle` → séries de Fourier
