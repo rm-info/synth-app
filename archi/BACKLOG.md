@@ -90,9 +90,11 @@ Découpage prévu :
     Le bouton Effacer (Eraser, près du titre) s'applique direct, undo = filet
     (state `confirmResetWaveformOpen` + dialog reset retirés de `WaveformEditor`).
     **Point 1 (retrait barre presets géométriques) reporté à N.5c** (sinon trou).
-  - **N.5b — moteur band-limité** (prompt prêt, `archi/N5b-prompt.md`) : lib pur
-    `idealWaveform` / `bandlimitWaveform` (DFT directe 600, phase naturelle, pas de
-    leakage) / `bandlimitedWaveform` (normalisé top=1). Purement additif.
+  - **N.5b — moteur band-limité** ✅ **LIVRÉE** (`archi/N5b-prompt.md`) : lib pur
+    `src/lib/waveforms.js` — `idealWaveform` (brute, ex-`generatePresetPoints`) /
+    `bandlimitWaveform` (DFT directe 600, phase naturelle, pas de leakage) /
+    `bandlimitedWaveform` (normalisé top=1). Additif, validé (carré N=16 ≈ preset
+    sinusoïdal, orthogonalité round-trip, triangle 1/k²).
   - **N.5c — refonte modale** : 2 vignettes/classique (idéale + band-limitée),
     **N éditable avant chargement** (= `cap`, saisie libre snappée au plus proche
     partiel réel : impaires pour carré/triangle, toutes pour scie, 1 pour sinus),

@@ -60,8 +60,15 @@ confirmation) livrée** : le bouton Effacer le timbre (`Eraser`,
 `DesignerToolbar`) applique `resetWaveform` directement — plus de
 `ConfirmDialog` ; l'action étant undoable, Ctrl+Z est le filet (state
 `confirmResetWaveformOpen`, helper `doResetWaveform` et dialog dédiée
-retirés). Reste de l'itération : N.4 lissage du tracé, N.5b/N.5c refonte
-des presets (idéale + band-limitée, N éditable), N.6 durcissements. Hygiène post-M restante : note de clôture, purge des
+retirés). **Phase N.5b (moteur de formes) livrée** : nouveau lib pur
+`src/lib/waveforms.js` — `idealWaveform(type)` (forme brute, ex-
+`generatePresetPoints` déplacé) + `bandlimitWaveform(points, N)` /
+`bandlimitedWaveform(type, N)` (reconstruction des harmoniques 1..N par
+**DFT directe sur la grille 600**, phase naturelle, normalisée à
+magnitude-max=1). Additif : `WaveformEditor.loadPreset` rebranché sur
+`idealWaveform` (comportement identique), rien d'autre ne l'appelle encore
+(la modale arrive en N.5c). Reste de l'itération : N.4 lissage du tracé,
+N.5c refonte de la modale (idéale + band-limitée, N éditable), N.6 durcissements. Hygiène post-M restante : note de clôture, purge des
 prompt-fichiers `archi/Mr*` et `archi/M5b*` consommés.
 
 > **Structure des fichiers de contexte.** Ce `CONTEXT.md` est le **brief
@@ -127,6 +134,7 @@ synth-app/
     │   ├── mathParse.js      # sous-parser math récursif ($…$, $$…$$ → mathAst), \sum à bornes (iter-L phase-R.1 / iter-M phase-5a.1)
     │   ├── spline.js         # (iter-M M.3) splineSoft Catmull-Rom périodique / splineHard polyligne → points ; fitAnchorsToCurve = pose des ancres par Douglas-Peucker à compte fixe (iter-N N.2) ; warpResidualForAnchorMove = warp horizontal du résidu au drag d'ancre, support local + wrap (iter-N N.3)
     │   ├── presets.js        # (iter-M M.4) bibliothèque code-only de 12 presets de timbre harmoniques
+    │   ├── waveforms.js      # (iter-N N.5b) moteur de formes : idealWaveform (brute) + bandlimitWaveform/bandlimitedWaveform (reconstruction DFT directe 600, phase naturelle, normalisée). Pur, pas encore branché en prod (N.5c)
     │   └── tours/            # déclarations du Tour guidé par onglet (iter-L phase-4)
     │       ├── index.js      # map tabId → étapes + TOUR_TABS (ordre chaînage)
     │       ├── library.js / designer.js / composer.js / documentation.js  # séquences d'étapes
@@ -2508,9 +2516,9 @@ Cadrage et suspects détaillés dans `archi/BACKLOG.md`.
 - **N.4 — Boutons de lissage du tracé** : passe-bas sur la canonical et/ou
   tendre vers la spline pure.
 - **N.5 — Refonte des presets** (modale = point d'entrée unique, 2 vues idéale +
-  band-limitée, N éditable). N.5a (Effacer sans confirmation) **livrée**. Reste
-  N.5b (moteur band-limité) + N.5c (refonte modale + retrait barre presets
-  géométriques). Détail dans `archi/BACKLOG.md`.
+  band-limitée, N éditable). N.5a (Effacer sans confirmation) + N.5b (moteur de
+  formes, `lib/waveforms.js`) **livrées**. Reste N.5c (refonte modale + câblage +
+  retrait barre presets géométriques). Détail dans `archi/BACKLOG.md`.
 - **N.6 — Durcissements** : TS strict opt-in `src/reducer.js` ; décision
   auto-sizing au focus (keep/drop).
 
