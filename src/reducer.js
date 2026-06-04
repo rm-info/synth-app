@@ -1,3 +1,4 @@
+// @ts-check
 import { SOUND_COLORS, HARMONIC_COUNT, harmonicsToPoints, canonicalToBars } from './audio'
 import { splineToPoints, fitAnchorsToCurve, warpResidualForAnchorMove } from './lib/spline'
 import { wouldCreateCycle, duplicateItemsToFolder } from './lib/bibTransfer.js'
@@ -228,7 +229,8 @@ function defaultSplineAnchors(count = DEFAULT_SPLINE_ANCHOR_COUNT) {
 // large » ; toutes les lentilles ('free' | 'spline') donnent Forme d'onde large
 // [0.5, 0.25, 0.25]. Signature conservée (le caller passe encore une lentille)
 // pour absorber un futur défaut-par-lentille sans re-câbler les call-sites.
-export function defaultColumnWidthsForLens() {
+/** @param {import('./types').WaveformLens} [_lens] */
+export function defaultColumnWidthsForLens(_lens) {
   return [0.5, 0.25, 0.25]
 }
 
@@ -1537,6 +1539,7 @@ export function reducer(state, action) {
       const newCounter = state.patchCounter + 1
       const id = `patch-${newCounter}`
       const colorIndex = (newCounter - 1) % SOUND_COLORS.length
+      /** @type {import('./types').Patch} */
       const newPatch = {
         id,
         name: patchData.name,
@@ -2474,8 +2477,13 @@ export function reducer(state, action) {
     }
     // iter-L phase-2.1 : actions de l'onglet Documentation.
     case 'SET_CURRENT_ARTICLE': {
-      const id = typeof action.payload === 'string' || action.payload === null
-        ? action.payload
+      // payload extrait en local : le guard `typeof payload` sur la propriété
+      // d'un membre de l'union `WithMeta<…>` peut faire retomber `action` sur
+      // `never` (friction documentée dans types.ts) ; sur un `string | null`
+      // plain, le narrowing est sain.
+      const { payload } = action
+      const id = typeof payload === 'string' || payload === null
+        ? payload
         : state.doc.currentArticleId
       if (state.doc.currentArticleId === id) return state
       return { ...state, doc: { ...state.doc, currentArticleId: id } }
