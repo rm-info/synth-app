@@ -1890,7 +1890,7 @@ export function reducer(state, action) {
       // dans SplineEditor, aucun dispatch n'a eu lieu entre-temps → un seul commit
       // ici = un seul warp par le déplacement total x0→xN). On ne re-fit PAS les
       // ancres (positions voulues conservées). M.r.4 — phase non-canonique.
-      const residual = warpResidualForAnchorMove(state.editor.residual, anchors, index, cx)
+      const residual = warpResidualForAnchorMove(state.editor.residual, anchors, index, cx, state.editor.interpolation)
       const canonical = splinePlusResidual(splineToPoints(next, state.editor.interpolation), residual)
       return {
         ...state,

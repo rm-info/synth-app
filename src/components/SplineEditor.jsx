@@ -83,8 +83,8 @@ function SplineEditor({
       if (draftAnchors[i].x !== anchors[i].x) { di = i; break }
     }
     if (di === -1) return residual
-    return warpResidualForAnchorMove(residual, anchors, di, draftAnchors[di].x)
-  }, [draftAnchors, anchors, residual])
+    return warpResidualForAnchorMove(residual, anchors, di, draftAnchors[di].x, interpolation)
+  }, [draftAnchors, anchors, residual, interpolation])
   // Courbe principale (bleu = canonical) : committée au repos ; pendant un drag,
   // on PRÉVISUALISE spline(draft) + résidu remappé — exactement ce que produira le
   // reducer au commit (`splinePlusResidual`, non clampé depuis M.r.5.bis).

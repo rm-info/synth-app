@@ -224,7 +224,18 @@ export function fitAnchorsToCurve(canonical, count = 8) {
 // RESOLUTION) et le support traverse x=0 ; lecture du résidu et écriture se font
 // modulo RESOLUTION. Le clamp du handler (Lx + gap ≤ xN ≤ Rx − gap, Lx < x0 < Rx)
 // garantit un warp monotone sans repli. Pur ; garde anti-NaN.
-export function warpResidualForAnchorMove(refResidual, refAnchors, index, xN) {
+//
+// iter-N N.3.1 — la pré-image φ⁻¹(X) se branche sur le mode :
+//   - `hard` : linéaire par morceaux (les ruptures de pente en xN/Lx/Rx se
+//     fondent dans la tendance déjà anguleuse) ;
+//   - `soft` : bump smoothstep C¹ centré sur l'ancre — `φ⁻¹(X) = X + A·W(X)`,
+//     `A = x0 − xN`, `W = 1` à xN, `0` à Lx/Rx, `W' = 0` aux trois → raccord C¹
+//     avec l'identité hors support. Supprime les angles PARASITES du warp (sur
+//     l'ancre et sur la voisine), glaring en doux sur les formes nettes ; ne lisse
+//     PAS les vrais angles du dessin (portés par la tendance, intacts).
+//     Garde anti-repli : pente `1 + A·W'` (avec `|W'|max = 1.5/h`) doit rester
+//     `> 0` → on clampe `|A|` à `(2/3)·h` (côté qui comprime, marge 0.98).
+export function warpResidualForAnchorMove(refResidual, refAnchors, index, xN, interpolation = 'soft') {
   const n = refResidual.length
   const N = refAnchors.length
   const out = refResidual.slice()
@@ -244,13 +255,31 @@ export function warpResidualForAnchorMove(refResidual, refAnchors, index, xN) {
     const v = a + (b - a) * f
     return Number.isFinite(v) ? v : 0
   }
-  // Pré-image (inverse du warp), linéaire par morceaux, pour chaque X entier du
-  // support déroulé ; identité aux bornes (continuité avec le résidu voisin).
-  for (let X = Math.ceil(Lx); X <= Math.floor(Rx); X++) {
-    const x = X <= xN
+  // Pré-image (inverse du warp). Identité aux bornes (continuité avec le résidu
+  // voisin) ; φ⁻¹(xN) = x0 (le détail de l'ancre vient bien de sa position d'origine).
+  let preimage
+  if (interpolation === 'hard') {
+    preimage = (X) => X <= xN
       ? Lx + ((X - Lx) * (x0 - Lx)) / (xN - Lx)
       : x0 + ((X - xN) * (Rx - x0)) / (Rx - xN)
-    out[((X % n) + n) % n] = sample(x)
+  } else {
+    const hL = xN - Lx
+    const hR = Rx - xN
+    const A0 = x0 - xN
+    // Côté comprimé selon le sens du drag (A0≥0 = vers la gauche → compresse à
+    // droite, etc.). Clamp à (2/3)·h pour garder la pente du warp strictement > 0.
+    const limit = (A0 >= 0 ? hR : hL) * (2 / 3) * 0.98
+    const A = Math.sign(A0) * Math.min(Math.abs(A0), limit)
+    preimage = (X) => {
+      let W
+      if (X <= xN) { const t = (X - Lx) / hL; W = t * t * (3 - 2 * t) }
+      else { const u = (Rx - X) / hR; W = u * u * (3 - 2 * u) }
+      return X + A * W
+    }
+  }
+  // Pour chaque X entier du support déroulé.
+  for (let X = Math.ceil(Lx); X <= Math.floor(Rx); X++) {
+    out[((X % n) + n) % n] = sample(preimage(X))
   }
   return out
 }
