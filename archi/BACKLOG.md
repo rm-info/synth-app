@@ -54,17 +54,21 @@ Découpage prévu :
 - ✅ **N.2 — Disposition des ancres / Douglas-Peucker** (livré + validé). Ancres
   aux points qui comptent au lieu de l'équiréparti. `src/lib/spline.js`, API
   inchangée. Prompt : `archi/N2-prompt.md`.
-- 📝 **N.2.1 — Bascule Doux/Anguleux = no-op** (prompt prêt, `archi/N2.1-fix-prompt.md`).
-  Bug : `SET_SPLINE_INTERPOLATION` recomposait la canonical depuis le résidu gelé
-  → le tracé se déformait au switch sans drag. Fix : garder la canonical, recalculer
-  le résidu contre le nouveau mode (switch = no-op sur la courbe).
-- 📝 **N.3 — Drag d'ancre = déformation 2D à support local** (prompt prêt,
-  `archi/N3-prompt.md`). **Remplace l'ancien N.3 PCHIP.** Le drag d'ancre devient
-  une poignée 2D : `canonical = spline(nouvelles_ancres) + résidu_remappé`, le
-  détail ride sur la tendance et suit l'ancre en x (fin de la double-pointe).
-  Référence figée au début du drag, support [voisin_g, voisin_d], Doux/Anguleux
-  via la tendance. Conçu en session avec l'utilisateur (modèle « la spline est la
-  tendance que suit le tracé »). **L'overshoot PCHIP devient secondaire → rayé.**
+- ✅ **N.2.1 — Bascule Doux/Anguleux = no-op** (livré + validé). Le switch ne
+  déforme plus la canonical (résidu recalculé contre le nouveau mode).
+  Prompt : `archi/N2.1-fix-prompt.md`.
+- ✅ **N.3 — Drag d'ancre = déformation 2D à support local** (livré, **remplace
+  l'ancien N.3 PCHIP**). Poignée 2D : `canonical = spline(nouvelles_ancres) +
+  résidu_remappé`, le détail ride sur la tendance et suit l'ancre en x (fin de la
+  double-pointe). Réf figée au début du drag, support [voisin_g, voisin_d], wrap
+  périodique. Conçu en session (modèle « la spline est la tendance »).
+  Prompt : `archi/N3-prompt.md`. **PCHIP/overshoot rayé.**
+- 📝 **N.3.1 — Warp lisse du résidu en mode doux** (prompt prêt,
+  `archi/N3.1-fix-prompt.md`). Le warp PL du résidu (N.3) crée des angles
+  parasites (en `xN`, `Lx`, `Rx`) invisibles en anguleux mais glaring en doux sur
+  les formes nettes (triangle/carrée). Fix : pré-image **C¹ lisse** (bump
+  smoothstep, pente 1 aux bords) en mode doux, PL conservé en anguleux. Garde
+  anti-repli.
 - **N.4 — Boutons de lissage du tracé** : (A) filtre passe-bas sur la canonical,
   (B) tendre vers la spline pure. Tester les deux à l'usage, garder le pertinent.
 - **N.5 — Presets `sine`/`square`/`saw`/`triangle` → séries de Fourier
