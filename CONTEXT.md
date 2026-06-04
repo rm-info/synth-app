@@ -73,9 +73,16 @@ sons pré-fabriqués (3 sections — Formes de base à 2 vues idéale/band-limit
 éditable snappé, Timbres conçus, Inattendus). Chargement unifié via `LOAD_PRESET`
 (payload résolu par la modale : canonical + cap + ancres DP à `anchorCount` +
 flags). La barre des 4 presets géométriques du mode Libre est **retirée**
-(`APPLY_EDITOR_PRESET` supprimé). Reste de l'itération : N.4 lissage du tracé,
-N.6 durcissements. Hygiène post-M restante : note de clôture, purge des
-prompt-fichiers `archi/Mr*` et `archi/M5b*` consommés.
+(`APPLY_EDITOR_PRESET` supprimé). **Phase N.5d (finitions modale) livrée** : deux
+correctifs non-clamp indépendants — 5d.1 `PatchThumbnail` auto-fit Y vers le bas
+(`peak = max(1, |points|)`, scale `ymid·0.9/peak`) → les formes à pic > ±1
+(band-limitées, tracés non clampés) s'affichent entières au lieu d'être tronquées,
+les formes ≤ ±1 inchangées (bénéficie aussi aux vignettes Bibliothèque) ; 5d.2
+retrait du clamp `[-1,1]` oublié dans `fitAnchorsToCurve` (`spline.js`) → les
+ancres auto se posent sur la trace au-delà de ±1 (garde anti-NaN conservée).
+Reste de l'itération : N.4 lissage du tracé, N.6 durcissements. Hygiène post-M
+restante : note de clôture, purge des prompt-fichiers `archi/Mr*` et `archi/M5b*`
+consommés.
 
 > **Structure des fichiers de contexte.** Ce `CONTEXT.md` est le **brief
 > vivant** : état présent, modèle de données, composants, architecture,

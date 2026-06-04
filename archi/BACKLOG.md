@@ -104,10 +104,13 @@ Découpage prévu :
     chargement). Barre Libre des presets géométriques retirée (point 1). Décision
     archi : carré/scie/triangle retirés de `TIMBRE_PRESETS` (doublons du band-limité
     N=16) → vivent dans `BASE_WAVEFORMS` ; modale `pickerTitle` → « Presets ».
-  - **N.5d — finitions** (prompt prêt, `archi/N5d-prompt.md`) : 5d.1 vignettes
-    auto-fit Y vers le bas (`PatchThumbnail`, fin des formes tronquées) ; 5d.2
-    retrait du clamp ±1 dans `fitAnchorsToCurve` (ancres sur la trace au-delà de
-    ±1 — oubli de la doctrine non-clamp M.r.5.bis).
+  - **N.5d — finitions** ✅ **LIVRÉE** (`archi/N5d-prompt.md`, 2 commits) : 5d.1
+    vignettes auto-fit Y vers le bas (`PatchThumbnail` : `peak = max(1, |points|)`,
+    scale `ymid·0.9/peak` → formes ≤ ±1 inchangées, formes qui dépassent rendues
+    entières ; bénéficie aussi aux vignettes Bibliothèque) ; 5d.2 retrait du clamp
+    ±1 dans `fitAnchorsToCurve` (`src/lib/spline.js`, ancres sur la trace au-delà
+    de ±1 — oubli de la doctrine non-clamp M.r.5.bis ; garde anti-NaN conservée,
+    `sanitizeAnchors` [-10,10] protège toujours la persistance).
 - **N.6 — Durcissements** : TS strict opt-in `src/reducer.js` ; décision
   auto-sizing au focus (keep/drop, en suspens depuis M).
 
