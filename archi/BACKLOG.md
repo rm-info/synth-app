@@ -111,6 +111,15 @@ Découpage prévu :
     ±1 dans `fitAnchorsToCurve` (`src/lib/spline.js`, ancres sur la trace au-delà
     de ±1 — oubli de la doctrine non-clamp M.r.5.bis ; garde anti-NaN conservée,
     `sanitizeAnchors` [-10,10] protège toujours la persistance).
+  - **N.5e — chargement preset + phase scie** ✅ **LIVRÉE** (`archi/N5e-prompt.md`,
+    2 commits) : 5e.1 charger un preset se comporte comme **Effacer**, pas comme
+    Ctrl+Alt+N — `LOAD_PRESET` conserve `currentPatchId` (chargement en place,
+    marque dirty) + retrait de la confirmation d'écrasement (`pendingPresetPayload`
+    / `ConfirmDialog` preset supprimés de `WaveformEditor`, undo = filet) ; 5e.2
+    `idealWaveform('sawtooth')` = `1−2t` (scie descendante) au lieu de `2t−1` →
+    série de Fourier en +sin = phase canonique, plus de flip parasite au Normaliser
+    (carré/sinus déjà OK ; le triangle change de forme au Normaliser **par nature**
+    = dualité cosinus→sinus voulue, pas un bug).
 - **N.6 — Durcissements** : TS strict opt-in `src/reducer.js` ; décision
   auto-sizing au focus (keep/drop, en suspens depuis M).
 

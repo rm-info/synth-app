@@ -80,6 +80,12 @@ correctifs non-clamp indépendants — 5d.1 `PatchThumbnail` auto-fit Y vers le 
 les formes ≤ ±1 inchangées (bénéficie aussi aux vignettes Bibliothèque) ; 5d.2
 retrait du clamp `[-1,1]` oublié dans `fitAnchorsToCurve` (`spline.js`) → les
 ancres auto se posent sur la trace au-delà de ±1 (garde anti-NaN conservée).
+**Phase N.5e (chargement preset + phase scie) livrée** : 5e.1 charger un preset se
+comporte comme Effacer — `LOAD_PRESET` conserve `currentPatchId` (chargement en
+place, marque dirty) et la confirmation d'écrasement est retirée (`pendingPresetPayload`
+/ `ConfirmDialog` preset supprimés, `onPick` → `loadPreset` direct) ; 5e.2
+`idealWaveform('sawtooth')` passe de `2t−1` à `1−2t` (scie descendante) → série en
++sin = phase canonique, plus de flip parasite au Normaliser.
 Reste de l'itération : N.4 lissage du tracé, N.6 durcissements. Hygiène post-M
 restante : note de clôture, purge des prompt-fichiers `archi/Mr*` et `archi/M5b*`
 consommés.
@@ -688,12 +694,15 @@ Seuls les **placements timeline** s'appellent "clips".
 - Vignettes via `PatchThumbnail` ; la modale **résout elle-même la canonical**
   (moteur `lib/waveforms.js` + `harmonicsToPoints`) et passe à `onPick` un payload
   prêt `{ canonical, cap, anchorCount, canonicalNormalized, preset }`.
-- Le garde-fou dirty (`ConfirmDialog` avant écrasement, état `pendingPresetPayload`)
-  et le dispatch `LOAD_PRESET` vivent côté `WaveformEditor` (qui détient le signal
-  dirty `patchFieldsEqual`).
+- Le dispatch `LOAD_PRESET` vit côté `WaveformEditor` (`handlePickPreset`). **N.5e.1**
+  : le chargement se comporte comme **Effacer** (`RESET_EDITOR_WAVEFORM`) — **pas
+  de confirmation** (undo = filet), pas de garde-fou dirty (`pendingPresetPayload` /
+  `ConfirmDialog` preset retirés). `onPick` → `loadPreset(payload)` direct.
 - `LOAD_PRESET` (reducer, undoable atomique) pose la canonical résolue + cap +
   fitte les ancres par DP au `anchorCount` du preset + recalcule le résidu ;
-  amplitude/ADSR/test* préservés.
+  amplitude/ADSR/test* préservés. **N.5e.1 : conserve `currentPatchId`** (chargement
+  en place qui remplace le timbre du patch courant et le marque dirty, comme
+  `RESET_EDITOR_WAVEFORM` — au lieu de détacher façon Ctrl+Alt+N).
 
 ### `Timeline.jsx` (Composer)
 - Layout multipiste : colonne d'en-têtes de piste (sticky left, 120px) +
