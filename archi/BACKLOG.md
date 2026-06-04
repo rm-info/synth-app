@@ -77,8 +77,9 @@ Découpage prévu :
     déformer.
 - **N.4 — Boutons de lissage du tracé** : (A) filtre passe-bas sur la canonical,
   (B) tendre vers la spline pure. Tester les deux à l'usage, garder le pertinent.
-- **N.5 — Refonte du système de presets** (conçu en session). La modale Presets
-  devient l'**unique point d'entrée** des sons pré-fabriqués. Modèle verrouillé :
+- **N.5 — Refonte du système de presets** ✅ **CLOSE** (N.5a + N.5b + N.5c livrées).
+  La modale Presets est l'**unique point d'entrée** des sons pré-fabriqués. Modèle
+  verrouillé :
   chaque forme classique (quand pertinent) a **deux vues du même son** —
   **idéale** (forme brute stockée, plate/droite, clairement identifiable,
   see≠audio assumé = référence platonicienne) et **band-limitée** (reconstruction
@@ -95,12 +96,14 @@ Découpage prévu :
     `bandlimitWaveform` (DFT directe 600, phase naturelle, pas de leakage) /
     `bandlimitedWaveform` (normalisé top=1). Additif, validé (carré N=16 ≈ preset
     sinusoïdal, orthogonalité round-trip, triangle 1/k²).
-  - **N.5c — refonte modale** (prompt prêt, `archi/N5c-prompt.md` — 3 sous-commits :
-    données/chargement, UI, retrait barre) : 2 vignettes/classique (idéale + band-limitée),
-    **N éditable avant chargement** (= `cap`, saisie libre snappée au plus proche
-    partiel réel : impaires pour carré/triangle, toutes pour scie, 1 pour sinus),
-    thumbnail **live** sur l'entrée sélectionnée, **`anchorCount` idéal** par preset
-    (posé via DP N.2 au chargement). **Retrait de la barre Libre (point 1) ici.**
+  - **N.5c — refonte modale** ✅ **LIVRÉE** (`archi/N5c-prompt.md`, 3 sous-commits :
+    données/chargement unifié `LOAD_PRESET`, UI `PresetPicker`, retrait barre).
+    2 vignettes/classique (idéale + band-limitée), **N éditable** (saisie libre
+    snappée via `snapN` : impaires carré/triangle, toutes scie, 1 sinus), thumbnail
+    **live** sur la band-limitée, **`anchorCount`** par preset (posé via DP au
+    chargement). Barre Libre des presets géométriques retirée (point 1). Décision
+    archi : carré/scie/triangle retirés de `TIMBRE_PRESETS` (doublons du band-limité
+    N=16) → vivent dans `BASE_WAVEFORMS` ; modale `pickerTitle` → « Presets ».
 - **N.6 — Durcissements** : TS strict opt-in `src/reducer.js` ; décision
   auto-sizing au focus (keep/drop, en suspens depuis M).
 

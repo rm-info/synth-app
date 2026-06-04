@@ -67,8 +67,14 @@ retirés). **Phase N.5b (moteur de formes) livrée** : nouveau lib pur
 **DFT directe sur la grille 600**, phase naturelle, normalisée à
 magnitude-max=1). Additif : `WaveformEditor.loadPreset` rebranché sur
 `idealWaveform` (comportement identique), rien d'autre ne l'appelle encore
-(la modale arrive en N.5c). Reste de l'itération : N.4 lissage du tracé,
-N.5c refonte de la modale (idéale + band-limitée, N éditable), N.6 durcissements. Hygiène post-M restante : note de clôture, purge des
+(la modale arrive en N.5c). **Phase N.5c (refonte modale Presets) livrée — N.5
+close** : la modale `PresetPicker` est désormais le **point d'entrée unique** des
+sons pré-fabriqués (3 sections — Formes de base à 2 vues idéale/band-limitée + N
+éditable snappé, Timbres conçus, Inattendus). Chargement unifié via `LOAD_PRESET`
+(payload résolu par la modale : canonical + cap + ancres DP à `anchorCount` +
+flags). La barre des 4 presets géométriques du mode Libre est **retirée**
+(`APPLY_EDITOR_PRESET` supprimé). Reste de l'itération : N.4 lissage du tracé,
+N.6 durcissements. Hygiène post-M restante : note de clôture, purge des
 prompt-fichiers `archi/Mr*` et `archi/M5b*` consommés.
 
 > **Structure des fichiers de contexte.** Ce `CONTEXT.md` est le **brief
@@ -133,8 +139,8 @@ synth-app/
     │   ├── markdown.js       # parser Markdown maison + AST, délègue le math à mathParse (iter-L phase-2.2 / R.1)
     │   ├── mathParse.js      # sous-parser math récursif ($…$, $$…$$ → mathAst), \sum à bornes (iter-L phase-R.1 / iter-M phase-5a.1)
     │   ├── spline.js         # (iter-M M.3) splineSoft Catmull-Rom périodique / splineHard polyligne → points ; fitAnchorsToCurve = pose des ancres par Douglas-Peucker à compte fixe (iter-N N.2) ; warpResidualForAnchorMove = warp horizontal du résidu au drag d'ancre, support local + wrap (iter-N N.3)
-    │   ├── presets.js        # (iter-M M.4) bibliothèque code-only de 12 presets de timbre harmoniques
-    │   ├── waveforms.js      # (iter-N N.5b) moteur de formes : idealWaveform (brute) + bandlimitWaveform/bandlimitedWaveform (reconstruction DFT directe 600, phase naturelle, normalisée). Pur, pas encore branché en prod (N.5c)
+    │   ├── presets.js        # (iter-M M.4) bibliothèque code-only de timbres harmoniques (TIMBRE_PRESETS + anchorCount N.5c). N.5c : carré/scie/triangle retirés (→ BASE_WAVEFORMS) ; restent flûte/orgue/cuivre + inattendus
+    │   ├── waveforms.js      # (iter-N N.5b/N.5c) moteur de formes : idealWaveform (brute) + bandlimitWaveform/bandlimitedWaveform (reconstruction DFT directe 600, phase naturelle, normalisée) + BASE_WAVEFORMS (descripteurs des 4 formes de base : twoViews/defaultN/snap/anchorCount) + snapN (recadrage de N). Branché dans PresetPicker (N.5c)
     │   └── tours/            # déclarations du Tour guidé par onglet (iter-L phase-4)
     │       ├── index.js      # map tabId → étapes + TOUR_TABS (ordre chaînage)
     │       ├── library.js / designer.js / composer.js / documentation.js  # séquences d'étapes
@@ -662,18 +668,25 @@ Seuls les **placements timeline** s'appellent "clips".
 - Dialog draw/harmonic → spline. **Supprimé** avec les conversions destructives
   (cf. ConvertToHarmonicDialog ci-dessus).
 
-### `PresetPicker.jsx` (iter-M phase-4)
-- Modal de chargement des presets de timbre, ouvert par le bouton « Presets »
-  de la **barre du haut** (`DesignerToolbar`, déplacé depuis le header
-  Harmoniques en M.r.2.2 ; modale inchangée). Reprend le langage visuel des
-  dialogs (backdrop + carte centrée). Escape ferme.
-- Liste `TIMBRE_PRESETS` groupée par `PRESET_CATEGORIES` (nom + description en
-  ligne). Clic → `onPick(preset)` délégué au parent. Le garde-fou dirty
-  (`ConfirmDialog` avant écrasement) et le dispatch `LOAD_PRESET` vivent côté
-  `WaveformEditor` (qui détient le signal dirty `patchFieldsEqual`).
-- `LOAD_PRESET` (reducer, undoable atomique) remplace le draft en mode
-  harmonique sans passerelle ; amplitude/ADSR aux défauts, champs test*
-  préservés. `sanitizeAmplitudes` = copie défensive de la donnée immuable.
+### `PresetPicker.jsx` (iter-M phase-4, refondu iter-N N.5c)
+- Modale **point d'entrée unique** des sons pré-fabriqués, ouverte par le bouton
+  « Presets » de la **barre du haut** (`DesignerToolbar`). Backdrop + carte
+  centrée (520px). Escape / clic backdrop ferment. Trois sections :
+  - **Formes de base** (`BASE_WAVEFORMS`) : sinus = 1 vignette (N figé à 1) ;
+    carré/scie/triangle = **2 vignettes** (idéale statique + band-limitée qui se
+    redessine en live au changement de N) + champ N (`NumberInput`, saisie libre
+    snappée via `snapN` selon `snap` : odd/all). Clic vignette = charge cette vue.
+  - **Timbres conçus** (flûte/orgue/cuivre) et **Inattendus** : grilles de
+    vignettes, clic = charge.
+- Vignettes via `PatchThumbnail` ; la modale **résout elle-même la canonical**
+  (moteur `lib/waveforms.js` + `harmonicsToPoints`) et passe à `onPick` un payload
+  prêt `{ canonical, cap, anchorCount, canonicalNormalized, preset }`.
+- Le garde-fou dirty (`ConfirmDialog` avant écrasement, état `pendingPresetPayload`)
+  et le dispatch `LOAD_PRESET` vivent côté `WaveformEditor` (qui détient le signal
+  dirty `patchFieldsEqual`).
+- `LOAD_PRESET` (reducer, undoable atomique) pose la canonical résolue + cap +
+  fitte les ancres par DP au `anchorCount` du preset + recalcule le résidu ;
+  amplitude/ADSR/test* préservés.
 
 ### `Timeline.jsx` (Composer)
 - Layout multipiste : colonne d'en-têtes de piste (sticky left, 120px) +
@@ -735,14 +748,15 @@ Seuls les **placements timeline** s'appellent "clips".
   d'un patch harmonique ; stockée dans `points` → l'audio reste mono-chemin
   (round-trip iDFT→DFT propre à 512 échantillons, k≤256 sur un bin exact).
 
-### `lib/presets.js` (iter-M phase-4)
-- Bibliothèque **code-only, read-only** de presets de timbre, indépendante du
-  PatchBank utilisateur. `TIMBRE_PRESETS` (12 entrées) + `PRESET_CATEGORIES`.
-- Chaque entrée `{ id, category, name, description, patch }` où `patch` est un
-  HarmonicPatch minimal `{ mode:'harmonic', N, amplitudes }`. 6 évocateurs
-  d'instruments + 6 inattendus-propres. Libellés (noms, descriptions,
-  catégories) importés de `STRINGS.timbrePresets`. Pas de presets
-  `spline`/`draw` (un user convertit un preset harmonique).
+### `lib/presets.js` (iter-M phase-4, élagué iter-N N.5c)
+- Bibliothèque **code-only, read-only** de timbres conçus, indépendante du
+  PatchBank utilisateur. `TIMBRE_PRESETS` (9 entrées) + `PRESET_CATEGORIES`.
+- Chaque entrée `{ id, category, name, description, anchorCount, patch }` où
+  `patch` est un HarmonicPatch minimal `{ mode:'harmonic', N, amplitudes }`.
+  3 évocateurs d'instruments (flûte/orgue/cuivre) + 6 inattendus-propres.
+  **N.5c** : carré/scie/triangle (amplitudes = band-limité N=16) retirés d'ici —
+  ils vivent dans `BASE_WAVEFORMS` (`lib/waveforms.js`, 2 vues). `anchorCount` =
+  nb d'ancres DP au chargement. Libellés via `STRINGS.timbrePresets`.
 
 ### `lib/spline.js` (iter-M phase-3)
 - `splineSoft(anchors)` (Catmull-Rom périodique, Hermite cubique y(x) — voisins
@@ -788,6 +802,18 @@ Seuls les **placements timeline** s'appellent "clips".
 Choix non évidents pris pour de bonnes raisons. À ne pas remettre en question
 à la légère — relire ici avant de refactorer.
 
+- **Modale Presets = point d'entrée unique + modèle 2-vues (iter-N N.5c)** : tous
+  les sons pré-fabriqués passent par la modale `PresetPicker` (plus de barre de
+  presets géométriques en mode Libre). Les 4 formes de base (`BASE_WAVEFORMS`,
+  `lib/waveforms.js`) exposent **deux vues du même son** : *idéale* (forme brute
+  plate/droite, `cap=256`, see≠audio assumé = référence platonicienne) et
+  *band-limitée* (reconstruction phase naturelle à N harmoniques via le moteur
+  N.5b, `cap=N`, see=audio honnête) — même son à N égal (l'audio est renormalisé
+  à la lecture), seul le dessin diffère. Le sinus n'a qu'une vue (N figé à 1). Les
+  timbres conçus (`TIMBRE_PRESETS`) ont une vue, pas de N éditable. Chargement
+  **unifié** par `LOAD_PRESET` : la modale (qui a le moteur) résout la canonical et
+  passe un payload prêt ; le reducer pose canonical + cap + ancres DP à
+  `anchorCount` + flags. `APPLY_EDITOR_PRESET` supprimé.
 - **Courbe canonique unique + lentilles (M rattrapage, 2026-06-01)** : le timbre
   est UNE courbe `canonical` (600 pts, vérité audio) regardée/éditée par trois
   lentilles toujours synchronisées (Forme d'onde / Harmoniques / Spectro), pas
@@ -2515,10 +2541,11 @@ Cadrage et suspects détaillés dans `archi/BACKLOG.md`.
   vs forme » posé en décision archi.
 - **N.4 — Boutons de lissage du tracé** : passe-bas sur la canonical et/ou
   tendre vers la spline pure.
-- **N.5 — Refonte des presets** (modale = point d'entrée unique, 2 vues idéale +
-  band-limitée, N éditable). N.5a (Effacer sans confirmation) + N.5b (moteur de
-  formes, `lib/waveforms.js`) **livrées**. Reste N.5c (refonte modale + câblage +
-  retrait barre presets géométriques). Détail dans `archi/BACKLOG.md`.
+- **N.5 — Refonte des presets** ✅ **CLOSE** : modale = point d'entrée unique,
+  2 vues idéale/band-limitée + N éditable. N.5a (Effacer sans confirmation) +
+  N.5b (moteur de formes, `lib/waveforms.js`) + N.5c (refonte modale + chargement
+  unifié + retrait barre géométrique) livrées. Cf. décision archi « Modale
+  Presets = point d'entrée unique + modèle 2-vues ».
 - **N.6 — Durcissements** : TS strict opt-in `src/reducer.js` ; décision
   auto-sizing au focus (keep/drop).
 
