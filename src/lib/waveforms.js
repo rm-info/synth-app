@@ -47,7 +47,9 @@ export function idealWaveform(type) {
     switch (type) {
       case 'sine': pts[i] = Math.sin(2 * Math.PI * t); break
       case 'square': pts[i] = t < 0.5 ? 1 : -1; break
-      case 'sawtooth': pts[i] = 2 * t - 1; break
+      // Scie descendante (1 → −1) : série de Fourier en +sin = phase canonique.
+      // La version montante (2t−1) est en −sin → flip parasite au Normaliser.
+      case 'sawtooth': pts[i] = 1 - 2 * t; break
       case 'triangle': pts[i] = t < 0.5 ? 4 * t - 1 : 3 - 4 * t; break
     }
   }
