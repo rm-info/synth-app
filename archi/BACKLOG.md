@@ -148,8 +148,16 @@ Découpage prévu :
     Décisions session conservées : impulsion = doublet bipolaire (sinon redondante
     avec pulse) ; familles passant par le carré aux extrêmes (escalier K=2, trapèze
     bord→0, pulse duty=0.5) = pédagogique, pas un doublon.
-- **N.6 — Durcissements** : TS strict opt-in `src/reducer.js` ; décision
-  auto-sizing au focus (keep/drop, en suspens depuis M).
+- **N.6 — Durcissements** (prompt prêt, `archi/N6-prompt.md`, dernière phase de N) :
+  - **6.1** `// @ts-check` sur `reducer.js` (typé State/Action via `types.ts`),
+    approche « mesure le nb d'erreurs → corrige les vrais bugs → plafonne le bruit
+    résiduel vers le backlog Migration TS ». Catche la classe `DEFAULT_EDITOR.points`.
+  - **6.2** auto-sizing **gardé** mais refondu en **groupe radio** : bouton AUTO
+    restylé (SVG « AUTO », même cadre que les presets), **état actif dérivé**
+    (autoSizing → AUTO ; sinon preset matchant les widths ; sinon aucun = custom)
+    coloré comme les radios live/dB/peak ; **couplage** : clic preset ou drag
+    manuel désactive AUTO (et inversement). `setAutoSizing(false)` aux call-sites
+    manuels (pas dans `onWidths`, sinon l'auto se coupe lui-même).
 
 Analyse de coût (vérifiée dans `src/audio.js`, à retenir) : la **FFT est
 indépendante de `cap`** (toujours 512 pts) et mémoïsée → pas le suspect. Le coût
