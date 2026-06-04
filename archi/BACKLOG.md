@@ -10,162 +10,28 @@
 
 ---
 
-## Iteration N (Stabilité & fluidité) — cadrée 2026-06-03
+## Iteration N (Stabilité & fluidité) — livrée 2026-06-04
 
-**Priorité produit (utilisateur)** : la stabilité et la fluidité du système
-passent avant l'ajout de nouvelles fonctionnalités avancées. Après le long
-rattrapage M, on apure et on polit la base avant tout grand saut créatif
-(Monde B). Cette itération absorbe les items de fluidité/qualité/fondation
-remontés pendant M.
+Apurement et polish post-rattrapage M. **Détail par-phase : git + CONTEXT-ARCHIVE.**
+Livré (N.1→N.6) :
 
-Découpage prévu :
-
-- ✅ **N.1 — Latence audio** (livré 2026-06-03, `fix(iter-N/phase-1.2)`).
-  Profilage N.1.1 (sans commit) : sur 4 suspects, **seul (b) confirmé** — le
-  leakage 600↔512 rend les 256 barres de `canonicalToBars` non-nulles et défait
-  le garde `if (a)` de `harmonicsToPoints` → iDFT 600×cap par mousemove (4,8 ms
-  à cap=256, ligne 395 non mémoïsée + `normalizedBg`). (a) rAF auto-fit, (c)
-  empilement rAF, (d) cache miss : **infirmés** (boucles convergentes, identités
-  `useCallback` stables, cache canonical stable hors édition). Fix N.1.2 :
-  `HARMONIC_EPSILON = 1e-4` (garde à seuil + snap amont du leakage à zéro dans
-  `canonicalToBars`). Drag de barre **7,6× plus rapide** à cap=256, transparent
-  (créneau : Δ=8e-15 ; sparse : 1e-4=−80 dB ; 0 harmonique légitime tuée).
-  Prompt : `archi/N1-prompt.md`. **Hors scope tenu : #12.**
-- ✅ **N.1.3 — Audit perf exhaustif + profilage dev/prod** (2026-06-03). Workflow
-  multi-agents (5 dimensions, vérif adverse : 20 findings → 12 confirmés) + traces
-  Firefox dev & prod analysées par script. **VERDICT : la latence ressentie était
-  un artefact du mode dev.** eventDelay dev→prod : médiane 17→3 ms, p90 99→14 ms,
-  p99 185→63 ms, instants >100 ms : **266→0**. ~1,9 s/9,8 s de coûts dev-only
-  (`jsxDEV`, `SavedStacks`/`SavedFrame`, `defineProperty`, GC 441→12 ms)
-  disparaissent en prod. DSP négligeable (`createPeriodicWave` 4 ms total). Le
-  symptôme « frappe→son » est immune au JS (audio planifié sur l'horloge
-  AudioContext avant le commit React). **Perf prod saine — investigation latence
-  close.** Réflexe acquis : toujours profiler en prod, pas le dev server.
-- ✅ **N.1.4 — Groupe A quick wins** (livré + **validé** 2026-06-03,
-  `fix(iter-N/phase-1.4.{1,2,3})`). Reclassé **hygiène/stockage** — pas un fix de
-  perf (prod déjà fluide) : cache `themeColor`, cache `PeriodicWave` (négligeable),
-  arrondi payload 1e-4 (**−63 % localStorage**, le seul à valeur réelle). Code
-  vérifié transparent (son/courbes/`.osa` intacts). Détail dans CONTEXT.
-  Prompt : `archi/N1-groupeA-prompt.md`.
-- ⛔ **Groupe B/C de l'audit** (re-renders par note/frame, isolation des drafts,
-  mémoïsation d'arbre, mount-gating Timeline, débounce persistance — ranks 1-5/8/9)
-  : **confirmé inutile pour la perf prod** → dette dormante, ne pas investir sans
-  nouvelle preuve d'un résiduel réel en prod.
-- ✅ **N.2 — Disposition des ancres / Douglas-Peucker** (livré + validé). Ancres
-  aux points qui comptent au lieu de l'équiréparti. `src/lib/spline.js`, API
-  inchangée. Prompt : `archi/N2-prompt.md`.
-- ✅ **N.2.1 — Bascule Doux/Anguleux = no-op** (livré + validé). Le switch ne
-  déforme plus la canonical (résidu recalculé contre le nouveau mode).
-  Prompt : `archi/N2.1-fix-prompt.md`.
-- ✅ **N.3 — Drag d'ancre = déformation 2D à support local** (livré, **remplace
-  l'ancien N.3 PCHIP**). Poignée 2D : `canonical = spline(nouvelles_ancres) +
-  résidu_remappé`, le détail ride sur la tendance et suit l'ancre en x (fin de la
-  double-pointe). Réf figée au début du drag, support [voisin_g, voisin_d], wrap
-  périodique. Conçu en session (modèle « la spline est la tendance »).
-  Prompt : `archi/N3-prompt.md`. **PCHIP/overshoot rayé.**
-- ✅ **N.3 polish — édition d'ancres sans surprise** (livré + validé,
-  `archi/N3-polish-prompt.md`). Principe : *représentation* (add/remove ancre,
-  switch mode) → canonical inchangée + résidu recalculé ; *forme* (drag) → warp.
-  - **3.1 — warp lisse en doux** : le warp PL du résidu (N.3) crée des angles
-    parasites (`xN`, `Lx`, `Rx`), glaring en doux sur triangle/carrée. Fix :
-    pré-image C¹ (bump smoothstep, pente 1 aux bords) en doux, PL en anguleux.
-  - **3.2 — ADD/REMOVE préservent la canonical** : ADD/REMOVE étaient additifs →
-    déformaient le tracé, et l'ancre ajoutée n'était pas sur le tracé
-    (`canonical(x) = y_ancre + résidu`). Fix : canonical inchangée, résidu
-    recalculé ; **ADD snappe l'ancre sur la courbe** (`y = canonical[x]`, option A
-    validée) → zéro déformation, ancre sur le tracé, on dragge ensuite pour
-    déformer.
-- **N.4 — Boutons de lissage du tracé** ✅ **LIVRÉE** (`archi/N4-prompt.md`, 2
-  sous-commits) : 4.1 `SMOOTH_EDITOR_CANONICAL` = passe-bas Gaussien périodique
-  (σ 3 pts, rayon 3σ, wrap) sur la canonical → re-fit DP des ancres + résidu (icône
-  `Waves`) ; 4.2 `TEND_TOWARD_SPLINE` = `lerp(canonical, spline(anchors), 0.5)`,
-  garde les ancres, recalcule le résidu (= `(1−α)·résidu` → 0 si répété ; icône
-  `ChartSpline`). Undoables + répétables, `canonicalNormalized=false` + `preset=null`,
-  dans le header Forme d'onde à côté de Normaliser. **✅ Essai tranché (passe d'usage) :
-  on GARDE les deux** — différence de fonctionnement claire et complémentaire : (A)
-  gomme les hautes fréquences spatiales indépendamment des ancres, (B) régularise
-  vers la lentille Spline (dépend du nombre d'ancres : peu = lisse fort, 32 = effet
-  faible). 4.3 (`fix`) : le header passe en `flex-wrap` (6 groupes de contrôles, le
-  dernier bouton était rogné en colonne étroite).
-- **N.5 — Refonte du système de presets** ✅ **CLOSE** (N.5a + N.5b + N.5c livrées).
-  La modale Presets est l'**unique point d'entrée** des sons pré-fabriqués. Modèle
-  verrouillé :
-  chaque forme classique (quand pertinent) a **deux vues du même son** —
-  **idéale** (forme brute stockée, plate/droite, clairement identifiable,
-  see≠audio assumé = référence platonicienne) et **band-limitée** (reconstruction
-  **phase naturelle** à N harmoniques, ondulée, see=audio honnête). Même son à N
-  égal, dessin différent. Le **sinus** n'a qu'une vue. (Correction archi : la
-  différence n'est PAS la phase mais *idéal brut stocké* vs *reconstruction
-  tronquée* — un carré est tout-en-sinus.)
-  - **N.5a — Effacer sans confirmation** ✅ **LIVRÉE** (`archi/N5a-prompt.md`).
-    Le bouton Effacer (Eraser, près du titre) s'applique direct, undo = filet
-    (state `confirmResetWaveformOpen` + dialog reset retirés de `WaveformEditor`).
-    **Point 1 (retrait barre presets géométriques) reporté à N.5c** (sinon trou).
-  - **N.5b — moteur band-limité** ✅ **LIVRÉE** (`archi/N5b-prompt.md`) : lib pur
-    `src/lib/waveforms.js` — `idealWaveform` (brute, ex-`generatePresetPoints`) /
-    `bandlimitWaveform` (DFT directe 600, phase naturelle, pas de leakage) /
-    `bandlimitedWaveform` (normalisé top=1). Additif, validé (carré N=16 ≈ preset
-    sinusoïdal, orthogonalité round-trip, triangle 1/k²).
-  - **N.5c — refonte modale** ✅ **LIVRÉE** (`archi/N5c-prompt.md`, 3 sous-commits :
-    données/chargement unifié `LOAD_PRESET`, UI `PresetPicker`, retrait barre).
-    2 vignettes/classique (idéale + band-limitée), **N éditable** (saisie libre
-    snappée via `snapN` : impaires carré/triangle, toutes scie, 1 sinus), thumbnail
-    **live** sur la band-limitée, **`anchorCount`** par preset (posé via DP au
-    chargement). Barre Libre des presets géométriques retirée (point 1). Décision
-    archi : carré/scie/triangle retirés de `TIMBRE_PRESETS` (doublons du band-limité
-    N=16) → vivent dans `BASE_WAVEFORMS` ; modale `pickerTitle` → « Presets ».
-  - **N.5d — finitions** ✅ **LIVRÉE** (`archi/N5d-prompt.md`, 2 commits) : 5d.1
-    vignettes auto-fit Y vers le bas (`PatchThumbnail` : `peak = max(1, |points|)`,
-    scale `ymid·0.9/peak` → formes ≤ ±1 inchangées, formes qui dépassent rendues
-    entières ; bénéficie aussi aux vignettes Bibliothèque) ; 5d.2 retrait du clamp
-    ±1 dans `fitAnchorsToCurve` (`src/lib/spline.js`, ancres sur la trace au-delà
-    de ±1 — oubli de la doctrine non-clamp M.r.5.bis ; garde anti-NaN conservée,
-    `sanitizeAnchors` [-10,10] protège toujours la persistance).
-  - **N.5e — chargement preset + phase scie** ✅ **LIVRÉE** (`archi/N5e-prompt.md`,
-    2 commits) : 5e.1 charger un preset se comporte comme **Effacer**, pas comme
-    Ctrl+Alt+N — `LOAD_PRESET` conserve `currentPatchId` (chargement en place,
-    marque dirty) + retrait de la confirmation d'écrasement (`pendingPresetPayload`
-    / `ConfirmDialog` preset supprimés de `WaveformEditor`, undo = filet) ; 5e.2
-    `idealWaveform('sawtooth')` = `1−2t` (scie descendante) au lieu de `2t−1` →
-    série de Fourier en +sin = phase canonique, plus de flip parasite au Normaliser
-    (carré/sinus déjà OK ; le triangle change de forme au Normaliser **par nature**
-    = dualité cosinus→sinus voulue, pas un bug).
-  - **N.5f — timbres paramétriques + renommage** ✅ **LIVRÉE** (`archi/N5f-prompt.md`,
-    3 sous-commits). 5f.1 modale « Presets » → **« Timbres »**. 5f.2 moteur
-    `idealWaveform(type, params)` généralisé + 7 formes de base **paramétriques**
-    (`PARAMETRIC_WAVEFORMS`) : escalier (K marches), scie à étages (K, inclinée),
-    sinus décroissante (K cycles + ratio r → balayage son pur↔burst), pulse/PWM
-    (rapport cyclique → harmoniques paires), trapèze (bord), demi-sinus redressé,
-    impulsion (doublet bipolaire, largeur). `anchorCount` nombre ou fn de K
-    (escalier/scie). 5f.3 section **« Formes paramétriques »** dans la modale
-    (param(s) + N + 2 vignettes idéale/band-limitée, redraw live ; clic =
-    `LOAD_PRESET` N.5e, `preset: null`, `canonicalNormalized: false`). **À valider
-    à l'œil** (formes inventées) : trapèze implémenté pour matcher les vérifs
-    (bord→0 = carré, bord→0.25 = triangle) — l'annotation littérale de la formule du
-    prompt (`g=1/(1−4·bord)`) était inversée, j'ai pris `g=1/(4·bord)` ; scie à
-    étages dépasse ±1 (marche inclinée), impulsion monte fort en band-limité
-    (spectre quasi-plat) → vignette auto-fit (5d.1) + renorm `PeriodicWave`.
-    Décisions session conservées : impulsion = doublet bipolaire (sinon redondante
-    avec pulse) ; familles passant par le carré aux extrêmes (escalier K=2, trapèze
-    bord→0, pulse duty=0.5) = pédagogique, pas un doublon.
-- **N.6 — Durcissements** (prompt prêt, `archi/N6-prompt.md`, dernière phase de N) :
-  - **6.1** `// @ts-check` sur `reducer.js` (typé State/Action via `types.ts`),
-    approche « mesure le nb d'erreurs → corrige les vrais bugs → plafonne le bruit
-    résiduel vers le backlog Migration TS ». Catche la classe `DEFAULT_EDITOR.points`.
-  - **6.2** auto-sizing **gardé** mais refondu en **groupe radio** : bouton AUTO
-    restylé (SVG « AUTO », même cadre que les presets), **état actif dérivé**
-    (autoSizing → AUTO ; sinon preset matchant les widths ; sinon aucun = custom)
-    coloré comme les radios live/dB/peak ; **couplage** : clic preset ou drag
-    manuel désactive AUTO (et inversement). `setAutoSizing(false)` aux call-sites
-    manuels (pas dans `onWidths`, sinon l'auto se coupe lui-même).
-
-Analyse de coût (vérifiée dans `src/audio.js`, à retenir) : la **FFT est
-indépendante de `cap`** (toujours 512 pts) et mémoïsée → pas le suspect. Le coût
-qui scale avec `cap` est l'**iDFT `harmonicsToPoints`** (≈ 600×N `sin()`), mais
-son garde anti-zéro `if (a)` ne saute que les zéros exacts ; le **leakage du
-mismatch 600↔512** contamine les harmoniques inutilisées en micro-non-zéros et
-défait ce garde → d'où l'effet perf du bump 128→256 même à 16 harmoniques
-utilisées. Le seuil epsilon (N.1) neutralise cet effet sans le refactor #12.
+- **Latence (N.1)** — audit perf (workflow multi-agents + profilage dev/prod) →
+  verdict « latence ressentie = artefact du mode dev, **prod saine** » ; fix
+  epsilon iDFT (N.1.2) + quick wins (cache themeColor/PeriodicWave, arrondi payload
+  −63 %). Groupe B/C de l'audit (re-renders) = **dette dormante, inutile en prod**.
+- **Édition d'ancres refondue (N.2/2.1/3 + polish)** — placement Douglas-Peucker ;
+  switch Doux/Anguleux = no-op ; drag = **warp 2D** (le détail ride sur la tendance,
+  fin de la double-pointe) ; warp lisse en doux ; add/remove sans déformation.
+  Principe : *représentation* (add/remove, switch) → canonical inchangée ; *forme*
+  (drag) → warp.
+- **Système de presets refondu (N.5a→f)** — modale **« Timbres »** = point d'entrée
+  unique ; **2 vues idéale/band-limitée + N éditable** ; thumbnails live ; **formes
+  paramétriques** (escalier, scie à étages, sinus décroissante, PWM, trapèze,
+  demi-sinus, impulsion-doublet) ; chargement = comportement Effacer. Moteur
+  leakage-free `src/lib/waveforms.js`.
+- **Lissage (N.4)** — passe-bas + tendre-vers-spline (**les deux gardés**).
+- **Durcissements (N.6)** — `@ts-check` sur `reducer.js` (4 bugs réels corrigés,
+  0 résiduel) ; auto-sizing intégré en **groupe radio** (état actif dérivé).
 
 **Différés hors itération N** :
 - **#12 Mismatch FFT 600↔512** : correctness, pas perf ; fix « propre » coûteux
