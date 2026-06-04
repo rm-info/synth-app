@@ -95,7 +95,8 @@ Découpage prévu :
     `bandlimitWaveform` (DFT directe 600, phase naturelle, pas de leakage) /
     `bandlimitedWaveform` (normalisé top=1). Additif, validé (carré N=16 ≈ preset
     sinusoïdal, orthogonalité round-trip, triangle 1/k²).
-  - **N.5c — refonte modale** : 2 vignettes/classique (idéale + band-limitée),
+  - **N.5c — refonte modale** (prompt prêt, `archi/N5c-prompt.md` — 3 sous-commits :
+    données/chargement, UI, retrait barre) : 2 vignettes/classique (idéale + band-limitée),
     **N éditable avant chargement** (= `cap`, saisie libre snappée au plus proche
     partiel réel : impaires pour carré/triangle, toutes pour scie, 1 pour sinus),
     thumbnail **live** sur l'entrée sélectionnée, **`anchorCount` idéal** par preset
