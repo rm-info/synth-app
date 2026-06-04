@@ -337,10 +337,6 @@ function WaveformEditor({
   const [draftAmplitudes, setDraftAmplitudes] = useState(null)
   // Confirmation "abandonner modifs" pour handleNew
   const [confirmNewOpen, setConfirmNewOpen] = useState(false)
-  // iter-M phase-r.2.2 : confirmation systématique du Reset du timbre (bouton
-  // Reset de la barre du haut). Pas de détection « dirty » — trop coûteuse
-  // pour le gain, l'action est undoable de toute façon.
-  const [confirmResetWaveformOpen, setConfirmResetWaveformOpen] = useState(false)
   // iter-M phase-4 : picker de presets de timbre + garde-fou dirty. Le preset
   // en attente est gardé le temps de la confirmation d'écrasement.
   const [presetPickerOpen, setPresetPickerOpen] = useState(false)
@@ -1393,17 +1389,16 @@ function WaveformEditor({
   }
 
   // iter-M phase-r.2.2 : déclencheurs exposés à la barre du haut (DesignerToolbar
-  // via l'API children). Le picker de presets et le dialog de reset restent
-  // montés dans cette fenêtre — la barre ne fait que piloter leur ouverture.
+  // via l'API children). Le picker de presets reste monté dans cette fenêtre —
+  // la barre ne fait que piloter son ouverture.
   const openPresetPicker = () => setPresetPickerOpen(true)
-  const requestResetWaveform = () => setConfirmResetWaveformOpen(true)
+  // iter-N phase-5a : Effacer le timbre s'applique directement, sans
+  // confirmation. L'action est undoable (Ctrl+Z) — c'est le filet. Nom de clé
+  // conservé pour le render-prop / DesignerToolbar.
+  const requestResetWaveform = () => editorActions.resetWaveform()
   // iter-M phase-r.2.3 : Normaliser — toujours cliquable en M.r.2, pas de
   // confirmation (undoable). La désactivation conditionnelle arrive en M.r.4.
   const normalizeWaveform = () => editorActions.normalize()
-  const doResetWaveform = () => {
-    setConfirmResetWaveformOpen(false)
-    editorActions.resetWaveform()
-  }
   // M.r.4.3 — confirme du dialog edit-bars : normalise PUIS applique l'édition
   // de la barre cliquée (la valeur du mousedown originel). Deux dispatchs
   // distincts = deux crans d'undo (1× = retour à l'état normalisé pré-barre,
@@ -2768,17 +2763,6 @@ function WaveformEditor({
         variant="danger"
         onConfirm={doNew}
         onCancel={() => setConfirmNewOpen(false)}
-      />
-      {/* iter-M phase-r.2.2 : confirmation du Reset du timbre (barre du haut). */}
-      <ConfirmDialog
-        open={confirmResetWaveformOpen}
-        title="Effacer le timbre actuel ?"
-        message="Le tracé, les ancres et le résidu seront réinitialisés. Le plafond d'harmoniques et le reste de l'éditeur sont conservés."
-        confirmLabel="Réinitialiser"
-        cancelLabel="Annuler"
-        variant="danger"
-        onConfirm={doResetWaveform}
-        onCancel={() => setConfirmResetWaveformOpen(false)}
       />
       {/* iter-M phase-4 : picker de presets de timbre + garde-fou dirty. */}
       {presetPickerOpen && (
