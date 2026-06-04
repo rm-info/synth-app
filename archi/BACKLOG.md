@@ -120,7 +120,17 @@ Découpage prévu :
     série de Fourier en +sin = phase canonique, plus de flip parasite au Normaliser
     (carré/sinus déjà OK ; le triangle change de forme au Normaliser **par nature**
     = dualité cosinus→sinus voulue, pas un bug).
-- **N.6 — Durcissements** : TS strict opt-in `src/reducer.js` ; décision
+  - **N.5f — nouveaux timbres paramétriques + renommage** (prompt prêt,
+    `archi/N5f-prompt.md`, 3 sous-commits). Renomme la modale « Presets » →
+    **« Timbres »**. Introduit un **paramètre de forme** (en plus du N) et une
+    section **« Formes paramétriques »** : escalier (K marches), scie à étages
+    (K, candidat à ajuster), sinus décroissante (K cycles + ratio r → balayage
+    son pur↔burst), pulse/PWM (rapport cyclique → harmoniques paires), trapèze
+    (bord, carré↔triangle), demi-sinus redressé, impulsion (doublet bipolaire,
+    largeur). `idealWaveform(type, params)` généralisé ; `anchorCount` suit K pour
+    les escaliers. Décisions session : impulsion redéfinie en **doublet bipolaire**
+    (sinon redondante avec pulse) ; les familles passant par le carré aux extrêmes
+    (escalier K=2, trapèze bord→0, pulse duty=0.5) = pédagogique, pas un doublon.
   auto-sizing au focus (keep/drop, en suspens depuis M).
 
 Analyse de coût (vérifiée dans `src/audio.js`, à retenir) : la **FFT est
