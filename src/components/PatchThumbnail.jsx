@@ -8,9 +8,15 @@ export default function PatchThumbnail({ points, color = '#00d4ff', width = 60, 
     const ymid = height / 2
     const lastIdx = points.length - 1
     const idxAt = (x) => Math.round((x / (width - 1)) * lastIdx)
-    let d = `M 0 ${ymid - points[0] * ymid * 0.9}`
+    // Auto-fit Y au pic réel, uniquement vers le bas (floor à 1) : les formes
+    // ≤ ±1 sont inchangées, celles qui dépassent (band-limitées, tracés non
+    // clampés) sont réduites pour afficher la forme entière au lieu d'être
+    // tronquées. Le floor garantit peak ≥ 1 → pas de division par 0.
+    const peak = Math.max(1, ...points.map(Math.abs))
+    const scale = (ymid * 0.9) / peak
+    let d = `M 0 ${ymid - points[0] * scale}`
     for (let x = 1; x < width; x++) {
-      const y = ymid - points[idxAt(x)] * ymid * 0.9
+      const y = ymid - points[idxAt(x)] * scale
       d += ` L ${x} ${y}`
     }
     return d
