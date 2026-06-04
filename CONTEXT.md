@@ -101,9 +101,21 @@ passe-bas Gaussien périodique (σ 3 pts, wrap) indépendant des ancres → re-f
 des ancres + résidu ; 4.2 `TEND_TOWARD_SPLINE` (icône `ChartSpline`) = lerp
 canonical→spline(anchors) à α=0.5, **garde les ancres**, recalcule le résidu
 (répété → résidu→0). Les deux posent `canonicalNormalized:false` + `preset:null`.
-Reste de l'itération : N.6 durcissements. Hygiène post-M
-restante : note de clôture, purge des prompt-fichiers `archi/Mr*` et `archi/M5b*`
-consommés.
+**Phase N.6 (durcissements) livrée — dernière phase de N** : 6.1 `// @ts-check`
+sur `reducer.js` (opt-in dans la vérif TS, checkJs:false global) — 4 erreurs
+surgies, toutes réelles, corrigées sans `@ts-ignore` (signature dérivée
+`defaultColumnWidthsForLens`, widening `'hard'|'soft'`→string du literal
+`newPatch` annoté `@type {Patch}`, narrowing `never` d'un guard `typeof
+action.payload` extrait en local ; eslint : ajout `argsIgnorePattern '^_'`) ;
+6.2 l'auto-sizing devient le **5ᵉ bouton d'un groupe radio** avec les 4 presets
+de proportions (checkbox retirée), nouvel `IconAuto` (SVG `<text>` « AUTO »,
+cadre d'`IconColumnLayout`), **actif dérivé** (autoSizing → AUTO ; sinon preset
+dont les widths == `designerColumnWidths` à epsilon ; sinon aucun), coloration
+active = celle des toggles radio du Spectrogramme (M.r.2.6.7) ;
+`setAutoSizing(false)` aux call-sites manuels (clic preset, début de drag),
+jamais dans `onWidths` (que l'effet auto-resize appelle aussi). **Itération N
+close** sous réserve de validation ; reste la note de clôture. Hygiène post-M
+restante : purge des prompt-fichiers `archi/Mr*` et `archi/M5b*` consommés.
 
 > **Structure des fichiers de contexte.** Ce `CONTEXT.md` est le **brief
 > vivant** : état présent, modèle de données, composants, architecture,
@@ -137,7 +149,7 @@ synth-app/
 ├── package.json
 ├── vite.config.js
 ├── eslint.config.js
-├── tsconfig.json            # (iter-M) TypeScript incrémental : allowJs, checkJs:false, strict:false, noEmit
+├── tsconfig.json            # (iter-M) TypeScript incrémental : allowJs, checkJs:false, strict:false, noEmit (opt-in par `// @ts-check` : reducer.js depuis N.6.1)
 └── src/
     ├── main.jsx              # entry point React
     ├── App.jsx               # orchestration, persistance, raccourcis clavier
@@ -640,16 +652,25 @@ Seuls les **placements timeline** s'appellent "clips".
 - **r.2.6.5/.6** : les presets de proportions des colonnes (anciens libellés
   Unicode ⅓⅓⅓ · ½¼¼ · ¼½¼ · ¼¼½) sont rendus par un **aperçu SVG**
   (`IconColumnLayout` : rectangle 48×16 + 2 séparateurs aux proportions).
-- Droite (desktop seulement, si `onWidths` fourni) : séparateur visuel + presets
-  de proportions ⅓⅓⅓ · ½¼¼ · ¼½¼ · ¼¼½ + toggle « Dimension auto ». En mobile,
-  ces contrôles sont sans objet (accordéon mono-colonne) et non rendus.
+- Droite (desktop seulement, si `onSelectPreset` fourni) : séparateur visuel +
+  **groupe radio de dimensionnement** (iter-N N.6.2) = 4 presets de proportions
+  (`IconColumnLayout`) + bouton **AUTO** (`IconAuto`, même style
+  `.designer-toolbar-preset-btn`). **Actif dérivé** (aucun état persisté en plus) :
+  `autoSizing` → AUTO ; sinon le preset dont les `widths` égalent `widths`
+  (= `designerColumnWidths`, compare epsilon 1e-3) ; sinon (drag custom) aucun.
+  Un seul actif, coloration accent reprise de `.spectrogram-toggle.is-active`
+  (M.r.2.6.7) via `.designer-toolbar-preset-btn.is-active`. Clic preset →
+  `onSelectPreset(widths)` (App : `setAutoSizing(false)` puis `onWidths`) ; clic
+  AUTO → `onToggleAutoSizing`. En mobile, ces contrôles ne sont pas rendus.
 - Présentational : tous les handlers viennent d'App.jsx (proportions/auto) et de
   `WaveformEditor` via l'API children (Presets/Reset/Normaliser/patchLabel).
 
 ### `DesignerColumns.jsx` (iter-M phase-2.2, allégé r.2.1)
 - Moitié haute du Designer en 3 colonnes ajustables (Forme d'onde /
   Harmoniques / Spectrogramme). Props : `widths` (3 fractions sommant à 1,
-  persistées), `onWidths`, `columns` (3 nodes), `autoSizing`, `focusGuardRef`.
+  persistées), `onWidths`, `onManualResize` (iter-N N.6.2 : coupe l'auto-sizing
+  au début d'un drag de séparateur), `columns` (3 nodes), `autoSizing`,
+  `focusGuardRef`.
 - **r.2.1** : les presets de proportions ⅓⅓⅓ · ½¼¼ · ¼½¼ · ¼¼½ et le toggle
   « Dimension auto » ont migré dans `DesignerToolbar`. Ce composant ne gère plus
   que les séparateurs glissables + le tracking du focus auto-sizing.
@@ -667,7 +688,10 @@ Seuls les **placements timeline** s'appellent "clips".
   `[0.2,0.6,0.2]` / `[0.2,0.2,0.6]`=repos) et lève `focusGuardRef` le temps du
   geste qui change le focus (consommé par `WaveformEditor` pour supprimer
   l'édition sur ce mousedown). Focus volatile (`focusColRef`). OFF → aucun
-  listener, comportement M.2 strict. Retrait = supprimer toggle + `useEffect`.
+  listener, comportement M.2 strict. Retrait = supprimer le bouton AUTO +
+  `useEffect`. **N.6.2** : un drag manuel de séparateur appelle `onManualResize`
+  (→ `setAutoSizing(false)`) au début, donc les proportions custom coupent
+  l'auto-sizing au lieu d'être réécrites au focus suivant.
 
 ### `ConvertToHarmonicDialog.jsx` — SUPPRIMÉ (M.r.1.4)
 - Dialog de la passerelle draw→harmonic. **Supprimé** avec les conversions
@@ -1685,9 +1709,13 @@ Choix non évidents pris pour de bonnes raisons. À ne pas remettre en question
 Conventions tacites. Les enfreindre sans raison crée des bugs subtils.
 
 - **TypeScript incrémental** (depuis Iteration M, préalable A) : `allowJs`,
-  `checkJs:false`, `strict:false`, `noEmit` ; migration fichier par fichier,
-  pas de big-bang. Les types du modèle vivent dans `src/types.ts` (source de
-  vérité du modèle, plus seulement « TS-like » dans ce doc). Ne pas activer
+  `checkJs:false`, `strict:false`, `noEmit` ; migration fichier par fichier
+  via `// @ts-check` en tête (pas de big-bang). Les types du modèle vivent dans
+  `src/types.ts` (source de vérité du modèle, plus seulement « TS-like » dans ce
+  doc). Fichiers opt-in à ce jour : `src/reducer.js` (iter-N N.6.1, reducer typé
+  `(State, Action) => State` ; le `switch (action.type)` narrowe l'union
+  discriminée `Action`). Note : `@ts-check` vérifie au `strict:false` global —
+  suffit pour la classe « accès propriété inexistante » (TS2339). Ne pas activer
   `strict:true` global ni ajouter de lib de types lourde sans validation archi.
 - **Modèle unifié (M rattrapage)** : `cap` (1..256) remplace `definition` (tracé)
   ET `N` (barres) ; `editor.currentLens` (`'free'|'spline'`, M.r.3.2) est
@@ -1831,10 +1859,11 @@ Conventions tacites. Les enfreindre sans raison crée des bugs subtils.
     osaFormat + libraryTransfer round-trip `.osa` du mode spline.
   - **Hors scope** : presets de formes spline → M.4 ; auto-fit depuis un tracé →
     backlog ; B-spline/Bézier → non retenu (Catmull-Rom + polyligne).
-- Iteration M — phase M.2-AS (toggle auto-sizing, **livré en essai** —
-  keep/drop avant clôture M, 2026-05-30). Opt-in, OFF par défaut, posé
-  **par-dessus** l'état de proportions de M.2 (il l'écrit ; aucun nouvel état
-  canonique). 3 sous-commits :
+- Iteration M — phase M.2-AS (auto-sizing, livré en essai 2026-05-30 ;
+  **keep/drop tranché en iter-N N.6.2 → GARDÉ**, la checkbox devenant le bouton
+  AUTO d'un groupe radio avec les 4 presets, cf. `DesignerToolbar`). Opt-in, OFF
+  par défaut, posé **par-dessus** l'état de proportions de M.2 (il l'écrit ;
+  aucun nouvel état canonique). 3 sous-commits :
   - **AS.1** Champ `autoSizing: boolean` (initial `false`, persisté localStorage,
     action `SET_AUTO_SIZING` non undoable) + toggle « Dimension auto » dans la
     barre des presets. OFF → comportement M.2 strictement inchangé.
@@ -1849,8 +1878,11 @@ Conventions tacites. Les enfreindre sans raison crée des bugs subtils.
     de pinning en auto) ; (2) le clic qui *change* le focus ne fait que focuser
     — guard (ref partagé `DesignerColumns`→`WaveformEditor`) levé le temps du
     geste, canvas/barres s'abstiennent, l'édition reprend au geste suivant ;
-    (3) sortie → repos. **Retrait éventuel (« jeter ») = supprimer le toggle +
-    le `useEffect` de focus + le champ persisté → retour à M.2 intact.**
+    (3) sortie → repos. **N.6.2** : en plus, un drag manuel de séparateur coupe
+    désormais l'auto-sizing (`onManualResize` → `setAutoSizing(false)`) au lieu
+    d'attendre le prochain focus. **Retrait éventuel (« jeter ») = supprimer le
+    bouton AUTO + le `useEffect` de focus + le champ persisté → retour à M.2
+    intact.**
 - Iteration M — phase M.2 (layout 3-vues + Patch typé + éditeur Harmoniques +
   passerelle, 2026-05-30). 5 sous-commits :
   - **2.1** Patch typé : union discriminée `Patch = DrawPatch | HarmonicPatch`
@@ -2586,8 +2618,11 @@ Cadrage et suspects détaillés dans `archi/BACKLOG.md`.
   N.5b (moteur de formes, `lib/waveforms.js`) + N.5c (refonte modale + chargement
   unifié + retrait barre géométrique) livrées. Cf. décision archi « Modale
   Presets = point d'entrée unique + modèle 2-vues ».
-- **N.6 — Durcissements** : TS strict opt-in `src/reducer.js` ; décision
-  auto-sizing au focus (keep/drop).
+- **N.6 — Durcissements** ✅ **CLOSE** : 6.1 `// @ts-check` opt-in sur
+  `src/reducer.js` (4 erreurs réelles corrigées, 0 `@ts-ignore` ; reducer typé
+  `(State, Action)→State`) ; 6.2 auto-sizing **gardé** et intégré au groupe radio
+  de dimensionnement (5ᵉ bouton AUTO + 4 presets, actif dérivé, coloration =
+  toggles radio du Spectrogramme). Dernière phase de l'itération N.
 
 ### Backlog général (à caser quand pertinent)
 
