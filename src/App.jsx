@@ -1999,8 +1999,10 @@ function App() {
     setAnchorCount: (count) => dispatch({ type: 'SET_EDITOR_ANCHOR_COUNT', payload: { count } }),
     setHarmonicAmplitude: (index, value) =>
       dispatch({ type: 'SET_EDITOR_HARMONIC_AMPLITUDE', payload: { index, value } }),
-    loadPreset: (preset) =>
-      dispatch({ type: 'LOAD_PRESET', payload: { cap: preset.cap ?? preset.N, amplitudes: preset.amplitudes } }),
+    // iter-N phase-5c : la modale résout la canonical (elle a le moteur) et
+    // passe un payload prêt : { canonical, cap, anchorCount, canonicalNormalized,
+    // preset }. Le reducer l'applique tel quel (cf. LOAD_PRESET).
+    loadPreset: (payload) => dispatch({ type: 'LOAD_PRESET', payload }),
     // iter-M phase-3 : édition spline. moveSplineAnchor est appelée au commit
     // du drag (draft local côté SplineEditor) → un seul cran undo par geste.
     moveSplineAnchor: (index, x, y) =>

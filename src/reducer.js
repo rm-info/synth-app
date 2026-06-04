@@ -1841,23 +1841,37 @@ export function reducer(state, action) {
       // M.r.4 — iDFT à phase canonique = canonical normalisée par construction.
       return { ...state, editor: { ...state.editor, canonical, anchors, residual, canonicalNormalized: true } }
     }
-    // iter-M phase-4 : chargement d'un preset de timbre (domaine harmonique).
-    // M.r.1 : ajoute le handler manquant (bug « preset ne charge pas » absorbé,
-    // spec §11). Régénère la canonical par iDFT, recalcule le résidu. ADSR /
-    // amplitude inchangés (le preset porte un timbre, pas une enveloppe).
+    // iter-N phase-5c : chargement unifié d'un preset (modale = point d'entrée
+    // unique). Le payload est déjà résolu par la modale (qui a le moteur
+    // src/lib/waveforms.js + harmonicsToPoints) : canonical générée + cap +
+    // anchorCount idéal + flag canonicalNormalized + identité preset.
+    //   - base idéale   : idealWaveform(type), cap 256, normalized=(type==='sine')
+    //   - base band-lim. : bandlimitedWaveform(type, N), cap N, normalized=false
+    //   - timbre conçu  : harmonicsToPoints(amplitudes, N), cap N, normalized=true
+    // Le reducer pose la canonical telle quelle et fitte les ancres par DP au
+    // `anchorCount` du preset (≠ refitAnchorsAndResidual qui préserve le compte
+    // courant) → la lentille Ancres est exploitable d'emblée. Une seule action
+    // undoable. ADSR / amplitude inchangés (un preset porte un timbre).
     case 'LOAD_PRESET': {
-      const { cap, amplitudes } = action.payload
+      const { canonical, cap, anchorCount, canonicalNormalized, preset } = action.payload
       const clampedCap = clampCap(cap)
-      const sanitized = sanitizeAmplitudes(amplitudes, clampedCap)
-      const canonical = harmonicsToPoints(sanitized, clampedCap)
-      // M.r.3 — re-fit des ancres sur la canonical du preset (iDFT).
-      const { anchors, residual } = refitAnchorsAndResidual(
-        canonical, state.editor.anchors, state.editor.interpolation,
+      const count = Math.max(
+        SPLINE_ANCHOR_MIN,
+        Math.min(SPLINE_ANCHOR_MAX, Math.round(anchorCount || DEFAULT_SPLINE_ANCHOR_COUNT)),
       )
-      // M.r.4 — iDFT d'amplitudes définies = phase canonique → normalisée.
+      const anchors = fitAnchorsToCurve(canonical, count)
+      const residual = computeResidual(canonical, splineToPoints(anchors, state.editor.interpolation))
       return {
         ...state,
-        editor: { ...state.editor, cap: clampedCap, canonical, anchors, residual, canonicalNormalized: true },
+        editor: {
+          ...state.editor,
+          cap: clampedCap,
+          canonical,
+          anchors,
+          residual,
+          canonicalNormalized: !!canonicalNormalized,
+          preset: preset ?? null,
+        },
         currentPatchId: null,
       }
     }

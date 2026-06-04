@@ -21,46 +21,19 @@ export const PRESET_CATEGORIES = [
 // `amplitudes[k-1]` = magnitude de l'harmonique k (∈ [0, 1]). N = longueur du
 // vecteur = plus haute harmonique posée. Recettes telles que spécifiées par
 // l'archi (à ajuster à l'oreille en passe audio si besoin).
+// `anchorCount` (iter-N N.5c) = nombre d'ancres DP posées au chargement (lentille
+// Ancres exploitable d'emblée) ; ~8 par défaut, ajustable à l'œil.
 export const TIMBRE_PRESETS = [
   // --- Évocateurs d'instruments ---
-  {
-    id: 'square',
-    category: 'evocateurs',
-    name: S.names.square,
-    description: S.descriptions.square,
-    patch: {
-      mode: 'harmonic',
-      N: 16,
-      amplitudes: [1, 0, 1 / 3, 0, 1 / 5, 0, 1 / 7, 0, 1 / 9, 0, 1 / 11, 0, 1 / 13, 0, 1 / 15, 0],
-    },
-  },
-  {
-    id: 'triangle',
-    category: 'evocateurs',
-    name: S.names.triangle,
-    description: S.descriptions.triangle,
-    patch: {
-      mode: 'harmonic',
-      N: 16,
-      amplitudes: [1, 0, 1 / 9, 0, 1 / 25, 0, 1 / 49, 0, 1 / 81, 0, 1 / 121, 0, 1 / 169, 0, 1 / 225, 0],
-    },
-  },
-  {
-    id: 'sawtooth',
-    category: 'evocateurs',
-    name: S.names.sawtooth,
-    description: S.descriptions.sawtooth,
-    patch: {
-      mode: 'harmonic',
-      N: 16,
-      amplitudes: [1, 1 / 2, 1 / 3, 1 / 4, 1 / 5, 1 / 6, 1 / 7, 1 / 8, 1 / 9, 1 / 10, 1 / 11, 1 / 12, 1 / 13, 1 / 14, 1 / 15, 1 / 16],
-    },
-  },
+  // N.5c : carré/triangle/scie (anciens évocateurs, amplitudes = band-limité N=16)
+  // retirés d'ici — ils vivent désormais dans BASE_WAVEFORMS (« Formes de base »,
+  // 2 vues idéale/band-limitée). Ne restent que les vrais timbres conçus.
   {
     id: 'flute',
     category: 'evocateurs',
     name: S.names.flute,
     description: S.descriptions.flute,
+    anchorCount: 6,
     patch: { mode: 'harmonic', N: 8, amplitudes: [1, 0.15, 0.05, 0.02, 0, 0, 0, 0] },
   },
   {
@@ -68,6 +41,7 @@ export const TIMBRE_PRESETS = [
     category: 'evocateurs',
     name: S.names.organ,
     description: S.descriptions.organ,
+    anchorCount: 8,
     patch: { mode: 'harmonic', N: 8, amplitudes: [1, 1, 1, 1, 1, 1, 1, 1] },
   },
   {
@@ -75,6 +49,7 @@ export const TIMBRE_PRESETS = [
     category: 'evocateurs',
     name: S.names.brass,
     description: S.descriptions.brass,
+    anchorCount: 8,
     patch: {
       mode: 'harmonic',
       N: 12,
@@ -87,6 +62,7 @@ export const TIMBRE_PRESETS = [
     category: 'inattendus',
     name: S.names.oddOnly,
     description: S.descriptions.oddOnly,
+    anchorCount: 8,
     patch: { mode: 'harmonic', N: 8, amplitudes: [1, 0, 1, 0, 1, 0, 1, 0] },
   },
   {
@@ -94,6 +70,7 @@ export const TIMBRE_PRESETS = [
     category: 'inattendus',
     name: S.names.evenOnly,
     description: S.descriptions.evenOnly,
+    anchorCount: 8,
     patch: { mode: 'harmonic', N: 8, amplitudes: [0, 1, 0, 1, 0, 1, 0, 1] },
   },
   {
@@ -101,6 +78,7 @@ export const TIMBRE_PRESETS = [
     category: 'inattendus',
     name: S.names.triad135,
     description: S.descriptions.triad135,
+    anchorCount: 8,
     patch: { mode: 'harmonic', N: 8, amplitudes: [1, 0, 1, 0, 1, 0, 0, 0] },
   },
   {
@@ -108,6 +86,7 @@ export const TIMBRE_PRESETS = [
     category: 'inattendus',
     name: S.names.octaves,
     description: S.descriptions.octaves,
+    anchorCount: 8,
     patch: {
       mode: 'harmonic',
       N: 16,
@@ -119,6 +98,7 @@ export const TIMBRE_PRESETS = [
     category: 'inattendus',
     name: S.names.cluster147,
     description: S.descriptions.cluster147,
+    anchorCount: 8,
     patch: { mode: 'harmonic', N: 8, amplitudes: [1, 0, 0, 1, 0, 0, 1, 0] },
   },
   {
@@ -126,6 +106,7 @@ export const TIMBRE_PRESETS = [
     category: 'inattendus',
     name: S.names.sparse159,
     description: S.descriptions.sparse159,
+    anchorCount: 8,
     patch: { mode: 'harmonic', N: 9, amplitudes: [1, 0, 0, 0, 1, 0, 0, 0, 1] },
   },
 ]

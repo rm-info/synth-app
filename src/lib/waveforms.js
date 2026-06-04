@@ -16,6 +16,29 @@
 
 const POINTS = 600
 
+// iter-N phase-5c — descripteurs des 4 formes de base de la modale Presets.
+// `twoViews` : carré/scie/triangle ont une vue idéale (brute) + une band-limitée
+// (reconstruction à N) ; le sinus n'a qu'une vue (N figé à 1). `snap` recadre la
+// saisie de N (cf. snapN). `anchorCount` = nombre d'ancres DP posées au chargement
+// (ajustable à l'œil). Libellés via strings.js (clé = `type`, STRINGS.presets).
+export const BASE_WAVEFORMS = [
+  { id: 'sine', type: 'sine', twoViews: false, snap: 'fixed1', anchorCount: 4 },
+  { id: 'square', type: 'square', twoViews: true, defaultN: 16, snap: 'odd', anchorCount: 8 },
+  { id: 'sawtooth', type: 'sawtooth', twoViews: true, defaultN: 16, snap: 'all', anchorCount: 6 },
+  { id: 'triangle', type: 'triangle', twoViews: true, defaultN: 16, snap: 'odd', anchorCount: 6 },
+]
+
+// Recadre une saisie libre de N selon la règle de snap de la forme, borné [1, 256].
+// 'fixed1' → 1 (sinus) ; 'odd' → impair le plus proche (carré/triangle : pas
+// d'harmoniques paires) ; 'all' → entier (scie). Pour 'odd', un pair se rabat
+// vers l'impair inférieur (les deux voisins sont équidistants).
+export function snapN(n, snap) {
+  const clamped = Math.max(1, Math.min(256, Math.round(Number(n) || 1)))
+  if (snap === 'fixed1') return 1
+  if (snap === 'odd') return clamped % 2 === 1 ? clamped : Math.max(1, clamped - 1)
+  return clamped
+}
+
 /** Forme classique brute, 600 points [-1, 1]. */
 export function idealWaveform(type) {
   const pts = new Array(POINTS).fill(0)
