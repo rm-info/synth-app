@@ -515,6 +515,8 @@ export type ActionBody =
   // iter-M phase-r.2.3 : iDFT à phase canonique sur les `cap` premières
   // amplitudes — régularise la phase. Sans détection d'état (M.r.4).
   | { type: 'NORMALIZE_EDITOR_CANONICAL' }
+  // iter-N phase-4.1 : lissage passe-bas Gaussien du tracé (indépendant des ancres).
+  | { type: 'SMOOTH_EDITOR_CANONICAL' }
   // iter-M phase-r.2.4 : ré-équirépartit `count` ancres sur la canonical
   // courante (re-fit de la lentille spline ; canonical inchangée).
   | { type: 'SET_EDITOR_ANCHOR_COUNT'; payload: { count: number } }

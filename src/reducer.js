@@ -130,6 +130,31 @@ function splinePlusResidual(splineCurve, residual) {
   return out
 }
 
+// iter-N phase-4.1 — passe-bas périodique (Gaussien) sur la canonical : gomme les
+// tremblements de souris d'un tracé libre. σ ≈ 3 points, rayon 3σ, wrap (la
+// canonical boucle). Modéré → répétable (un clic ≠ tout aplatir). Pur.
+function gaussianSmoothWrapped(values, sigma) {
+  const n = values.length
+  const radius = Math.max(1, Math.ceil(sigma * 3))
+  const kernel = new Array(2 * radius + 1)
+  let norm = 0
+  for (let k = -radius; k <= radius; k++) {
+    const w = Math.exp(-(k * k) / (2 * sigma * sigma))
+    kernel[k + radius] = w
+    norm += w
+  }
+  const out = new Array(n)
+  for (let i = 0; i < n; i++) {
+    let sum = 0
+    for (let k = -radius; k <= radius; k++) {
+      const idx = (((i + k) % n) + n) % n
+      sum += values[idx] * kernel[k + radius]
+    }
+    out[i] = sum / norm
+  }
+  return out
+}
+
 // M.r.3 — primitive « lentilles vivantes » : après chaque modification de
 // canonical par une voie autre que le drag d'ancre (tracé libre, drag de barre,
 // Normaliser, preset picker, presets rapides), on re-fitte les ancres sur la
@@ -2059,6 +2084,17 @@ export function reducer(state, action) {
       // M.r.4 — c'est l'opération de normalisation elle-même.
       return { ...state, editor: { ...state.editor, canonical, anchors, residual, canonicalNormalized: true } }
     }
+    case 'SMOOTH_EDITOR_CANONICAL': {
+      // iter-N phase-4.1 : lissage passe-bas (Gaussien wrap) du tracé. Voie
+      // non-spline → re-fit des ancres (comme SET_EDITOR_CANONICAL) + résidu +
+      // canonicalNormalized false (le lissage ne produit pas une phase canonique
+      // iDFT). preset null (le tracé n'est plus la forme nommée). Répétable.
+      const canonical = gaussianSmoothWrapped(state.editor.canonical, 3)
+      const { anchors, residual } = refitAnchorsAndResidual(
+        canonical, state.editor.anchors, state.editor.interpolation,
+      )
+      return { ...state, editor: { ...state.editor, canonical, anchors, residual, preset: null, canonicalNormalized: false } }
+    }
     case 'RESET_EDITOR_WAVEFORM': {
       // iter-M phase-r.2.6.1/.3 : réinitialise canonical, interpolation et
       // résidu, et aplatit les ancres. `cap` (plafond d'harmoniques) ET le
@@ -2653,6 +2689,8 @@ const DESIGNER_UNDOABLE = new Set([
   // iter-M phase-r.2 : reset du timbre seul + normalisation (iDFT phase
   // canonique) + re-fit du nombre d'ancres.
   'RESET_EDITOR_WAVEFORM', 'NORMALIZE_EDITOR_CANONICAL', 'SET_EDITOR_ANCHOR_COUNT',
+  // iter-N phase-4.1 : lissage passe-bas du tracé.
+  'SMOOTH_EDITOR_CANONICAL',
   'SET_EDITOR_VISUAL_CUE_PATTERN', 'SET_EDITOR_VISUAL_CUE_TONIC',
   // Modèle unifié (M rattrapage) : édition d'une barre + chargement de preset.
   'SET_EDITOR_HARMONIC_AMPLITUDE', 'LOAD_PRESET',

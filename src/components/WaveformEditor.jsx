@@ -1,5 +1,5 @@
 import { useRef, useState, useCallback, useEffect, useImperativeHandle, useMemo } from 'react'
-import { Plus, Save, SaveAll, Undo2, Redo2, Sliders, X, Lock, Spline, AlignEndHorizontal, Sigma } from 'lucide-react'
+import { Plus, Save, SaveAll, Undo2, Redo2, Sliders, X, Lock, Spline, AlignEndHorizontal, Sigma, Waves } from 'lucide-react'
 import { IconDoux, IconAnguleux } from './icons'
 import { pointsToPeriodicWave, MIN_ATTACK, HARMONIC_COUNT, harmonicsToPoints, canonicalToBars } from '../audio'
 import { splineToPoints } from '../lib/spline'
@@ -1367,6 +1367,8 @@ function WaveformEditor({
   // iter-M phase-r.2.3 : Normaliser — toujours cliquable en M.r.2, pas de
   // confirmation (undoable). La désactivation conditionnelle arrive en M.r.4.
   const normalizeWaveform = () => editorActions.normalize()
+  // iter-N phase-4.1 : lissage passe-bas du tracé (expérimental, undoable, répétable).
+  const smoothWaveform = () => editorActions.smoothCanonical()
   // M.r.4.3 — confirme du dialog edit-bars : normalise PUIS applique l'édition
   // de la barre cliquée (la valeur du mousedown originel). Deux dispatchs
   // distincts = deux crans d'undo (1× = retour à l'état normalisé pré-barre,
@@ -2012,6 +2014,15 @@ function WaveformEditor({
           aria-label="Normaliser"
           disabled={isNormalized}
         ><Sigma size={18} /></button>
+        {/* iter-N phase-4.1 : lissage passe-bas du tracé (expérimental, répétable,
+            indépendant des ancres). */}
+        <button
+          type="button"
+          className="icon-btn"
+          onClick={smoothWaveform}
+          title={STRINGS.editor.smoothTitle}
+          aria-label={STRINGS.editor.smooth}
+        ><Waves size={18} /></button>
       </>
     )
   }
