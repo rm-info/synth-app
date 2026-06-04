@@ -105,13 +105,23 @@ const fr = {
     triangle: 'Triangle',
   },
 
+  // iter-N phase-5c : section « Formes de base » de la modale Presets (sinus +
+  // carré/scie/triangle avec leurs deux vues idéale / band-limitée).
+  baseWaveforms: {
+    sectionTitle: 'Formes de base',
+    viewIdeal: 'Idéale',
+    viewBandlimited: 'Band-limitée',
+    nLabel: 'N',
+    nFixed: 'figé',
+  },
+
   // iter-M phase-4 : bibliothèque de presets de timbre (mode harmonique).
   // Libellés UI du bouton/picker, catégories, dialog de confirmation, puis
   // noms + descriptions de chaque recette (clés = `id` dans lib/presets.js).
   timbrePresets: {
     loadButton: 'Presets',
     loadButtonTitle: 'Charger un timbre prédéfini',
-    pickerTitle: 'Presets de timbre',
+    pickerTitle: 'Presets',
     categoryEvocateurs: 'Évocateurs d’instruments',
     categoryInattendus: 'Inattendus-propres',
     dirtyConfirmTitle: 'Charger ce preset ?',

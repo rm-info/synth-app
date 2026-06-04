@@ -324,10 +324,11 @@ function WaveformEditor({
   const [draftAmplitudes, setDraftAmplitudes] = useState(null)
   // Confirmation "abandonner modifs" pour handleNew
   const [confirmNewOpen, setConfirmNewOpen] = useState(false)
-  // iter-M phase-4 : picker de presets de timbre + garde-fou dirty. Le preset
-  // en attente est gardé le temps de la confirmation d'écrasement.
+  // iter-M phase-4 / iter-N phase-5c : modale de presets + garde-fou dirty. Le
+  // payload résolu (par la modale) est gardé le temps de la confirmation
+  // d'écrasement.
   const [presetPickerOpen, setPresetPickerOpen] = useState(false)
-  const [pendingPresetPatch, setPendingPresetPatch] = useState(null)
+  const [pendingPresetPayload, setPendingPresetPayload] = useState(null)
   // M.r.4.3 — { index, value } d'une édition de barre interceptée parce que la
   // canonical n'était pas normalisée. Non null = dialog ouvert.
   const [pendingBarEdit, setPendingBarEdit] = useState(null)
@@ -1356,23 +1357,24 @@ function WaveformEditor({
     editorActions.applyPreset(type, pts)
   }
 
-  // iter-M phase-4 : chargement d'un preset de timbre. Garde-fou dirty — si le
-  // draft diffère du patch de référence, on confirme avant d'écraser (même
+  // iter-M phase-4 / iter-N phase-5c : chargement d'un preset. La modale passe un
+  // payload déjà résolu (canonical + cap + anchorCount + flags). Garde-fou dirty —
+  // si le draft diffère du patch de référence, on confirme avant d'écraser (même
   // signal dirty que handleNew). LOAD_PRESET côté reducer remplace le draft
   // (un seul cran undo).
-  const handlePickPreset = (preset) => {
+  const handlePickPreset = (payload) => {
     setPresetPickerOpen(false)
     const dirty = !patchFieldsEqual(stateSnapshotRef.current, referenceRef.current)
     if (dirty) {
-      setPendingPresetPatch(preset.patch)
+      setPendingPresetPayload(payload)
       return
     }
-    editorActions.loadPreset(preset.patch)
+    editorActions.loadPreset(payload)
   }
 
   const confirmLoadPreset = () => {
-    if (pendingPresetPatch) editorActions.loadPreset(pendingPresetPatch)
-    setPendingPresetPatch(null)
+    if (pendingPresetPayload) editorActions.loadPreset(pendingPresetPayload)
+    setPendingPresetPayload(null)
   }
 
   // iter-M phase-r.2.2 : déclencheurs exposés à la barre du haut (DesignerToolbar
@@ -2759,14 +2761,14 @@ function WaveformEditor({
         />
       )}
       <ConfirmDialog
-        open={pendingPresetPatch !== null}
+        open={pendingPresetPayload !== null}
         title={STRINGS.timbrePresets.dirtyConfirmTitle}
         message={STRINGS.timbrePresets.dirtyConfirmBody}
         confirmLabel={STRINGS.timbrePresets.dirtyConfirmLoad}
         cancelLabel={STRINGS.timbrePresets.dirtyConfirmCancel}
         variant="danger"
         onConfirm={confirmLoadPreset}
-        onCancel={() => setPendingPresetPatch(null)}
+        onCancel={() => setPendingPresetPayload(null)}
       />
       {/* M.r.4.3 : garde-fou avant l'édition d'une barre sur canonical
           non-normalisée (écrasement de phase). */}
