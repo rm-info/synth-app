@@ -1903,20 +1903,26 @@ export function reducer(state, action) {
     case 'ADD_SPLINE_ANCHOR': {
       const anchors = state.editor.anchors
       if (anchors.length >= SPLINE_ANCHOR_MAX) return state
-      const x = Math.max(0, Math.min(POINTS_RESOLUTION - 1, action.payload.x))
-      // M.r.5.bis — y non clampé à ±1 (cf. MOVE_SPLINE_ANCHOR). Garde anti-NaN.
-      const y = Number.isFinite(action.payload.y) ? action.payload.y : 0
+      // N.3.2 — x snappé à un entier : `y = canonical[x]` est alors exact et le
+      // résidu vaut 0 pile au point d'ajout (l'ancre se pose sur le tracé).
+      const x = Math.max(0, Math.min(POINTS_RESOLUTION - 1, Math.round(action.payload.x)))
       let ins = anchors.findIndex((a) => a.x > x)
       if (ins === -1) ins = anchors.length
       const leftOk = ins === 0 || x - anchors[ins - 1].x >= SPLINE_MIN_GAP
       const rightOk = ins === anchors.length || anchors[ins].x - x >= SPLINE_MIN_GAP
       if (!leftOk || !rightOk) return state
+      // N.3.2 — ajouter une ancre CHANGE la représentation, pas la forme (modèle
+      // N.2.1). Snap sur le tracé : y = canonical[x] (la hauteur du clic
+      // `action.payload.y` est ignorée). canonical INCHANGÉE → zéro déformation ;
+      // on recalcule juste le résidu. canonicalNormalized préservé (canonical immobile).
+      const canonical = state.editor.canonical
+      const y = Number.isFinite(canonical[x]) ? canonical[x] : 0
       const next = anchors.slice()
       next.splice(ins, 0, { x, y })
-      // M.r.4 — édition d'ancre = phase non-canonique.
+      const residual = computeResidual(canonical, splineToPoints(next, state.editor.interpolation))
       return {
         ...state,
-        editor: { ...state.editor, anchors: next, canonical: splinePlusResidual(splineToPoints(next, state.editor.interpolation), state.editor.residual), canonicalNormalized: false },
+        editor: { ...state.editor, anchors: next, residual },
       }
     }
     // Suppression d'une ancre. Refusé si N == SPLINE_ANCHOR_MIN (minimum).
@@ -1926,10 +1932,13 @@ export function reducer(state, action) {
       if (anchors.length <= SPLINE_ANCHOR_MIN) return state
       if (index < 0 || index >= anchors.length) return state
       const next = anchors.filter((_, i) => i !== index)
-      // M.r.4 — édition d'ancre = phase non-canonique.
+      // N.3.2 — retirer une ancre CHANGE la représentation, pas la forme (modèle
+      // N.2.1). canonical INCHANGÉE → tracé inchangé, juste moins de points de
+      // contrôle ; on recalcule le résidu. canonicalNormalized préservé.
+      const residual = computeResidual(state.editor.canonical, splineToPoints(next, state.editor.interpolation))
       return {
         ...state,
-        editor: { ...state.editor, anchors: next, canonical: splinePlusResidual(splineToPoints(next, state.editor.interpolation), state.editor.residual), canonicalNormalized: false },
+        editor: { ...state.editor, anchors: next, residual },
       }
     }
     // Bascule Doux (Catmull-Rom) / Anguleux (polyligne). Mêmes ancres, courbe
