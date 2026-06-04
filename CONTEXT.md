@@ -55,9 +55,13 @@ réf figée au début du drag, 1 commit = 1 undo. Remplace l'ancien N.3
 (pré-image smoothstep C¹ en Doux, PL en Anguleux) → fin des angles parasites du
 warp ; N.3.2 = ADD/REMOVE d'ancre préservent la canonical (ajout = snap sur le
 tracé `y=canonical[x]`, zéro déformation), posant le principe « représentation
-(canonical inchangée) vs forme (warp) ». Reste de l'itération :
-N.4 lissage du tracé, N.5 presets en séries de Fourier bande-limitées,
-N.6 durcissements. Hygiène post-M restante : note de clôture, purge des
+(canonical inchangée) vs forme (warp) ». **Phase N.5a (Effacer sans
+confirmation) livrée** : le bouton Effacer le timbre (`Eraser`,
+`DesignerToolbar`) applique `resetWaveform` directement — plus de
+`ConfirmDialog` ; l'action étant undoable, Ctrl+Z est le filet (state
+`confirmResetWaveformOpen`, helper `doResetWaveform` et dialog dédiée
+retirés). Reste de l'itération : N.4 lissage du tracé, N.5b/N.5c refonte
+des presets (idéale + band-limitée, N éditable), N.6 durcissements. Hygiène post-M restante : note de clôture, purge des
 prompt-fichiers `archi/Mr*` et `archi/M5b*` consommés.
 
 > **Structure des fichiers de contexte.** Ce `CONTEXT.md` est le **brief
@@ -2503,8 +2507,10 @@ Cadrage et suspects détaillés dans `archi/BACKLOG.md`.
   vs forme » posé en décision archi.
 - **N.4 — Boutons de lissage du tracé** : passe-bas sur la canonical et/ou
   tendre vers la spline pure.
-- **N.5 — Presets `sine`/`square`/`saw`/`triangle` → séries de Fourier
-  bande-limitées** : fin du ringing de Gibbs, fin du mensonge affichage≠audio.
+- **N.5 — Refonte des presets** (modale = point d'entrée unique, 2 vues idéale +
+  band-limitée, N éditable). N.5a (Effacer sans confirmation) **livrée**. Reste
+  N.5b (moteur band-limité) + N.5c (refonte modale + retrait barre presets
+  géométriques). Détail dans `archi/BACKLOG.md`.
 - **N.6 — Durcissements** : TS strict opt-in `src/reducer.js` ; décision
   auto-sizing au focus (keep/drop).
 

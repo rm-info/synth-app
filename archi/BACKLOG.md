@@ -86,8 +86,9 @@ Découpage prévu :
   égal, dessin différent. Le **sinus** n'a qu'une vue. (Correction archi : la
   différence n'est PAS la phase mais *idéal brut stocké* vs *reconstruction
   tronquée* — un carré est tout-en-sinus.)
-  - **N.5a — Effacer sans confirmation** (prompt prêt, `archi/N5a-prompt.md`).
-    Le bouton Effacer (Eraser, près du titre) s'applique direct, undo = filet.
+  - **N.5a — Effacer sans confirmation** ✅ **LIVRÉE** (`archi/N5a-prompt.md`).
+    Le bouton Effacer (Eraser, près du titre) s'applique direct, undo = filet
+    (state `confirmResetWaveformOpen` + dialog reset retirés de `WaveformEditor`).
     **Point 1 (retrait barre presets géométriques) reporté à N.5c** (sinon trou).
   - **N.5b — moteur band-limité** : générer la reconstruction phase-naturelle
     tronquée à N (+ garder la forme idéale brute). Capacité interne.
