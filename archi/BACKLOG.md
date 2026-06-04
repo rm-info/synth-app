@@ -81,10 +81,12 @@ Découpage prévu :
   `Waves`) ; 4.2 `TEND_TOWARD_SPLINE` = `lerp(canonical, spline(anchors), 0.5)`,
   garde les ancres, recalcule le résidu (= `(1−α)·résidu` → 0 si répété ; icône
   `ChartSpline`). Undoables + répétables, `canonicalNormalized=false` + `preset=null`,
-  dans le header Forme d'onde à côté de Normaliser. **⏳ Essai à trancher** : garder
-  le pertinent (ou les deux) après passe d'usage — comparer (A) gomme les hautes
-  fréquences spatiales indépendamment des ancres, (B) régularise vers la lentille
-  Spline (dépend du nombre d'ancres : peu = lisse fort, 32 = effet faible).
+  dans le header Forme d'onde à côté de Normaliser. **✅ Essai tranché (passe d'usage) :
+  on GARDE les deux** — différence de fonctionnement claire et complémentaire : (A)
+  gomme les hautes fréquences spatiales indépendamment des ancres, (B) régularise
+  vers la lentille Spline (dépend du nombre d'ancres : peu = lisse fort, 32 = effet
+  faible). 4.3 (`fix`) : le header passe en `flex-wrap` (6 groupes de contrôles, le
+  dernier bouton était rogné en colonne étroite).
 - **N.5 — Refonte du système de presets** ✅ **CLOSE** (N.5a + N.5b + N.5c livrées).
   La modale Presets est l'**unique point d'entrée** des sons pré-fabriqués. Modèle
   verrouillé :

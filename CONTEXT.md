@@ -93,9 +93,10 @@ trapèze, demi-sinus, impulsion) dans `PARAMETRIC_WAVEFORMS` (chacune : 0/1/2
 paramètres de forme en plus du N, `anchorCount` nombre ou fonction de K) ; 5f.3
 section **« Formes paramétriques »** dans la modale (par forme : contrôle(s) du/des
 param(s) + N + 2 vignettes idéale/band-limitée, redraw live ; clic = `LOAD_PRESET`
-N.5e). **Phase N.4 (boutons de lissage du tracé) livrée — expérimentale** : deux
-opérations undoables/répétables dans le header Forme d'onde, à comparer à l'usage
-avant d'en garder une seule — 4.1 `SMOOTH_EDITOR_CANONICAL` (icône `Waves`) =
+N.5e). **Phase N.4 (boutons de lissage du tracé) livrée — les deux gardés** : deux
+opérations undoables/répétables dans le header Forme d'onde, essai tranché en passe
+d'usage (fonctionnements distincts et complémentaires, on garde les deux) — 4.1
+`SMOOTH_EDITOR_CANONICAL` (icône `Waves`) =
 passe-bas Gaussien périodique (σ 3 pts, wrap) indépendant des ancres → re-fit DP
 des ancres + résidu ; 4.2 `TEND_TOWARD_SPLINE` (icône `ChartSpline`) = lerp
 canonical→spline(anchors) à α=0.5, **garde les ancres**, recalcule le résidu
