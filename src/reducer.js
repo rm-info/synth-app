@@ -1874,7 +1874,9 @@ export function reducer(state, action) {
           canonicalNormalized: !!canonicalNormalized,
           preset: preset ?? null,
         },
-        currentPatchId: null,
+        // iter-N phase-5e.1 : chargement en place comme RESET_EDITOR_WAVEFORM —
+        // on conserve currentPatchId (remplace le timbre du patch courant, marque
+        // dirty) au lieu de détacher (ex-`currentPatchId: null` = effet Ctrl+Alt+N).
       }
     }
     // Modele unifie (M rattrapage) : plus de conversions destructives. Les
