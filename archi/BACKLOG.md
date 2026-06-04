@@ -75,8 +75,11 @@ Découpage prévu :
     recalculé ; **ADD snappe l'ancre sur la courbe** (`y = canonical[x]`, option A
     validée) → zéro déformation, ancre sur le tracé, on dragge ensuite pour
     déformer.
-- **N.4 — Boutons de lissage du tracé** : (A) filtre passe-bas sur la canonical,
-  (B) tendre vers la spline pure. Tester les deux à l'usage, garder le pertinent.
+- **N.4 — Boutons de lissage du tracé** (prompt prêt, `archi/N4-prompt.md`) :
+  (A) passe-bas périodique sur la canonical (re-fit ancres) ; (B) tendre vers la
+  spline `lerp(canonical, spline(anchors), 0.5)` (garde ancres, recalc résidu).
+  Undoable + répétables, `canonicalNormalized=false`, icônes Lucide. **Les deux
+  livrés en essai → garder le pertinent après passe d'usage.**
 - **N.5 — Refonte du système de presets** ✅ **CLOSE** (N.5a + N.5b + N.5c livrées).
   La modale Presets est l'**unique point d'entrée** des sons pré-fabriqués. Modèle
   verrouillé :
