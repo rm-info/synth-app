@@ -85,8 +85,15 @@ comporte comme Effacer — `LOAD_PRESET` conserve `currentPatchId` (chargement e
 place, marque dirty) et la confirmation d'écrasement est retirée (`pendingPresetPayload`
 / `ConfirmDialog` preset supprimés, `onPick` → `loadPreset` direct) ; 5e.2
 `idealWaveform('sawtooth')` passe de `2t−1` à `1−2t` (scie descendante) → série en
-+sin = phase canonique, plus de flip parasite au Normaliser.
-Reste de l'itération : N.4 lissage du tracé, N.6 durcissements. Hygiène post-M
++sin = phase canonique, plus de flip parasite au Normaliser. **Phase N.5f (timbres
+paramétriques + renommage) livrée** : 5f.1 la modale « Presets » est renommée
+**« Timbres »** ; 5f.2 `idealWaveform(type, params)` généralisé + 7 nouvelles formes
+de base **paramétriques** (escalier, scie à étages, sinus décroissante, pulse,
+trapèze, demi-sinus, impulsion) dans `PARAMETRIC_WAVEFORMS` (chacune : 0/1/2
+paramètres de forme en plus du N, `anchorCount` nombre ou fonction de K) ; 5f.3
+section **« Formes paramétriques »** dans la modale (par forme : contrôle(s) du/des
+param(s) + N + 2 vignettes idéale/band-limitée, redraw live ; clic = `LOAD_PRESET`
+N.5e). Reste de l'itération : N.4 lissage du tracé, N.6 durcissements. Hygiène post-M
 restante : note de clôture, purge des prompt-fichiers `archi/Mr*` et `archi/M5b*`
 consommés.
 
@@ -153,7 +160,7 @@ synth-app/
     │   ├── mathParse.js      # sous-parser math récursif ($…$, $$…$$ → mathAst), \sum à bornes (iter-L phase-R.1 / iter-M phase-5a.1)
     │   ├── spline.js         # (iter-M M.3) splineSoft Catmull-Rom périodique / splineHard polyligne → points ; fitAnchorsToCurve = pose des ancres par Douglas-Peucker à compte fixe (iter-N N.2) ; warpResidualForAnchorMove = warp horizontal du résidu au drag d'ancre, support local + wrap (iter-N N.3)
     │   ├── presets.js        # (iter-M M.4) bibliothèque code-only de timbres harmoniques (TIMBRE_PRESETS + anchorCount N.5c). N.5c : carré/scie/triangle retirés (→ BASE_WAVEFORMS) ; restent flûte/orgue/cuivre + inattendus
-    │   ├── waveforms.js      # (iter-N N.5b/N.5c) moteur de formes : idealWaveform (brute) + bandlimitWaveform/bandlimitedWaveform (reconstruction DFT directe 600, phase naturelle, normalisée) + BASE_WAVEFORMS (descripteurs des 4 formes de base : twoViews/defaultN/snap/anchorCount) + snapN (recadrage de N). Branché dans PresetPicker (N.5c)
+    │   ├── waveforms.js      # (iter-N N.5b/N.5c/N.5f) moteur de formes : idealWaveform(type, params) (brute, params de forme N.5f) + bandlimitWaveform/bandlimitedWaveform(type, N, params) (reconstruction DFT directe 600, phase naturelle, normalisée) + BASE_WAVEFORMS (4 formes de base) + PARAMETRIC_WAVEFORMS (7 formes paramétriques N.5f : escalier/scie-étages/sinus-décr/pulse/trapèze/demi-sinus/impulsion, chacune params:[{key,label,min,max,default,step}] + anchorCount nombre|fn(K)) + snapN (recadrage de N). Branché dans PresetPicker
     │   └── tours/            # déclarations du Tour guidé par onglet (iter-L phase-4)
     │       ├── index.js      # map tabId → étapes + TOUR_TABS (ordre chaînage)
     │       ├── library.js / designer.js / composer.js / documentation.js  # séquences d'étapes
@@ -681,14 +688,21 @@ Seuls les **placements timeline** s'appellent "clips".
 - Dialog draw/harmonic → spline. **Supprimé** avec les conversions destructives
   (cf. ConvertToHarmonicDialog ci-dessus).
 
-### `PresetPicker.jsx` (iter-M phase-4, refondu iter-N N.5c)
+### `PresetPicker.jsx` (iter-M phase-4, refondu iter-N N.5c, étendu N.5f)
 - Modale **point d'entrée unique** des sons pré-fabriqués, ouverte par le bouton
-  « Presets » de la **barre du haut** (`DesignerToolbar`). Backdrop + carte
-  centrée (520px). Escape / clic backdrop ferment. Trois sections :
+  « **Timbres** » (renommé en N.5f) de la **barre du haut** (`DesignerToolbar`).
+  Backdrop + carte centrée (600px). Escape / clic backdrop ferment. Quatre sections :
   - **Formes de base** (`BASE_WAVEFORMS`) : sinus = 1 vignette (N figé à 1) ;
     carré/scie/triangle = **2 vignettes** (idéale statique + band-limitée qui se
     redessine en live au changement de N) + champ N (`NumberInput`, saisie libre
     snappée via `snapN` selon `snap` : odd/all). Clic vignette = charge cette vue.
+  - **Formes paramétriques** (`PARAMETRIC_WAVEFORMS`, N.5f) : escalier, scie à
+    étages, sinus décroissante, pulse, trapèze, demi-sinus, impulsion. Par forme :
+    contrôle(s) du/des **param(s) de forme** (`NumberInput` bornés ; entiers arrondis
+    au commit) + champ N + **2 vignettes** ; l'idéale suit les params, la band-limitée
+    suit params **et** N (redraw live, `useMemo` sur `ns` + `shapeParams`). Clic =
+    charge avec params/N courants (`preset: null`, `canonicalNormalized: false`,
+    `anchorCount` résolu — suit K pour escalier/scie).
   - **Timbres conçus** (flûte/orgue/cuivre) et **Inattendus** : grilles de
     vignettes, clic = charge.
 - Vignettes via `PatchThumbnail` ; la modale **résout elle-même la canonical**

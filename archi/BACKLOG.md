@@ -120,17 +120,25 @@ Découpage prévu :
     série de Fourier en +sin = phase canonique, plus de flip parasite au Normaliser
     (carré/sinus déjà OK ; le triangle change de forme au Normaliser **par nature**
     = dualité cosinus→sinus voulue, pas un bug).
-  - **N.5f — nouveaux timbres paramétriques + renommage** (prompt prêt,
-    `archi/N5f-prompt.md`, 3 sous-commits). Renomme la modale « Presets » →
-    **« Timbres »**. Introduit un **paramètre de forme** (en plus du N) et une
-    section **« Formes paramétriques »** : escalier (K marches), scie à étages
-    (K, candidat à ajuster), sinus décroissante (K cycles + ratio r → balayage
-    son pur↔burst), pulse/PWM (rapport cyclique → harmoniques paires), trapèze
-    (bord, carré↔triangle), demi-sinus redressé, impulsion (doublet bipolaire,
-    largeur). `idealWaveform(type, params)` généralisé ; `anchorCount` suit K pour
-    les escaliers. Décisions session : impulsion redéfinie en **doublet bipolaire**
-    (sinon redondante avec pulse) ; les familles passant par le carré aux extrêmes
-    (escalier K=2, trapèze bord→0, pulse duty=0.5) = pédagogique, pas un doublon.
+  - **N.5f — timbres paramétriques + renommage** ✅ **LIVRÉE** (`archi/N5f-prompt.md`,
+    3 sous-commits). 5f.1 modale « Presets » → **« Timbres »**. 5f.2 moteur
+    `idealWaveform(type, params)` généralisé + 7 formes de base **paramétriques**
+    (`PARAMETRIC_WAVEFORMS`) : escalier (K marches), scie à étages (K, inclinée),
+    sinus décroissante (K cycles + ratio r → balayage son pur↔burst), pulse/PWM
+    (rapport cyclique → harmoniques paires), trapèze (bord), demi-sinus redressé,
+    impulsion (doublet bipolaire, largeur). `anchorCount` nombre ou fn de K
+    (escalier/scie). 5f.3 section **« Formes paramétriques »** dans la modale
+    (param(s) + N + 2 vignettes idéale/band-limitée, redraw live ; clic =
+    `LOAD_PRESET` N.5e, `preset: null`, `canonicalNormalized: false`). **À valider
+    à l'œil** (formes inventées) : trapèze implémenté pour matcher les vérifs
+    (bord→0 = carré, bord→0.25 = triangle) — l'annotation littérale de la formule du
+    prompt (`g=1/(1−4·bord)`) était inversée, j'ai pris `g=1/(4·bord)` ; scie à
+    étages dépasse ±1 (marche inclinée), impulsion monte fort en band-limité
+    (spectre quasi-plat) → vignette auto-fit (5d.1) + renorm `PeriodicWave`.
+    Décisions session conservées : impulsion = doublet bipolaire (sinon redondante
+    avec pulse) ; familles passant par le carré aux extrêmes (escalier K=2, trapèze
+    bord→0, pulse duty=0.5) = pédagogique, pas un doublon.
+- **N.6 — Durcissements** : TS strict opt-in `src/reducer.js` ; décision
   auto-sizing au focus (keep/drop, en suspens depuis M).
 
 Analyse de coût (vérifiée dans `src/audio.js`, à retenir) : la **FFT est
