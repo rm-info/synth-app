@@ -3,7 +3,6 @@ import { Plus, Save, SaveAll, Undo2, Redo2, Sliders, X, Lock, Spline, AlignEndHo
 import { IconDoux, IconAnguleux } from './icons'
 import { pointsToPeriodicWave, MIN_ATTACK, HARMONIC_COUNT, harmonicsToPoints, canonicalToBars } from '../audio'
 import { splineToPoints } from '../lib/spline'
-import { idealWaveform } from '../lib/waveforms'
 import { CAP_MIN, CAP_MAX, SPLINE_ANCHOR_MIN, SPLINE_ANCHOR_MAX } from '../reducer'
 import useWindowSize from '../hooks/useWindowSize'
 import FreqInput from './FreqInput'
@@ -1348,15 +1347,6 @@ function WaveformEditor({
     }
   }, [activeTab, testTuningSystem, xEdoN])
 
-  const clearCanvas = () => {
-    editorActions.setPoints(blankPointsArray())
-  }
-
-  const loadPreset = (type) => {
-    const pts = idealWaveform(type)
-    editorActions.applyPreset(type, pts)
-  }
-
   // iter-M phase-4 / iter-N phase-5c : chargement d'un preset. La modale passe un
   // payload déjà résolu (canonical + cap + anchorCount + flags). Garde-fou dirty —
   // si le draft diffère du patch de référence, on confirme avant d'écraser (même
@@ -2068,13 +2058,6 @@ function WaveformEditor({
             {renderWaveformHeaderControls()}
           </div>
         </header>
-        <div className="presets">
-          <button onClick={() => loadPreset('sine')}>{STRINGS.presets.sine}</button>
-          <button onClick={() => loadPreset('square')}>{STRINGS.presets.square}</button>
-          <button onClick={() => loadPreset('sawtooth')}>{STRINGS.presets.sawtooth}</button>
-          <button onClick={() => loadPreset('triangle')}>{STRINGS.presets.triangle}</button>
-          <button onClick={clearCanvas}>{STRINGS.editor.clear}</button>
-        </div>
         <div className="canvas-container" ref={canvasContainerRef}>
           <canvas
             ref={canvasRef}

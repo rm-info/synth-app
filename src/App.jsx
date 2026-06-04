@@ -2012,8 +2012,6 @@ function App() {
     setSplineInterpolation: (v) => dispatch({ type: 'SET_SPLINE_INTERPOLATION', payload: v }),
     setAdsr: (patch) => dispatch({ type: 'SET_EDITOR_ADSR', payload: patch }),
     setAdsrAndAmp: (payload) => dispatch({ type: 'SET_EDITOR_ADSR_AND_AMP', payload }),
-    applyPreset: (preset, points) =>
-      dispatch({ type: 'APPLY_EDITOR_PRESET', payload: { preset, points } }),
     // iter-M phase-r.2.2 : reset du timbre seul (≠ RESET_EDITOR « Nouveau patch »).
     resetWaveform: () => dispatch({ type: 'RESET_EDITOR_WAVEFORM' }),
     // iter-M phase-r.2.3 : normalisation (iDFT phase canonique).

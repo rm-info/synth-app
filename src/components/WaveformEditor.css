@@ -372,29 +372,8 @@
 }
 
 /* --- Canvas waveform --- */
-
-.presets {
-  display: flex;
-  gap: 6px;
-  margin-bottom: 8px;
-  flex-wrap: wrap;
-  flex-shrink: 0;
-}
-
-.presets button {
-  padding: 4px 10px;
-  border: 1px solid var(--surface-border-strong);
-  border-radius: 6px;
-  background: var(--surface-border);
-  color: var(--text-default);
-  cursor: pointer;
-  font-size: 0.75rem;
-  transition: background 0.15s, border-color 0.15s;
-}
-.presets button:hover {
-  background: #3a3a6a;
-  border-color: var(--accent);
-}
+/* iter-N phase-5c.3 : la barre `.presets` (4 formes géométriques + Effacer du
+   mode Libre) a été retirée — la modale Presets est le point d'entrée unique. */
 
 .canvas-container {
   position: relative;

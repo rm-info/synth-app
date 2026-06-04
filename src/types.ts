@@ -498,7 +498,7 @@ export type ActionBody =
   | { type: 'SET_EDITOR_HARMONIC_AMPLITUDE'; payload: { index: number; value: number } }
   // iter-M phase-4 : charge un preset de timbre (domaine harmonique).
   // amplitude/ADSR repartent aux défauts.
-  | { type: 'LOAD_PRESET'; payload: { cap: number; amplitudes: number[] } }
+  | { type: 'LOAD_PRESET'; payload: { canonical: number[]; cap: number; anchorCount: number; canonicalNormalized: boolean; preset: string | null } }
   // iter-M phase-3 : édition de la lentille spline (toutes undoable). MOVE est
   // dispatchée une fois au commit du drag (draft local côté éditeur). La
   // nouvelle canonical = spline(anchors) + residual, clampée [-1, 1].
@@ -508,7 +508,6 @@ export type ActionBody =
   | { type: 'SET_SPLINE_INTERPOLATION'; payload: SplineInterpolation }
   | { type: 'SET_EDITOR_ADSR'; payload: Partial<AdsrEnvelope> }
   | { type: 'SET_EDITOR_ADSR_AND_AMP'; payload: { adsr?: Partial<AdsrEnvelope>; amplitude?: number } }
-  | { type: 'APPLY_EDITOR_PRESET'; payload: { preset: string | null; points: number[] } }
   | { type: 'RESET_EDITOR' }
   // iter-M phase-r.2.2 : reset du timbre seul (canonical + cap + lentille
   // spline). Préserve ADSR / amplitude / test* / currentLens / currentPatchId.

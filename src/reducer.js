@@ -137,9 +137,11 @@ function splinePlusResidual(splineCurve, residual) {
 // Conséquence (spec §4.1) : la lentille Ancres reste toujours synchronisée avec
 // le tracé courant, et un drag d'ancre subséquent produit une déformation
 // cohérente (amplitude du delta proportionnelle à la finesse de la spline,
-// modulée par le résidu). Cinq call-sites (SET_EDITOR_CANONICAL,
-// SET_EDITOR_HARMONIC_AMPLITUDE, NORMALIZE_EDITOR_CANONICAL, LOAD_PRESET,
-// APPLY_EDITOR_PRESET) — voir leur commentaire pour la raison du re-fit.
+// modulée par le résidu). Trois call-sites (SET_EDITOR_CANONICAL,
+// SET_EDITOR_HARMONIC_AMPLITUDE, NORMALIZE_EDITOR_CANONICAL) — voir leur
+// commentaire pour la raison du re-fit. (LOAD_PRESET fitte les ancres à un
+// `anchorCount` explicite, pas via ce helper qui préserve le compte courant ;
+// iter-N N.5c.)
 function refitAnchorsAndResidual(canonical, currentAnchors, interpolation) {
   const count = currentAnchors?.length || DEFAULT_SPLINE_ANCHOR_COUNT
   const anchors = fitAnchorsToCurve(canonical, count)
@@ -1988,22 +1990,9 @@ export function reducer(state, action) {
       if (amplitude !== undefined) next.amplitude = amplitude
       return { ...state, editor: next }
     }
-    case 'APPLY_EDITOR_PRESET': {
-      // Presets rapides (Sinus / Carré / Dent de scie / Triangle) : remplacent
-      // la canonical par une forme générée. M.r.3 — re-fit des ancres comme les
-      // autres voies non-spline (décision archi : 5ᵉ call-site, non listé dans
-      // le prompt initial mais même bizarrerie corrigée).
-      const { preset, points } = action.payload
-      const { anchors, residual } = refitAnchorsAndResidual(
-        points, state.editor.anchors, state.editor.interpolation,
-      )
-      // M.r.4 — seul 'sine' est un sinus pur (phase canonique). Carré / dent de
-      // scie / triangle sont des formes « stepped » à phase non-canonique au
-      // sens DFT → non normalisées (la refonte presets en séries de Fourier,
-      // backlog, basculera les 4 à true).
-      const canonicalNormalized = preset === 'sine'
-      return { ...state, editor: { ...state.editor, canonical: points, anchors, residual, preset, canonicalNormalized } }
-    }
+    // iter-N phase-5c.3 : APPLY_EDITOR_PRESET supprimé — la barre des presets
+    // géométriques (mode Libre) qui le déclenchait a été retirée au profit de la
+    // modale (chemin LOAD_PRESET unifié).
     case 'RESET_EDITOR': {
       // iter-L follow-up : préserve l'état d'exploration Designer (test* +
       // visualCue*) — c'est lié à l'utilisateur (système musical choisi,
@@ -2658,7 +2647,7 @@ const COMPOSER_UNDOABLE = new Set([
 const DESIGNER_UNDOABLE = new Set([
   'UPDATE_PATCH',
   'SET_EDITOR_CANONICAL', 'SET_EDITOR_AMPLITUDE', 'SET_EDITOR_CAP',
-  'SET_EDITOR_ADSR', 'SET_EDITOR_ADSR_AND_AMP', 'APPLY_EDITOR_PRESET', 'RESET_EDITOR',
+  'SET_EDITOR_ADSR', 'SET_EDITOR_ADSR_AND_AMP', 'RESET_EDITOR',
   // iter-M phase-r.2 : reset du timbre seul + normalisation (iDFT phase
   // canonique) + re-fit du nombre d'ancres.
   'RESET_EDITOR_WAVEFORM', 'NORMALIZE_EDITOR_CANONICAL', 'SET_EDITOR_ANCHOR_COUNT',
