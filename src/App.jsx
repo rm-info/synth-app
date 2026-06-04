@@ -2016,8 +2016,9 @@ function App() {
     resetWaveform: () => dispatch({ type: 'RESET_EDITOR_WAVEFORM' }),
     // iter-M phase-r.2.3 : normalisation (iDFT phase canonique).
     normalize: () => dispatch({ type: 'NORMALIZE_EDITOR_CANONICAL' }),
-    // iter-N phase-4.1 : lissage passe-bas du tracé (expérimental, répétable).
+    // iter-N phase-4 : lissages du tracé (expérimentaux, répétables).
     smoothCanonical: () => dispatch({ type: 'SMOOTH_EDITOR_CANONICAL' }),
+    tendTowardSpline: () => dispatch({ type: 'TEND_TOWARD_SPLINE' }),
     setVisualCuePattern: (id) => dispatch({ type: 'SET_EDITOR_VISUAL_CUE_PATTERN', payload: id }),
     setVisualCueTonic: (deg) => dispatch({ type: 'SET_EDITOR_VISUAL_CUE_TONIC', payload: deg }),
     setXEdoN: (n) => dispatch({ type: 'SET_X_EDO_N', payload: n }),

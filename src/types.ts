@@ -517,6 +517,8 @@ export type ActionBody =
   | { type: 'NORMALIZE_EDITOR_CANONICAL' }
   // iter-N phase-4.1 : lissage passe-bas Gaussien du tracé (indépendant des ancres).
   | { type: 'SMOOTH_EDITOR_CANONICAL' }
+  // iter-N phase-4.2 : tend vers la spline des ancres (lerp α≈0.5, dépend des ancres).
+  | { type: 'TEND_TOWARD_SPLINE' }
   // iter-M phase-r.2.4 : ré-équirépartit `count` ancres sur la canonical
   // courante (re-fit de la lentille spline ; canonical inchangée).
   | { type: 'SET_EDITOR_ANCHOR_COUNT'; payload: { count: number } }

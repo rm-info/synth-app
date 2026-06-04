@@ -2095,6 +2095,23 @@ export function reducer(state, action) {
       )
       return { ...state, editor: { ...state.editor, canonical, anchors, residual, preset: null, canonicalNormalized: false } }
     }
+    case 'TEND_TOWARD_SPLINE': {
+      // iter-N phase-4.2 : rapproche le tracé de son squelette d'ancres —
+      // canonical_new = lerp(canonical, spline(anchors), α=0.5). On GARDE les
+      // ancres telles quelles (on tend vers elles, pas de re-fit) et on recalcule
+      // SEULEMENT le résidu = canonical_new − spline(anchors). Répétable : à α
+      // cumulé → 1, la canonical EST la spline (le résidu décroît en (1−α)^n → 0).
+      // Dépend du nombre d'ancres (peu d'ancres = lisse fort, 32 = effet faible).
+      const alpha = 0.5
+      const spline = splineToPoints(state.editor.anchors, state.editor.interpolation)
+      const prev = state.editor.canonical
+      const canonical = new Array(POINTS_RESOLUTION)
+      for (let i = 0; i < POINTS_RESOLUTION; i++) {
+        canonical[i] = prev[i] + (spline[i] - prev[i]) * alpha
+      }
+      const residual = computeResidual(canonical, spline)
+      return { ...state, editor: { ...state.editor, canonical, residual, preset: null, canonicalNormalized: false } }
+    }
     case 'RESET_EDITOR_WAVEFORM': {
       // iter-M phase-r.2.6.1/.3 : réinitialise canonical, interpolation et
       // résidu, et aplatit les ancres. `cap` (plafond d'harmoniques) ET le
@@ -2689,8 +2706,8 @@ const DESIGNER_UNDOABLE = new Set([
   // iter-M phase-r.2 : reset du timbre seul + normalisation (iDFT phase
   // canonique) + re-fit du nombre d'ancres.
   'RESET_EDITOR_WAVEFORM', 'NORMALIZE_EDITOR_CANONICAL', 'SET_EDITOR_ANCHOR_COUNT',
-  // iter-N phase-4.1 : lissage passe-bas du tracé.
-  'SMOOTH_EDITOR_CANONICAL',
+  // iter-N phase-4 : lissages du tracé (passe-bas + tendre vers la spline).
+  'SMOOTH_EDITOR_CANONICAL', 'TEND_TOWARD_SPLINE',
   'SET_EDITOR_VISUAL_CUE_PATTERN', 'SET_EDITOR_VISUAL_CUE_TONIC',
   // Modèle unifié (M rattrapage) : édition d'une barre + chargement de preset.
   'SET_EDITOR_HARMONIC_AMPLITUDE', 'LOAD_PRESET',

@@ -71,9 +71,11 @@ const fr = {
     splineHardTitle: 'Segments droits (polyligne)',
     splineAddHint: 'Ajouter : clic gauche sur la courbe · Déplacer : sélectionner et glisser · Retirer : clic droit > supprimer',
     splineRemove: 'Supprimer l’ancre',
-    // iter-N phase-4.1 : bouton de lissage passe-bas du tracé (expérimental).
+    // iter-N phase-4 : boutons de lissage du tracé (expérimentaux, répétables).
     smooth: 'Lisser',
     smoothTitle: 'Lisser le tracé : passe-bas qui gomme les tremblements (répétable)',
+    tendSpline: 'Tendre vers les ancres',
+    tendSplineTitle: 'Rapprocher le tracé de la spline des ancres (répétable → résidu nul)',
   },
 
   // Passerelle de conversion draw ↔ harmonic (dialogs).
