@@ -33,7 +33,7 @@ function DesignerToolbar({ patchLabel, onPresets, onReset, onWidths, autoSizing,
             type="button"
             className="icon-btn"
             onClick={onPresets}
-            title="Charger un preset de timbre"
+            title={STRINGS.timbrePresets.loadButtonTitle}
             aria-label={STRINGS.timbrePresets.loadButton}
             data-anchor="designer-presets-button"
           ><FolderOpenDot size={18} /></button>

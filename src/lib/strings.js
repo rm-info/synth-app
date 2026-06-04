@@ -119,9 +119,9 @@ const fr = {
   // Libellés UI du bouton/picker, catégories, dialog de confirmation, puis
   // noms + descriptions de chaque recette (clés = `id` dans lib/presets.js).
   timbrePresets: {
-    loadButton: 'Presets',
+    loadButton: 'Timbres',
     loadButtonTitle: 'Charger un timbre prédéfini',
-    pickerTitle: 'Presets',
+    pickerTitle: 'Timbres',
     categoryEvocateurs: 'Évocateurs d’instruments',
     categoryInattendus: 'Inattendus-propres',
     dirtyConfirmTitle: 'Charger ce preset ?',
