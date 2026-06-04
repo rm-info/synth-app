@@ -77,8 +77,25 @@ Découpage prévu :
     déformer.
 - **N.4 — Boutons de lissage du tracé** : (A) filtre passe-bas sur la canonical,
   (B) tendre vers la spline pure. Tester les deux à l'usage, garder le pertinent.
-- **N.5 — Presets `sine`/`square`/`saw`/`triangle` → séries de Fourier
-  bande-limitées** : fin du ringing de Gibbs et du mensonge affichage≠audio.
+- **N.5 — Refonte du système de presets** (conçu en session). La modale Presets
+  devient l'**unique point d'entrée** des sons pré-fabriqués. Modèle verrouillé :
+  chaque forme classique (quand pertinent) a **deux vues du même son** —
+  **idéale** (forme brute stockée, plate/droite, clairement identifiable,
+  see≠audio assumé = référence platonicienne) et **band-limitée** (reconstruction
+  **phase naturelle** à N harmoniques, ondulée, see=audio honnête). Même son à N
+  égal, dessin différent. Le **sinus** n'a qu'une vue. (Correction archi : la
+  différence n'est PAS la phase mais *idéal brut stocké* vs *reconstruction
+  tronquée* — un carré est tout-en-sinus.)
+  - **N.5a — Effacer sans confirmation** (prompt prêt, `archi/N5a-prompt.md`).
+    Le bouton Effacer (Eraser, près du titre) s'applique direct, undo = filet.
+    **Point 1 (retrait barre presets géométriques) reporté à N.5c** (sinon trou).
+  - **N.5b — moteur band-limité** : générer la reconstruction phase-naturelle
+    tronquée à N (+ garder la forme idéale brute). Capacité interne.
+  - **N.5c — refonte modale** : 2 vignettes/classique (idéale + band-limitée),
+    **N éditable avant chargement** (= `cap`, saisie libre snappée au plus proche
+    partiel réel : impaires pour carré/triangle, toutes pour scie, 1 pour sinus),
+    thumbnail **live** sur l'entrée sélectionnée, **`anchorCount` idéal** par preset
+    (posé via DP N.2 au chargement). **Retrait de la barre Libre (point 1) ici.**
 - **N.6 — Durcissements** : TS strict opt-in `src/reducer.js` ; décision
   auto-sizing au focus (keep/drop, en suspens depuis M).
 
