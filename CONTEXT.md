@@ -93,7 +93,14 @@ trapèze, demi-sinus, impulsion) dans `PARAMETRIC_WAVEFORMS` (chacune : 0/1/2
 paramètres de forme en plus du N, `anchorCount` nombre ou fonction de K) ; 5f.3
 section **« Formes paramétriques »** dans la modale (par forme : contrôle(s) du/des
 param(s) + N + 2 vignettes idéale/band-limitée, redraw live ; clic = `LOAD_PRESET`
-N.5e). Reste de l'itération : N.4 lissage du tracé, N.6 durcissements. Hygiène post-M
+N.5e). **Phase N.4 (boutons de lissage du tracé) livrée — expérimentale** : deux
+opérations undoables/répétables dans le header Forme d'onde, à comparer à l'usage
+avant d'en garder une seule — 4.1 `SMOOTH_EDITOR_CANONICAL` (icône `Waves`) =
+passe-bas Gaussien périodique (σ 3 pts, wrap) indépendant des ancres → re-fit DP
+des ancres + résidu ; 4.2 `TEND_TOWARD_SPLINE` (icône `ChartSpline`) = lerp
+canonical→spline(anchors) à α=0.5, **garde les ancres**, recalcule le résidu
+(répété → résidu→0). Les deux posent `canonicalNormalized:false` + `preset:null`.
+Reste de l'itération : N.6 durcissements. Hygiène post-M
 restante : note de clôture, purge des prompt-fichiers `archi/Mr*` et `archi/M5b*`
 consommés.
 
@@ -489,9 +496,11 @@ Seuls les **placements timeline** s'appellent "clips".
     des boutons, r.2.6.4) + le bouton **Normaliser** (icône `Sigma`, déplacé
     depuis la barre du haut en r.2.6.8 → `NORMALIZE_EDITOR_CANONICAL` ; **M.r.4 :
     `disabled` quand `editor.canonicalNormalized`**, tooltip « Déjà normalisé »)
-    y sont **toujours rendus** (positions stables) ; les contrôles d'ancres sont
-    `disabled` en mode Libre (M.r.2.5.2) ; saisie directe du nombre d'ancres via
-    `<NumberInput>` (M.r.2.5.3).
+    + (**iter-N N.4**) les deux boutons de **lissage** expérimentaux : `Waves` →
+    `SMOOTH_EDITOR_CANONICAL` (passe-bas) et `ChartSpline` → `TEND_TOWARD_SPLINE`
+    (tend vers la spline) — y sont **toujours rendus** (positions stables) ; les
+    contrôles d'ancres sont `disabled` en mode Libre (M.r.2.5.2) ; saisie directe
+    du nombre d'ancres via `<NumberInput>` (M.r.2.5.3).
     - **Convention d'amplitude (M.r.5.1)** : l'axe Y du canvas s'**auto-fit** à
       `[-peak, +peak]` (peak = `max(max(|canonical|), max(|normalizedBg|), 1)`,
       minimum 1 pour garder le marqueur visible) au lieu de `[-1, +1]` fixe — la

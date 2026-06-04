@@ -75,11 +75,16 @@ Découpage prévu :
     recalculé ; **ADD snappe l'ancre sur la courbe** (`y = canonical[x]`, option A
     validée) → zéro déformation, ancre sur le tracé, on dragge ensuite pour
     déformer.
-- **N.4 — Boutons de lissage du tracé** (prompt prêt, `archi/N4-prompt.md`) :
-  (A) passe-bas périodique sur la canonical (re-fit ancres) ; (B) tendre vers la
-  spline `lerp(canonical, spline(anchors), 0.5)` (garde ancres, recalc résidu).
-  Undoable + répétables, `canonicalNormalized=false`, icônes Lucide. **Les deux
-  livrés en essai → garder le pertinent après passe d'usage.**
+- **N.4 — Boutons de lissage du tracé** ✅ **LIVRÉE** (`archi/N4-prompt.md`, 2
+  sous-commits) : 4.1 `SMOOTH_EDITOR_CANONICAL` = passe-bas Gaussien périodique
+  (σ 3 pts, rayon 3σ, wrap) sur la canonical → re-fit DP des ancres + résidu (icône
+  `Waves`) ; 4.2 `TEND_TOWARD_SPLINE` = `lerp(canonical, spline(anchors), 0.5)`,
+  garde les ancres, recalcule le résidu (= `(1−α)·résidu` → 0 si répété ; icône
+  `ChartSpline`). Undoables + répétables, `canonicalNormalized=false` + `preset=null`,
+  dans le header Forme d'onde à côté de Normaliser. **⏳ Essai à trancher** : garder
+  le pertinent (ou les deux) après passe d'usage — comparer (A) gomme les hautes
+  fréquences spatiales indépendamment des ancres, (B) régularise vers la lentille
+  Spline (dépend du nombre d'ancres : peu = lisse fort, 32 = effet faible).
 - **N.5 — Refonte du système de presets** ✅ **CLOSE** (N.5a + N.5b + N.5c livrées).
   La modale Presets est l'**unique point d'entrée** des sons pré-fabriqués. Modèle
   verrouillé :
