@@ -3,6 +3,7 @@ import { Plus, Save, SaveAll, Undo2, Redo2, Sliders, X, Lock, Spline, AlignEndHo
 import { IconDoux, IconAnguleux } from './icons'
 import { pointsToPeriodicWave, MIN_ATTACK, HARMONIC_COUNT, harmonicsToPoints, canonicalToBars } from '../audio'
 import { splineToPoints } from '../lib/spline'
+import { idealWaveform } from '../lib/waveforms'
 import { CAP_MIN, CAP_MAX, SPLINE_ANCHOR_MIN, SPLINE_ANCHOR_MAX } from '../reducer'
 import useWindowSize from '../hooks/useWindowSize'
 import FreqInput from './FreqInput'
@@ -204,20 +205,6 @@ function nextAvailableName(rawBase, existingPatches) {
 
 function blankPointsArray() {
   return new Array(POINTS_RESOLUTION).fill(0)
-}
-
-function generatePresetPoints(type) {
-  const pts = new Array(POINTS_RESOLUTION).fill(0)
-  for (let i = 0; i < POINTS_RESOLUTION; i++) {
-    const t = i / POINTS_RESOLUTION
-    switch (type) {
-      case 'sine': pts[i] = Math.sin(2 * Math.PI * t); break
-      case 'square': pts[i] = t < 0.5 ? 1 : -1; break
-      case 'sawtooth': pts[i] = 2 * t - 1; break
-      case 'triangle': pts[i] = t < 0.5 ? 4 * t - 1 : 3 - 4 * t; break
-    }
-  }
-  return pts
 }
 
 // Dirty check (modèle unifié M rattrapage) : on compare les champs stockés sur
@@ -1365,7 +1352,7 @@ function WaveformEditor({
   }
 
   const loadPreset = (type) => {
-    const pts = generatePresetPoints(type)
+    const pts = idealWaveform(type)
     editorActions.applyPreset(type, pts)
   }
 
