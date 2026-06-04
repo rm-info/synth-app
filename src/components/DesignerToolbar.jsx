@@ -1,5 +1,5 @@
 import { FolderOpenDot, Eraser } from 'lucide-react'
-import { IconColumnLayout } from './icons'
+import { IconColumnLayout, IconAuto } from './icons'
 import { STRINGS } from '../lib/strings'
 import './DesignerToolbar.css'
 
@@ -20,10 +20,25 @@ const COLUMN_PRESETS = [
   { id: 'spec', widths: [0.25, 0.25, 0.5], title: 'Spectrogramme large' },
 ]
 
-function DesignerToolbar({ patchLabel, onPresets, onReset, onWidths, autoSizing, onToggleAutoSizing }) {
+// Égalité de proportions à epsilon près (les widths persistées sont
+// renormalisées à somme 1, donc un preset y atterrit à ~1e-9 près ; 1e-3
+// couvre largement). Sert à dériver le preset actif depuis designerColumnWidths.
+function widthsEqual(a, b) {
+  return Array.isArray(a) && Array.isArray(b) && a.length === b.length
+    && a.every((v, i) => Math.abs(v - b[i]) < 1e-3)
+}
+
+// iter-N N.6.2 : le dimensionnement est un groupe radio de 5 boutons (4 presets
+// + AUTO), un seul actif à la fois. L'actif est DÉRIVÉ (aucun nouvel état
+// persisté) : autoSizing → AUTO ; sinon le preset dont les widths égalent
+// designerColumnWidths ; sinon (drag manuel = custom) aucun.
+function DesignerToolbar({ patchLabel, onPresets, onReset, onSelectPreset, widths, autoSizing, onToggleAutoSizing }) {
   // Les contrôles de proportions n'ont de sens qu'en layout 3-colonnes : on
-  // ne les affiche que si le parent fournit un setter (desktop).
-  const showColumnControls = typeof onWidths === 'function'
+  // ne les affiche que si le parent fournit le sélecteur de preset (desktop).
+  const showColumnControls = typeof onSelectPreset === 'function'
+  const activePresetId = autoSizing
+    ? null
+    : (COLUMN_PRESETS.find((p) => widthsEqual(p.widths, widths))?.id ?? null)
   return (
     <div className="designer-toolbar">
       <div className="designer-toolbar-left">
@@ -56,16 +71,23 @@ function DesignerToolbar({ patchLabel, onPresets, onReset, onWidths, autoSizing,
             <button
               key={p.id}
               type="button"
-              className="designer-toolbar-preset-btn"
+              className={`designer-toolbar-preset-btn${activePresetId === p.id ? ' is-active' : ''}`}
               title={p.title}
               aria-label={p.title}
-              onClick={() => onWidths(p.widths)}
+              aria-pressed={activePresetId === p.id}
+              onClick={() => onSelectPreset(p.widths)}
             ><IconColumnLayout widths={p.widths} /></button>
           ))}
-          <label className="designer-toolbar-auto-toggle" title={STRINGS.editor.autoSizingTitle}>
-            <input type="checkbox" checked={autoSizing} onChange={onToggleAutoSizing} />
-            <span>{STRINGS.editor.autoSizing}</span>
-          </label>
+          {/* AUTO = 5ᵉ bouton du groupe radio (même style/dimensions que les
+              presets). Bascule autoSizing ; actif quand autoSizing est ON. */}
+          <button
+            type="button"
+            className={`designer-toolbar-preset-btn${autoSizing ? ' is-active' : ''}`}
+            title={STRINGS.editor.autoSizingTitle}
+            aria-label={STRINGS.editor.autoSizing}
+            aria-pressed={autoSizing}
+            onClick={onToggleAutoSizing}
+          ><IconAuto /></button>
         </div>
       )}
     </div>

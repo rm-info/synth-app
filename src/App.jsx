@@ -865,7 +865,9 @@ function App() {
   const setSpectrogramMode = useCallback((mode) => {
     dispatch({ type: 'SET_SPECTROGRAM_MODE', payload: mode })
   }, [])
-  // iter-M phase-2 : proportions des 3 colonnes Designer (presets + drag).
+  // iter-M phase-2 : proportions des 3 colonnes Designer (drag des séparateurs
+  // + auto-sizing). Voie « brute » : n'éteint PAS l'auto-sizing (l'effet
+  // auto-resize l'appelle aussi — cf. note d'impl. N.6.2).
   const setDesignerColumnWidths = useCallback((widths) => {
     dispatch({ type: 'SET_DESIGNER_COLUMN_WIDTHS', payload: widths })
   }, [])
@@ -873,6 +875,18 @@ function App() {
   const toggleAutoSizing = useCallback(() => {
     dispatch({ type: 'SET_AUTO_SIZING', payload: !autoSizing })
   }, [autoSizing])
+  // iter-N N.6.2 : clic sur un preset = setAutoSizing(false) PUIS onWidths.
+  // Le setAutoSizing(false) vit ici (call-site manuel), pas dans onWidths
+  // (que l'effet auto-resize appelle aussi → il se couperait lui-même).
+  const selectColumnPreset = useCallback((widths) => {
+    dispatch({ type: 'SET_AUTO_SIZING', payload: false })
+    dispatch({ type: 'SET_DESIGNER_COLUMN_WIDTHS', payload: widths })
+  }, [])
+  // iter-N N.6.2 : début d'un drag manuel de séparateur → l'auto-sizing se coupe
+  // (proportions custom). Idem : call-site manuel, jamais dans onWidths.
+  const disableAutoSizing = useCallback(() => {
+    dispatch({ type: 'SET_AUTO_SIZING', payload: false })
+  }, [])
   // iter-M phase-2-as : guard partagé DesignerColumns (writer) ↔ WaveformEditor
   // (reader). Volatile (ref, jamais persisté). Le listener de focus le passe à
   // true le temps du geste qui *change* le focus → l'éditable suppose alors
@@ -2343,7 +2357,8 @@ function App() {
                     patchLabel={patchLabel}
                     onPresets={openPresetPicker}
                     onReset={requestResetWaveform}
-                    onWidths={setDesignerColumnWidths}
+                    onSelectPreset={selectColumnPreset}
+                    widths={designerColumnWidths}
                     autoSizing={autoSizing}
                     onToggleAutoSizing={toggleAutoSizing}
                   />
@@ -2353,6 +2368,7 @@ function App() {
                   <DesignerColumns
                     widths={designerColumnWidths}
                     onWidths={setDesignerColumnWidths}
+                    onManualResize={disableAutoSizing}
                     autoSizing={autoSizing}
                     focusGuardRef={autoSizeFocusGuardRef}
                     columns={[renderCanvasArea(), renderHarmonicsArea(), spectrogramNode]}

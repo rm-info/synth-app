@@ -70,6 +70,41 @@ export function IconColumnLayout({ widths, ...rest }) {
   )
 }
 
+// Auto-sizing : même cadre 48×16 que IconColumnLayout, mais au lieu des
+// séparateurs de colonnes, le mot « AUTO » écrit en SVG <text> (convention
+// projet : pas d'Unicode-icône, du texte vectoriel). Sert de 5ᵉ « preset »
+// dans le groupe radio de dimensionnement des colonnes (iter-N N.6.2).
+export function IconAuto({ ...rest }) {
+  const W = 48
+  const H = 16
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      width={W}
+      height={H}
+      viewBox={`0 0 ${W} ${H}`}
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={1.5}
+      strokeLinejoin="round"
+      {...rest}
+    >
+      <rect x="1" y="1" width={W - 2} height={H - 2} rx="2" />
+      <text
+        x={W / 2}
+        y={H / 2 + 0.5}
+        fill="currentColor"
+        stroke="none"
+        fontSize="9"
+        fontWeight="600"
+        letterSpacing="0.5"
+        textAnchor="middle"
+        dominantBaseline="central"
+      >AUTO</text>
+    </svg>
+  )
+}
+
 // Crête (peak hold du spectrogramme) : un mini-spectre de barres verticales de
 // hauteurs variées, chacune coiffée d'un court rectangle horizontal détaché — la
 // « crête maintenue » au-dessus de la barre courante. Visuellement une série de

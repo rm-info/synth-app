@@ -25,7 +25,7 @@ const FOCUS_WIDTHS = [
 ]
 const REST_WIDTHS = [0.2, 0.2, 0.6]
 
-function DesignerColumns({ widths, onWidths, autoSizing, focusGuardRef, columns }) {
+function DesignerColumns({ widths, onWidths, onManualResize, autoSizing, focusGuardRef, columns }) {
   const rootRef = useRef(null)
   const rowRef = useRef(null)
   // Focus courant (index colonne 0/1/2, ou null = repos). Volatile : vit dans
@@ -98,6 +98,11 @@ function DesignerColumns({ widths, onWidths, autoSizing, focusGuardRef, columns 
   const startDrag = (sepIndex) => (e) => {
     e.preventDefault()
     e.stopPropagation()
+    // iter-N N.6.2 : un drag manuel = proportions custom → on coupe l'auto-sizing
+    // (sinon le prochain focus de colonne réécrirait les widths). No-op si déjà
+    // OFF (le reducer renvoie le même state). Le focusGuard capture le sépare du
+    // changement de focus ; ici on désactive carrément le mode.
+    if (onManualResize) onManualResize()
     const row = rowRef.current
     if (!row) return
     const totalW = row.getBoundingClientRect().width

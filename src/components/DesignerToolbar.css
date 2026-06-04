@@ -90,19 +90,12 @@
   border-color: var(--accent);
   color: var(--text-strong);
 }
-
-/* Toggle auto-sizing (déplacé depuis .designer-columns-auto-toggle). */
-.designer-toolbar-auto-toggle {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  font-size: 12px;
-  line-height: 1;
-  color: var(--text-secondary);
-  cursor: pointer;
-  user-select: none;
-}
-.designer-toolbar-auto-toggle input {
-  cursor: pointer;
-  margin: 0;
+/* iter-N N.6.2 : état actif du groupe radio de dimensionnement (4 presets +
+   AUTO, un seul actif). Reprend la coloration accent des toggles radio
+   live/dB/peak du Spectrogramme (.spectrogram-toggle.is-active, M.r.2.6.7) pour
+   la cohérence visuelle entre les deux groupes radio. */
+.designer-toolbar-preset-btn.is-active {
+  background: var(--accent-bg-strong);
+  color: var(--accent);
+  border-color: var(--accent);
 }
