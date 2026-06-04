@@ -115,6 +115,21 @@ const fr = {
     nFixed: 'figé',
   },
 
+  // iter-N phase-5f : section « Formes paramétriques » de la modale Timbres
+  // (formes de base avec un/deux paramètres de forme en plus du N).
+  parametricWaveforms: {
+    sectionTitle: 'Formes paramétriques',
+    names: {
+      staircase: 'Escalier',
+      'step-saw': 'Scie à étages',
+      'decaying-sine': 'Sinus décroissante',
+      pulse: 'Pulse',
+      trapezoid: 'Trapèze',
+      'half-sine': 'Demi-sinus',
+      impulse: 'Impulsion',
+    },
+  },
+
   // iter-M phase-4 : bibliothèque de presets de timbre (mode harmonique).
   // Libellés UI du bouton/picker, catégories, dialog de confirmation, puis
   // noms + descriptions de chaque recette (clés = `id` dans lib/presets.js).

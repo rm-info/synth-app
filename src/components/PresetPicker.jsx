@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { STRINGS } from '../lib/strings'
 import { TIMBRE_PRESETS, PRESET_CATEGORIES } from '../lib/presets'
-import { BASE_WAVEFORMS, snapN, idealWaveform, bandlimitedWaveform } from '../lib/waveforms'
+import { BASE_WAVEFORMS, PARAMETRIC_WAVEFORMS, snapN, idealWaveform, bandlimitedWaveform } from '../lib/waveforms'
 import { harmonicsToPoints } from '../audio'
 import PatchThumbnail from './PatchThumbnail'
 import NumberInput from './NumberInput'
@@ -16,10 +16,33 @@ import './PresetPicker.css'
 // harmonicsToPoints) et passe au parent un payload prêt à charger via `onPick` ;
 // le parent applique le garde-fou dirty + dispatch LOAD_PRESET. Escape / clic
 // backdrop ferment.
+// iter-N phase-5f : parse entier permissif pour les paramètres de forme à pas
+// entier (marches, cycles) ; les paramètres flottants gardent le parse par défaut.
+const intParse = (raw) => {
+  const v = parseFloat(String(raw).replace(',', '.'))
+  return Number.isFinite(v) ? Math.round(v) : NaN
+}
+const resolveAnchorCount = (w, params) =>
+  typeof w.anchorCount === 'function' ? w.anchorCount(params) : w.anchorCount
+
 export default function PresetPicker({ onPick, onClose }) {
-  // N courant des formes band-limitées (une valeur par forme à deux vues).
+  // N courant des formes band-limitées (une valeur par forme à deux vues — base
+  // ET paramétriques).
   const [ns, setNs] = useState(() =>
-    Object.fromEntries(BASE_WAVEFORMS.filter((w) => w.twoViews).map((w) => [w.id, w.defaultN])),
+    Object.fromEntries(
+      [...BASE_WAVEFORMS, ...PARAMETRIC_WAVEFORMS]
+        .filter((w) => w.twoViews)
+        .map((w) => [w.id, w.defaultN]),
+    ),
+  )
+  // Valeurs courantes des paramètres de forme, par forme paramétrique.
+  const [shapeParams, setShapeParams] = useState(() =>
+    Object.fromEntries(
+      PARAMETRIC_WAVEFORMS.map((w) => [
+        w.id,
+        Object.fromEntries(w.params.map((p) => [p.key, p.default])),
+      ]),
+    ),
   )
 
   useEffect(() => {
@@ -39,6 +62,20 @@ export default function PresetPicker({ onPick, onClose }) {
       band: w.twoViews ? bandlimitedWaveform(w.type, ns[w.id]) : null,
     })),
     [ns],
+  )
+
+  // Vignettes des formes paramétriques : idéale suit les params de forme, band-
+  // limitée suit params ET N. Recalcul au changement de l'un ou l'autre.
+  const paramViews = useMemo(
+    () => PARAMETRIC_WAVEFORMS.map((w) => {
+      const p = shapeParams[w.id]
+      return {
+        w,
+        ideal: idealWaveform(w.type, p),
+        band: bandlimitedWaveform(w.type, ns[w.id], p),
+      }
+    }),
+    [ns, shapeParams],
   )
 
   // Vignettes des timbres conçus (statiques — reconstruction iDFT de leur recette).
@@ -65,6 +102,31 @@ export default function PresetPicker({ onPick, onClose }) {
     preset: w.type,
   })
 
+  // Formes paramétriques : preset null (formes custom, pas un type de Patch.preset),
+  // canonicalNormalized false (jamais à phase canonique sinus). anchorCount résolu
+  // (suit K pour escalier/scie). Comportement N.5e côté parent (pas de confirmation).
+  const pickParamIdeal = (w) => {
+    const p = shapeParams[w.id]
+    onPick({
+      canonical: idealWaveform(w.type, p),
+      cap: 256,
+      anchorCount: resolveAnchorCount(w, p),
+      canonicalNormalized: false,
+      preset: null,
+    })
+  }
+
+  const pickParamBandlimited = (w) => {
+    const p = shapeParams[w.id]
+    onPick({
+      canonical: bandlimitedWaveform(w.type, ns[w.id], p),
+      cap: ns[w.id],
+      anchorCount: resolveAnchorCount(w, p),
+      canonicalNormalized: false,
+      preset: null,
+    })
+  }
+
   const pickTimbre = (p) => onPick({
     canonical: harmonicsToPoints(p.patch.amplitudes, p.patch.N),
     cap: p.patch.N,
@@ -74,6 +136,7 @@ export default function PresetPicker({ onPick, onClose }) {
   })
 
   const S = STRINGS.baseWaveforms
+  const P = STRINGS.parametricWaveforms
 
   return (
     <>
@@ -133,6 +196,67 @@ export default function PresetPicker({ onPick, onClose }) {
                     ) : (
                       <span className="pp-n-fixed">{S.nLabel} : 1 ({S.nFixed})</span>
                     )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </section>
+
+          <section className="preset-picker-group">
+            <h5 className="preset-picker-group-title">{P.sectionTitle}</h5>
+            <div className="pp-base-list">
+              {paramViews.map(({ w, ideal, band }) => (
+                <div key={w.id} className="pp-base-row">
+                  <span className="pp-base-name">{P.names[w.type]}</span>
+                  <div className="pp-base-views">
+                    <button
+                      type="button"
+                      className="pp-thumb-btn"
+                      onClick={() => pickParamIdeal(w)}
+                      title={`${P.names[w.type]} — ${S.viewIdeal}`}
+                    >
+                      <PatchThumbnail points={ideal} />
+                      <span className="pp-view-label">{S.viewIdeal}</span>
+                    </button>
+                    <button
+                      type="button"
+                      className="pp-thumb-btn"
+                      onClick={() => pickParamBandlimited(w)}
+                      title={`${P.names[w.type]} — ${S.viewBandlimited} (N=${ns[w.id]})`}
+                    >
+                      <PatchThumbnail points={band} />
+                      <span className="pp-view-label">{S.viewBandlimited}</span>
+                    </button>
+                  </div>
+                  <div className="pp-param-fields">
+                    {w.params.map((param) => (
+                      <label key={param.key} className="pp-param-field">
+                        <span>{param.label}</span>
+                        <NumberInput
+                          value={shapeParams[w.id][param.key]}
+                          onChange={(v) => setShapeParams((prev) => ({
+                            ...prev,
+                            [w.id]: { ...prev[w.id], [param.key]: v },
+                          }))}
+                          min={param.min}
+                          max={param.max}
+                          parse={param.step >= 1 ? intParse : undefined}
+                          className="pp-n-input"
+                          ariaLabel={`${param.label} ${P.names[w.type]}`}
+                        />
+                      </label>
+                    ))}
+                    <label className="pp-param-field">
+                      <span>{S.nLabel}</span>
+                      <NumberInput
+                        value={ns[w.id]}
+                        onChange={(v) => setNs((prev) => ({ ...prev, [w.id]: snapN(v, w.snap) }))}
+                        min={1}
+                        max={256}
+                        className="pp-n-input"
+                        ariaLabel={`${S.nLabel} ${P.names[w.type]}`}
+                      />
+                    </label>
                   </div>
                 </div>
               ))}

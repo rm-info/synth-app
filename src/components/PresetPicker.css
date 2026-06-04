@@ -12,7 +12,7 @@
   top: 50%;
   left: 50%;
   transform: translate(-50%, -50%);
-  width: 520px;
+  width: 600px;
   max-width: calc(100vw - 32px);
   max-height: calc(100vh - 64px);
   display: flex;
@@ -140,6 +140,25 @@
   text-align: right;
 }
 .pp-n-fixed {
+  font-size: 12px;
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+
+/* iter-N phase-5f — formes paramétriques : colonne de contrôles (params de forme
+   empilés + N) alignée à droite, sur les lignes pp-base-row plus hautes. */
+.pp-param-fields {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 6px;
+  min-width: 150px;
+}
+.pp-param-field {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
   font-size: 12px;
   color: var(--text-secondary);
   white-space: nowrap;
