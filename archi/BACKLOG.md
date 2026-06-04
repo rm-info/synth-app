@@ -63,7 +63,7 @@ Découpage prévu :
   double-pointe). Réf figée au début du drag, support [voisin_g, voisin_d], wrap
   périodique. Conçu en session (modèle « la spline est la tendance »).
   Prompt : `archi/N3-prompt.md`. **PCHIP/overshoot rayé.**
-- 📝 **N.3 polish — édition d'ancres sans surprise** (prompt fusionné prêt,
+- ✅ **N.3 polish — édition d'ancres sans surprise** (livré + validé,
   `archi/N3-polish-prompt.md`). Principe : *représentation* (add/remove ancre,
   switch mode) → canonical inchangée + résidu recalculé ; *forme* (drag) → warp.
   - **3.1 — warp lisse en doux** : le warp PL du résidu (N.3) crée des angles
