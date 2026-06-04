@@ -198,10 +198,13 @@ export function fitAnchorsToCurve(canonical, count = 8) {
     splitAt(best, Math.round((seg.xa + seg.xb) / 2))
   }
 
-  // Sortie : les xa (ancres réelles, sans la borne virtuelle), y clampé [-1, 1].
+  // Sortie : les xa (ancres réelles, sans la borne virtuelle). Pas de clamp à
+  // ±1 (doctrine non-clamp M.r.5.bis) : sinon une canonical qui dépasse ±1
+  // ramènerait l'ancre à 1 → hors trace. Seule garde anti-NaN ; sanitizeAnchors
+  // ([-10,10]) protège la persistance, sampleSpline ne clampe pas non plus.
   return segments.map((s) => {
     const yRaw = canonical[s.xa]
-    const y = Number.isFinite(yRaw) ? Math.max(-1, Math.min(1, yRaw)) : 0
+    const y = Number.isFinite(yRaw) ? yRaw : 0
     return { x: s.xa, y }
   })
 }
