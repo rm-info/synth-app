@@ -713,10 +713,12 @@ Seuls les **placements timeline** s'appellent "clips".
   absolue au coin haut-droit** du wrapper (`.designer-module` `position:relative` +
   `container-type:inline-size` ; chrome dans le contenu → masquée gratuitement
   quand replié). Les headers réservent un `padding-right` (scopé
-  `.designer-module …`, desktop). **Réduire** (`PanelLeftClose`, **désactivé en
-  maximisé** — « Restaurer d'abord ») + **Agrandir/Restaurer** (`Maximize2` ↔
-  `Minimize2`, toggle). **Desktop only** (la chrome n'existe que dans le wrapping
-  desktop ; l'accordéon mobile a son propre repli).
+  `.designer-module …`, desktop). Boutons **nus** (sans pastille) aux **icônes
+  contrôles-fenêtre façon Windows** (SVG custom `IconWin*` dans `icons.jsx`, style
+  Lucide) : **Réduire** = trait horizontal (**désactivé en maximisé** — « Restaurer
+  d'abord ») + **Agrandir/Restaurer** = rectangle ↔ deux rectangles décalés
+  (toggle). **Desktop only** (la chrome n'existe que dans le wrapping desktop ;
+  l'accordéon mobile a son propre repli).
 - **Identité visuelle (O.5c)** : table `src/lib/designerModules.js` `MODULE_META`
   = `{ label, Icon Lucide }` par module (`AudioWaveform`/`BarChart3`/`Grid2x2`/
   `Piano`/`AudioLines`), **source unique** réutilisée par les headers (icône
