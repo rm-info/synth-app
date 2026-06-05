@@ -39,9 +39,10 @@ framework UI (CSS manuscrit), pas de routing, pas de backend.
 
 **État courant** : Iteration N « Stabilité & fluidité » **close** (release
 v1.6.0, 2026-06-04). **Iteration O — Ergonomie & responsive du Designer** ouverte
-(cf. `archi/BACKLOG.md` § Iteration O) : **phases 1-2** livrées (steppers `▴▾` au
+(cf. `archi/BACKLOG.md` § Iteration O) : **phases 1-3** livrées (steppers `▴▾` au
 lieu des sliders ancres/cap ; `OverflowToolbar` priority-plus sur les barres de
-titre surchargées). Le détail par phase N.1→N.6 (audit
+titre surchargées ; quadrant Instrument responsive desktop à 2 étages). Le détail
+par phase N.1→N.6 (audit
 perf + verdict prod, warp 2D, presets « Timbres », lissage, durcissements TS)
 vit dans `CONTEXT-ARCHIVE.md` ; l'état présent du Designer est résumé dans
 `## État actuel` ci-dessous. Hygiène restante (hors itération) : purge des
@@ -394,6 +395,17 @@ Seuls les **placements timeline** s'appellent "clips".
   (barre du haut) + 3 colonnes via `DesignerColumns` (Forme d'onde /
   Harmoniques / Spectrogramme), et garde la moitié basse (Instrument / ADSR).
   Le panneau Actions est placé par App.jsx dans la sidebar gauche.
+- **Quadrant Instrument responsive (iter-O phase-3, desktop only)** : reçoit
+  `isMobile` (prop, source unique App.jsx) et lit `windowHeight`. Dégradation à
+  **2 étages** qui libère des lignes pour le clavier quand l'espace se resserre
+  (seuils `width OU height`, tous au-dessus du plancher accordéon 668) — **étage
+  1** `instrumentCollapsed` (w<950 ∥ h<780) : les contrôles système quittent le
+  corps pour une **icône `[⚙]`** dans le header (ouvre la modale inchangée) ;
+  **étage 2** `octaveInHeader` (w<924 ∥ h<710, ⟹ étage 1) : les 11 boutons
+  d'octave deviennent un **stepper `▴▾`** (`NumberInput` O.1) dans le header, la
+  `we-octave-row` du corps disparaît. `data-anchor="designer-octave-selector"`
+  suit le contrôle (row OU stepper, rendu unique). **Mobile (accordéon)
+  inchangé** : bouton système full-width + modale, 11 boutons d'octave.
 - **Modèle unifié + lentilles (M rattrapage r.1 → r.3)** : la vérité audio est
   `editor.canonical` ; `editor.currentLens` ('free' | 'spline', M.r.3.2 :
   'bars' retiré) pilote l'affichage. Plus de mode silotant : les 3 zones
@@ -1771,6 +1783,17 @@ Conventions tacites. Les enfreindre sans raison crée des bugs subtils.
 
 ✅ **Terminé**
 - **Iteration O — Ergonomie & responsive du Designer (en cours)** :
+  - **Phase 3 — Quadrant Instrument responsive (desktop only)** : dégradation à
+    **2 étages** (seuils `width OU height`) qui libère des lignes pour le clavier.
+    Étage 1 (`instrumentCollapsed`, w<950 ∥ h<780) : contrôles système → icône
+    `[⚙]` dans le header (modale inchangée), le corps n'affiche plus la row
+    système. Étage 2 (`octaveInHeader`, w<924 ∥ h<710) : les 11 boutons d'octave →
+    **stepper `▴▾`** (réutilise O.1) dans le header, `we-octave-row` du corps
+    retirée. `WaveformEditor` reçoit `isMobile` (prop App.jsx) ; le
+    `data-anchor="designer-octave-selector"` suit le contrôle. **Mobile
+    (accordéon < 924×668) strictement inchangé** (bouton système full-width +
+    modale ; 11 boutons d'octave). Hors scope ici : AHDSR (O.4), collapse/maximize
+    des modules (O.5).
   - **Phase 2 — `OverflowToolbar` (priority-plus)** : nouveau composant générique
     réutilisable (`src/components/OverflowToolbar.jsx`) qui affiche un maximum de
     contrôles en ligne et pousse le débordement dans un **tiroir `⋯`** (popover de
@@ -2561,9 +2584,11 @@ chargé, on dégraisse en partant de la dette la plus simple.
 - **Phase 2 — `OverflowToolbar` priority-plus** (livrée) : débordement des barres
   de titre surchargées dans un tiroir `⋯`. Branché au header Forme d'onde et au
   groupe droit de la `DesignerToolbar`. Détail dans `## État actuel`.
-- **Phase 3+ — à venir** : Instrument/AHDSR (quand ils gagneront des contrôles),
-  responsive / modularisation, chrome Réduire/Agrandir + auto-collapse (O.3→O.5).
-  Cf. `archi/BACKLOG.md`.
+- **Phase 3 — Quadrant Instrument responsive** (livrée) : dégradation desktop à 2
+  étages (système → `[⚙]`, octaves → stepper `▴▾`) pour libérer des lignes au
+  clavier. Mobile inchangé. Détail dans `## État actuel`.
+- **Phase 4+ — à venir** : enveloppe AHDSR (O.4), puis collapse/auto-collapse/
+  maximize des modules + chrome Réduire/Agrandir (O.5). Cf. `archi/BACKLOG.md`.
 
 Iteration N « Stabilité & fluidité » **close** (release v1.6.0). Roadmap
 détaillée N.1→N.6 archivée dans `CONTEXT-ARCHIVE.md`.
