@@ -16,3 +16,13 @@ export const MODULE_META = {
   params:      { label: 'Instrument',                  Icon: Piano },
   adsr:        { label: 'Enveloppe AHDSR',             Icon: AudioLines },
 }
+
+// iter-O phase-5d : rangées du layout Designer (haut = 3 colonnes, bas = 2
+// cellules). Source unique de la politique d'auto-réduction « accordéon par
+// rangée » : ouvrir un module replié réduit ses siblings de rangée ouverts.
+export const DESIGNER_ROWS = {
+  top: ['canvas', 'harmonics', 'spectrogram'],
+  bottom: ['params', 'adsr'],
+}
+export const rowSiblings = (id) =>
+  (Object.values(DESIGNER_ROWS).find((r) => r.includes(id)) ?? []).filter((m) => m !== id)

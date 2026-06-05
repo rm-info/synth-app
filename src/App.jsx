@@ -886,10 +886,12 @@ function App() {
   const setDesignerColumnWidths = useCallback((widths) => {
     dispatch({ type: 'SET_DESIGNER_COLUMN_WIDTHS', payload: widths })
   }, [])
-  // iter-O phase-5a : bascule l'état replié (bande) d'un module Designer. Sert
-  // de Réduire (chrome du header) ET de réouverture (clic sur la bande).
-  const handleToggleModuleCollapsed = useCallback((id) => {
-    dispatch({ type: 'TOGGLE_DESIGNER_MODULE_COLLAPSED', payload: id })
+  // iter-O phase-5a/5d : bascule l'état replié (bande) d'un module Designer. Sert
+  // de Réduire (chrome) ET de réouverture (clic bande). `autoCollapse` (5d) est
+  // calculé au call-site (effectiveAutoCollapse) — pas de closure sur winWidth
+  // ici (déclaré plus bas, TDZ). Le reducer l'ignore en fermeture.
+  const handleToggleModuleCollapsed = useCallback((id, autoCollapse = false) => {
+    dispatch({ type: 'TOGGLE_DESIGNER_MODULE_COLLAPSED', payload: { id, autoCollapse } })
   }, [])
   // iter-O phase-5b : maximise un module (remplit la zone Designer) ou restaure.
   // Toggle côté handler : re-cliquer le module maximisé revient à null.
@@ -1074,6 +1076,9 @@ function App() {
   // sidebar est gérée automatiquement).
   const { w: winWidth, h: winHeight } = useWindowSize()
   const isMobile = winWidth < 924 || winHeight < 668
+  // iter-O phase-5d : flag effectif passé aux réouvertures de module — actif si
+  // le toggle est ON, ou forcé sous le seuil de largeur (desktop étroit).
+  const effectiveAutoCollapse = autoCollapse || winWidth < AUTO_COLLAPSE_DEFAULT_WIDTH
   const designerSidebarCollapsedEffective = isMobile || designerSidebarCollapsed
   // Mode accordéon : zone dépliée par défaut = 'canvas' (waveform).
   // null serait possible aussi (tout fermé) mais on choisit d'avoir
@@ -2413,7 +2418,7 @@ function App() {
                         id="canvas"
                         collapsed={designerCollapsed.canvas}
                         maximized={maximized === 'canvas'}
-                        onToggleCollapse={() => handleToggleModuleCollapsed('canvas')}
+                        onToggleCollapse={() => handleToggleModuleCollapsed('canvas', effectiveAutoCollapse)}
                         onToggleMaximize={() => handleToggleModuleMaximized('canvas')}
                       >{renderCanvasArea()}</DesignerModule>,
                       <DesignerModule
@@ -2421,7 +2426,7 @@ function App() {
                         id="harmonics"
                         collapsed={designerCollapsed.harmonics}
                         maximized={maximized === 'harmonics'}
-                        onToggleCollapse={() => handleToggleModuleCollapsed('harmonics')}
+                        onToggleCollapse={() => handleToggleModuleCollapsed('harmonics', effectiveAutoCollapse)}
                         onToggleMaximize={() => handleToggleModuleMaximized('harmonics')}
                       >{renderHarmonicsArea()}</DesignerModule>,
                       <DesignerModule
@@ -2429,7 +2434,7 @@ function App() {
                         id="spectrogram"
                         collapsed={designerCollapsed.spectrogram}
                         maximized={maximized === 'spectrogram'}
-                        onToggleCollapse={() => handleToggleModuleCollapsed('spectrogram')}
+                        onToggleCollapse={() => handleToggleModuleCollapsed('spectrogram', effectiveAutoCollapse)}
                         onToggleMaximize={() => handleToggleModuleMaximized('spectrogram')}
                       >{spectrogramNode}</DesignerModule>,
                     ]}
@@ -2440,7 +2445,7 @@ function App() {
                         id="params"
                         collapsed={designerCollapsed.params}
                         maximized={maximized === 'params'}
-                        onToggleCollapse={() => handleToggleModuleCollapsed('params')}
+                        onToggleCollapse={() => handleToggleModuleCollapsed('params', effectiveAutoCollapse)}
                         onToggleMaximize={() => handleToggleModuleMaximized('params')}
                       >{renderParamsArea()}</DesignerModule>
                     </div>
@@ -2449,7 +2454,7 @@ function App() {
                         id="adsr"
                         collapsed={designerCollapsed.adsr}
                         maximized={maximized === 'adsr'}
-                        onToggleCollapse={() => handleToggleModuleCollapsed('adsr')}
+                        onToggleCollapse={() => handleToggleModuleCollapsed('adsr', effectiveAutoCollapse)}
                         onToggleMaximize={() => handleToggleModuleMaximized('adsr')}
                       >{renderAdsrArea()}</DesignerModule>
                     </div>

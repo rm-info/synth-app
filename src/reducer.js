@@ -13,6 +13,7 @@ import {
   TUNING_SYSTEMS,
 } from './lib/tuningSystems'
 import { VISUAL_CUE_PATTERNS } from './lib/visualCues'
+import { rowSiblings } from './lib/designerModules'
 
 // === Constantes partagées ===
 export const STORAGE_KEY = 'synth-app-state'
@@ -2459,12 +2460,17 @@ export function reducer(state, action) {
     // iter-O phase-5a : bascule l'état replié d'un module Designer (bande).
     // Non-undoable (absent des *_UNDOABLE) — préférence UI, comme adsrView.
     case 'TOGGLE_DESIGNER_MODULE_COLLAPSED': {
-      const id = action.payload
+      const { id, autoCollapse } = action.payload ?? {}
       if (!DESIGNER_MODULE_IDS.includes(id)) return state
-      return {
-        ...state,
-        designerCollapsed: { ...state.designerCollapsed, [id]: !state.designerCollapsed[id] },
+      const wasCollapsed = state.designerCollapsed[id]
+      const next = { ...state.designerCollapsed, [id]: !wasCollapsed }
+      // iter-O phase-5d : politique d'auto-réduction. UNIQUEMENT à la réouverture
+      // (replié → ouvert) : replie les siblings de la même rangée actuellement
+      // ouverts (accordéon par rangée). En fermeture, le flag est ignoré.
+      if (wasCollapsed && autoCollapse) {
+        for (const sib of rowSiblings(id)) next[sib] = true
       }
+      return { ...state, designerCollapsed: next }
     }
     // iter-O phase-5b : maximise un module (id) ou restaure (null). Non-undoable.
     case 'SET_DESIGNER_MAXIMIZED': {

@@ -588,8 +588,10 @@ export type ActionBody =
   | { type: 'SET_DESIGNER_COLUMN_WIDTHS'; payload: number[] }
   // iter-M phase-2-as : toggle auto-sizing.
   | { type: 'SET_AUTO_SIZING'; payload: boolean }
-  // iter-O phase-5a : bascule l'état replié d'un module du Designer (bande).
-  | { type: 'TOGGLE_DESIGNER_MODULE_COLLAPSED'; payload: DesignerModuleId }
+  // iter-O phase-5a/5d : bascule l'état replié d'un module du Designer (bande).
+  // `autoCollapse` (5d) : si vrai ET réouverture, replie aussi les siblings de
+  // la même rangée actuellement ouverts (politique accordéon par rangée).
+  | { type: 'TOGGLE_DESIGNER_MODULE_COLLAPSED'; payload: { id: DesignerModuleId; autoCollapse?: boolean } }
   // iter-O phase-5b : module maximisé (id) ou null (restauré).
   | { type: 'SET_DESIGNER_MAXIMIZED'; payload: DesignerModuleId | null }
   // iter-O phase-5d : bascule la politique d'auto-réduction.
