@@ -363,6 +363,9 @@ export interface AppState {
   // iter-O phase-5a : état replié (bande verticale fine) de chacun des 5
   // modules du Designer. Préférence UI persistée, non-undoable.
   designerCollapsed: DesignerCollapsed
+  // iter-O phase-5b : module maximisé (remplit la zone Designer, les autres
+  // cachés en CSS), ou null. Un seul à la fois. Persisté, non-undoable.
+  maximized: DesignerModuleId | null
   docSidebarWidth: number
   docSidebarCollapsed: boolean
   doc: DocState
@@ -584,6 +587,8 @@ export type ActionBody =
   | { type: 'SET_AUTO_SIZING'; payload: boolean }
   // iter-O phase-5a : bascule l'état replié d'un module du Designer (bande).
   | { type: 'TOGGLE_DESIGNER_MODULE_COLLAPSED'; payload: DesignerModuleId }
+  // iter-O phase-5b : module maximisé (id) ou null (restauré).
+  | { type: 'SET_DESIGNER_MAXIMIZED'; payload: DesignerModuleId | null }
   | { type: 'SET_CURRENT_ARTICLE'; payload: string | null }
   | { type: 'SET_ARTICLE_SCROLL'; payload: { articleId: string; scrollTop: number } }
   | { type: 'TOGGLE_DOC_SIDEBAR' }

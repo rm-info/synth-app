@@ -9,11 +9,16 @@ import './DesignerModule.css'
 // — le ResizeObserver du canvas redessine au retour à dimensions non nulles).
 // La bande n'éclate donc pas le contenu : elle est un frère affiché à sa place.
 //
-// `data-module` servira au maximize (O.5b). La signature reste minimale ici.
-function DesignerModule({ id, name, collapsed, onReopen, children }) {
+// `data-module` sert au ciblage CSS du maximize (O.5b). `maximized` pose la
+// classe `is-maximized` (prioritaire sur `is-collapsed` : maximize > collapse,
+// le contenu est montré et la bande masquée même si le module était replié).
+function DesignerModule({ id, name, collapsed, onReopen, maximized, children }) {
   return (
-    <div className={`designer-module${collapsed ? ' is-collapsed' : ''}`} data-module={id}>
-      {collapsed && (
+    <div
+      className={`designer-module${collapsed ? ' is-collapsed' : ''}${maximized ? ' is-maximized' : ''}`}
+      data-module={id}
+    >
+      {collapsed && !maximized && (
         <button
           type="button"
           className="module-band"

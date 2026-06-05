@@ -123,9 +123,9 @@ function Spectrogram({
   analyserRef, activeVoicesCountRef,
   dbScale, peakHold, mode,
   onToggleDbScale, onTogglePeakHold, onToggleMode,
-  // iter-O phase-5a : Réduire le module (chrome). Absent en mobile (l'accordéon
+  // iter-O phase-5a/5b : chrome Réduire/Agrandir. Absent en mobile (l'accordéon
   // gère son propre repli) → le chrome n'est pas rendu.
-  onCollapse,
+  onCollapse, onMaximize, maximized,
 }) {
   const canvasRef = useRef(null)
   const containerRef = useRef(null)
@@ -484,7 +484,7 @@ function Spectrogram({
             aria-label={STRINGS.spectro.peak}
           ><IconCrete size={16} /></button>
         </div>
-        {onCollapse && <ModuleChrome onCollapse={onCollapse} />}
+        {onCollapse && <ModuleChrome onCollapse={onCollapse} onMaximize={onMaximize} maximized={maximized} />}
       </header>
       <div className="spectrogram-canvas-container" ref={containerRef}>
         <canvas ref={canvasRef} className="spectrogram-canvas" />

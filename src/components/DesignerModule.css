@@ -20,6 +20,12 @@
 .designer-module.is-collapsed .designer-module-content {
   display: none;
 }
+/* iter-O phase-5b : maximize > collapse — un module maximisé montre son contenu
+   même s'il était replié (cas défensif : on ne maximise normalement que depuis
+   l'état ouvert). */
+.designer-module.is-maximized .designer-module-content {
+  display: flex;
+}
 
 /* Bande verticale fine cliquable (réouverture). Esprit
    .designer-sidebar.is-collapsed : surface discrète, hover marqué (affordance

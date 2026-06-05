@@ -107,7 +107,7 @@ function App() {
     durationMode, adsrView, selectedClipIds, selectedTrackId, composerFlash, lastAnchorClipId,
     composerBankWidth, composerAsideWidth, composerBankCollapsed, composerAsideCollapsed,
     designerSidebarWidth, designerSidebarCollapsed, designerColumnWidths, autoSizing,
-    designerCollapsed,
+    designerCollapsed, maximized,
     doc, docSidebarWidth, docSidebarCollapsed,
     bibHierarchyMode, bibDisplayMode, bibCurrentFolderId, bibPopupWidth,
     bibSelectedIds, bibSelectionAnchor, bibCollapsedFolders,
@@ -702,6 +702,8 @@ function App() {
           autoSizing,
           // iter-O phase-5a : modules Designer repliés (préférence UI).
           designerCollapsed,
+          // iter-O phase-5b : module maximisé (préférence UI).
+          maximized,
           // iter-L phase-2.1 : préférences sidebar Documentation (collapsed
           // + largeur). La position de lecture (article courant + scrolls)
           // est gérée séparément via sessionStorage.
@@ -738,7 +740,7 @@ function App() {
     durationMode, adsrView, activeTab, patchCounter, clipCounter, folderCounter, trackCounter,
     composerBankWidth, composerAsideWidth, composerBankCollapsed, composerAsideCollapsed,
     designerSidebarWidth, designerSidebarCollapsed, designerColumnWidths, autoSizing,
-    designerCollapsed,
+    designerCollapsed, maximized,
     docSidebarWidth, docSidebarCollapsed,
     bibHierarchyMode, bibDisplayMode, bibCurrentFolderId, bibCollapsedFolders, bibPopupWidth,
     recentPatchIds, theme, selectedTrackId,
@@ -882,6 +884,11 @@ function App() {
   const handleToggleModuleCollapsed = useCallback((id) => {
     dispatch({ type: 'TOGGLE_DESIGNER_MODULE_COLLAPSED', payload: id })
   }, [])
+  // iter-O phase-5b : maximise un module (remplit la zone Designer) ou restaure.
+  // Toggle côté handler : re-cliquer le module maximisé revient à null.
+  const handleToggleModuleMaximized = useCallback((id) => {
+    dispatch({ type: 'SET_DESIGNER_MAXIMIZED', payload: maximized === id ? null : id })
+  }, [maximized])
   // iter-M phase-2-as : toggle auto-sizing (essai).
   const toggleAutoSizing = useCallback(() => {
     dispatch({ type: 'SET_AUTO_SIZING', payload: !autoSizing })
@@ -2065,9 +2072,11 @@ function App() {
       onToggleMode={() =>
         setSpectrogramMode(spectrogramMode === 'live' ? 'static' : 'live')
       }
-      // iter-O phase-5a : Réduire (chrome). Desktop only — l'accordéon mobile a
-      // son propre repli (chevron), le node spectro est partagé entre les deux.
+      // iter-O phase-5a/5b : chrome Réduire/Agrandir. Desktop only — l'accordéon
+      // mobile a son propre repli, le node spectro est partagé entre les deux.
       onCollapse={isMobile ? undefined : () => handleToggleModuleCollapsed('spectrogram')}
+      onMaximize={isMobile ? undefined : () => handleToggleModuleMaximized('spectrogram')}
+      maximized={maximized === 'spectrogram'}
     />
   )
 
@@ -2181,6 +2190,8 @@ function App() {
         adsrView={adsrView}
         onSetAdsrView={(v) => dispatch({ type: 'SET_ADSR_VIEW', payload: v })}
         onToggleModuleCollapsed={handleToggleModuleCollapsed}
+        onToggleModuleMaximized={handleToggleModuleMaximized}
+        maximized={maximized}
       >
         {({ renderCanvasArea, renderHarmonicsArea, renderParamsArea, renderAdsrArea, renderActions, patchLabel, openPresetPicker, requestResetWaveform }) => (
           <>
@@ -2368,7 +2379,7 @@ function App() {
                   })}
                 </div>
               ) : (
-                <div className="designer-main">
+                <div className={`designer-main${maximized ? ' is-maximized' : ''}`}>
                   {/* iter-M phase-r.2.1 : barre du haut homogène (identité du
                       patch + proportions des colonnes), au-dessus des 3 colonnes. */}
                   <DesignerToolbar
@@ -2397,6 +2408,7 @@ function App() {
                         name={STRINGS.editor.waveformTitle}
                         collapsed={designerCollapsed.canvas}
                         onReopen={() => handleToggleModuleCollapsed('canvas')}
+                        maximized={maximized === 'canvas'}
                       >{renderCanvasArea()}</DesignerModule>,
                       <DesignerModule
                         key="harmonics"
@@ -2404,6 +2416,7 @@ function App() {
                         name={STRINGS.editor.harmonicsTitle}
                         collapsed={designerCollapsed.harmonics}
                         onReopen={() => handleToggleModuleCollapsed('harmonics')}
+                        maximized={maximized === 'harmonics'}
                       >{renderHarmonicsArea()}</DesignerModule>,
                       <DesignerModule
                         key="spectrogram"
@@ -2411,6 +2424,7 @@ function App() {
                         name="Spectrogramme"
                         collapsed={designerCollapsed.spectrogram}
                         onReopen={() => handleToggleModuleCollapsed('spectrogram')}
+                        maximized={maximized === 'spectrogram'}
                       >{spectrogramNode}</DesignerModule>,
                     ]}
                   />
@@ -2421,6 +2435,7 @@ function App() {
                         name="Instrument"
                         collapsed={designerCollapsed.params}
                         onReopen={() => handleToggleModuleCollapsed('params')}
+                        maximized={maximized === 'params'}
                       >{renderParamsArea()}</DesignerModule>
                     </div>
                     <div className={`designer-cell${designerCollapsed.adsr ? ' is-collapsed' : ''}`}>
@@ -2429,6 +2444,7 @@ function App() {
                         name="Enveloppe AHDSR"
                         collapsed={designerCollapsed.adsr}
                         onReopen={() => handleToggleModuleCollapsed('adsr')}
+                        maximized={maximized === 'adsr'}
                       >{renderAdsrArea()}</DesignerModule>
                     </div>
                   </div>

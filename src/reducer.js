@@ -585,6 +585,8 @@ export function loadPersistedState() {
       autoSizing: typeof parsed.autoSizing === 'boolean' ? parsed.autoSizing : false,
       // iter-O phase-5a : état replié des 5 modules Designer (défaut tout ouvert).
       designerCollapsed: sanitizeDesignerCollapsed(parsed.designerCollapsed),
+      // iter-O phase-5b : module maximisé (id connu) ou null.
+      maximized: DESIGNER_MODULE_IDS.includes(parsed.maximized) ? parsed.maximized : null,
       // iter-L phase-2.1 : préférences sidebar Documentation. Persistées en
       // localStorage (cohérent avec les autres sidebars). La position de
       // lecture vit en sessionStorage (cf. loadDocSession).
@@ -813,6 +815,8 @@ export function buildInitialState() {
     autoSizing: persisted?.autoSizing ?? false,
     // iter-O phase-5a : modules Designer repliés (tout ouvert par défaut).
     designerCollapsed: persisted?.designerCollapsed ?? sanitizeDesignerCollapsed(null),
+    // iter-O phase-5b : module maximisé (validé à l'hydratation), null par défaut.
+    maximized: persisted?.maximized ?? null,
     // iter-L phase-2.1 : sidebar TOC Documentation + position de lecture.
     // - docSidebarWidth / docSidebarCollapsed : localStorage (préférences).
     // - doc.currentArticleId / doc.scrollPositions : sessionStorage (lecture).
@@ -2457,6 +2461,12 @@ export function reducer(state, action) {
         ...state,
         designerCollapsed: { ...state.designerCollapsed, [id]: !state.designerCollapsed[id] },
       }
+    }
+    // iter-O phase-5b : maximise un module (id) ou restaure (null). Non-undoable.
+    case 'SET_DESIGNER_MAXIMIZED': {
+      const next = DESIGNER_MODULE_IDS.includes(action.payload) ? action.payload : null
+      if (state.maximized === next) return state
+      return { ...state, maximized: next }
     }
     case 'SET_COMPOSER_SIDEBAR_WIDTH': {
       const { side, width } = action.payload

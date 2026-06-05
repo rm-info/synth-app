@@ -327,9 +327,13 @@ function WaveformEditor({
   isMobile,
   adsrView,
   onSetAdsrView,
-  // iter-O phase-5a : Réduire un module (chrome du header). Desktop only — les
-  // 4 headers de l'éditeur rendent <ModuleChrome> seulement si !isMobile.
+  // iter-O phase-5a/5b : chrome du header (Réduire + Agrandir). Desktop only —
+  // les 4 headers de l'éditeur rendent <ModuleChrome> seulement si !isMobile.
+  // `maximized` = l'id du module maximisé (ou null) ; chaque chrome dérive son
+  // état via maximized === <son id>.
   onToggleModuleCollapsed,
+  onToggleModuleMaximized,
+  maximized,
   ref,
   children,
 }) {
@@ -2140,7 +2144,11 @@ function WaveformEditor({
           autoSizeFocusGuardRef={autoSizeFocusGuardRef}
           headerControls={renderWaveformHeaderControls()}
           headerChrome={!isMobile && onToggleModuleCollapsed
-            ? <ModuleChrome onCollapse={() => onToggleModuleCollapsed('canvas')} />
+            ? <ModuleChrome
+                onCollapse={() => onToggleModuleCollapsed('canvas')}
+                onMaximize={onToggleModuleMaximized ? () => onToggleModuleMaximized('canvas') : undefined}
+                maximized={maximized === 'canvas'}
+              />
             : null}
         />
       )
@@ -2155,7 +2163,11 @@ function WaveformEditor({
             {renderWaveformHeaderControls()}
           </div>
           {!isMobile && onToggleModuleCollapsed && (
-            <ModuleChrome onCollapse={() => onToggleModuleCollapsed('canvas')} />
+            <ModuleChrome
+              onCollapse={() => onToggleModuleCollapsed('canvas')}
+              onMaximize={onToggleModuleMaximized ? () => onToggleModuleMaximized('canvas') : undefined}
+              maximized={maximized === 'canvas'}
+            />
           )}
         </header>
         <div className="canvas-container" ref={canvasContainerRef}>
@@ -2228,7 +2240,11 @@ function WaveformEditor({
               </span>
             </label>
             {!isMobile && onToggleModuleCollapsed && (
-              <ModuleChrome onCollapse={() => onToggleModuleCollapsed('harmonics')} />
+              <ModuleChrome
+                onCollapse={() => onToggleModuleCollapsed('harmonics')}
+                onMaximize={onToggleModuleMaximized ? () => onToggleModuleMaximized('harmonics') : undefined}
+                maximized={maximized === 'harmonics'}
+              />
             )}
           </div>
         </header>
@@ -2404,7 +2420,11 @@ function WaveformEditor({
               ><Sliders size={18} /></button>
             )}
             {!isMobile && onToggleModuleCollapsed && (
-              <ModuleChrome onCollapse={() => onToggleModuleCollapsed('params')} />
+              <ModuleChrome
+                onCollapse={() => onToggleModuleCollapsed('params')}
+                onMaximize={onToggleModuleMaximized ? () => onToggleModuleMaximized('params') : undefined}
+                maximized={maximized === 'params'}
+              />
             )}
           </div>
         )}
@@ -2859,9 +2879,13 @@ function WaveformEditor({
               ><SlidersHorizontal size={18} /></button>
             </div>
             )}
-            {/* iter-O phase-5a : chrome du module (Réduire), desktop only. */}
+            {/* iter-O phase-5a/5b : chrome du module (Réduire + Agrandir), desktop only. */}
             {!isMobile && onToggleModuleCollapsed && (
-              <ModuleChrome onCollapse={() => onToggleModuleCollapsed('adsr')} />
+              <ModuleChrome
+                onCollapse={() => onToggleModuleCollapsed('adsr')}
+                onMaximize={onToggleModuleMaximized ? () => onToggleModuleMaximized('adsr') : undefined}
+                maximized={maximized === 'adsr'}
+              />
             )}
           </div>
           )}
