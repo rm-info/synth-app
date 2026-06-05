@@ -134,10 +134,17 @@ function DesignerColumns({ widths, onWidths, onManualResize, autoSizing, focusGu
   // iter-O phase-5a : une colonne repliée sort du flexGrow (largeur fixe de
   // bande), les ouvertes conservent leurs ratios (flex distribue l'espace
   // restant). designerColumnWidths n'est PAS modifié → réouverture = retour
-  // direct au ratio. Le séparateur adjacent à une colonne repliée est masqué.
+  // direct au ratio. Le séparateur adjacent à une colonne repliée est neutralisé.
+  //
+  // iter-O phase-5a.3 (fix) : on NORMALISE le flexGrow des colonnes ouvertes par
+  // leur somme. Sinon Σ(flex-grow) tombe sous 1 quand une colonne se replie, et
+  // par spec Flexbox seule cette fraction de l'espace libre est distribuée → un
+  // trou subsiste. Σ=1 garantit que tout l'espace libéré est repris (ratios
+  // préservés) ; une seule ouverte ⇒ flexGrow 1 ⇒ elle remplit tout.
+  const openSum = widths.reduce((s, w, i) => (collapsed[i] ? s : s + w), 0)
   const colStyle = (i) => collapsed[i]
     ? { flex: '0 0 var(--module-band-width, 28px)' }
-    : { flexGrow: widths[i] }
+    : { flexGrow: openSum > 0 ? widths[i] / openSum : 1 }
   const sepHidden = (i) => collapsed[i] || collapsed[i + 1]
 
   return (

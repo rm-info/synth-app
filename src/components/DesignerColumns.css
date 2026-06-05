@@ -49,8 +49,14 @@
 .designer-columns-sep:active .designer-columns-sep-grip {
   background: var(--accent);
 }
-/* iter-O phase-5a : séparateur adjacent à une colonne repliée (bande) — inerte,
-   pas de poignée de resize entre une bande et sa voisine. */
+/* iter-O phase-5a : séparateur adjacent à une colonne repliée (bande) — rendu
+   inerte (pas de drag contre une bande) mais CONSERVÉ comme léger gap : il
+   garde sa largeur (flex:0 0 12px) pour que la bande ne soit pas collée à sa
+   voisine, sans poignée ni curseur de resize. */
 .designer-columns-sep.is-hidden {
+  cursor: default;
+  pointer-events: none;
+}
+.designer-columns-sep.is-hidden .designer-columns-sep-grip {
   display: none;
 }
