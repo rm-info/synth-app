@@ -39,13 +39,15 @@ framework UI (CSS manuscrit), pas de routing, pas de backend.
 
 **État courant** : Iteration N « Stabilité & fluidité » **close** (release
 v1.6.0, 2026-06-04). **Iteration O — Ergonomie & responsive du Designer** ouverte
-(cf. `archi/BACKLOG.md` § Iteration O) : **phases 1-4 + 5a** livrées (steppers
+(cf. `archi/BACKLOG.md` § Iteration O) : **phases 1-4 + 5a + 5b** livrées (steppers
 `▴▾` au lieu des sliders ancres/cap ; `OverflowToolbar` priority-plus sur les
 barres de titre surchargées ; quadrant Instrument responsive desktop à 2 étages ;
 bascule Graphe/Sliders de l'AHDSR en basse résolution ; **collapse** des 5 modules
 Designer — chacun réductible en **bande verticale fine** via un bouton Réduire
 dans son header, clic sur la bande = réouverture, état `designerCollapsed`
-persisté ; maximize O.5b + auto-collapse O.5c à venir). Le détail par phase N.1→N.6 (audit
+persisté ; **maximize** — bouton Agrandir/Restaurer par module, remplit la zone
+Designer, autres modules cachés en CSS, état `maximized` persisté, desktop only ;
+auto-collapse O.5c à venir). Le détail par phase N.1→N.6 (audit
 perf + verdict prod, warp 2D, presets « Timbres », lissage, durcissements TS)
 vit dans `CONTEXT-ARCHIVE.md` ; l'état présent du Designer est résumé dans
 `## État actuel` ci-dessous. Hygiène restante (hors itération) : purge des
@@ -282,6 +284,7 @@ type Clip = {                     // placement timeline + hauteur
 //   designerColumnWidths, autoSizing,
 //   designerCollapsed (iter-O phase-5a : { canvas, harmonics, spectrogram,
 //     params, adsr } booléens, état replié des 5 modules Designer),
+//   maximized (iter-O phase-5b : id du module maximisé ou null),
 //   editorTestTuningSystem, editorTestNoteIndex, editorTestOctave,
 //   editorTestFrequency, editorVisualCuePattern, editorVisualCueTonic,
 //   selectedTrackId (iter-L phase-1.4.b) }
@@ -700,17 +703,26 @@ Seuls les **placements timeline** s'appellent "clips".
   clic = réouverture. `data-module={id}` (servira au maximize O.5b).
 - **`ModuleChrome`** : chrome « façon fenêtre » rendu dans le header de chaque
   module **à l'extrême droite, HORS de l'`OverflowToolbar`** (toujours
-  atteignable). O.5a : bouton **Réduire** seul (`PanelLeftClose`, `.icon-btn`) ;
-  signature extensible pour Agrandir (O.5b). **Desktop only** : non rendu en
+  atteignable). **Réduire** (`PanelLeftClose`, O.5a) + **Agrandir/Restaurer**
+  (`Maximize2` ↔ `Minimize2`, O.5b — toggle). **Desktop only** : non rendu en
   mobile (l'accordéon a son propre repli). Branché dans les 5 headers —
   `WaveformEditor` (Forme d'onde via `headerChrome` de `SplineEditor` + 3 autres),
-  `Spectrogram` (prop `onCollapse`).
-- État `designerCollapsed` (5 booléens) persisté, non-undoable. Toggle unique
-  `TOGGLE_DESIGNER_MODULE_COLLAPSED` (Réduire + réouverture). `DesignerColumns`
-  reçoit `collapsed` (3 booléens) → colonne repliée en `flex:0 0
-  var(--module-band-width)` (28px), exclue du flexGrow (ratios des ouvertes
-  préservés, pas de parking de `designerColumnWidths`) + séparateur adjacent
-  masqué ; `.designer-cell.is-collapsed` fait pareil pour les 2 modules du bas.
+  `Spectrogram` (props `onCollapse`/`onMaximize`/`maximized`).
+- **Collapse** (O.5a) : `designerCollapsed` (5 booléens) persisté, non-undoable.
+  Toggle unique `TOGGLE_DESIGNER_MODULE_COLLAPSED` (Réduire + réouverture).
+  `DesignerColumns` reçoit `collapsed` (3 booléens) → colonne repliée en `flex:0 0
+  var(--module-band-width)` (28px), exclue du flexGrow **normalisé par la somme
+  des ouvertes** (5a.3 — sinon Σ flex-grow < 1 laisse un trou ; ratios préservés)
+  + séparateur adjacent rendu inerte mais conservé comme léger gap ;
+  `.designer-cell.is-collapsed` fait pareil pour les 2 modules du bas.
+- **Maximize** (O.5b) : `maximized` (id ou null, un seul à la fois) persisté,
+  non-undoable. Action `SET_DESIGNER_MAXIMIZED` (setter pur, toggle côté handler
+  `handleToggleModuleMaximized`). **Prioritaire sur collapse**, restaure l'état au
+  retour. `DesignerModule` maximisé → classe `is-maximized` (contenu montré, bande
+  masquée). `.designer-main.is-maximized` + `:has(.is-maximized)` (App.css) :
+  le module remplit la zone sous la `DesignerToolbar` (conservée), tout le reste
+  (rangée opposée, voisins, séparateurs, contrôles de proportions) caché en CSS,
+  **jamais démonté** (canvas redessinés au retour). **Desktop only.**
 
 ### `ConvertToHarmonicDialog.jsx` — SUPPRIMÉ (M.r.1.4)
 - Dialog de la passerelle draw→harmonic. **Supprimé** avec les conversions
