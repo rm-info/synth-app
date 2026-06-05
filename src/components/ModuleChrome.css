@@ -24,9 +24,6 @@
   background: var(--accent-bg-faint);
   color: var(--text-strong);
 }
-.module-chrome-btn.is-active {
-  color: var(--accent);
-}
 .module-chrome-btn:disabled {
   opacity: 0.4;
   cursor: not-allowed;

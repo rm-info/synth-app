@@ -27,7 +27,7 @@ function ModuleChrome({ onCollapse, onMaximize, maximized }) {
       {onMaximize && (
         <button
           type="button"
-          className={`module-chrome-btn${maximized ? ' is-active' : ''}`}
+          className="module-chrome-btn"
           onClick={onMaximize}
           title={maximized ? 'Restaurer le module' : 'Agrandir le module'}
           aria-label={maximized ? 'Restaurer le module' : 'Agrandir le module'}
