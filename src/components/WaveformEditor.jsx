@@ -96,6 +96,13 @@ const INSTRUMENT_COLLAPSE_HEIGHT = 780 // H₁
 const INSTRUMENT_OCTAVE_WIDTH = 924  // W₂ (filet largeur, cas extrême ~accordéon)
 const INSTRUMENT_OCTAVE_HEIGHT = 710 // H₂
 
+// iter-O phase-4 : seuils « compact » du quadrant AHDSR, mesurés sur la ZONE
+// elle-même (ResizeObserver, pas windowWidth) → layout-agnostique. En dessous :
+// switch Graphe/Sliders, une seule vue à la fois (le côte-à-côte canvas +
+// colonne de 6 sliders devient inconfortable). Calibration dev au test visuel.
+const ADSR_COMPACT_WIDTH = 420
+const ADSR_COMPACT_HEIGHT = 280
+
 const ADSR_H = 120
 // F.3.11 : range A/D/R étendu à 1000 ms. À max-range, ADSR_SEGMENT_PX
 // reste à 80 — un segment "long" (1000 ms) occupe les 80 px alloués, donc
@@ -455,6 +462,11 @@ function WaveformEditor({
   const canvasContainerRef = useRef(null)
   const adsrCanvasRef = useRef(null)
   const adsrContainerRef = useRef(null)
+  // iter-O phase-4.2 : zone AHDSR observée (ResizeObserver) pour dériver le mode
+  // compact (switch Graphe/Sliders). La zone tire sa taille de sa cellule, pas
+  // de son contenu → pas de boucle quand on cache le canvas / passe en 2 colonnes.
+  const adsrAreaRef = useRef(null)
+  const [adsrCompact, setAdsrCompact] = useState(false)
   const audioCtxRef = useRef(null)
   const analyserGainRef = useRef(null)
 
@@ -1703,6 +1715,46 @@ function WaveformEditor({
     }
   }, [drawAdsr])
 
+  // iter-O phase-4.2 : mode compact dérivé de la taille de la ZONE AHDSR.
+  // setState dans le callback RO (async) → pas de setState synchrone en effet.
+  useEffect(() => {
+    const area = adsrAreaRef.current
+    if (!area || typeof ResizeObserver === 'undefined') return
+    const ro = new ResizeObserver((entries) => {
+      for (const entry of entries) {
+        const w = entry.contentRect.width
+        const h = entry.contentRect.height
+        if (!w || !h) continue
+        const compact = w < ADSR_COMPACT_WIDTH || h < ADSR_COMPACT_HEIGHT
+        setAdsrCompact((prev) => (prev === compact ? prev : compact))
+      }
+    })
+    ro.observe(area)
+    return () => ro.disconnect()
+  }, [])
+
+  // iter-O phase-4.2 : au retour en vue Graphe (canvas ré-affiché après avoir été
+  // display:none), forcer un redraw — si la zone n'a pas changé de taille, le RO
+  // d'adsrContainerRef ne refire pas (canvas conservé mais on garantit le repaint).
+  useEffect(() => {
+    if (adsrView !== 'graph') return
+    const raf = requestAnimationFrame(() => {
+      const canvas = adsrCanvasRef.current
+      const container = adsrContainerRef.current
+      if (canvas && container) {
+        const rect = container.getBoundingClientRect()
+        const w = Math.floor(rect.width)
+        const h = Math.floor(rect.height)
+        if (w && h && (w !== canvas.width || h !== canvas.height)) {
+          canvas.width = w
+          canvas.height = h
+        }
+      }
+      drawAdsr()
+    })
+    return () => cancelAnimationFrame(raf)
+  }, [adsrView, drawAdsr])
+
   const getAdsrPos = (e) => {
     const canvas = adsrCanvasRef.current
     const rect = canvas.getBoundingClientRect()
@@ -2760,11 +2812,16 @@ function WaveformEditor({
     )
 
     return (
-      <div className="we-adsr-area" data-anchor="designer-adsr">
+      <div
+        className={`we-adsr-area${adsrCompact ? ' is-compact' : ''} view-${adsrView === 'sliders' ? 'sliders' : 'graph'}`}
+        data-anchor="designer-adsr"
+        ref={adsrAreaRef}
+      >
         <header className="we-area-header">
           <h3 className="we-area-title">Enveloppe AHDSR</h3>
-          {/* iter-O phase-4.1 : switch Graphe/Sliders (style segmenté, comme
-              Doux/Anguleux). En 4.2 il ne s'affichera qu'en mode compact. */}
+          {/* iter-O phase-4 : switch Graphe/Sliders (style segmenté, comme
+              Doux/Anguleux), uniquement en mode compact (mesuré sur la zone). */}
+          {adsrCompact && (
           <div className="spline-interp-toggle" role="group" aria-label="Vue de l'enveloppe">
             <button
               type="button"
@@ -2783,6 +2840,7 @@ function WaveformEditor({
               aria-pressed={adsrView === 'sliders'}
             ><SlidersHorizontal size={18} /></button>
           </div>
+          )}
         </header>
         <div className="adsr-body">
           <div className="adsr-canvas-container" ref={adsrContainerRef}>

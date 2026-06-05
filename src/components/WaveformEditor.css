@@ -1299,6 +1299,29 @@
   flex-shrink: 0;
 }
 
+/* iter-O phase-4.2 : mode compact (mesuré sur la zone) → une seule vue à la
+   fois. Le canvas n'est JAMAIS démonté (sinon il revient blanc) : on masque en
+   CSS. Non compact = inchangé (canvas + colonne 6-sliders côte à côte). */
+.we-adsr-area.is-compact.view-graph .adsr-sliders {
+  display: none;
+}
+.we-adsr-area.is-compact.view-sliders .adsr-canvas-container {
+  display: none;
+}
+/* Vue Sliders seule : 2 colonnes plus larges, remplissage COLONNE par colonne
+   (col1 = Amp/Attack/Hold, col2 = Decay/Sustain/Release — ordre source). */
+.we-adsr-area.is-compact.view-sliders .adsr-sliders {
+  display: grid;
+  grid-auto-flow: column;
+  grid-template-rows: repeat(3, auto);
+  grid-auto-columns: 1fr;
+  column-gap: 16px;
+  row-gap: 6px;
+  width: auto;
+  flex: 1;
+  align-content: start;
+}
+
 .adsr-slider {
   display: flex;
   flex-direction: column;
