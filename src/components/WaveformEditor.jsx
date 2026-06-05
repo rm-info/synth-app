@@ -493,6 +493,10 @@ function WaveformEditor({
   const { w: windowWidth, h: windowHeight } = useWindowSize()
   const instrumentCollapsed = !isMobile
     && (windowWidth < INSTRUMENT_COLLAPSE_WIDTH || windowHeight < INSTRUMENT_COLLAPSE_HEIGHT)
+  // Étage 2 : octaves → stepper ▴▾ dans le header (surtout déclenché par la
+  // hauteur ; W₂ n'est qu'un filet ~accordéon).
+  const octaveInHeader = !isMobile
+    && (windowWidth < INSTRUMENT_OCTAVE_WIDTH || windowHeight < INSTRUMENT_OCTAVE_HEIGHT)
   // La modale système est hébergée en mobile (bouton full-width) ET en desktop
   // collapsé (icône [⚙] du header). Ailleurs (desktop large), pas de modale.
   const systemInModal = isMobile || instrumentCollapsed
@@ -2300,18 +2304,38 @@ function WaveformEditor({
     <div className="we-params-area">
       <header className="we-area-header">
         <h3 className="we-area-title">Instrument</h3>
-        {/* iter-O phase-3.1 : en desktop collapsé, les contrôles système quittent
-            le corps (1 ligne récupérée pour le clavier) et vivent dans la modale,
-            ouverte par cette icône [⚙] à l'extrême droite du header. */}
-        {instrumentCollapsed && (
+        {/* iter-O phase-3 : contrôles compacts à droite du header (desktop serré).
+            Étage 2 (3.2) : stepper d'octave quand `octaveInHeader` (mode note) —
+            la we-octave-row du corps disparaît. Étage 1 (3.1) : icône [⚙] quand
+            `instrumentCollapsed` (contrôles système dans la modale). */}
+        {((octaveInHeader && !freeMode) || instrumentCollapsed) && (
           <div className="we-params-header-controls">
-            <button
-              type="button"
-              className="icon-btn"
-              onClick={() => setSystemModalOpen(true)}
-              title="Paramètres du système musical"
-              aria-label="Paramètres du système musical"
-            ><Sliders size={18} /></button>
+            {octaveInHeader && !freeMode && (
+              <div className="we-octave-header" data-anchor="designer-octave-selector">
+                <span className="we-octave-label">Oct.</span>
+                <NumberInput
+                  value={testOctave}
+                  onChange={editorActions.setTestOctave}
+                  min={0}
+                  max={10}
+                  parse={parseDefinition}
+                  format={formatDefinition}
+                  className="we-octave-stepper-input"
+                  ariaLabel="Octave"
+                  showSteppers
+                  step={1}
+                />
+              </div>
+            )}
+            {instrumentCollapsed && (
+              <button
+                type="button"
+                className="icon-btn"
+                onClick={() => setSystemModalOpen(true)}
+                title="Paramètres du système musical"
+                aria-label="Paramètres du système musical"
+              ><Sliders size={18} /></button>
+            )}
           </div>
         )}
       </header>
@@ -2428,14 +2452,19 @@ function WaveformEditor({
               {/* iter G phase 2.5 : OctaveSelector au-dessus du clavier, avec
                   libellé "Octaves". Le clavier remplit ensuite l'espace
                   vertical disponible (we-keyboard-area est flex:1). La ligne
-                  Note est ancrée en bas (margin-top:auto). */}
-              <div className="we-octave-row" data-anchor="designer-octave-selector">
-                <span className="we-octave-label">Octaves</span>
-                <OctaveSelector
-                  octave={testOctave}
-                  onSelectOctave={editorActions.setTestOctave}
-                />
-              </div>
+                  Note est ancrée en bas (margin-top:auto).
+                  iter-O phase-3.2 : en desktop serré (octaveInHeader), cette row
+                  disparaît — l'octave passe en stepper dans le header (l'ancre
+                  data-anchor le suit), 1 ligne de plus pour le clavier. */}
+              {!octaveInHeader && (
+                <div className="we-octave-row" data-anchor="designer-octave-selector">
+                  <span className="we-octave-label">Octaves</span>
+                  <OctaveSelector
+                    octave={testOctave}
+                    onSelectOctave={editorActions.setTestOctave}
+                  />
+                </div>
+              )}
               <div className="we-keyboard-area" data-anchor="designer-keyboard">
                 <PianoKeyboard
                   tuningSystem={testTuningSystem}
