@@ -848,6 +848,22 @@ si quelqu'un en exprime le besoin réel en classe.
 
 ## Backlog général (hors itération F)
 
+### Clavier
+
+- **Clavier piano étendu (2 octaves)** : afficher 2 octaves d'un coup sur le
+  clavier visuel (aujourd'hui 1 octave + décalage PageUp/PageDown). Lecture plus
+  naturelle des mélodies à large ambitus, plus de notes jouables sans changer
+  d'octave. À penser pour les layouts (a minima `piano-12`, idéalement
+  `grid-24`/`grid-31`/`grid-x-edo`). Contrainte : largeur écran (un clavier 2
+  octaves prend plus de place — cohérence avec les seuils de résolution).
+- **Note de départ / transposition du clavier** : pouvoir choisir la note de
+  départ des claviers pour **jouer dans une tonalité autre que C** (ex. clavier
+  qui commence en D). **Distinct de « Anchorage configurable »** (section F
+  ci-dessus, qui fixe la *référence de fréquence* d'un système d'accordage) : ici
+  c'est une **transposition de jeu** (quelles notes les touches déclenchent), pour
+  composer dans d'autres tonalités sans recalculer un a4Ref. UI : sélecteur de
+  tonique/note de départ par clavier.
+
 ### Dette structurelle — Migration TypeScript progressive
 
 Décision archi (session 2026-05-27) : adopter TypeScript de manière
