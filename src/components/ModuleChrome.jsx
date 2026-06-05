@@ -1,4 +1,4 @@
-import { PanelLeftClose, Maximize2, Minimize2 } from 'lucide-react'
+import { IconWinMinimize, IconWinMaximize, IconWinRestore } from './icons'
 import './ModuleChrome.css'
 
 // iter-O phase-5a/5b/5c : chrome « contrôle de fenêtre » d'un module Designer.
@@ -22,7 +22,7 @@ function ModuleChrome({ onCollapse, onMaximize, maximized }) {
         title={maximized ? "Restaurer d'abord" : 'Réduire le module'}
         aria-label={maximized ? "Restaurer le module d'abord" : 'Réduire le module'}
       >
-        <PanelLeftClose size={14} />
+        <IconWinMinimize size={14} />
       </button>
       {onMaximize && (
         <button
@@ -33,7 +33,7 @@ function ModuleChrome({ onCollapse, onMaximize, maximized }) {
           aria-label={maximized ? 'Restaurer le module' : 'Agrandir le module'}
           aria-pressed={!!maximized}
         >
-          {maximized ? <Minimize2 size={14} /> : <Maximize2 size={14} />}
+          {maximized ? <IconWinRestore size={14} /> : <IconWinMaximize size={14} />}
         </button>
       )}
     </div>

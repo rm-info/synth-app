@@ -141,3 +141,32 @@ export function IconCrete({ size = 24, color = 'currentColor', ...rest }) {
     </svg>
   )
 }
+
+// iter-O phase-5c.f1 : contrôles de fenêtre façon Windows (style Lucide). Aucun
+// équivalent Lucide ne rendait ce vocabulaire « fenêtre » — fabriqués ici.
+// Minimiser = trait horizontal ; Maximiser = un rectangle ; Restaurer = deux
+// rectangles décalés en diagonale (carré au premier plan + L du carré arrière
+// qui dépasse — en stroke-only, on ne dessine du carré arrière que sa partie
+// visible, sinon ses traits transparaîtraient dans le carré avant).
+export function IconWinMinimize(props) {
+  return (
+    <svg {...lucideProps(props)}>
+      <path d="M6 12 h12" />
+    </svg>
+  )
+}
+export function IconWinMaximize(props) {
+  return (
+    <svg {...lucideProps(props)}>
+      <rect x="5" y="5" width="14" height="14" rx="1.5" />
+    </svg>
+  )
+}
+export function IconWinRestore(props) {
+  return (
+    <svg {...lucideProps(props)}>
+      <path d="M8 9 V5 H19 V16 H15" />
+      <rect x="4" y="9" width="11" height="11" rx="1.5" />
+    </svg>
+  )
+}

@@ -1,14 +1,10 @@
-/* iter-O phase-5c : chrome « contrôle de fenêtre » — pastille discrète, plus
-   petite que les .icon-btn d'action, pour qu'on ne la confonde pas avec une
-   action du module. Positionnée en absolu par DesignerModule (coin haut-droit). */
+/* iter-O phase-5c : chrome « contrôle de fenêtre » — boutons nus (sans pastille
+   ni fond), plus discrets que les .icon-btn d'action. Positionnée en absolu par
+   DesignerModule (coin haut-droit). */
 .module-chrome {
   display: inline-flex;
   align-items: center;
   gap: 2px;
-  padding: 2px;
-  border-radius: 6px;
-  background: var(--surface-bg);
-  border: 1px solid var(--surface-border);
 }
 .module-chrome-btn {
   display: inline-flex;
