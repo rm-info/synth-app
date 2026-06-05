@@ -1,6 +1,7 @@
 import { FolderOpenDot, Eraser } from 'lucide-react'
 import { IconColumnLayout, IconAuto } from './icons'
 import { STRINGS } from '../lib/strings'
+import OverflowToolbar from './OverflowToolbar'
 import './DesignerToolbar.css'
 
 // iter-M phase-r.2 : barre d'outils unique du Designer, posée au-dessus des
@@ -39,6 +40,52 @@ function DesignerToolbar({ patchLabel, onPresets, onReset, onSelectPreset, width
   const activePresetId = autoSizing
     ? null
     : (COLUMN_PRESETS.find((p) => widthsEqual(p.widths, widths))?.id ?? null)
+
+  // iter-O phase-2.3 : le groupe radio de dimensionnement (4 presets + AUTO) est
+  // un OverflowToolbar (priority-plus). bar = bouton actuel ; tray = même bouton
+  // + libellé. Le séparateur reste en chrome fixe via la prop `prefix`. is-active
+  // / aria-pressed (état dérivé) conservés dans les deux formes.
+  const renderColumnControls = () => {
+    const trayLabel = (txt) => <span className="overflow-toolbar-tray-label">{txt}</span>
+    const presetItems = COLUMN_PRESETS.map((p) => {
+      const active = activePresetId === p.id
+      const btn = (
+        <button
+          type="button"
+          className={`designer-toolbar-preset-btn${active ? ' is-active' : ''}`}
+          title={p.title}
+          aria-label={p.title}
+          aria-pressed={active}
+          onClick={() => onSelectPreset(p.widths)}
+        ><IconColumnLayout widths={p.widths} /></button>
+      )
+      return { id: `preset-${p.id}`, bar: btn, tray: <>{btn}{trayLabel(p.title)}</> }
+    })
+    // AUTO = 5ᵉ item du groupe radio. Bascule autoSizing ; actif quand ON.
+    const autoBtn = (
+      <button
+        type="button"
+        className={`designer-toolbar-preset-btn${autoSizing ? ' is-active' : ''}`}
+        title={STRINGS.editor.autoSizingTitle}
+        aria-label={STRINGS.editor.autoSizing}
+        aria-pressed={autoSizing}
+        onClick={onToggleAutoSizing}
+      ><IconAuto /></button>
+    )
+    const items = [
+      ...presetItems,
+      { id: 'auto', bar: autoBtn, tray: <>{autoBtn}{trayLabel(STRINGS.editor.autoSizing)}</> },
+    ]
+    return (
+      <OverflowToolbar
+        items={items}
+        ariaLabel="Proportions des colonnes"
+        menuLabel="Proportions des colonnes"
+        prefix={<span className="designer-toolbar-divider" aria-hidden="true" />}
+      />
+    )
+  }
+
   return (
     <div className="designer-toolbar">
       <div className="designer-toolbar-left">
@@ -64,32 +111,7 @@ function DesignerToolbar({ patchLabel, onPresets, onReset, onSelectPreset, width
           ><Eraser size={18} /></button>
         )}
       </div>
-      {showColumnControls && (
-        <div className="designer-toolbar-right" role="group" aria-label="Proportions des colonnes">
-          <span className="designer-toolbar-divider" aria-hidden="true" />
-          {COLUMN_PRESETS.map((p) => (
-            <button
-              key={p.id}
-              type="button"
-              className={`designer-toolbar-preset-btn${activePresetId === p.id ? ' is-active' : ''}`}
-              title={p.title}
-              aria-label={p.title}
-              aria-pressed={activePresetId === p.id}
-              onClick={() => onSelectPreset(p.widths)}
-            ><IconColumnLayout widths={p.widths} /></button>
-          ))}
-          {/* AUTO = 5ᵉ bouton du groupe radio (même style/dimensions que les
-              presets). Bascule autoSizing ; actif quand autoSizing est ON. */}
-          <button
-            type="button"
-            className={`designer-toolbar-preset-btn${autoSizing ? ' is-active' : ''}`}
-            title={STRINGS.editor.autoSizingTitle}
-            aria-label={STRINGS.editor.autoSizing}
-            aria-pressed={autoSizing}
-            onClick={onToggleAutoSizing}
-          ><IconAuto /></button>
-        </div>
-      )}
+      {showColumnControls && renderColumnControls()}
     </div>
   )
 }

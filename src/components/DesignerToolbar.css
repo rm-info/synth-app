@@ -19,12 +19,9 @@
   min-width: 0;
 }
 
-.designer-toolbar-right {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  flex-shrink: 0;
-}
+/* iter-O phase-2.3 : l'ancien `.designer-toolbar-right` (groupe presets + AUTO)
+   est désormais un OverflowToolbar (priority-plus) rendu directement dans
+   `.designer-toolbar`. Le séparateur passe en prop `prefix`. */
 
 /* iter-M phase-r.2.6.2 : bouton-icône partagé du Designer (barre du haut +
    toggles du header Forme d'onde). Classe globale (CSS Vite non modulaire) :
