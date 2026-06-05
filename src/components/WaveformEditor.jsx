@@ -463,6 +463,11 @@ function WaveformEditor({
   const canvasContainerRef = useRef(null)
   const adsrCanvasRef = useRef(null)
   const adsrContainerRef = useRef(null)
+  // iter-O phase-5c.f6 : RO de dimensionnement des canvas portés par des callback
+  // refs (cf. attachCanvasContainer / attachAdsrContainer) au lieu d'effets à deps
+  // fixes — sinon le RO observe un noeud détaché quand le canvas remonte.
+  const canvasRoRef = useRef(null)
+  const adsrRoRef = useRef(null)
   // iter-O phase-4.2 : zone AHDSR observée (ResizeObserver) pour dériver le mode
   // compact (switch Graphe/Sliders). La zone tire sa taille de sa cellule, pas
   // de son contenu → pas de boucle quand on cache le canvas / passe en 2 colonnes.
@@ -694,40 +699,36 @@ function WaveformEditor({
     return () => cancelAnimationFrame(raf)
   }, [peakTarget, drawCanvas])
 
-  // iter-M phase-r.2.5.1 : idem — re-keyer sur `currentLens` réattache le
-  // ResizeObserver au NOUVEAU container/canvas après remount (l'ancien
-  // observer pointait sur un noeud détaché) ; l'observe initial refixe
-  // width/height et redessine.
-  useEffect(() => {
-    const container = canvasContainerRef.current
-    const canvas = canvasRef.current
-    if (!container || !canvas || typeof ResizeObserver === 'undefined') return
-    let raf1 = 0
-    let raf2 = 0
-    const ro = new ResizeObserver((entries) => {
-      for (const entry of entries) {
-        const w = Math.floor(entry.contentRect.width)
-        const h = Math.floor(entry.contentRect.height)
-        if (!w || !h) continue
-        if (w !== canvas.width || h !== canvas.height) {
-          canvas.width = w
-          canvas.height = h
-          drawCanvas(pointsRef.current, normalizedBgRef.current, splinePerfectRef.current)
-          cancelAnimationFrame(raf1)
-          cancelAnimationFrame(raf2)
-          raf1 = requestAnimationFrame(() => {
-            raf2 = requestAnimationFrame(() => drawCanvas(pointsRef.current, normalizedBgRef.current, splinePerfectRef.current))
-          })
-        }
+  // iter-O phase-5c.f6 : callback ref du container du canvas Forme d'onde. Un
+  // effet à deps fixes laissait le ResizeObserver observer un noeud DÉTACHÉ quand
+  // le canvas remontait sans changer ces deps : le render-prop de WaveformEditor
+  // réinjecte tout l'arbre à chaque bascule de layout (desktop ↔ mobile, wrappers
+  // O.5), or WaveformEditor ne se démonte pas → ses effets ne se relancent pas. Le
+  // canvas neuf restait alors à sa taille par défaut 300×150 (vérifié au test :
+  // backing 300×150 / display 250×200 → étiré/pixellisé). Le callback ref se
+  // ré-exécute à chaque (re)mount du noeud → RO toujours sur le bon container ;
+  // dimensionnement immédiat à l'attache (sans attendre la 1ʳᵉ notif async).
+  const attachCanvasContainer = useCallback((node) => {
+    canvasContainerRef.current = node
+    if (canvasRoRef.current) { canvasRoRef.current.disconnect(); canvasRoRef.current = null }
+    if (!node || typeof ResizeObserver === 'undefined') return
+    const sizeToContainer = () => {
+      const canvas = canvasRef.current
+      if (!canvas) return
+      const w = Math.floor(node.clientWidth)
+      const h = Math.floor(node.clientHeight)
+      if (!w || !h) return
+      if (w !== canvas.width || h !== canvas.height) {
+        canvas.width = w
+        canvas.height = h
+        drawCanvas(pointsRef.current, normalizedBgRef.current, splinePerfectRef.current)
       }
-    })
-    ro.observe(container)
-    return () => {
-      cancelAnimationFrame(raf1)
-      cancelAnimationFrame(raf2)
-      ro.disconnect()
     }
-  }, [drawCanvas, currentLens])
+    const ro = new ResizeObserver(() => sizeToContainer())
+    ro.observe(node)
+    sizeToContainer()
+    canvasRoRef.current = ro
+  }, [drawCanvas])
 
   const getCanvasPoint = (e) => {
     const canvas = canvasRef.current
@@ -1685,35 +1686,29 @@ function WaveformEditor({
     return () => window.removeEventListener('themechange', repaint)
   }, [drawCanvas, drawAdsr])
 
-  useEffect(() => {
-    const container = adsrContainerRef.current
-    const canvas = adsrCanvasRef.current
-    if (!container || !canvas || typeof ResizeObserver === 'undefined') return
-    let raf1 = 0
-    let raf2 = 0
-    const ro = new ResizeObserver((entries) => {
-      for (const entry of entries) {
-        const w = Math.floor(entry.contentRect.width)
-        const h = Math.floor(entry.contentRect.height)
-        if (!w || !h) continue
-        if (w !== canvas.width || h !== canvas.height) {
-          canvas.width = w
-          canvas.height = h
-          drawAdsr()
-          cancelAnimationFrame(raf1)
-          cancelAnimationFrame(raf2)
-          raf1 = requestAnimationFrame(() => {
-            raf2 = requestAnimationFrame(() => drawAdsr())
-          })
-        }
+  // iter-O phase-5c.f6 : callback ref du container du canvas ADSR (même motif que
+  // attachCanvasContainer — le canvas remonte au switch de layout, le RO d'un effet
+  // à deps fixes restait orphelin → canvas figé à 300×150).
+  const attachAdsrContainer = useCallback((node) => {
+    adsrContainerRef.current = node
+    if (adsrRoRef.current) { adsrRoRef.current.disconnect(); adsrRoRef.current = null }
+    if (!node || typeof ResizeObserver === 'undefined') return
+    const sizeToContainer = () => {
+      const canvas = adsrCanvasRef.current
+      if (!canvas) return
+      const w = Math.floor(node.clientWidth)
+      const h = Math.floor(node.clientHeight)
+      if (!w || !h) return
+      if (w !== canvas.width || h !== canvas.height) {
+        canvas.width = w
+        canvas.height = h
+        drawAdsr()
       }
-    })
-    ro.observe(container)
-    return () => {
-      cancelAnimationFrame(raf1)
-      cancelAnimationFrame(raf2)
-      ro.disconnect()
     }
+    const ro = new ResizeObserver(() => sizeToContainer())
+    ro.observe(node)
+    sizeToContainer()
+    adsrRoRef.current = ro
   }, [drawAdsr])
 
   // iter-O phase-4.2 : mode compact dérivé de la taille de la ZONE AHDSR.
@@ -2150,7 +2145,7 @@ function WaveformEditor({
             {renderWaveformHeaderControls()}
           </div>
         </header>
-        <div className="canvas-container" ref={canvasContainerRef}>
+        <div className="canvas-container" ref={attachCanvasContainer}>
           <canvas
             ref={canvasRef}
             onMouseDown={handleMouseDown}
@@ -2852,7 +2847,7 @@ function WaveformEditor({
           )}
         </header>
         <div className="adsr-body">
-          <div className="adsr-canvas-container" ref={adsrContainerRef}>
+          <div className="adsr-canvas-container" ref={attachAdsrContainer}>
             <canvas
               ref={adsrCanvasRef}
               className="adsr-canvas"
