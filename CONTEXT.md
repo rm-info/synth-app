@@ -45,11 +45,12 @@ barres de titre surchargées ; quadrant Instrument responsive desktop à 2 étag
 bascule Graphe/Sliders de l'AHDSR en basse résolution ; **gestionnaire de modules
 Designer** (O.5) : **collapse** en bande verticale (icône + titre, `designerCollapsed`),
 **maximize** plein cadre (`maximized`, autres cachés CSS), **chrome détachée** (coin
-haut-droit, icônes contrôles-fenêtre) + **icône d'identité** par module (`MODULE_META`)
-+ titre masqué quand étroit, **auto-réduction** par rangée (`autoCollapse` + toggle,
-forcée en écran étroit) ; tout ça desktop only. **O fonctionnellement complète** —
-reste une passe de calibration (seuils, icônes) + doc/release (bump version) en
-clôture). Le détail par phase N.1→N.6 (audit
+haut-droit, icônes contrôles-fenêtre) + **icône d'identité** par module (`MODULE_META`),
+**auto-réduction** par rangée (`autoCollapse` + toggle, forcée en écran étroit) ;
+tout ça desktop only. **O.6** : `OverflowToolbar` **généralisé aux 5 headers** +
+**titres en ellipsis progressive** (« … », l'icône reste ; repli ultime = icône
+seule). **O fonctionnellement complète** — reste une passe de calibration (seuils,
+icônes) + doc/release (bump version) en clôture). Le détail par phase N.1→N.6 (audit
 perf + verdict prod, warp 2D, presets « Timbres », lissage, durcissements TS)
 vit dans `CONTEXT-ARCHIVE.md` ; l'état présent du Designer est résumé dans
 `## État actuel` ci-dessous. Hygiène restante (hors itération) : purge des
@@ -139,7 +140,7 @@ synth-app/
         ├── DesignerColumns.jsx + .css         # layout 3 colonnes ajustables (Designer, M.2.2) ; prop collapsed → colonne repliée en bande (iter-O phase-5a)
         ├── DesignerModule.jsx + .css          # wrapper réductible/maximisable des 5 modules Designer : bande verticale (icône+titre) ↔ contenu (toujours monté, display:none si replié — contrainte canvas) ; rend la ModuleChrome en coin absolu (iter-O phase-5a/5c)
         ├── ModuleChrome.jsx + .css            # chrome « contrôle de fenêtre » d'un module : Réduire (désactivé en maximisé) + Agrandir/Restaurer ; centralisée dans DesignerModule, coin haut-droit absolu (iter-O phase-5a→5c)
-        ├── OverflowToolbar.jsx + .css         # barre d'outils générique « priority-plus » : items bar/tray, débordement → tiroir `⋯` (iter-O phase-2). Branché : header Forme d'onde + groupe droit DesignerToolbar
+        ├── OverflowToolbar.jsx + .css         # barre d'outils générique « priority-plus » : items bar/tray, débordement → tiroir `⋯` (iter-O phase-2). Branché : les 5 headers de module + groupe droit DesignerToolbar (généralisé O.6.2)
         ├── SplineEditor.jsx + .css            # éditeur points/courbe mode spline (Designer, M.3)
         ├── ConvertToHarmonicDialog.jsx + .css # dialog passerelle draw/spline→harmonic (M.2.5)
         ├── ConvertToSplineDialog.jsx          # dialog passerelle draw/harmonic→spline (M.3.3)
@@ -664,8 +665,13 @@ Seuls les **placements timeline** s'appellent "clips".
   parent** ; l'OverflowToolbar ne fait que **relocaliser** où le node est rendu,
   au resize seulement (geste délibéré, pas de surprise en plein geste).
 - Branché en O.2 : header **Forme d'onde** (6 contrôles, même node aux deux
-  endroits Libre/Ancres) et **groupe droit DesignerToolbar**. Destiné à d'autres
-  zones en O.3→O.5.
+  endroits Libre/Ancres) et **groupe droit DesignerToolbar**. **O.6.2 : généralisé
+  aux 5 headers de module** — Harmoniques (1 item cap), Instrument (octave + ⚙,
+  conditionnels), AHDSR (switch Graphe/Sliders compact), Spectrogramme (live/dB/peak).
+  L'icône + le titre restent HORS de l'OverflowToolbar (`we-header-left`) ; seuls
+  les contrôles débordent au tiroir. `getAnchoredPosition` ignore les candidats
+  `visibility:hidden` (clones des *ghost rows*) pour que les `data-anchor` passés
+  en OverflowToolbar (ex. `designer-octave-selector`) résolvent sur l'élément vu.
 
 ### `DesignerColumns.jsx` (iter-M phase-2.2, allégé r.2.1)
 - Moitié haute du Designer en 3 colonnes ajustables (Forme d'onde /
