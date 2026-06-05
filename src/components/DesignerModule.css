@@ -1,0 +1,55 @@
+/* iter-O phase-5a : wrapper des modules réductibles du Designer. Le wrapper
+   remplit son conteneur (colonne / cellule) ; la largeur de bande est imposée
+   par le parent (flex:0 0 var(--module-band-width)). */
+.designer-module {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+}
+.designer-module-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+}
+/* Contenu toujours monté, masqué en CSS quand replié (jamais démonté — cf.
+   contrainte canvas). */
+.designer-module.is-collapsed .designer-module-content {
+  display: none;
+}
+
+/* Bande verticale fine cliquable (réouverture). Esprit
+   .designer-sidebar.is-collapsed : surface discrète, hover marqué (affordance
+   « cliquer pour rouvrir »), nom en rotation. */
+.module-band {
+  flex: 1;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 10px 0;
+  background: var(--surface-bg);
+  border: 1px solid var(--surface-border);
+  border-radius: 8px;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: background 0.12s, color 0.12s, border-color 0.12s;
+}
+.module-band:hover {
+  background: var(--accent-bg-faint);
+  border-color: var(--accent);
+  color: var(--text-strong);
+}
+.module-band-label {
+  writing-mode: vertical-rl;
+  text-orientation: mixed;
+  font-size: 0.8rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  white-space: nowrap;
+  user-select: none;
+}

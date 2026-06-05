@@ -276,6 +276,17 @@ export interface History {
 }
 
 export type TabId = 'library' | 'composer' | 'designer' | 'documentation'
+// iter-O phase-5a : identifiants des 5 modules réductibles du Designer.
+export type DesignerModuleId = 'canvas' | 'harmonics' | 'spectrogram' | 'params' | 'adsr'
+// iter-O phase-5a : état replié (bande) de chacun des 5 modules. Préférence UI
+// persistée (localStorage), non-undoable — comme designerColumnWidths.
+export interface DesignerCollapsed {
+  canvas: boolean
+  harmonics: boolean
+  spectrogram: boolean
+  params: boolean
+  adsr: boolean
+}
 export type Theme = 'dark' | 'light'
 export type DurationMode = 'solfège' | 'fraction'
 export type AdsrView = 'graph' | 'sliders'
@@ -349,6 +360,9 @@ export interface AppState {
   // les proportions deviennent contextuelles au focus — écrites dans
   // designerColumnWidths (pas de nouvel état canonique).
   autoSizing: boolean
+  // iter-O phase-5a : état replié (bande verticale fine) de chacun des 5
+  // modules du Designer. Préférence UI persistée, non-undoable.
+  designerCollapsed: DesignerCollapsed
   docSidebarWidth: number
   docSidebarCollapsed: boolean
   doc: DocState
@@ -568,6 +582,8 @@ export type ActionBody =
   | { type: 'SET_DESIGNER_COLUMN_WIDTHS'; payload: number[] }
   // iter-M phase-2-as : toggle auto-sizing.
   | { type: 'SET_AUTO_SIZING'; payload: boolean }
+  // iter-O phase-5a : bascule l'état replié d'un module du Designer (bande).
+  | { type: 'TOGGLE_DESIGNER_MODULE_COLLAPSED'; payload: DesignerModuleId }
   | { type: 'SET_CURRENT_ARTICLE'; payload: string | null }
   | { type: 'SET_ARTICLE_SCROLL'; payload: { articleId: string; scrollTop: number } }
   | { type: 'TOGGLE_DOC_SIDEBAR' }

@@ -243,6 +243,19 @@ function sanitizeColumnWidths(raw) {
   return [raw[0] / sum, raw[1] / sum, raw[2] / sum]
 }
 
+// iter-O phase-5a : 5 clés booléennes (modules repliés), défaut `false`. Toute
+// entrée absente/invalide retombe à false. Renvoie toujours un objet complet.
+const DESIGNER_MODULE_IDS = ['canvas', 'harmonics', 'spectrogram', 'params', 'adsr']
+function sanitizeDesignerCollapsed(raw) {
+  const out = { canvas: false, harmonics: false, spectrogram: false, params: false, adsr: false }
+  if (raw && typeof raw === 'object') {
+    for (const id of DESIGNER_MODULE_IDS) {
+      if (raw[id] === true) out[id] = true
+    }
+  }
+  return out
+}
+
 export const TRACK_COLORS = [
   '#5a8a7a', '#7a6a9a', '#9a8a5a', '#5a7a9a',
   '#9a5a7a', '#6a9a5a', '#5a6a9a', '#9a7a5a',
@@ -570,6 +583,8 @@ export function loadPersistedState() {
       designerColumnWidths: sanitizeColumnWidths(parsed.designerColumnWidths),
       // iter-M phase-2-as : toggle auto-sizing (essai). OFF par défaut.
       autoSizing: typeof parsed.autoSizing === 'boolean' ? parsed.autoSizing : false,
+      // iter-O phase-5a : état replié des 5 modules Designer (défaut tout ouvert).
+      designerCollapsed: sanitizeDesignerCollapsed(parsed.designerCollapsed),
       // iter-L phase-2.1 : préférences sidebar Documentation. Persistées en
       // localStorage (cohérent avec les autres sidebars). La position de
       // lecture vit en sessionStorage (cf. loadDocSession).
@@ -796,6 +811,8 @@ export function buildInitialState() {
     designerColumnWidths: persisted?.designerColumnWidths ?? defaultColumnWidthsForLens('free'),
     // iter-M phase-2-as : toggle auto-sizing (essai). OFF par défaut.
     autoSizing: persisted?.autoSizing ?? false,
+    // iter-O phase-5a : modules Designer repliés (tout ouvert par défaut).
+    designerCollapsed: persisted?.designerCollapsed ?? sanitizeDesignerCollapsed(null),
     // iter-L phase-2.1 : sidebar TOC Documentation + position de lecture.
     // - docSidebarWidth / docSidebarCollapsed : localStorage (préférences).
     // - doc.currentArticleId / doc.scrollPositions : sessionStorage (lecture).
@@ -2430,6 +2447,16 @@ export function reducer(state, action) {
     }
     case 'SET_ADSR_VIEW': {
       return { ...state, adsrView: action.payload === 'sliders' ? 'sliders' : 'graph' }
+    }
+    // iter-O phase-5a : bascule l'état replié d'un module Designer (bande).
+    // Non-undoable (absent des *_UNDOABLE) — préférence UI, comme adsrView.
+    case 'TOGGLE_DESIGNER_MODULE_COLLAPSED': {
+      const id = action.payload
+      if (!DESIGNER_MODULE_IDS.includes(id)) return state
+      return {
+        ...state,
+        designerCollapsed: { ...state.designerCollapsed, [id]: !state.designerCollapsed[id] },
+      }
     }
     case 'SET_COMPOSER_SIDEBAR_WIDTH': {
       const { side, width } = action.payload

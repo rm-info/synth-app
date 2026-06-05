@@ -148,6 +148,10 @@
   --heading: system-ui, 'Segoe UI', Roboto, sans-serif;
   --mono: ui-monospace, Consolas, monospace;
 
+  /* iter-O phase-5a : largeur de la bande d'un module Designer replié
+     (partagée DesignerColumns + .designer-cell). */
+  --module-band-width: 28px;
+
   font: 18px/145% var(--sans);
   letter-spacing: 0.18px;
   color: var(--text);

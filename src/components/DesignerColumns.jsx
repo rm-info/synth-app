@@ -25,7 +25,7 @@ const FOCUS_WIDTHS = [
 ]
 const REST_WIDTHS = [0.2, 0.2, 0.6]
 
-function DesignerColumns({ widths, onWidths, onManualResize, autoSizing, focusGuardRef, columns }) {
+function DesignerColumns({ widths, onWidths, onManualResize, autoSizing, focusGuardRef, columns, collapsed = [false, false, false] }) {
   const rootRef = useRef(null)
   const rowRef = useRef(null)
   // Focus courant (index colonne 0/1/2, ou null = repos). Volatile : vit dans
@@ -131,26 +131,35 @@ function DesignerColumns({ widths, onWidths, onManualResize, autoSizing, focusGu
     window.addEventListener('mouseup', onUp)
   }
 
+  // iter-O phase-5a : une colonne repliée sort du flexGrow (largeur fixe de
+  // bande), les ouvertes conservent leurs ratios (flex distribue l'espace
+  // restant). designerColumnWidths n'est PAS modifié → réouverture = retour
+  // direct au ratio. Le séparateur adjacent à une colonne repliée est masqué.
+  const colStyle = (i) => collapsed[i]
+    ? { flex: '0 0 var(--module-band-width, 28px)' }
+    : { flexGrow: widths[i] }
+  const sepHidden = (i) => collapsed[i] || collapsed[i + 1]
+
   return (
     <div className="designer-columns" ref={rootRef}>
       <div className="designer-columns-row" ref={rowRef}>
-        <div className="designer-column" style={{ flexGrow: widths[0] }}>{columns[0]}</div>
+        <div className="designer-column" style={colStyle(0)}>{columns[0]}</div>
         <div
-          className="designer-columns-sep"
+          className={`designer-columns-sep${sepHidden(0) ? ' is-hidden' : ''}`}
           role="separator"
           aria-orientation="vertical"
           aria-label="Redimensionner Forme d’onde / Harmoniques"
           onMouseDown={startDrag(0)}
         ><span className="designer-columns-sep-grip" aria-hidden="true" /></div>
-        <div className="designer-column" style={{ flexGrow: widths[1] }}>{columns[1]}</div>
+        <div className="designer-column" style={colStyle(1)}>{columns[1]}</div>
         <div
-          className="designer-columns-sep"
+          className={`designer-columns-sep${sepHidden(1) ? ' is-hidden' : ''}`}
           role="separator"
           aria-orientation="vertical"
           aria-label="Redimensionner Harmoniques / Spectrogramme"
           onMouseDown={startDrag(1)}
         ><span className="designer-columns-sep-grip" aria-hidden="true" /></div>
-        <div className="designer-column" style={{ flexGrow: widths[2] }}>{columns[2]}</div>
+        <div className="designer-column" style={colStyle(2)}>{columns[2]}</div>
       </div>
     </div>
   )
