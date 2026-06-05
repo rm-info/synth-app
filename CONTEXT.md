@@ -39,17 +39,17 @@ framework UI (CSS manuscrit), pas de routing, pas de backend.
 
 **État courant** : Iteration N « Stabilité & fluidité » **close** (release
 v1.6.0, 2026-06-04). **Iteration O — Ergonomie & responsive du Designer** ouverte
-(cf. `archi/BACKLOG.md` § Iteration O) : **phases 1-4 + 5a-5c** livrées (steppers
+(cf. `archi/BACKLOG.md` § Iteration O) : **phases 1-4 + 5a-5d** livrées (steppers
 `▴▾` au lieu des sliders ancres/cap ; `OverflowToolbar` priority-plus sur les
 barres de titre surchargées ; quadrant Instrument responsive desktop à 2 étages ;
-bascule Graphe/Sliders de l'AHDSR en basse résolution ; **collapse** des 5 modules
-Designer — chacun réductible en **bande verticale fine** (icône + titre), clic sur
-la bande = réouverture, état `designerCollapsed` persisté ; **maximize** — bouton
-Agrandir/Restaurer par module, remplit la zone Designer, autres modules cachés en
-CSS, état `maximized` persisté ; **chrome détachée** (coin haut-droit absolu,
-centralisée dans `DesignerModule`) + **icône d'identité** par module (table
-`MODULE_META`) + titre masqué quand le module rétrécit ; tout ça desktop only ;
-auto-collapse O.5d à venir). Le détail par phase N.1→N.6 (audit
+bascule Graphe/Sliders de l'AHDSR en basse résolution ; **gestionnaire de modules
+Designer** (O.5) : **collapse** en bande verticale (icône + titre, `designerCollapsed`),
+**maximize** plein cadre (`maximized`, autres cachés CSS), **chrome détachée** (coin
+haut-droit, icônes contrôles-fenêtre) + **icône d'identité** par module (`MODULE_META`)
++ titre masqué quand étroit, **auto-réduction** par rangée (`autoCollapse` + toggle,
+forcée en écran étroit) ; tout ça desktop only. **O fonctionnellement complète** —
+reste une passe de calibration (seuils, icônes) + doc/release (bump version) en
+clôture). Le détail par phase N.1→N.6 (audit
 perf + verdict prod, warp 2D, presets « Timbres », lissage, durcissements TS)
 vit dans `CONTEXT-ARCHIVE.md` ; l'état présent du Designer est résumé dans
 `## État actuel` ci-dessous. Hygiène restante (hors itération) : purge des
@@ -112,7 +112,7 @@ synth-app/
     │   ├── folderNames.js    # nextAvailableFolderName partagé (extraction H.1.4)
     │   ├── bibTransfer.js               # wouldCreateCycle + duplicateItemsToFolder (K.1.7)
     │   ├── shortcuts.js      # table déclarative + matchesShortcut / getAnchor (iter-L phase-1.1)
-    │   ├── designerModules.js # (iter-O phase-5c) table MODULE_META des 5 modules Designer : { label, Icon Lucide } — source unique (headers + bande)
+    │   ├── designerModules.js # (iter-O phase-5c/5d) MODULE_META des 5 modules Designer { label, Icon Lucide } + DESIGNER_ROWS / rowSiblings (rangées haut/bas) — source unique (headers, bande, auto-réduction)
     │   ├── getAnchoredPosition.js # résolution viewport rect d'un [data-anchor] (iter-L phase-1.5)
     │   ├── highlightElement.js # halo temporaire ancré (DocLink), retry RAF (iter-L phase-3.1)
     │   ├── markdown.js       # parser Markdown maison + AST, délègue le math à mathParse (iter-L phase-2.2 / R.1)
@@ -288,6 +288,7 @@ type Clip = {                     // placement timeline + hauteur
 //   designerCollapsed (iter-O phase-5a : { canvas, harmonics, spectrogram,
 //     params, adsr } booléens, état replié des 5 modules Designer),
 //   maximized (iter-O phase-5b : id du module maximisé ou null),
+//   autoCollapse (iter-O phase-5d : politique d'auto-réduction par rangée),
 //   editorTestTuningSystem, editorTestNoteIndex, editorTestOctave,
 //   editorTestFrequency, editorVisualCuePattern, editorVisualCueTonic,
 //   selectedTrackId (iter-L phase-1.4.b) }
@@ -727,12 +728,23 @@ Seuls les **placements timeline** s'appellent "clips".
   (`@container designer-module (max-width:260px)` → `.we-area-title` /
   `.spectrogram-header h3` masqués), indépendamment de l'`OverflowToolbar`.
 - **Collapse** (O.5a) : `designerCollapsed` (5 booléens) persisté, non-undoable.
-  Toggle unique `TOGGLE_DESIGNER_MODULE_COLLAPSED` (Réduire + réouverture).
-  `DesignerColumns` reçoit `collapsed` (3 booléens) → colonne repliée en `flex:0 0
-  var(--module-band-width)` (28px), exclue du flexGrow **normalisé par la somme
-  des ouvertes** (5a.3 — sinon Σ flex-grow < 1 laisse un trou ; ratios préservés)
-  + séparateur adjacent rendu inerte mais conservé comme léger gap ;
+  `TOGGLE_DESIGNER_MODULE_COLLAPSED` (payload `{ id, autoCollapse }`, Réduire +
+  réouverture). `DesignerColumns` reçoit `collapsed` (3 booléens) → colonne repliée
+  en `flex:0 0 var(--module-band-width)` (28px), exclue du flexGrow **normalisé par
+  la somme des ouvertes** (5a.3 — sinon Σ flex-grow < 1 laisse un trou ; ratios
+  préservés) + séparateur adjacent rendu inerte mais conservé comme léger gap ;
   `.designer-cell.is-collapsed` fait pareil pour les 2 modules du bas.
+- **Auto-réduction** (O.5d) : `autoCollapse` (booléen persisté, non-undoable) +
+  toggle indépendant dans la `DesignerToolbar` (`FoldHorizontal`, séparé du groupe
+  proportions). Quand actif, **rouvrir** un module replié replie ses **siblings de
+  rangée ouverts** (`rowSiblings` via `DESIGNER_ROWS`) → ~1 ouvert/rangée (accordéon
+  par rangée, haut/bas indépendants) ; **en fermeture, aucune politique**. Flag
+  **effectif** = `autoCollapse || winWidth < AUTO_COLLAPSE_DEFAULT_WIDTH` (1100,
+  calibrable) — **forcé** sous le seuil (toggle alors `is-active` + `disabled`),
+  sinon les modules d'une rangée se replient tous faute de place. Calculé au rendu
+  (pas de closure sur winWidth dans le handler — TDZ). **Coexiste avec l'AUTO**
+  (auto-sizing) : auto-réduction agit à l'ouverture, AUTO au focus ; actions
+  distinctes, pas de conflit.
 - **Maximize** (O.5b) : `maximized` (id ou null, un seul à la fois) persisté,
   non-undoable. Action `SET_DESIGNER_MAXIMIZED` (setter pur, toggle côté handler
   `handleToggleModuleMaximized`). **Prioritaire sur collapse**, restaure l'état au
