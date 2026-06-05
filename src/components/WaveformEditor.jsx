@@ -468,6 +468,7 @@ function WaveformEditor({
   // fixes — sinon le RO observe un noeud détaché quand le canvas remonte.
   const canvasRoRef = useRef(null)
   const adsrRoRef = useRef(null)
+  const adsrAreaRoRef = useRef(null)
   // iter-O phase-4.2 : zone AHDSR observée (ResizeObserver) pour dériver le mode
   // compact (switch Graphe/Sliders). La zone tire sa taille de sa cellule, pas
   // de son contenu → pas de boucle quand on cache le canvas / passe en 2 colonnes.
@@ -1711,22 +1712,28 @@ function WaveformEditor({
     adsrRoRef.current = ro
   }, [drawAdsr])
 
-  // iter-O phase-4.2 : mode compact dérivé de la taille de la ZONE AHDSR.
-  // setState dans le callback RO (async) → pas de setState synchrone en effet.
-  useEffect(() => {
-    const area = adsrAreaRef.current
-    if (!area || typeof ResizeObserver === 'undefined') return
+  // iter-O phase-4.2 / 5c.f7 : mode compact dérivé de la taille de la ZONE AHDSR.
+  // Callback ref (même motif que les canvas, cf. f6) : un effet à deps fixes
+  // laissait le RO observer la zone DÉTACHÉE après un remount (bascule de layout),
+  // figeant `adsrCompact` à sa valeur d'alors → décision switch/pas-switch
+  // erratique. Le callback ref recrée le RO sur la zone courante à chaque
+  // (re)mount. On lit `entry.contentRect` (boîte de contenu, hors padding 12px —
+  // calibrage d'ADSR_COMPACT_WIDTH/HEIGHT) ; la 1ʳᵉ notif async porte la mesure
+  // initiale (pas de flash à corriger comme pour les canvas).
+  const attachAdsrArea = useCallback((node) => {
+    adsrAreaRef.current = node
+    if (adsrAreaRoRef.current) { adsrAreaRoRef.current.disconnect(); adsrAreaRoRef.current = null }
+    if (!node || typeof ResizeObserver === 'undefined') return
     const ro = new ResizeObserver((entries) => {
-      for (const entry of entries) {
-        const w = entry.contentRect.width
-        const h = entry.contentRect.height
-        if (!w || !h) continue
-        const compact = w < ADSR_COMPACT_WIDTH || h < ADSR_COMPACT_HEIGHT
-        setAdsrCompact((prev) => (prev === compact ? prev : compact))
-      }
+      const rect = entries[entries.length - 1].contentRect
+      const w = rect.width
+      const h = rect.height
+      if (!w || !h) return
+      const compact = w < ADSR_COMPACT_WIDTH || h < ADSR_COMPACT_HEIGHT
+      setAdsrCompact((prev) => (prev === compact ? prev : compact))
     })
-    ro.observe(area)
-    return () => ro.disconnect()
+    ro.observe(node)
+    adsrAreaRoRef.current = ro
   }, [])
 
   // iter-O phase-4.2 : au retour en vue Graphe (canvas ré-affiché après avoir été
@@ -2816,7 +2823,7 @@ function WaveformEditor({
       <div
         className={`we-adsr-area${adsrCompact ? ' is-compact' : ''} view-${adsrView === 'sliders' ? 'sliders' : 'graph'}`}
         data-anchor="designer-adsr"
-        ref={adsrAreaRef}
+        ref={attachAdsrArea}
       >
         <header className="we-area-header">
           <div className="we-header-left">
