@@ -6,6 +6,7 @@ import { withSavedCtx } from '../lib/canvas'
 import { STRINGS } from '../lib/strings'
 import { IconCrete } from './icons'
 import { MODULE_META } from '../lib/designerModules'
+import OverflowToolbar from './OverflowToolbar'
 import './Spectrogram.css'
 
 const FREQ_MIN = 16
@@ -455,6 +456,45 @@ function Spectrogram({
     return () => ro.disconnect()
   }, [])
 
+  // iter-O phase-6.2 : les 3 toggles (live / dB / peak) deviennent des items d'un
+  // OverflowToolbar — c'est le header de module le plus susceptible de déborder
+  // (3 contrôles). is-active/aria-pressed conservés dans bar ET tray.
+  const trayLabel = (txt) => <span className="overflow-toolbar-tray-label">{txt}</span>
+  const liveBtn = (
+    <button
+      type="button"
+      onClick={onToggleMode}
+      className={`spectrogram-toggle spectrogram-toggle-icon${mode === 'live' ? ' is-active' : ''}`}
+      title="Mode Direct (analyse temps réel)"
+      aria-label={STRINGS.spectro.live}
+      aria-pressed={mode === 'live'}
+    ><Radio size={16} /></button>
+  )
+  const dbBtn = (
+    <button
+      type="button"
+      onClick={onToggleDbScale}
+      className={`spectrogram-toggle${dbScale ? ' is-active' : ''}`}
+      title="Échelle décibels"
+      aria-pressed={dbScale}
+    >dB</button>
+  )
+  const peakBtn = (
+    <button
+      type="button"
+      onClick={onTogglePeakHold}
+      className={`spectrogram-toggle spectrogram-toggle-icon${peakHold ? ' is-active' : ''}`}
+      title="Maintenir les crêtes (mode Direct)"
+      aria-label={STRINGS.spectro.peak}
+      aria-pressed={peakHold}
+    ><IconCrete size={16} /></button>
+  )
+  const spectroItems = [
+    { id: 'live', bar: liveBtn, tray: <>{liveBtn}{trayLabel(STRINGS.spectro.live)}</> },
+    { id: 'db', bar: dbBtn, tray: <>{dbBtn}{trayLabel('Échelle décibels')}</> },
+    { id: 'peak', bar: peakBtn, tray: <>{peakBtn}{trayLabel(STRINGS.spectro.peak)}</> },
+  ]
+
   return (
     <div className="spectrogram" data-anchor="designer-spectrogram">
       <header className="spectrogram-header">
@@ -462,28 +502,11 @@ function Spectrogram({
           <MODULE_META.spectrogram.Icon className="we-area-icon" size={15} aria-hidden="true" />
           <h3>Spectrogramme</h3>
         </div>
-        <div className="spectrogram-controls">
-          <button
-            type="button"
-            onClick={onToggleMode}
-            className={`spectrogram-toggle spectrogram-toggle-icon${mode === 'live' ? ' is-active' : ''}`}
-            title="Mode Direct (analyse temps réel)"
-            aria-label={STRINGS.spectro.live}
-          ><Radio size={16} /></button>
-          <button
-            type="button"
-            onClick={onToggleDbScale}
-            className={`spectrogram-toggle${dbScale ? ' is-active' : ''}`}
-            title="Échelle décibels"
-          >dB</button>
-          <button
-            type="button"
-            onClick={onTogglePeakHold}
-            className={`spectrogram-toggle spectrogram-toggle-icon${peakHold ? ' is-active' : ''}`}
-            title="Maintenir les crêtes (mode Direct)"
-            aria-label={STRINGS.spectro.peak}
-          ><IconCrete size={16} /></button>
-        </div>
+        <OverflowToolbar
+          items={spectroItems}
+          ariaLabel="Contrôles spectrogramme"
+          menuLabel="Contrôles spectrogramme"
+        />
       </header>
       <div className="spectrogram-canvas-container" ref={containerRef}>
         <canvas ref={canvasRef} className="spectrogram-canvas" />

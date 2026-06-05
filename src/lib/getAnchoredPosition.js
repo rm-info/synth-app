@@ -46,8 +46,16 @@ export function getAnchoredPosition(anchorId) {
   // alphanumériques + tirets, mais on s'autorise un fallback robuste si
   // un caller passe une string arbitraire.
   const safeId = anchorId.replace(/"/g, '\\"')
-  const candidates = document.querySelectorAll(`[data-anchor="${safeId}"]`)
-  if (candidates.length === 0) return emptyResult()
+  const all = document.querySelectorAll(`[data-anchor="${safeId}"]`)
+  if (all.length === 0) return emptyResult()
+
+  // iter-O phase-6.2 : ignorer les clones inertes des *ghost rows* d'OverflowToolbar
+  // (visibility:hidden → getBoundingClientRect renvoie un rect NON nul mais
+  // l'élément n'est pas vu ; sans ce filtre, l'ancre se résout sur le ghost,
+  // mal placé). Désormais 5 headers passent leurs contrôles dans un OverflowToolbar,
+  // donc un data-anchor peut s'y retrouver dupliqué.
+  const visible = [...all].filter((el) => window.getComputedStyle(el).visibility !== 'hidden')
+  const candidates = visible.length ? visible : [...all]
 
   for (const el of candidates) {
     const rect = el.getBoundingClientRect()

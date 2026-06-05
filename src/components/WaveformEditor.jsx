@@ -2188,6 +2188,37 @@ function WaveformEditor({
     const xLabels = cap < 8
       ? Array.from({ length: cap }, (_, i) => i + 1)
       : [1, 2, 4, 8, 16, 32, 64, 128, 256].filter((k) => k <= cap)
+    // iter-O phase-6.2 : le contrôle du cap (icône + stepper) devient l'unique item
+    // d'un OverflowToolbar (uniformité ; le « … » n'apparaît qu'au débordement réel).
+    const trayLabel = (txt) => <span className="overflow-toolbar-tray-label">{txt}</span>
+    const capControl = (
+      <label className="we-cap-control" title={STRINGS.editor.harmonicCountTitle}>
+        <span className="we-cap-readout">
+          <NumberInput
+            value={definition}
+            onChange={(v) => { setDraftDefinition(null); editorActions.setCap(v) }}
+            min={CAP_MIN}
+            max={CAP_MAX}
+            parse={parseDefinition}
+            format={formatDefinition}
+            className="we-cap-value-input"
+            ariaLabel={STRINGS.editor.harmonicCountTitle}
+            showSteppers
+            step={1}
+            shiftStep={10}
+          />
+          <span className="we-cap-suffix">/ {CAP_MAX}</span>
+        </span>
+      </label>
+    )
+    const capIcon = (
+      <span className="we-cap-icon" title={STRINGS.editor.harmonicCapTitle} aria-hidden="true">
+        <AlignEndHorizontal size={16} />
+      </span>
+    )
+    const harmonicsItems = [
+      { id: 'cap', bar: <>{capIcon}{capControl}</>, tray: <>{trayLabel('Harmoniques :')}{capControl}</> },
+    ]
     return (
       <div className="we-harmonics-area" data-anchor="designer-harmonics">
         <header className="we-area-header">
@@ -2195,34 +2226,11 @@ function WaveformEditor({
             <MODULE_META.harmonics.Icon className="we-area-icon" size={15} aria-hidden="true" />
             <h3 className="we-area-title">{STRINGS.editor.harmonicsTitle}</h3>
           </div>
-          <div className="we-harmonics-controls">
-            {/* iter-M phase-r.2.6.2 : indicateur non interactif du plafond
-                d'harmoniques (icône Lucide, pas de bouton — tooltip via title). */}
-            <span className="we-cap-icon" title={STRINGS.editor.harmonicCapTitle} aria-hidden="true">
-              <AlignEndHorizontal size={16} />
-            </span>
-            {/* iter-O phase-1.2 : slider range retiré ; saisie directe +
-                steppers ▴▾ (1..256, ±1, Shift=±10, appui maintenu = scrub
-                live des harmoniques en accélérant). */}
-            <label className="we-cap-control" title={STRINGS.editor.harmonicCountTitle}>
-              <span className="we-cap-readout">
-                <NumberInput
-                  value={definition}
-                  onChange={(v) => { setDraftDefinition(null); editorActions.setCap(v) }}
-                  min={CAP_MIN}
-                  max={CAP_MAX}
-                  parse={parseDefinition}
-                  format={formatDefinition}
-                  className="we-cap-value-input"
-                  ariaLabel={STRINGS.editor.harmonicCountTitle}
-                  showSteppers
-                  step={1}
-                  shiftStep={10}
-                />
-                <span className="we-cap-suffix">/ {CAP_MAX}</span>
-              </span>
-            </label>
-          </div>
+          <OverflowToolbar
+            items={harmonicsItems}
+            ariaLabel="Contrôles harmoniques"
+            menuLabel="Contrôles harmoniques"
+          />
         </header>
         {/* M.r.5.2 — plot = axe Y (gauche) + barres + axe X (sous les barres).
             Le conteneur interactif `.we-harmonics-bars` garde EXACTEMENT sa
@@ -2359,47 +2367,59 @@ function WaveformEditor({
     </div>
   )
 
-  const renderParamsArea = () => (
+  const renderParamsArea = () => {
+    // iter-O phase-6.2 : les contrôles compacts du header Instrument (O.3 : stepper
+    // octave + icône [⚙] système, conditionnels) deviennent des items d'un
+    // OverflowToolbar (nombre variable selon l'état ; le « … » n'apparaît qu'au
+    // débordement réel, quasi jamais ici).
+    const trayLabel = (txt) => <span className="overflow-toolbar-tray-label">{txt}</span>
+    const paramsItems = []
+    if (octaveInHeader && !freeMode) {
+      const octaveControl = (
+        <div className="we-octave-header" data-anchor="designer-octave-selector">
+          <span className="we-octave-label">Oct.</span>
+          <NumberInput
+            value={testOctave}
+            onChange={editorActions.setTestOctave}
+            min={0}
+            max={10}
+            parse={parseDefinition}
+            format={formatDefinition}
+            className="we-octave-stepper-input"
+            ariaLabel="Octave"
+            showSteppers
+            step={1}
+          />
+        </div>
+      )
+      paramsItems.push({ id: 'octave', bar: octaveControl, tray: <>{trayLabel('Octave :')}{octaveControl}</> })
+    }
+    if (instrumentCollapsed) {
+      const systemBtn = (
+        <button
+          type="button"
+          className="icon-btn"
+          onClick={() => setSystemModalOpen(true)}
+          title="Paramètres du système musical"
+          aria-label="Paramètres du système musical"
+        ><Sliders size={18} /></button>
+      )
+      paramsItems.push({ id: 'system', bar: systemBtn, tray: <>{systemBtn}{trayLabel('Paramètres du système musical')}</> })
+    }
+    return (
     <div className="we-params-area">
       <header className="we-area-header">
         <div className="we-header-left">
           <MODULE_META.params.Icon className="we-area-icon" size={15} aria-hidden="true" />
           <h3 className="we-area-title">Instrument</h3>
         </div>
-        {/* iter-O phase-3 : contrôles compacts à droite du header (desktop serré).
-            Étage 2 (3.2) : stepper d'octave quand `octaveInHeader` (mode note) —
-            la we-octave-row du corps disparaît. Étage 1 (3.1) : icône [⚙] quand
-            `instrumentCollapsed` (contrôles système dans la modale). */}
-        {((octaveInHeader && !freeMode) || instrumentCollapsed) && (
-          <div className="we-params-header-controls">
-            {octaveInHeader && !freeMode && (
-              <div className="we-octave-header" data-anchor="designer-octave-selector">
-                <span className="we-octave-label">Oct.</span>
-                <NumberInput
-                  value={testOctave}
-                  onChange={editorActions.setTestOctave}
-                  min={0}
-                  max={10}
-                  parse={parseDefinition}
-                  format={formatDefinition}
-                  className="we-octave-stepper-input"
-                  ariaLabel="Octave"
-                  showSteppers
-                  step={1}
-                />
-              </div>
-            )}
-            {instrumentCollapsed && (
-              <button
-                type="button"
-                className="icon-btn"
-                onClick={() => setSystemModalOpen(true)}
-                title="Paramètres du système musical"
-                aria-label="Paramètres du système musical"
-              ><Sliders size={18} /></button>
-            )}
-          </div>
-        )}
+        {/* iter-O phase-3/6.2 : stepper octave (étage 2) + icône [⚙] (étage 1),
+            conditionnels, rendus via OverflowToolbar (returns null si vide). */}
+        <OverflowToolbar
+          items={paramsItems}
+          ariaLabel="Contrôles instrument"
+          menuLabel="Contrôles instrument"
+        />
       </header>
 
       <div className="we-params-fields">
@@ -2570,7 +2590,8 @@ function WaveformEditor({
       </div>
 
     </div>
-  )
+    )
+  }
 
   // Phase 1 (iter G) : panneau Actions extrait du bas de l'Instrument et
   // déplacé dans la sidebar gauche. Le children-API expose `renderActions`
@@ -2819,6 +2840,34 @@ function WaveformEditor({
       </div>
     )
 
+    // iter-O phase-4/6.2 : switch Graphe/Sliders (mode compact uniquement) rendu
+    // comme item d'OverflowToolbar. is-active/aria-pressed conservés.
+    const trayLabel = (txt) => <span className="overflow-toolbar-tray-label">{txt}</span>
+    const adsrItems = []
+    if (adsrCompact) {
+      const viewToggle = (
+        <div className="spline-interp-toggle" role="group" aria-label="Vue de l'enveloppe">
+          <button
+            type="button"
+            className={`icon-btn${adsrView === 'graph' ? ' is-active' : ''}`}
+            onClick={() => onSetAdsrView('graph')}
+            title="Vue graphe (courbe d'enveloppe)"
+            aria-label="Vue graphe"
+            aria-pressed={adsrView === 'graph'}
+          ><Activity size={18} /></button>
+          <button
+            type="button"
+            className={`icon-btn${adsrView === 'sliders' ? ' is-active' : ''}`}
+            onClick={() => onSetAdsrView('sliders')}
+            title="Vue sliders (6 réglages)"
+            aria-label="Vue sliders"
+            aria-pressed={adsrView === 'sliders'}
+          ><SlidersHorizontal size={18} /></button>
+        </div>
+      )
+      adsrItems.push({ id: 'view', bar: viewToggle, tray: <>{trayLabel('Vue :')}{viewToggle}</> })
+    }
+
     return (
       <div
         className={`we-adsr-area${adsrCompact ? ' is-compact' : ''} view-${adsrView === 'sliders' ? 'sliders' : 'graph'}`}
@@ -2830,28 +2879,11 @@ function WaveformEditor({
             <MODULE_META.adsr.Icon className="we-area-icon" size={15} aria-hidden="true" />
             <h3 className="we-area-title">Enveloppe AHDSR</h3>
           </div>
-          {/* iter-O phase-4 : switch Graphe/Sliders (style segmenté, comme
-              Doux/Anguleux), uniquement en mode compact (mesuré sur la zone). */}
-          {adsrCompact && (
-          <div className="spline-interp-toggle" role="group" aria-label="Vue de l'enveloppe">
-            <button
-              type="button"
-              className={`icon-btn${adsrView === 'graph' ? ' is-active' : ''}`}
-              onClick={() => onSetAdsrView('graph')}
-              title="Vue graphe (courbe d'enveloppe)"
-              aria-label="Vue graphe"
-              aria-pressed={adsrView === 'graph'}
-            ><Activity size={18} /></button>
-            <button
-              type="button"
-              className={`icon-btn${adsrView === 'sliders' ? ' is-active' : ''}`}
-              onClick={() => onSetAdsrView('sliders')}
-              title="Vue sliders (6 réglages)"
-              aria-label="Vue sliders"
-              aria-pressed={adsrView === 'sliders'}
-            ><SlidersHorizontal size={18} /></button>
-          </div>
-          )}
+          <OverflowToolbar
+            items={adsrItems}
+            ariaLabel="Vue de l'enveloppe"
+            menuLabel="Vue de l'enveloppe"
+          />
         </header>
         <div className="adsr-body">
           <div className="adsr-canvas-container" ref={attachAdsrContainer}>
