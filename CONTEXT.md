@@ -39,10 +39,10 @@ framework UI (CSS manuscrit), pas de routing, pas de backend.
 
 **État courant** : Iteration N « Stabilité & fluidité » **close** (release
 v1.6.0, 2026-06-04). **Iteration O — Ergonomie & responsive du Designer** ouverte
-(cf. `archi/BACKLOG.md` § Iteration O) : **phases 1-3** livrées (steppers `▴▾` au
+(cf. `archi/BACKLOG.md` § Iteration O) : **phases 1-4** livrées (steppers `▴▾` au
 lieu des sliders ancres/cap ; `OverflowToolbar` priority-plus sur les barres de
-titre surchargées ; quadrant Instrument responsive desktop à 2 étages). Le détail
-par phase N.1→N.6 (audit
+titre surchargées ; quadrant Instrument responsive desktop à 2 étages ; bascule
+Graphe/Sliders de l'AHDSR en basse résolution). Le détail par phase N.1→N.6 (audit
 perf + verdict prod, warp 2D, presets « Timbres », lissage, durcissements TS)
 vit dans `CONTEXT-ARCHIVE.md` ; l'état présent du Designer est résumé dans
 `## État actuel` ci-dessous. Hygiène restante (hors itération) : purge des
@@ -269,7 +269,7 @@ type Clip = {                     // placement timeline + hauteur
 
 // Persistance (localStorage, clé "synth-app-state") :
 // { patches, soundFolders, tracks, clips, bpm, numMeasures, a4Ref,
-//   spectrogramVisible, durationMode, activeTab,
+//   spectrogramVisible, durationMode, adsrView, activeTab,
 //   patchCounter, clipCounter, folderCounter, trackCounter,
 //   composerBankWidth, composerAsideWidth,
 //   composerBankCollapsed, composerAsideCollapsed,
@@ -567,6 +567,14 @@ Seuls les **placements timeline** s'appellent "clips".
   `ADSR_SUSTAIN_PX = 60`, `ADSR_HANDLE_RADIUS = 5`. Les 6 valeurs
   sont éditables au clavier via `NumberInput` (clic, parse permissif,
   Enter/blur commit, Esc annule).
+  **Mode compact (iter-O phase-4)** : la zone est observée (`ResizeObserver` sur
+  `.we-adsr-area`) ; sous `ADSR_COMPACT_WIDTH`/`HEIGHT` un **switch segmenté
+  Graphe/Sliders** (icônes `Activity`/`SlidersHorizontal`) apparaît dans le
+  header et n'affiche **qu'une vue à la fois** (`adsrView` persisté, défaut
+  `graph`). Vue Sliders seule = **grille 2 colonnes** (Amp/Attack/Hold |
+  Decay/Sustain/Release). Le canvas n'est **jamais démonté** (masqué en CSS,
+  `display:none`) ; redraw forcé au retour en vue Graphe. Mesure sur la zone (pas
+  `windowWidth`) → marche en desktop, accordéon mobile et futur collapse O.5.
   Polish handles (F.3.13.2-3) : cercles isotropes (dessinés en coords
   physiques après reset transform, pas d'ellipses), curseur dynamique
   (default → grab au survol d'un handle → grabbing pendant drag),
@@ -1783,6 +1791,16 @@ Conventions tacites. Les enfreindre sans raison crée des bugs subtils.
 
 ✅ **Terminé**
 - **Iteration O — Ergonomie & responsive du Designer (en cours)** :
+  - **Phase 4 — Enveloppe AHDSR : bascule Graphe/Sliders en basse résolution** :
+    la zone AHDSR est observée (`ResizeObserver` sur `.we-adsr-area`, mesure de la
+    zone — pas `windowWidth` — donc layout-agnostique : desktop, accordéon mobile,
+    futur collapse O.5). Sous les seuils `ADSR_COMPACT_WIDTH`/`HEIGHT`, un **switch
+    segmenté Graphe/Sliders** apparaît dans le header et n'affiche **qu'une vue à
+    la fois** ; la vue Sliders seule passe en **grille 2 colonnes** (canvas masqué
+    libère la largeur). Choix persisté `adsrView: 'graph' | 'sliders'` (défaut
+    `graph`, non-undoable comme `durationMode`). Canvas **jamais démonté**
+    (`display:none` + redraw forcé au retour Graphe). Hors scope : exposer le
+    switch aussi en résolution normale (différé, backlog) ; collapse/maximize (O.5).
   - **Phase 3 — Quadrant Instrument responsive (desktop only)** : dégradation à
     **2 étages** (seuils `width OU height`) qui libère des lignes pour le clavier.
     Étage 1 (`instrumentCollapsed`, w<950 ∥ h<780) : contrôles système → icône
@@ -2587,8 +2605,12 @@ chargé, on dégraisse en partant de la dette la plus simple.
 - **Phase 3 — Quadrant Instrument responsive** (livrée) : dégradation desktop à 2
   étages (système → `[⚙]`, octaves → stepper `▴▾`) pour libérer des lignes au
   clavier. Mobile inchangé. Détail dans `## État actuel`.
-- **Phase 4+ — à venir** : enveloppe AHDSR (O.4), puis collapse/auto-collapse/
-  maximize des modules + chrome Réduire/Agrandir (O.5). Cf. `archi/BACKLOG.md`.
+- **Phase 4 — Enveloppe AHDSR compacte** (livrée) : switch Graphe/Sliders mesuré
+  sur la zone, une vue à la fois + sliders 2 colonnes en basse résolution ;
+  `adsrView` persisté. Détail dans `## État actuel`.
+- **Phase 5+ — à venir** : collapse/auto-collapse/maximize des modules + chrome
+  Réduire/Agrandir (O.5). Cf. `archi/BACKLOG.md`. Différé : exposer le switch
+  AHDSR aussi en résolution normale (replier une vue par choix).
 
 Iteration N « Stabilité & fluidité » **close** (release v1.6.0). Roadmap
 détaillée N.1→N.6 archivée dans `CONTEXT-ARCHIVE.md`.
