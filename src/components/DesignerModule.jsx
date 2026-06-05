@@ -1,14 +1,6 @@
-import { useRef, useState, useEffect } from 'react'
 import ModuleChrome from './ModuleChrome'
 import { MODULE_META } from '../lib/designerModules'
 import './DesignerModule.css'
-
-// iter-O phase-5c : largeur sous laquelle le titre du module est masqué (reste
-// icône + « … » + chrome). Mesurée par ResizeObserver (5c.f3) — l'approche
-// container-query d'origine posait `container-type:inline-size` sur le wrapper,
-// ce qui empêchait l'item flex de rétrécir (Chromium) → le layout ne se
-// contractait plus et le mode compact AHDSR ne se déclenchait jamais.
-const MODULE_NARROW_WIDTH = 260
 
 // iter-O phase-5a/5c : wrapper uniforme des 5 modules du Designer. Gère la
 // bascule bande ↔ contenu, PAS sa propre largeur (c'est le conteneur de rangée
@@ -23,38 +15,20 @@ const MODULE_NARROW_WIDTH = 260
 // position absolue au coin haut-droit (cf. .css), au lieu d'être répétée dans les
 // 5 headers. L'identité (icône + libellé) vient de MODULE_META[id] : icône en
 // tête de bande, titre en rotation dessous (clippé si la hauteur ne suffit pas).
+//
+// Note (5c.f5) : le masquage auto du titre quand le module rétrécit (5c.2) est
+// RETIRÉ. Les deux implémentations possibles cassaient le Designer : la container
+// query (`container-type:inline-size`) empêchait le shrink flex des modules ; un
+// ResizeObserver JS perturbait la livraison des notifications des RO canvas
+// (Forme d'onde non rafraîchie) et du mode compact AHDSR. À ré-aborder autrement
+// si souhaité.
 function DesignerModule({ id, collapsed, maximized, onToggleCollapse, onToggleMaximize, children }) {
-  const rootRef = useRef(null)
-  const [isNarrow, setIsNarrow] = useState(false)
-  useEffect(() => {
-    const el = rootRef.current
-    if (!el || typeof ResizeObserver === 'undefined') return
-    let raf = 0
-    const ro = new ResizeObserver((entries) => {
-      const w = entries[entries.length - 1].contentRect.width
-      // iter-O phase-5c.f4 : setState différé (rAF) hors du cycle de livraison du
-      // RO — ce callback change le layout (display du titre), ce qui peut faire
-      // sauter la notif d'un RO voisin (adsrCompact) ; le rAF rompt la boucle.
-      cancelAnimationFrame(raf)
-      raf = requestAnimationFrame(() => {
-        if (!w) return
-        setIsNarrow((prev) => {
-          const narrow = w < MODULE_NARROW_WIDTH
-          return prev === narrow ? prev : narrow
-        })
-      })
-    })
-    ro.observe(el)
-    return () => { cancelAnimationFrame(raf); ro.disconnect() }
-  }, [])
-
   const meta = MODULE_META[id]
   const Icon = meta?.Icon
   const label = meta?.label ?? id
   return (
     <div
-      ref={rootRef}
-      className={`designer-module${collapsed ? ' is-collapsed' : ''}${maximized ? ' is-maximized' : ''}${isNarrow ? ' is-narrow' : ''}`}
+      className={`designer-module${collapsed ? ' is-collapsed' : ''}${maximized ? ' is-maximized' : ''}`}
       data-module={id}
     >
       {collapsed && !maximized && (

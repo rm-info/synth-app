@@ -11,15 +11,6 @@
   position: relative;
 }
 
-/* iter-O phase-5c.f3 : masquage du titre quand le module est étroit (reste icône
-   + « … » + chrome). Piloté par une classe `is-narrow` posée via ResizeObserver
-   (DesignerModule.jsx) — PAS `container-type:inline-size`, qui empêchait l'item
-   flex de rétrécir (Chromium) et cassait le mode compact AHDSR. */
-.designer-module.is-narrow .we-area-title,
-.designer-module.is-narrow .spectrogram-header h3 {
-  display: none;
-}
-
 /* iter-O phase-5c : chrome centralisée, détachée en coin haut-droit du module,
    au-dessus du header. Rendue dans .designer-module-content → disparaît avec lui
    quand le module est replié (display:none). */
