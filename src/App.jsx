@@ -2397,7 +2397,6 @@ function App() {
                       <DesignerModule
                         key="canvas"
                         id="canvas"
-                        name={STRINGS.editor.waveformTitle}
                         collapsed={designerCollapsed.canvas}
                         maximized={maximized === 'canvas'}
                         onToggleCollapse={() => handleToggleModuleCollapsed('canvas')}
@@ -2406,7 +2405,6 @@ function App() {
                       <DesignerModule
                         key="harmonics"
                         id="harmonics"
-                        name={STRINGS.editor.harmonicsTitle}
                         collapsed={designerCollapsed.harmonics}
                         maximized={maximized === 'harmonics'}
                         onToggleCollapse={() => handleToggleModuleCollapsed('harmonics')}
@@ -2415,7 +2413,6 @@ function App() {
                       <DesignerModule
                         key="spectrogram"
                         id="spectrogram"
-                        name="Spectrogramme"
                         collapsed={designerCollapsed.spectrogram}
                         maximized={maximized === 'spectrogram'}
                         onToggleCollapse={() => handleToggleModuleCollapsed('spectrogram')}
@@ -2427,7 +2424,6 @@ function App() {
                     <div className={`designer-cell${designerCollapsed.params ? ' is-collapsed' : ''}`}>
                       <DesignerModule
                         id="params"
-                        name="Instrument"
                         collapsed={designerCollapsed.params}
                         maximized={maximized === 'params'}
                         onToggleCollapse={() => handleToggleModuleCollapsed('params')}
@@ -2437,7 +2433,6 @@ function App() {
                     <div className={`designer-cell${designerCollapsed.adsr ? ' is-collapsed' : ''}`}>
                       <DesignerModule
                         id="adsr"
-                        name="Enveloppe AHDSR"
                         collapsed={designerCollapsed.adsr}
                         maximized={maximized === 'adsr'}
                         onToggleCollapse={() => handleToggleModuleCollapsed('adsr')}

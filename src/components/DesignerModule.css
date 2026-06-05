@@ -60,14 +60,19 @@
 
 /* Bande verticale fine cliquable (réouverture). Esprit
    .designer-sidebar.is-collapsed : surface discrète, hover marqué (affordance
-   « cliquer pour rouvrir »), nom en rotation. */
+   « cliquer pour rouvrir »). iter-O phase-5c : layout vertical = icône d'identité
+   en TÊTE, puis titre en rotation dessous s'il rentre (clippé sinon via
+   overflow:hidden → icône seule sur une bande trop courte). */
 .module-band {
   flex: 1;
   width: 100%;
   display: flex;
+  flex-direction: column;
   align-items: center;
-  justify-content: center;
-  padding: 10px 0;
+  justify-content: flex-start;
+  gap: 8px;
+  padding: 8px 0;
+  overflow: hidden;
   background: var(--surface-bg);
   border: 1px solid var(--surface-border);
   border-radius: 8px;
@@ -79,6 +84,9 @@
   background: var(--accent-bg-faint);
   border-color: var(--accent);
   color: var(--text-strong);
+}
+.module-band-icon {
+  flex-shrink: 0;
 }
 .module-band-label {
   writing-mode: vertical-rl;
