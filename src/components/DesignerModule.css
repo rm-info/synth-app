@@ -9,6 +9,18 @@
   min-height: 0;
   /* iter-O phase-5c : ancre de la chrome absolue (coin haut-droit). */
   position: relative;
+  /* iter-O phase-5c : conteneur de requête → masquage du titre quand le module
+     devient trop étroit (reste icône + « … » + chrome). Indépendant de
+     l'OverflowToolbar (qui gère le débordement des contrôles). */
+  container-type: inline-size;
+  container-name: designer-module;
+}
+
+@container designer-module (max-width: 260px) {
+  .we-area-title,
+  .spectrogram-header h3 {
+    display: none;
+  }
 }
 
 /* iter-O phase-5c : chrome centralisée, détachée en coin haut-droit du module,

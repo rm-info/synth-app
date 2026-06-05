@@ -8,6 +8,7 @@ import useWindowSize from '../hooks/useWindowSize'
 import FreqInput from './FreqInput'
 import NumberInput from './NumberInput'
 import OverflowToolbar from './OverflowToolbar'
+import { MODULE_META } from '../lib/designerModules'
 import { PianoKeyboard, OctaveSelector } from './PianoKeyboard'
 import ShortLabelSelect from './ShortLabelSelect'
 import {
@@ -2142,6 +2143,7 @@ function WaveformEditor({
       <div className="we-canvas-area" data-anchor="designer-waveform">
         <header className="we-area-header">
           <div className="we-header-left">
+            <MODULE_META.canvas.Icon className="we-area-icon" size={15} aria-hidden="true" />
             <h3 className="we-area-title">{STRINGS.editor.waveformTitle}</h3>
           </div>
           <div className="spline-header-controls">
@@ -2188,6 +2190,7 @@ function WaveformEditor({
       <div className="we-harmonics-area" data-anchor="designer-harmonics">
         <header className="we-area-header">
           <div className="we-header-left">
+            <MODULE_META.harmonics.Icon className="we-area-icon" size={15} aria-hidden="true" />
             <h3 className="we-area-title">{STRINGS.editor.harmonicsTitle}</h3>
           </div>
           <div className="we-harmonics-controls">
@@ -2357,7 +2360,10 @@ function WaveformEditor({
   const renderParamsArea = () => (
     <div className="we-params-area">
       <header className="we-area-header">
-        <h3 className="we-area-title">Instrument</h3>
+        <div className="we-header-left">
+          <MODULE_META.params.Icon className="we-area-icon" size={15} aria-hidden="true" />
+          <h3 className="we-area-title">Instrument</h3>
+        </div>
         {/* iter-O phase-3 : contrôles compacts à droite du header (desktop serré).
             Étage 2 (3.2) : stepper d'octave quand `octaveInHeader` (mode note) —
             la we-octave-row du corps disparaît. Étage 1 (3.1) : icône [⚙] quand
@@ -2818,7 +2824,10 @@ function WaveformEditor({
         ref={adsrAreaRef}
       >
         <header className="we-area-header">
-          <h3 className="we-area-title">Enveloppe AHDSR</h3>
+          <div className="we-header-left">
+            <MODULE_META.adsr.Icon className="we-area-icon" size={15} aria-hidden="true" />
+            <h3 className="we-area-title">Enveloppe AHDSR</h3>
+          </div>
           {/* iter-O phase-4 : switch Graphe/Sliders (style segmenté, comme
               Doux/Anguleux), uniquement en mode compact (mesuré sur la zone). */}
           {adsrCompact && (

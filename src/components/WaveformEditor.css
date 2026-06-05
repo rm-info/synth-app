@@ -403,6 +403,13 @@
   letter-spacing: 0.05em;
   font-weight: 600;
 }
+/* iter-O phase-5c : icône d'identité du module, devant le titre (we-header-left
+   est aligné baseline → align-self:center pour cadrer l'icône sur la ligne). */
+.we-area-icon {
+  flex-shrink: 0;
+  align-self: center;
+  color: var(--text-secondary);
+}
 
 .we-sound-tag {
   color: #c084fc;

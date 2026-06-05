@@ -3,6 +3,7 @@ import { splineToPoints, warpResidualForAnchorMove } from '../lib/spline'
 import { themeColor } from '../lib/themeColor'
 import { withSavedCtx, drawAmplitudeMarker, drawAmplitudeGrid, DRAW_MARGIN, DRAW_MARGIN_TOP, DRAW_MARGIN_BOTTOM } from '../lib/canvas'
 import { STRINGS } from '../lib/strings'
+import { MODULE_META } from '../lib/designerModules'
 import NormalizeLegend from './NormalizeLegend'
 import './SplineEditor.css'
 
@@ -430,6 +431,7 @@ function SplineEditor({
     <div className="we-canvas-area" data-anchor="designer-waveform">
       <header className="we-area-header">
         <div className="we-header-left">
+          <MODULE_META.canvas.Icon className="we-area-icon" size={15} aria-hidden="true" />
           <h3 className="we-area-title">{STRINGS.editor.waveformTitle}</h3>
         </div>
         {/* iter-M phase-r.2.4 : le switch Libre/Ancres + le toggle

@@ -5,6 +5,7 @@ import { themeColor } from '../lib/themeColor'
 import { withSavedCtx } from '../lib/canvas'
 import { STRINGS } from '../lib/strings'
 import { IconCrete } from './icons'
+import { MODULE_META } from '../lib/designerModules'
 import './Spectrogram.css'
 
 const FREQ_MIN = 16
@@ -457,7 +458,10 @@ function Spectrogram({
   return (
     <div className="spectrogram" data-anchor="designer-spectrogram">
       <header className="spectrogram-header">
-        <h3>Spectrogramme</h3>
+        <div className="we-header-left">
+          <MODULE_META.spectrogram.Icon className="we-area-icon" size={15} aria-hidden="true" />
+          <h3>Spectrogramme</h3>
+        </div>
         <div className="spectrogram-controls">
           <button
             type="button"
