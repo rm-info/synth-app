@@ -37,6 +37,13 @@
   align-items: center;
   flex-shrink: 0;
 }
+/* Prefix (chrome fixe en tête, ex. séparateur) : étiré sur la hauteur de la
+   rangée pour que les éléments comptant sur `align-self: stretch` (séparateur
+   1px) reçoivent une hauteur, même seuls dans leur wrapper. */
+.overflow-toolbar-prefix {
+  align-self: stretch;
+  align-items: stretch;
+}
 
 /* Bouton `⋯` : repris du style .icon-btn (cohérence avec le reste du Designer). */
 

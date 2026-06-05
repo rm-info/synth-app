@@ -27,6 +27,7 @@ const GAP = 8 // px — doit coller au gap CSS de .overflow-toolbar-row
 export default function OverflowToolbar({ items, prefix, className, ariaLabel, menuLabel }) {
   const rootRef = useRef(null)
   const ghostRef = useRef(null)
+  const prefixRef = useRef(null)
   const triggerRef = useRef(null)
   const popoverRef = useRef(null)
   const visibleCountRef = useRef(items?.length ?? 0)
@@ -50,7 +51,10 @@ export default function OverflowToolbar({ items, prefix, className, ariaLabel, m
     const triggerW = cells[cells.length - 1].getBoundingClientRect().width
     const widths = cells.slice(0, -1).map((c) => c.getBoundingClientRect().width)
     const n = widths.length
-    const avail = root.clientWidth
+    // Le prefix (chrome fixe, ex. séparateur) consomme de la place en tête de la
+    // rangée visible mais ne déborde jamais → on le retranche du dispo.
+    let avail = root.clientWidth
+    if (prefixRef.current) avail -= prefixRef.current.getBoundingClientRect().width + GAP
 
     // Largeur de tous les items en ligne (sans `⋯`).
     let sumAll = 0
@@ -132,7 +136,7 @@ export default function OverflowToolbar({ items, prefix, className, ariaLabel, m
 
       {/* Rangée visible (alignée à droite) : prefix + items qui tiennent + `⋯`. */}
       <div className="overflow-toolbar-row overflow-toolbar-visible" role="group" aria-label={ariaLabel}>
-        {prefix}
+        {prefix && <span className="overflow-toolbar-item overflow-toolbar-prefix" ref={prefixRef}>{prefix}</span>}
         {visible.map((it) => (
           <div className="overflow-toolbar-item" key={it.id}>{it.bar}</div>
         ))}
