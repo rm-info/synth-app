@@ -1721,17 +1721,24 @@ function WaveformEditor({
   useEffect(() => {
     const area = adsrAreaRef.current
     if (!area || typeof ResizeObserver === 'undefined') return
+    let raf = 0
     const ro = new ResizeObserver((entries) => {
-      for (const entry of entries) {
-        const w = entry.contentRect.width
-        const h = entry.contentRect.height
-        if (!w || !h) continue
+      const rect = entries[entries.length - 1].contentRect
+      const w = rect.width
+      const h = rect.height
+      // iter-O phase-5c.f4 : différer le setState hors du cycle de livraison du RO
+      // (rAF). Un 2e RO voisin — isNarrow de DesignerModule — modifie le layout
+      // (display du titre) pendant la livraison → boucle « undelivered
+      // notifications » qui faisait sauter la notif du grow (compact restait coincé).
+      cancelAnimationFrame(raf)
+      raf = requestAnimationFrame(() => {
+        if (!w || !h) return
         const compact = w < ADSR_COMPACT_WIDTH || h < ADSR_COMPACT_HEIGHT
         setAdsrCompact((prev) => (prev === compact ? prev : compact))
-      }
+      })
     })
     ro.observe(area)
-    return () => ro.disconnect()
+    return () => { cancelAnimationFrame(raf); ro.disconnect() }
   }, [])
 
   // iter-O phase-4.2 : au retour en vue Graphe (canvas ré-affiché après avoir été

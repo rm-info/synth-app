@@ -29,18 +29,23 @@ function DesignerModule({ id, collapsed, maximized, onToggleCollapse, onToggleMa
   useEffect(() => {
     const el = rootRef.current
     if (!el || typeof ResizeObserver === 'undefined') return
+    let raf = 0
     const ro = new ResizeObserver((entries) => {
-      for (const entry of entries) {
-        const w = entry.contentRect.width
-        if (!w) continue
+      const w = entries[entries.length - 1].contentRect.width
+      // iter-O phase-5c.f4 : setState différé (rAF) hors du cycle de livraison du
+      // RO — ce callback change le layout (display du titre), ce qui peut faire
+      // sauter la notif d'un RO voisin (adsrCompact) ; le rAF rompt la boucle.
+      cancelAnimationFrame(raf)
+      raf = requestAnimationFrame(() => {
+        if (!w) return
         setIsNarrow((prev) => {
           const narrow = w < MODULE_NARROW_WIDTH
           return prev === narrow ? prev : narrow
         })
-      }
+      })
     })
     ro.observe(el)
-    return () => ro.disconnect()
+    return () => { cancelAnimationFrame(raf); ro.disconnect() }
   }, [])
 
   const meta = MODULE_META[id]
