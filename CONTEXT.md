@@ -724,9 +724,10 @@ Seuls les **placements timeline** s'appellent "clips".
   = `{ label, Icon Lucide }` par module (`AudioWaveform`/`BarChart3`/`Grid2x2`/
   `Piano`/`AudioLines`), **source unique** réutilisée par les headers (icône
   `.we-area-icon` devant `h3` dans `we-header-left`, 6 sites) et la bande. Le
-  **titre disparaît quand le module rétrécit** via container query
-  (`@container designer-module (max-width:260px)` → `.we-area-title` /
-  `.spectrogram-header h3` masqués), indépendamment de l'`OverflowToolbar`.
+  **titre disparaît quand le module rétrécit** (< 260px) via une classe
+  `is-narrow` posée par un `ResizeObserver` sur `.designer-module` (5c.f3 — la
+  container query d'origine posait `container-type:inline-size` qui **bloquait le
+  shrink flex** des modules en Chromium, cassant le mode compact AHDSR).
 - **Collapse** (O.5a) : `designerCollapsed` (5 booléens) persisté, non-undoable.
   `TOGGLE_DESIGNER_MODULE_COLLAPSED` (payload `{ id, autoCollapse }`, Réduire +
   réouverture). `DesignerColumns` reçoit `collapsed` (3 booléens) → colonne repliée
