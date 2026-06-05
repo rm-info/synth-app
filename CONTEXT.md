@@ -39,10 +39,13 @@ framework UI (CSS manuscrit), pas de routing, pas de backend.
 
 **État courant** : Iteration N « Stabilité & fluidité » **close** (release
 v1.6.0, 2026-06-04). **Iteration O — Ergonomie & responsive du Designer** ouverte
-(cf. `archi/BACKLOG.md` § Iteration O) : **phases 1-4** livrées (steppers `▴▾` au
-lieu des sliders ancres/cap ; `OverflowToolbar` priority-plus sur les barres de
-titre surchargées ; quadrant Instrument responsive desktop à 2 étages ; bascule
-Graphe/Sliders de l'AHDSR en basse résolution). Le détail par phase N.1→N.6 (audit
+(cf. `archi/BACKLOG.md` § Iteration O) : **phases 1-4 + 5a** livrées (steppers
+`▴▾` au lieu des sliders ancres/cap ; `OverflowToolbar` priority-plus sur les
+barres de titre surchargées ; quadrant Instrument responsive desktop à 2 étages ;
+bascule Graphe/Sliders de l'AHDSR en basse résolution ; **collapse** des 5 modules
+Designer — chacun réductible en **bande verticale fine** via un bouton Réduire
+dans son header, clic sur la bande = réouverture, état `designerCollapsed`
+persisté ; maximize O.5b + auto-collapse O.5c à venir). Le détail par phase N.1→N.6 (audit
 perf + verdict prod, warp 2D, presets « Timbres », lissage, durcissements TS)
 vit dans `CONTEXT-ARCHIVE.md` ; l'état présent du Designer est résumé dans
 `## État actuel` ci-dessous. Hygiène restante (hors itération) : purge des
@@ -128,7 +131,9 @@ synth-app/
         ├── PatchBank.jsx + .css               # banque de patches partagée
         ├── WaveformEditor.jsx + .css          # éditeur ondes / patch (Designer)
         ├── Spectrogram.jsx + .css             # spectrogramme statique (Designer)
-        ├── DesignerColumns.jsx + .css         # layout 3 colonnes ajustables (Designer, M.2.2)
+        ├── DesignerColumns.jsx + .css         # layout 3 colonnes ajustables (Designer, M.2.2) ; prop collapsed → colonne repliée en bande (iter-O phase-5a)
+        ├── DesignerModule.jsx + .css          # wrapper réductible des 5 modules Designer : bande verticale ↔ contenu (toujours monté, display:none si replié — contrainte canvas) (iter-O phase-5a)
+        ├── ModuleChrome.jsx + .css            # chrome « façon fenêtre » du header d'un module : bouton Réduire (extensible Agrandir O.5b) (iter-O phase-5a)
         ├── OverflowToolbar.jsx + .css         # barre d'outils générique « priority-plus » : items bar/tray, débordement → tiroir `⋯` (iter-O phase-2). Branché : header Forme d'onde + groupe droit DesignerToolbar
         ├── SplineEditor.jsx + .css            # éditeur points/courbe mode spline (Designer, M.3)
         ├── ConvertToHarmonicDialog.jsx + .css # dialog passerelle draw/spline→harmonic (M.2.5)
@@ -274,6 +279,9 @@ type Clip = {                     // placement timeline + hauteur
 //   composerBankWidth, composerAsideWidth,
 //   composerBankCollapsed, composerAsideCollapsed,
 //   docSidebarWidth, docSidebarCollapsed (iter-L phase-2.1),
+//   designerColumnWidths, autoSizing,
+//   designerCollapsed (iter-O phase-5a : { canvas, harmonics, spectrogram,
+//     params, adsr } booléens, état replié des 5 modules Designer),
 //   editorTestTuningSystem, editorTestNoteIndex, editorTestOctave,
 //   editorTestFrequency, editorVisualCuePattern, editorVisualCueTonic,
 //   selectedTrackId (iter-L phase-1.4.b) }
@@ -679,6 +687,30 @@ Seuls les **placements timeline** s'appellent "clips".
   `useEffect`. **N.6.2** : un drag manuel de séparateur appelle `onManualResize`
   (→ `setAutoSizing(false)`) au début, donc les proportions custom coupent
   l'auto-sizing au lieu d'être réécrites au focus suivant.
+
+### `DesignerModule.jsx` + `ModuleChrome.jsx` (iter-O phase-5a)
+- **`DesignerModule`** : wrapper uniforme des 5 modules Designer (canvas /
+  harmonics / spectrogram / params / adsr). Bascule **bande ↔ contenu** sans
+  fixer sa largeur (rôle du conteneur de rangée : `DesignerColumns` ou
+  `.designer-cell`). **Contrainte imposée** : le contenu (qui peut héberger un
+  `<canvas>`) est **toujours monté**, passé en `display:none` quand replié —
+  jamais démonté, sinon canvas vide au retour (le `ResizeObserver` du canvas
+  redessine au retour à dimensions non nulles). La bande (`<button>` nom vertical
+  `writing-mode: vertical-rl`) est un **frère** affiché à la place du contenu ;
+  clic = réouverture. `data-module={id}` (servira au maximize O.5b).
+- **`ModuleChrome`** : chrome « façon fenêtre » rendu dans le header de chaque
+  module **à l'extrême droite, HORS de l'`OverflowToolbar`** (toujours
+  atteignable). O.5a : bouton **Réduire** seul (`PanelLeftClose`, `.icon-btn`) ;
+  signature extensible pour Agrandir (O.5b). **Desktop only** : non rendu en
+  mobile (l'accordéon a son propre repli). Branché dans les 5 headers —
+  `WaveformEditor` (Forme d'onde via `headerChrome` de `SplineEditor` + 3 autres),
+  `Spectrogram` (prop `onCollapse`).
+- État `designerCollapsed` (5 booléens) persisté, non-undoable. Toggle unique
+  `TOGGLE_DESIGNER_MODULE_COLLAPSED` (Réduire + réouverture). `DesignerColumns`
+  reçoit `collapsed` (3 booléens) → colonne repliée en `flex:0 0
+  var(--module-band-width)` (28px), exclue du flexGrow (ratios des ouvertes
+  préservés, pas de parking de `designerColumnWidths`) + séparateur adjacent
+  masqué ; `.designer-cell.is-collapsed` fait pareil pour les 2 modules du bas.
 
 ### `ConvertToHarmonicDialog.jsx` — SUPPRIMÉ (M.r.1.4)
 - Dialog de la passerelle draw→harmonic. **Supprimé** avec les conversions
