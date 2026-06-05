@@ -24,6 +24,9 @@
 .spectrogram-controls {
   display: flex;
   gap: 4px;
+  /* iter-O phase-5a : absorbe l'espace libre à sa gauche pour rester groupé à
+     droite avec le chrome Réduire (3 enfants dans le header space-between). */
+  margin-left: auto;
 }
 
 .spectrogram-toggle {

@@ -41,6 +41,7 @@ function SplineEditor({
   autoSizing,
   autoSizeFocusGuardRef,
   headerControls,
+  headerChrome = null,
 }) {
   const canvasRef = useRef(null)
   const containerRef = useRef(null)
@@ -438,6 +439,9 @@ function SplineEditor({
         <div className="spline-header-controls">
           {headerControls}
         </div>
+        {/* iter-O phase-5a : chrome du module (Réduire), à l'extrême droite,
+            hors OverflowToolbar — passé par WaveformEditor (desktop only). */}
+        {headerChrome}
       </header>
       <div className="canvas-container spline-canvas-container" ref={containerRef}>
         <canvas

@@ -563,6 +563,14 @@
   gap: 8px;
   flex-shrink: 0;
 }
+/* iter-O phase-5a : groupe droit du header AHDSR (switch Graphe/Sliders compact
+   + chrome Réduire), aligné à droite via le space-between du .we-area-header. */
+.we-adsr-header-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
 /* Stepper d'octave dans le header (étage 2) : libellé « Oct. » + NumberInput. */
 .we-octave-header {
   display: inline-flex;

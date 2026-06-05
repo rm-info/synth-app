@@ -8,6 +8,7 @@ import useWindowSize from '../hooks/useWindowSize'
 import FreqInput from './FreqInput'
 import NumberInput from './NumberInput'
 import OverflowToolbar from './OverflowToolbar'
+import ModuleChrome from './ModuleChrome'
 import { PianoKeyboard, OctaveSelector } from './PianoKeyboard'
 import ShortLabelSelect from './ShortLabelSelect'
 import {
@@ -326,6 +327,9 @@ function WaveformEditor({
   isMobile,
   adsrView,
   onSetAdsrView,
+  // iter-O phase-5a : Réduire un module (chrome du header). Desktop only — les
+  // 4 headers de l'éditeur rendent <ModuleChrome> seulement si !isMobile.
+  onToggleModuleCollapsed,
   ref,
   children,
 }) {
@@ -2135,6 +2139,9 @@ function WaveformEditor({
           autoSizing={autoSizing}
           autoSizeFocusGuardRef={autoSizeFocusGuardRef}
           headerControls={renderWaveformHeaderControls()}
+          headerChrome={!isMobile && onToggleModuleCollapsed
+            ? <ModuleChrome onCollapse={() => onToggleModuleCollapsed('canvas')} />
+            : null}
         />
       )
     }
@@ -2147,6 +2154,9 @@ function WaveformEditor({
           <div className="spline-header-controls">
             {renderWaveformHeaderControls()}
           </div>
+          {!isMobile && onToggleModuleCollapsed && (
+            <ModuleChrome onCollapse={() => onToggleModuleCollapsed('canvas')} />
+          )}
         </header>
         <div className="canvas-container" ref={canvasContainerRef}>
           <canvas
@@ -2217,6 +2227,9 @@ function WaveformEditor({
                 <span className="we-cap-suffix">/ {CAP_MAX}</span>
               </span>
             </label>
+            {!isMobile && onToggleModuleCollapsed && (
+              <ModuleChrome onCollapse={() => onToggleModuleCollapsed('harmonics')} />
+            )}
           </div>
         </header>
         {/* M.r.5.2 — plot = axe Y (gauche) + barres + axe X (sous les barres).
@@ -2362,7 +2375,7 @@ function WaveformEditor({
             Étage 2 (3.2) : stepper d'octave quand `octaveInHeader` (mode note) —
             la we-octave-row du corps disparaît. Étage 1 (3.1) : icône [⚙] quand
             `instrumentCollapsed` (contrôles système dans la modale). */}
-        {((octaveInHeader && !freeMode) || instrumentCollapsed) && (
+        {(((octaveInHeader && !freeMode) || instrumentCollapsed) || (!isMobile && onToggleModuleCollapsed)) && (
           <div className="we-params-header-controls">
             {octaveInHeader && !freeMode && (
               <div className="we-octave-header" data-anchor="designer-octave-selector">
@@ -2389,6 +2402,9 @@ function WaveformEditor({
                 title="Paramètres du système musical"
                 aria-label="Paramètres du système musical"
               ><Sliders size={18} /></button>
+            )}
+            {!isMobile && onToggleModuleCollapsed && (
+              <ModuleChrome onCollapse={() => onToggleModuleCollapsed('params')} />
             )}
           </div>
         )}
@@ -2819,26 +2835,34 @@ function WaveformEditor({
       >
         <header className="we-area-header">
           <h3 className="we-area-title">Enveloppe AHDSR</h3>
-          {/* iter-O phase-4 : switch Graphe/Sliders (style segmenté, comme
-              Doux/Anguleux), uniquement en mode compact (mesuré sur la zone). */}
-          {adsrCompact && (
-          <div className="spline-interp-toggle" role="group" aria-label="Vue de l'enveloppe">
-            <button
-              type="button"
-              className={`icon-btn${adsrView === 'graph' ? ' is-active' : ''}`}
-              onClick={() => onSetAdsrView('graph')}
-              title="Vue graphe (courbe d'enveloppe)"
-              aria-label="Vue graphe"
-              aria-pressed={adsrView === 'graph'}
-            ><Activity size={18} /></button>
-            <button
-              type="button"
-              className={`icon-btn${adsrView === 'sliders' ? ' is-active' : ''}`}
-              onClick={() => onSetAdsrView('sliders')}
-              title="Vue sliders (6 réglages)"
-              aria-label="Vue sliders"
-              aria-pressed={adsrView === 'sliders'}
-            ><SlidersHorizontal size={18} /></button>
+          {(adsrCompact || (!isMobile && onToggleModuleCollapsed)) && (
+          <div className="we-adsr-header-controls">
+            {/* iter-O phase-4 : switch Graphe/Sliders (style segmenté, comme
+                Doux/Anguleux), uniquement en mode compact (mesuré sur la zone). */}
+            {adsrCompact && (
+            <div className="spline-interp-toggle" role="group" aria-label="Vue de l'enveloppe">
+              <button
+                type="button"
+                className={`icon-btn${adsrView === 'graph' ? ' is-active' : ''}`}
+                onClick={() => onSetAdsrView('graph')}
+                title="Vue graphe (courbe d'enveloppe)"
+                aria-label="Vue graphe"
+                aria-pressed={adsrView === 'graph'}
+              ><Activity size={18} /></button>
+              <button
+                type="button"
+                className={`icon-btn${adsrView === 'sliders' ? ' is-active' : ''}`}
+                onClick={() => onSetAdsrView('sliders')}
+                title="Vue sliders (6 réglages)"
+                aria-label="Vue sliders"
+                aria-pressed={adsrView === 'sliders'}
+              ><SlidersHorizontal size={18} /></button>
+            </div>
+            )}
+            {/* iter-O phase-5a : chrome du module (Réduire), desktop only. */}
+            {!isMobile && onToggleModuleCollapsed && (
+              <ModuleChrome onCollapse={() => onToggleModuleCollapsed('adsr')} />
+            )}
           </div>
           )}
         </header>

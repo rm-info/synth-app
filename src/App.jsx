@@ -11,6 +11,7 @@ import Toolbar from './components/Toolbar'
 import PropertiesPanel from './components/PropertiesPanel'
 import Spectrogram from './components/Spectrogram'
 import DesignerColumns from './components/DesignerColumns'
+import DesignerModule from './components/DesignerModule'
 import DesignerToolbar from './components/DesignerToolbar'
 import SidebarResizer from './components/SidebarResizer'
 import PopupResizer from './components/PopupResizer'
@@ -106,6 +107,7 @@ function App() {
     durationMode, adsrView, selectedClipIds, selectedTrackId, composerFlash, lastAnchorClipId,
     composerBankWidth, composerAsideWidth, composerBankCollapsed, composerAsideCollapsed,
     designerSidebarWidth, designerSidebarCollapsed, designerColumnWidths, autoSizing,
+    designerCollapsed,
     doc, docSidebarWidth, docSidebarCollapsed,
     bibHierarchyMode, bibDisplayMode, bibCurrentFolderId, bibPopupWidth,
     bibSelectedIds, bibSelectionAnchor, bibCollapsedFolders,
@@ -698,6 +700,8 @@ function App() {
           // iter-M phase-2-as : toggle auto-sizing (essai). Le focus, lui,
           // reste volatile (jamais persisté).
           autoSizing,
+          // iter-O phase-5a : modules Designer repliés (préférence UI).
+          designerCollapsed,
           // iter-L phase-2.1 : préférences sidebar Documentation (collapsed
           // + largeur). La position de lecture (article courant + scrolls)
           // est gérée séparément via sessionStorage.
@@ -734,6 +738,7 @@ function App() {
     durationMode, adsrView, activeTab, patchCounter, clipCounter, folderCounter, trackCounter,
     composerBankWidth, composerAsideWidth, composerBankCollapsed, composerAsideCollapsed,
     designerSidebarWidth, designerSidebarCollapsed, designerColumnWidths, autoSizing,
+    designerCollapsed,
     docSidebarWidth, docSidebarCollapsed,
     bibHierarchyMode, bibDisplayMode, bibCurrentFolderId, bibCollapsedFolders, bibPopupWidth,
     recentPatchIds, theme, selectedTrackId,
@@ -871,6 +876,11 @@ function App() {
   // auto-resize l'appelle aussi — cf. note d'impl. N.6.2).
   const setDesignerColumnWidths = useCallback((widths) => {
     dispatch({ type: 'SET_DESIGNER_COLUMN_WIDTHS', payload: widths })
+  }, [])
+  // iter-O phase-5a : bascule l'état replié (bande) d'un module Designer. Sert
+  // de Réduire (chrome du header) ET de réouverture (clic sur la bande).
+  const handleToggleModuleCollapsed = useCallback((id) => {
+    dispatch({ type: 'TOGGLE_DESIGNER_MODULE_COLLAPSED', payload: id })
   }, [])
   // iter-M phase-2-as : toggle auto-sizing (essai).
   const toggleAutoSizing = useCallback(() => {
@@ -2055,6 +2065,9 @@ function App() {
       onToggleMode={() =>
         setSpectrogramMode(spectrogramMode === 'live' ? 'static' : 'live')
       }
+      // iter-O phase-5a : Réduire (chrome). Desktop only — l'accordéon mobile a
+      // son propre repli (chevron), le node spectro est partagé entre les deux.
+      onCollapse={isMobile ? undefined : () => handleToggleModuleCollapsed('spectrogram')}
     />
   )
 
@@ -2167,6 +2180,7 @@ function App() {
         isMobile={isMobile}
         adsrView={adsrView}
         onSetAdsrView={(v) => dispatch({ type: 'SET_ADSR_VIEW', payload: v })}
+        onToggleModuleCollapsed={handleToggleModuleCollapsed}
       >
         {({ renderCanvasArea, renderHarmonicsArea, renderParamsArea, renderAdsrArea, renderActions, patchLabel, openPresetPicker, requestResetWaveform }) => (
           <>
@@ -2375,11 +2389,48 @@ function App() {
                     onManualResize={disableAutoSizing}
                     autoSizing={autoSizing}
                     focusGuardRef={autoSizeFocusGuardRef}
-                    columns={[renderCanvasArea(), renderHarmonicsArea(), spectrogramNode]}
+                    collapsed={[designerCollapsed.canvas, designerCollapsed.harmonics, designerCollapsed.spectrogram]}
+                    columns={[
+                      <DesignerModule
+                        key="canvas"
+                        id="canvas"
+                        name={STRINGS.editor.waveformTitle}
+                        collapsed={designerCollapsed.canvas}
+                        onReopen={() => handleToggleModuleCollapsed('canvas')}
+                      >{renderCanvasArea()}</DesignerModule>,
+                      <DesignerModule
+                        key="harmonics"
+                        id="harmonics"
+                        name={STRINGS.editor.harmonicsTitle}
+                        collapsed={designerCollapsed.harmonics}
+                        onReopen={() => handleToggleModuleCollapsed('harmonics')}
+                      >{renderHarmonicsArea()}</DesignerModule>,
+                      <DesignerModule
+                        key="spectrogram"
+                        id="spectrogram"
+                        name="Spectrogramme"
+                        collapsed={designerCollapsed.spectrogram}
+                        onReopen={() => handleToggleModuleCollapsed('spectrogram')}
+                      >{spectrogramNode}</DesignerModule>,
+                    ]}
                   />
                   <div className="designer-row">
-                    <div className="designer-cell">{renderParamsArea()}</div>
-                    <div className="designer-cell">{renderAdsrArea()}</div>
+                    <div className={`designer-cell${designerCollapsed.params ? ' is-collapsed' : ''}`}>
+                      <DesignerModule
+                        id="params"
+                        name="Instrument"
+                        collapsed={designerCollapsed.params}
+                        onReopen={() => handleToggleModuleCollapsed('params')}
+                      >{renderParamsArea()}</DesignerModule>
+                    </div>
+                    <div className={`designer-cell${designerCollapsed.adsr ? ' is-collapsed' : ''}`}>
+                      <DesignerModule
+                        id="adsr"
+                        name="Enveloppe AHDSR"
+                        collapsed={designerCollapsed.adsr}
+                        onReopen={() => handleToggleModuleCollapsed('adsr')}
+                      >{renderAdsrArea()}</DesignerModule>
+                    </div>
                   </div>
                 </div>
               )}

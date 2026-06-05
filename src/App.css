@@ -305,6 +305,11 @@
   min-width: 0;
   min-height: 0;
 }
+/* iter-O phase-5a : cellule du bas dont le module est replié → largeur de bande
+   fixe ; l'autre cellule (flex:1) récupère la place. */
+.designer-cell.is-collapsed {
+  flex: 0 0 var(--module-band-width);
+}
 
 /* ============== Mode mobile (v1.2.0) ==============
    En dessous de 924 × 668 px (ResolutionGate supprimé en v1.2.0), le
