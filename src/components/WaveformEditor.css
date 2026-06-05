@@ -812,7 +812,10 @@
   align-items: center;
   justify-content: center;
   padding: 20px;
-  z-index: 100;
+  /* iter-O phase-6.f1 : au-dessus du popover de l'OverflowToolbar (z-index 1000) —
+     le bouton ⚙ système peut vivre dans le tiroir « … » (O.6.2), et la modale qu'il
+     ouvre doit passer DEVANT ce tiroir, pas derrière. */
+  z-index: 1100;
 }
 .instrument-modal {
   width: 100%;

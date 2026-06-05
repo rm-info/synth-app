@@ -5,7 +5,12 @@
 .overflow-toolbar {
   position: relative;
   flex: 1 1 0;
-  min-width: 0;
+  /* iter-O phase-6.f1 : plancher = largeur du bouton « … ». Avec min-width:0, un
+     voisin gourmand (titre long de we-header-left, flex-shrink fort) écrasait le
+     root à 0 → le « … » (overflow:hidden) était clippé/caché derrière le titre.
+     Ce plancher FIXE reste indépendant du contenu (pas de boucle RO) ; il force le
+     titre à tronquer davantage pour laisser le « … » visible. */
+  min-width: 2.25rem;
 }
 
 .overflow-toolbar-row {
