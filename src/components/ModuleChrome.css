@@ -1,9 +1,37 @@
-/* iter-O phase-5a : chrome du module (Réduire). Posée à l'extrême droite du
-   header ; le bouton réutilise .icon-btn (cohérence Designer). flex-shrink:0
-   pour ne jamais être comprimée par les contrôles voisins. */
+/* iter-O phase-5c : chrome « contrôle de fenêtre » — pastille discrète, plus
+   petite que les .icon-btn d'action, pour qu'on ne la confonde pas avec une
+   action du module. Positionnée en absolu par DesignerModule (coin haut-droit). */
 .module-chrome {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
-  flex-shrink: 0;
+  gap: 2px;
+  padding: 2px;
+  border-radius: 6px;
+  background: var(--surface-bg);
+  border: 1px solid var(--surface-border);
+}
+.module-chrome-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: background 0.12s, color 0.12s;
+}
+.module-chrome-btn:hover:not(:disabled) {
+  background: var(--accent-bg-faint);
+  color: var(--text-strong);
+}
+.module-chrome-btn.is-active {
+  color: var(--accent);
+}
+.module-chrome-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
 }

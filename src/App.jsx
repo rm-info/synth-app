@@ -2072,11 +2072,6 @@ function App() {
       onToggleMode={() =>
         setSpectrogramMode(spectrogramMode === 'live' ? 'static' : 'live')
       }
-      // iter-O phase-5a/5b : chrome Réduire/Agrandir. Desktop only — l'accordéon
-      // mobile a son propre repli, le node spectro est partagé entre les deux.
-      onCollapse={isMobile ? undefined : () => handleToggleModuleCollapsed('spectrogram')}
-      onMaximize={isMobile ? undefined : () => handleToggleModuleMaximized('spectrogram')}
-      maximized={maximized === 'spectrogram'}
     />
   )
 
@@ -2189,9 +2184,6 @@ function App() {
         isMobile={isMobile}
         adsrView={adsrView}
         onSetAdsrView={(v) => dispatch({ type: 'SET_ADSR_VIEW', payload: v })}
-        onToggleModuleCollapsed={handleToggleModuleCollapsed}
-        onToggleModuleMaximized={handleToggleModuleMaximized}
-        maximized={maximized}
       >
         {({ renderCanvasArea, renderHarmonicsArea, renderParamsArea, renderAdsrArea, renderActions, patchLabel, openPresetPicker, requestResetWaveform }) => (
           <>
@@ -2407,24 +2399,27 @@ function App() {
                         id="canvas"
                         name={STRINGS.editor.waveformTitle}
                         collapsed={designerCollapsed.canvas}
-                        onReopen={() => handleToggleModuleCollapsed('canvas')}
                         maximized={maximized === 'canvas'}
+                        onToggleCollapse={() => handleToggleModuleCollapsed('canvas')}
+                        onToggleMaximize={() => handleToggleModuleMaximized('canvas')}
                       >{renderCanvasArea()}</DesignerModule>,
                       <DesignerModule
                         key="harmonics"
                         id="harmonics"
                         name={STRINGS.editor.harmonicsTitle}
                         collapsed={designerCollapsed.harmonics}
-                        onReopen={() => handleToggleModuleCollapsed('harmonics')}
                         maximized={maximized === 'harmonics'}
+                        onToggleCollapse={() => handleToggleModuleCollapsed('harmonics')}
+                        onToggleMaximize={() => handleToggleModuleMaximized('harmonics')}
                       >{renderHarmonicsArea()}</DesignerModule>,
                       <DesignerModule
                         key="spectrogram"
                         id="spectrogram"
                         name="Spectrogramme"
                         collapsed={designerCollapsed.spectrogram}
-                        onReopen={() => handleToggleModuleCollapsed('spectrogram')}
                         maximized={maximized === 'spectrogram'}
+                        onToggleCollapse={() => handleToggleModuleCollapsed('spectrogram')}
+                        onToggleMaximize={() => handleToggleModuleMaximized('spectrogram')}
                       >{spectrogramNode}</DesignerModule>,
                     ]}
                   />
@@ -2434,8 +2429,9 @@ function App() {
                         id="params"
                         name="Instrument"
                         collapsed={designerCollapsed.params}
-                        onReopen={() => handleToggleModuleCollapsed('params')}
                         maximized={maximized === 'params'}
+                        onToggleCollapse={() => handleToggleModuleCollapsed('params')}
+                        onToggleMaximize={() => handleToggleModuleMaximized('params')}
                       >{renderParamsArea()}</DesignerModule>
                     </div>
                     <div className={`designer-cell${designerCollapsed.adsr ? ' is-collapsed' : ''}`}>
@@ -2443,8 +2439,9 @@ function App() {
                         id="adsr"
                         name="Enveloppe AHDSR"
                         collapsed={designerCollapsed.adsr}
-                        onReopen={() => handleToggleModuleCollapsed('adsr')}
                         maximized={maximized === 'adsr'}
+                        onToggleCollapse={() => handleToggleModuleCollapsed('adsr')}
+                        onToggleMaximize={() => handleToggleModuleMaximized('adsr')}
                       >{renderAdsrArea()}</DesignerModule>
                     </div>
                   </div>

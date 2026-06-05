@@ -7,6 +7,25 @@
   flex-direction: column;
   min-width: 0;
   min-height: 0;
+  /* iter-O phase-5c : ancre de la chrome absolue (coin haut-droit). */
+  position: relative;
+}
+
+/* iter-O phase-5c : chrome centralisée, détachée en coin haut-droit du module,
+   au-dessus du header. Rendue dans .designer-module-content → disparaît avec lui
+   quand le module est replié (display:none). */
+.designer-module .module-chrome {
+  position: absolute;
+  top: 4px;
+  right: 6px;
+  z-index: 3;
+}
+/* Réserver la place sous la chrome : le « … » de l'OverflowToolbar et les
+   contrôles des headers ne doivent pas passer dessous. Scopé aux modules
+   (desktop) → mobile (sans .designer-module) inchangé. */
+.designer-module .we-area-header,
+.designer-module .spectrogram-header {
+  padding-right: 60px;
 }
 .designer-module-content {
   flex: 1;
