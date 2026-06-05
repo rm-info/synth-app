@@ -554,6 +554,34 @@
    G.2.8 : plus de margin-bottom ad-hoc (le parent control-group gère
    l'espacement vertical via gap:8px). gap interne unifié à 8px entre
    les boutons d'octave eux-mêmes. */
+/* iter-O phase-3 : contrôles compacts à droite du header Instrument (desktop
+   serré) — icône [⚙] (étage 1) et/ou stepper d'octave (étage 2). Alignés à
+   droite via le space-between du .we-area-header. */
+.we-params-header-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+/* Stepper d'octave dans le header (étage 2) : libellé « Oct. » + NumberInput. */
+.we-octave-header {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.we-octave-stepper-input {
+  width: 36px;
+  height: 30px;
+  box-sizing: border-box;
+  text-align: center;
+  font-size: 12px;
+  padding: 2px 4px;
+  border-radius: 4px;
+  border: 1px solid var(--surface-border-strong);
+  background: var(--surface-bg);
+  color: var(--text-default);
+}
+
 .we-octave-row {
   display: flex;
   align-items: center;

@@ -86,6 +86,15 @@ function formatFreq(hz) {
 // la zone Instrument peut alors déborder verticalement quand la hauteur
 // de fenêtre est aussi serrée.
 const INSTRUMENT_COLLAPSE_WIDTH = 950
+// iter-O phase-3 : dégradation à 2 étages du quadrant Instrument (desktop only,
+// donc tous les seuils de hauteur vivent au-dessus du plancher accordéon 668).
+// Étage 1 — contrôles système → icône [⚙] dans le header (width OU height).
+const INSTRUMENT_COLLAPSE_HEIGHT = 780 // H₁
+// Étage 2 — octaves → stepper ▴▾ dans le header. H₂ < H₁ (les octaves se
+// replient APRÈS les contrôles système) ; W₂ ≤ INSTRUMENT_COLLAPSE_WIDTH (les 11
+// boutons tiennent en largeur, le déclencheur est surtout la hauteur).
+const INSTRUMENT_OCTAVE_WIDTH = 924  // W₂ (filet largeur, cas extrême ~accordéon)
+const INSTRUMENT_OCTAVE_HEIGHT = 710 // H₂
 
 const ADSR_H = 120
 // F.3.11 : range A/D/R étendu à 1000 ms. À max-range, ADSR_SEGMENT_PX
@@ -307,6 +316,7 @@ function WaveformEditor({
   // suivant (la colonne est désormais à 60 %, le contenu ne reflue plus).
   autoSizing,
   autoSizeFocusGuardRef,
+  isMobile,
   ref,
   children,
 }) {
@@ -476,17 +486,21 @@ function WaveformEditor({
   const [saveMessage, setSaveMessage] = useState('')
   const saveMsgTimerRef = useRef(null)
 
-  // v1.1.0 : largeur de fenêtre → bascule responsive de la zone
-  // Instrument. < 950 px : row de contrôles remplacée par un bouton
-  // qui ouvre une modale centrée.
-  const { w: windowWidth } = useWindowSize()
-  const instrumentCollapsed = windowWidth < INSTRUMENT_COLLAPSE_WIDTH
+  // v1.1.0 : largeur de fenêtre → bascule responsive de la zone Instrument.
+  // iter-O phase-3 : dégradation à 2 étages, DESKTOP ONLY (le mode accordéon
+  // mobile a sa propre stratégie petit-écran, inchangée ici). `instrumentCollapsed`
+  // passe de width-only à (width OU height), gardé `!isMobile`.
+  const { w: windowWidth, h: windowHeight } = useWindowSize()
+  const instrumentCollapsed = !isMobile
+    && (windowWidth < INSTRUMENT_COLLAPSE_WIDTH || windowHeight < INSTRUMENT_COLLAPSE_HEIGHT)
+  // La modale système est hébergée en mobile (bouton full-width) ET en desktop
+  // collapsé (icône [⚙] du header). Ailleurs (desktop large), pas de modale.
+  const systemInModal = isMobile || instrumentCollapsed
   const [systemModalOpen, setSystemModalOpen] = useState(false)
-  // Si la fenêtre grandit pendant que la modale est ouverte, on la
-  // ferme (le bouton qui l'a ouverte est désormais caché). State
-  // résiduel = wasteful mais inoffensif si on ne ferme pas — on ferme
-  // tout de même pour propreté.
-  if (!instrumentCollapsed && systemModalOpen) {
+  // Si on repasse dans un mode sans modale (desktop large) pendant qu'elle est
+  // ouverte, on la ferme (le déclencheur est désormais caché). State résiduel =
+  // inoffensif, mais on ferme pour propreté.
+  if (!systemInModal && systemModalOpen) {
     // Conditional setter dans le render — accepté ici car idempotent
     // (passe à false uniquement si déjà true au render précédent).
     // Pattern recommandé par la doc React pour cleanup state
@@ -2286,14 +2300,29 @@ function WaveformEditor({
     <div className="we-params-area">
       <header className="we-area-header">
         <h3 className="we-area-title">Instrument</h3>
+        {/* iter-O phase-3.1 : en desktop collapsé, les contrôles système quittent
+            le corps (1 ligne récupérée pour le clavier) et vivent dans la modale,
+            ouverte par cette icône [⚙] à l'extrême droite du header. */}
+        {instrumentCollapsed && (
+          <div className="we-params-header-controls">
+            <button
+              type="button"
+              className="icon-btn"
+              onClick={() => setSystemModalOpen(true)}
+              title="Paramètres du système musical"
+              aria-label="Paramètres du système musical"
+            ><Sliders size={18} /></button>
+          </div>
+        )}
       </header>
 
       <div className="we-params-fields">
-        {/* v1.1.0 : < 950 px, la row de contrôles est remplacée par un
-            bouton qui ouvre une modale centrée avec les mêmes contrôles.
-            La modale est dans le même arbre React (pas de portal) — son
-            backdrop fixed couvre toute la fenêtre via z-index élevé. */}
-        {instrumentCollapsed ? (
+        {/* Slot système (corps) — 3 cas : mobile = bouton full-width + modale
+            (inchangé) ; desktop collapsé = rien (contrôles dans la modale, ouverte
+            par l'icône [⚙] du header) ; desktop large = row inline.
+            La modale est dans le même arbre React (pas de portal) — son backdrop
+            fixed couvre toute la fenêtre via z-index élevé. */}
+        {isMobile ? (
           <button
             type="button"
             className="instrument-collapse-trigger"
@@ -2303,10 +2332,10 @@ function WaveformEditor({
             <Sliders size={16} strokeWidth={2} />
             <span>Paramètres du système musical</span>
           </button>
-        ) : (
+        ) : instrumentCollapsed ? null : (
           renderInstrumentControls()
         )}
-        {instrumentCollapsed && systemModalOpen && (
+        {systemInModal && systemModalOpen && (
           <div
             className="instrument-modal-backdrop"
             role="dialog"

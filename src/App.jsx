@@ -2163,6 +2163,7 @@ function App() {
         activeVoicesCountRef={activeVoicesCountRef}
         autoSizing={autoSizing}
         autoSizeFocusGuardRef={autoSizeFocusGuardRef}
+        isMobile={isMobile}
       >
         {({ renderCanvasArea, renderHarmonicsArea, renderParamsArea, renderAdsrArea, renderActions, patchLabel, openPresetPicker, requestResetWaveform }) => (
           <>
