@@ -316,7 +316,6 @@ function WaveformEditor({
   // iter-M phase-r.2.4 : draft du nombre d'ancres (slider du header Forme
   // d'onde). Commit au relâchement → un seul SET_EDITOR_ANCHOR_COUNT (un re-fit
   // + un cran d'undo par geste, pas par cran de slider).
-  const [draftAnchorCount, setDraftAnchorCount] = useState(null)
   const [draftFreq, setDraftFreq] = useState(null)
   // iter-M phase-2.3 : draft des amplitudes harmoniques (geste continu de drag
   // sur une barre, à la draftPoints). Commit au mouseup → un seul snapshot.
@@ -1902,18 +1901,6 @@ function WaveformEditor({
       setDraftAmp(null)
     }
   }
-  const commitDraftDefinition = () => {
-    if (draftDefinition != null) {
-      if (draftDefinition !== editor.cap) editorActions.setCap(draftDefinition)
-      setDraftDefinition(null)
-    }
-  }
-  const commitDraftAnchorCount = () => {
-    if (draftAnchorCount != null) {
-      if (draftAnchorCount !== anchors.length) editorActions.setAnchorCount(draftAnchorCount)
-      setDraftAnchorCount(null)
-    }
-  }
   const commitDraftFreq = () => {
     if (draftFreq != null) {
       if (draftFreq !== editor.testFrequency) editorActions.setTestFrequency(draftFreq)
@@ -1932,7 +1919,7 @@ function WaveformEditor({
   // vers 'bars' : l'édition de barres se fait directement dans la zone
   // Harmoniques (toujours éditable).
   const renderWaveformHeaderControls = () => {
-    const anchorCount = draftAnchorCount ?? anchors.length
+    const anchorCount = anchors.length
     // iter-M phase-r.2.5.2 : les contrôles spécifiques au mode Ancres sont
     // TOUJOURS rendus (plus de gating `currentLens === 'spline'` qui faisait
     // sauter le layout au switch), simplement désactivés en mode Libre.
@@ -1951,24 +1938,13 @@ function WaveformEditor({
           aria-label={STRINGS.editor.lensSwitchLabel}
           title={lensActive ? STRINGS.editor.lensToggleActiveTitle : STRINGS.editor.lensToggleInactiveTitle}
         ><Spline size={18} /></button>
+        {/* iter-O phase-1.2 : slider range retiré ; saisie directe + steppers
+            ▴▾ (4..32, ±1, Shift=±10, appui maintenu = défile en accélérant). */}
         <label className={`we-anchor-count${splineDisabled ? ' is-disabled' : ''}`} title={STRINGS.editor.anchorCountTitle}>
-          <input
-            type="range"
-            min={SPLINE_ANCHOR_MIN}
-            max={SPLINE_ANCHOR_MAX}
-            step="1"
-            value={anchorCount}
-            onChange={(e) => setDraftAnchorCount(Number(e.target.value))}
-            {...sliderCommitter(commitDraftAnchorCount)}
-            className="we-anchor-count-slider"
-            aria-label={STRINGS.editor.anchorCountTitle}
-            disabled={splineDisabled}
-          />
-          {/* iter-M phase-r.2.5.3 : saisie directe (4..32, commit Enter/blur). */}
           <span className="we-anchor-count-readout">
             <NumberInput
               value={anchorCount}
-              onChange={(v) => { setDraftAnchorCount(null); editorActions.setAnchorCount(v) }}
+              onChange={(v) => editorActions.setAnchorCount(v)}
               min={SPLINE_ANCHOR_MIN}
               max={SPLINE_ANCHOR_MAX}
               parse={parseDefinition}
@@ -1976,6 +1952,9 @@ function WaveformEditor({
               className="we-anchor-count-input"
               ariaLabel={STRINGS.editor.anchorCountTitle}
               disabled={splineDisabled}
+              showSteppers
+              step={1}
+              shiftStep={10}
             />
             <span className="we-cap-suffix">/ {SPLINE_ANCHOR_MAX}</span>
           </span>
@@ -2114,18 +2093,10 @@ function WaveformEditor({
             <span className="we-cap-icon" title={STRINGS.editor.harmonicCapTitle} aria-hidden="true">
               <AlignEndHorizontal size={16} />
             </span>
+            {/* iter-O phase-1.2 : slider range retiré ; saisie directe +
+                steppers ▴▾ (1..256, ±1, Shift=±10, appui maintenu = scrub
+                live des harmoniques en accélérant). */}
             <label className="we-cap-control" title={STRINGS.editor.harmonicCountTitle}>
-              <input
-                type="range"
-                min={CAP_MIN}
-                max={CAP_MAX}
-                step="1"
-                value={definition}
-                onChange={(e) => setDraftDefinition(Number(e.target.value))}
-                {...sliderCommitter(commitDraftDefinition)}
-                className="we-cap-slider"
-                aria-label={STRINGS.editor.harmonicCountTitle}
-              />
               <span className="we-cap-readout">
                 <NumberInput
                   value={definition}
@@ -2136,6 +2107,9 @@ function WaveformEditor({
                   format={formatDefinition}
                   className="we-cap-value-input"
                   ariaLabel={STRINGS.editor.harmonicCountTitle}
+                  showSteppers
+                  step={1}
+                  shiftStep={10}
                 />
                 <span className="we-cap-suffix">/ {CAP_MAX}</span>
               </span>

@@ -90,16 +90,10 @@
   color: var(--text-secondary);
   flex-shrink: 0;
 }
-.we-anchor-count-slider {
-  width: 80px;
-}
 /* iter-M phase-r.2.5.2 : état désactivé (mode Libre) — contrôles toujours
    visibles mais inertes. Label gardé lisible, curseur not-allowed. */
 .we-anchor-count.is-disabled {
   opacity: 0.45;
-}
-.we-anchor-count.is-disabled,
-.we-anchor-count-slider:disabled {
   cursor: not-allowed;
 }
 .we-anchor-count-readout {
@@ -143,9 +137,6 @@
   color: var(--text-secondary);
   flex-shrink: 0;
 }
-.we-cap-slider {
-  width: 110px;
-}
 .we-cap-readout {
   display: inline-flex;
   align-items: center;
@@ -165,6 +156,58 @@
 }
 .we-cap-suffix {
   white-space: nowrap;
+}
+
+/* iter-O phase-1.2 : steppers ▴▾ du NumberInput (remplacent les sliders range
+   ancres/cap). Colonne de 2 chevrons collée à droite du champ ; cohérent avec
+   .icon-btn (mêmes tokens hover/disabled). Le champ flatte sa bordure droite
+   pour se souder à la colonne. L'ensemble reste plus étroit que slider+champ. */
+.number-input-stepper {
+  display: inline-flex;
+  align-items: stretch;
+}
+.number-input-stepper > input {
+  border-top-right-radius: 0;
+  border-bottom-right-radius: 0;
+  border-right: none;
+}
+.number-input-steppers {
+  display: flex;
+  flex-direction: column;
+  width: 18px;
+  border: 1px solid var(--surface-border-strong);
+  border-radius: 0 4px 4px 0;
+  overflow: hidden;
+}
+.number-input-stepper-btn {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: none;
+  background: var(--surface-bg);
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: background 0.12s, color 0.12s;
+}
+.number-input-stepper-btn:first-child {
+  border-bottom: 1px solid var(--surface-border);
+}
+.number-input-stepper-btn:hover {
+  background: var(--accent-bg-faint);
+  color: var(--text-strong);
+}
+.number-input-stepper-btn:active {
+  background: var(--accent-bg-light);
+}
+.number-input-stepper-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+.number-input-stepper-btn:disabled:hover {
+  background: var(--surface-bg);
+  color: var(--text-secondary);
 }
 
 /* M.r.5.2 — plot Harmoniques : axe Y (gauche), axe X (sous les barres),
