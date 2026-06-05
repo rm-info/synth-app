@@ -278,6 +278,7 @@ export interface History {
 export type TabId = 'library' | 'composer' | 'designer' | 'documentation'
 export type Theme = 'dark' | 'light'
 export type DurationMode = 'solfège' | 'fraction'
+export type AdsrView = 'graph' | 'sliders'
 export type SpectrogramMode = 'static' | 'live'
 export type BibHierarchyMode = 'nav' | 'tree'
 export type BibDisplayMode = 'list' | 'details' | 'tiles'
@@ -334,6 +335,7 @@ export interface AppState {
   theme: Theme
   defaultClipDuration: number
   durationMode: DurationMode
+  adsrView: AdsrView
 
   composerBankWidth: number
   composerAsideWidth: number
@@ -556,6 +558,7 @@ export type ActionBody =
   | { type: 'SET_BIB_POPUP_WIDTH'; payload: number }
   | { type: 'SET_DEFAULT_CLIP_DURATION'; payload: number }
   | { type: 'SET_DURATION_MODE'; payload: DurationMode }
+  | { type: 'SET_ADSR_VIEW'; payload: AdsrView }
   | { type: 'SET_COMPOSER_SIDEBAR_WIDTH'; payload: { side: 'bank' | 'aside'; width: number } }
   | { type: 'SET_COMPOSER_SIDEBAR_COLLAPSED'; payload: { side: 'bank' | 'aside'; collapsed: boolean } }
   | { type: 'SET_DESIGNER_SIDEBAR_WIDTH'; payload: number }

@@ -103,7 +103,7 @@ function App() {
     clips, patches, soundFolders, tracks, bpm, numMeasures, a4Ref, xEdoN,
     editor, activeTab, currentPatchId, zoomH, defaultClipDuration,
     spectrogramVisible, spectrogramDbScale, spectrogramPeakHold, spectrogramMode,
-    durationMode, selectedClipIds, selectedTrackId, composerFlash, lastAnchorClipId,
+    durationMode, adsrView, selectedClipIds, selectedTrackId, composerFlash, lastAnchorClipId,
     composerBankWidth, composerAsideWidth, composerBankCollapsed, composerAsideCollapsed,
     designerSidebarWidth, designerSidebarCollapsed, designerColumnWidths, autoSizing,
     doc, docSidebarWidth, docSidebarCollapsed,
@@ -681,6 +681,7 @@ function App() {
           spectrogramPeakHold,
           spectrogramMode,
           durationMode,
+          adsrView,
           activeTab,
           patchCounter,
           clipCounter,
@@ -730,7 +731,7 @@ function App() {
   }, [
     patches, soundFolders, tracks, clips, bpm, numMeasures, a4Ref, xEdoN,
     spectrogramVisible, spectrogramDbScale, spectrogramPeakHold, spectrogramMode,
-    durationMode, activeTab, patchCounter, clipCounter, folderCounter, trackCounter,
+    durationMode, adsrView, activeTab, patchCounter, clipCounter, folderCounter, trackCounter,
     composerBankWidth, composerAsideWidth, composerBankCollapsed, composerAsideCollapsed,
     designerSidebarWidth, designerSidebarCollapsed, designerColumnWidths, autoSizing,
     docSidebarWidth, docSidebarCollapsed,
@@ -2164,6 +2165,8 @@ function App() {
         autoSizing={autoSizing}
         autoSizeFocusGuardRef={autoSizeFocusGuardRef}
         isMobile={isMobile}
+        adsrView={adsrView}
+        onSetAdsrView={(v) => dispatch({ type: 'SET_ADSR_VIEW', payload: v })}
       >
         {({ renderCanvasArea, renderHarmonicsArea, renderParamsArea, renderAdsrArea, renderActions, patchLabel, openPresetPicker, requestResetWaveform }) => (
           <>

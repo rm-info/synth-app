@@ -1,5 +1,5 @@
 import { useRef, useState, useCallback, useEffect, useImperativeHandle, useMemo } from 'react'
-import { Plus, Save, SaveAll, Undo2, Redo2, Sliders, X, Lock, Spline, AlignEndHorizontal, Sigma, Waves, ChartSpline } from 'lucide-react'
+import { Plus, Save, SaveAll, Undo2, Redo2, Sliders, X, Lock, Spline, AlignEndHorizontal, Sigma, Waves, ChartSpline, Activity, SlidersHorizontal } from 'lucide-react'
 import { IconDoux, IconAnguleux } from './icons'
 import { pointsToPeriodicWave, MIN_ATTACK, HARMONIC_COUNT, harmonicsToPoints, canonicalToBars } from '../audio'
 import { splineToPoints } from '../lib/spline'
@@ -317,6 +317,8 @@ function WaveformEditor({
   autoSizing,
   autoSizeFocusGuardRef,
   isMobile,
+  adsrView,
+  onSetAdsrView,
   ref,
   children,
 }) {
@@ -2761,6 +2763,26 @@ function WaveformEditor({
       <div className="we-adsr-area" data-anchor="designer-adsr">
         <header className="we-area-header">
           <h3 className="we-area-title">Enveloppe AHDSR</h3>
+          {/* iter-O phase-4.1 : switch Graphe/Sliders (style segmenté, comme
+              Doux/Anguleux). En 4.2 il ne s'affichera qu'en mode compact. */}
+          <div className="spline-interp-toggle" role="group" aria-label="Vue de l'enveloppe">
+            <button
+              type="button"
+              className={`icon-btn${adsrView === 'graph' ? ' is-active' : ''}`}
+              onClick={() => onSetAdsrView('graph')}
+              title="Vue graphe (courbe d'enveloppe)"
+              aria-label="Vue graphe"
+              aria-pressed={adsrView === 'graph'}
+            ><Activity size={18} /></button>
+            <button
+              type="button"
+              className={`icon-btn${adsrView === 'sliders' ? ' is-active' : ''}`}
+              onClick={() => onSetAdsrView('sliders')}
+              title="Vue sliders (6 réglages)"
+              aria-label="Vue sliders"
+              aria-pressed={adsrView === 'sliders'}
+            ><SlidersHorizontal size={18} /></button>
+          </div>
         </header>
         <div className="adsr-body">
           <div className="adsr-canvas-container" ref={adsrContainerRef}>

@@ -558,6 +558,7 @@ export function loadPersistedState() {
         ? parsed.activeTab
         : 'designer',
       durationMode: parsed.durationMode === 'fraction' ? 'fraction' : 'solfège',
+      adsrView: parsed.adsrView === 'sliders' ? 'sliders' : 'graph',
       composerBankWidth: typeof parsed.composerBankWidth === 'number' ? parsed.composerBankWidth : null,
       composerAsideWidth: typeof parsed.composerAsideWidth === 'number' ? parsed.composerAsideWidth : null,
       composerBankCollapsed: typeof parsed.composerBankCollapsed === 'boolean' ? parsed.composerBankCollapsed : false,
@@ -776,6 +777,9 @@ export function buildInitialState() {
     // Mode d'affichage des durées dans les boutons (E.6.1).
     // 'solfège' : ♩ ♪ 𝅘𝅥𝅯 etc. / 'fraction' : 1 1/2 1/4 etc. (réf. = noire).
     durationMode: persisted?.durationMode === 'fraction' ? 'fraction' : 'solfège',
+    // iter-O phase-4 : vue de l'enveloppe AHDSR en mode compact ('graph' |
+    // 'sliders'). Préférence UI persistée, non-undoable (comme durationMode).
+    adsrView: persisted?.adsrView === 'sliders' ? 'sliders' : 'graph',
     // Largeurs des sidebars du Composer (px). Minimum = COMPOSER_SIDEBAR_MIN_WIDTH,
     // pas de maximum imposé. Clampées à chaque assignation.
     composerBankWidth: Math.max(COMPOSER_SIDEBAR_MIN_WIDTH, persisted?.composerBankWidth ?? COMPOSER_SIDEBAR_MIN_WIDTH),
@@ -2423,6 +2427,9 @@ export function reducer(state, action) {
     }
     case 'SET_DURATION_MODE': {
       return { ...state, durationMode: action.payload === 'fraction' ? 'fraction' : 'solfège' }
+    }
+    case 'SET_ADSR_VIEW': {
+      return { ...state, adsrView: action.payload === 'sliders' ? 'sliders' : 'graph' }
     }
     case 'SET_COMPOSER_SIDEBAR_WIDTH': {
       const { side, width } = action.payload
