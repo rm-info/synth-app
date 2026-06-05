@@ -16,7 +16,7 @@ persistance localStorage (clé `synth-app-state`). **TypeScript incrémental**
 lib audio, pas de state manager (un `useReducer` global dans `App.jsx`), pas de
 framework UI (CSS manuscrit), pas de routing, pas de backend.
 
-**Version courante : v1.5.0** (2026-06-03).
+**Version courante : v1.6.0** (2026-06-04).
 
 **Itérations livrées** (détail complet dans `CONTEXT-ARCHIVE.md`) :
 
@@ -35,87 +35,15 @@ framework UI (CSS manuscrit), pas de routing, pas de backend.
 | K | Bibliothèque multi-mode + 3 sous-apps + thème clair/sombre | 2026-05-26 |
 | L | Documentation (onglet + Raccourcis Ctrl+K + Tour Ctrl+J) — v1.4.0 | 2026-05-28 |
 | M | Waveform Designer : modèle canonique unifié + 3 lentilles + patch typé — v1.5.0 | 2026-06-03 |
+| N | Stabilité & fluidité : édition d'ancres refondue (warp 2D), presets « Timbres » (vues idéale/band-limitée + formes paramétriques), lissage, durcissements — v1.6.0 | 2026-06-04 |
 
-**État courant** : Iteration N « Stabilité & fluidité » ouverte (cadrée
-2026-06-03, cf. `archi/BACKLOG.md`). **Phase N.1 (latence audio) livrée** : seuil
-epsilon anti-leakage sur l'iDFT harmonique (drag de barre 7,6× plus rapide à
-cap=256, transparent). **Phase N.2 (ancres / Douglas-Peucker) livrée** :
-`fitAnchorsToCurve` pose désormais les ancres aux points de plus grande
-déviation (DP à compte fixe) au lieu de l'équiréparti — sur un créneau, ancres
-sur les transitions plutôt qu'au plat ; canonical/son inchangés (le résidu
-absorbe le delta). **Phase N.2.1 (bascule Doux/Anguleux = no-op) livrée** :
-`SET_SPLINE_INTERPOLATION` garde la canonical strictement identique et recalcule
-le résidu contre le nouveau mode (avant : recomposait depuis le résidu gelé → le
-tracé se déformait sans qu'aucune ancre bouge). **Phase N.3 (drag d'ancre =
-déformation 2D à support local) livrée** : `MOVE_SPLINE_ANCHOR` warpe le résidu
-horizontalement sur le support (ancres voisines, wrap aux bords) au lieu de le
-geler → le détail dessiné « ride » sur la tendance (fin de la double pointe) ;
-réf figée au début du drag, 1 commit = 1 undo. Remplace l'ancien N.3
-(PCHIP/overshoot, abandonné). **Phase N.3 polish livrée** : N.3.1 = warp lisse
-(pré-image smoothstep C¹ en Doux, PL en Anguleux) → fin des angles parasites du
-warp ; N.3.2 = ADD/REMOVE d'ancre préservent la canonical (ajout = snap sur le
-tracé `y=canonical[x]`, zéro déformation), posant le principe « représentation
-(canonical inchangée) vs forme (warp) ». **Phase N.5a (Effacer sans
-confirmation) livrée** : le bouton Effacer le timbre (`Eraser`,
-`DesignerToolbar`) applique `resetWaveform` directement — plus de
-`ConfirmDialog` ; l'action étant undoable, Ctrl+Z est le filet (state
-`confirmResetWaveformOpen`, helper `doResetWaveform` et dialog dédiée
-retirés). **Phase N.5b (moteur de formes) livrée** : nouveau lib pur
-`src/lib/waveforms.js` — `idealWaveform(type)` (forme brute, ex-
-`generatePresetPoints` déplacé) + `bandlimitWaveform(points, N)` /
-`bandlimitedWaveform(type, N)` (reconstruction des harmoniques 1..N par
-**DFT directe sur la grille 600**, phase naturelle, normalisée à
-magnitude-max=1). Additif : `WaveformEditor.loadPreset` rebranché sur
-`idealWaveform` (comportement identique), rien d'autre ne l'appelle encore
-(la modale arrive en N.5c). **Phase N.5c (refonte modale Presets) livrée — N.5
-close** : la modale `PresetPicker` est désormais le **point d'entrée unique** des
-sons pré-fabriqués (3 sections — Formes de base à 2 vues idéale/band-limitée + N
-éditable snappé, Timbres conçus, Inattendus). Chargement unifié via `LOAD_PRESET`
-(payload résolu par la modale : canonical + cap + ancres DP à `anchorCount` +
-flags). La barre des 4 presets géométriques du mode Libre est **retirée**
-(`APPLY_EDITOR_PRESET` supprimé). **Phase N.5d (finitions modale) livrée** : deux
-correctifs non-clamp indépendants — 5d.1 `PatchThumbnail` auto-fit Y vers le bas
-(`peak = max(1, |points|)`, scale `ymid·0.9/peak`) → les formes à pic > ±1
-(band-limitées, tracés non clampés) s'affichent entières au lieu d'être tronquées,
-les formes ≤ ±1 inchangées (bénéficie aussi aux vignettes Bibliothèque) ; 5d.2
-retrait du clamp `[-1,1]` oublié dans `fitAnchorsToCurve` (`spline.js`) → les
-ancres auto se posent sur la trace au-delà de ±1 (garde anti-NaN conservée).
-**Phase N.5e (chargement preset + phase scie) livrée** : 5e.1 charger un preset se
-comporte comme Effacer — `LOAD_PRESET` conserve `currentPatchId` (chargement en
-place, marque dirty) et la confirmation d'écrasement est retirée (`pendingPresetPayload`
-/ `ConfirmDialog` preset supprimés, `onPick` → `loadPreset` direct) ; 5e.2
-`idealWaveform('sawtooth')` passe de `2t−1` à `1−2t` (scie descendante) → série en
-+sin = phase canonique, plus de flip parasite au Normaliser. **Phase N.5f (timbres
-paramétriques + renommage) livrée** : 5f.1 la modale « Presets » est renommée
-**« Timbres »** ; 5f.2 `idealWaveform(type, params)` généralisé + 7 nouvelles formes
-de base **paramétriques** (escalier, scie à étages, sinus décroissante, pulse,
-trapèze, demi-sinus, impulsion) dans `PARAMETRIC_WAVEFORMS` (chacune : 0/1/2
-paramètres de forme en plus du N, `anchorCount` nombre ou fonction de K) ; 5f.3
-section **« Formes paramétriques »** dans la modale (par forme : contrôle(s) du/des
-param(s) + N + 2 vignettes idéale/band-limitée, redraw live ; clic = `LOAD_PRESET`
-N.5e). **Phase N.4 (boutons de lissage du tracé) livrée — les deux gardés** : deux
-opérations undoables/répétables dans le header Forme d'onde, essai tranché en passe
-d'usage (fonctionnements distincts et complémentaires, on garde les deux) — 4.1
-`SMOOTH_EDITOR_CANONICAL` (icône `Waves`) =
-passe-bas Gaussien périodique (σ 3 pts, wrap) indépendant des ancres → re-fit DP
-des ancres + résidu ; 4.2 `TEND_TOWARD_SPLINE` (icône `ChartSpline`) = lerp
-canonical→spline(anchors) à α=0.5, **garde les ancres**, recalcule le résidu
-(répété → résidu→0). Les deux posent `canonicalNormalized:false` + `preset:null`.
-**Phase N.6 (durcissements) livrée — dernière phase de N** : 6.1 `// @ts-check`
-sur `reducer.js` (opt-in dans la vérif TS, checkJs:false global) — 4 erreurs
-surgies, toutes réelles, corrigées sans `@ts-ignore` (signature dérivée
-`defaultColumnWidthsForLens`, widening `'hard'|'soft'`→string du literal
-`newPatch` annoté `@type {Patch}`, narrowing `never` d'un guard `typeof
-action.payload` extrait en local ; eslint : ajout `argsIgnorePattern '^_'`) ;
-6.2 l'auto-sizing devient le **5ᵉ bouton d'un groupe radio** avec les 4 presets
-de proportions (checkbox retirée), nouvel `IconAuto` (SVG `<text>` « AUTO »,
-cadre d'`IconColumnLayout`), **actif dérivé** (autoSizing → AUTO ; sinon preset
-dont les widths == `designerColumnWidths` à epsilon ; sinon aucun), coloration
-active = celle des toggles radio du Spectrogramme (M.r.2.6.7) ;
-`setAutoSizing(false)` aux call-sites manuels (clic preset, début de drag),
-jamais dans `onWidths` (que l'effet auto-resize appelle aussi). **Itération N
-close** sous réserve de validation ; reste la note de clôture. Hygiène post-M
-restante : purge des prompt-fichiers `archi/Mr*` et `archi/M5b*` consommés.
+**État courant** : Iteration N « Stabilité & fluidité » **close** (release
+v1.6.0, 2026-06-04). On est **entre deux itérations** — la prochaine (grand saut
+créatif « Monde B ») n'est pas encore cadrée. Le détail par phase N.1→N.6 (audit
+perf + verdict prod, warp 2D, presets « Timbres », lissage, durcissements TS)
+vit dans `CONTEXT-ARCHIVE.md` ; l'état présent du Designer est résumé dans
+`## État actuel` ci-dessous. Hygiène restante (hors itération) : purge des
+prompt-fichiers `archi/N*`, `archi/Mr*`, `archi/M5b*` consommés.
 
 > **Structure des fichiers de contexte.** Ce `CONTEXT.md` est le **brief
 > vivant** : état présent, modèle de données, composants, architecture,
@@ -1803,40 +1731,40 @@ Conventions tacites. Les enfreindre sans raison crée des bugs subtils.
 ## État actuel
 
 ✅ **Terminé**
-- **Iteration N — phase N.1.4 : quick wins perf (Groupe A, sans regret)**
-  (`fix(iter-N/phase-1.4.{1,2,3})`, 2026-06-03). 3 optimisations indépendantes,
-  transparentes, hors des refactors React gelés (Groupe B/C) :
-  - **1.4.1** Cache de `themeColor()` (`src/lib/themeColor.js`) : `Map`
-    module-level vidée sur l'event `themechange` (window). Évite un
-    `getComputedStyle().getPropertyValue()` (forced style recalc possible) à
-    chaque appel — ~9× par `drawCanvas`, 9+2×N_ancres dans `SplineEditor`, ~13×
-    dans `drawAdsr`, sur le hot path de drag. Les 15 vars lues sont toutes
-    pilotées par `data-theme`. Le meilleur gain du lot.
-  - **1.4.2** Cache de `PeriodicWave` (`src/audio.js`) : WeakMap par réf
-    `canonical` (sous-clé `cut`, garde d'identité du `ctx`). En lecture pure on
-    ne reconstruit plus la wavetable à chaque note. Gain absolu faible
-    (~0,13 ms/note) mais propre, seul item sur le chemin frappe→son.
-  - **1.4.3** Arrondi `canonical`/`residual` à 1e-4 (= `HARMONIC_EPSILON`) **au
-    seul point d'écriture localStorage** (`App.jsx`, `patchForStorage`) : payload
-    forme d'onde **−63 %** (24,2 → 8,9 Ko/patch ; 30 patches 708 → 262 Ko).
-    Idempotent. Modèle mémoire et export `.osa` (lit `state`) en pleine
-    précision, non affectés. Reload transparent à 1e-4 près.
-- **Iteration N — phase N.1 : latence audio** (`fix(iter-N/phase-1.2)`,
-  2026-06-03). Régression de fluidité depuis M.r.5 corrigée à la cause.
-  Diagnostic N.1.1 (profilage, sans commit) : sur 4 suspects, seul **(b)**
-  confirmé — le leakage du resample 600↔512 rend les 256 barres de
-  `canonicalToBars` non-nulles, défaisant le garde `if (a)` de
-  `harmonicsToPoints` → iDFT 600×cap à chaque mousemove (4,8 ms à cap=256 ;
-  `WaveformEditor:395` non mémoïsée + `normalizedBg` au changement de cap). (a)
-  rAF auto-fit, (c) empilement rAF, (d) cache miss : **infirmés** (boucles lerp
-  convergentes et arrêtées, identités `useCallback` stables, cache canonical
-  stable hors édition). Correctif N.1.2 : constante `HARMONIC_EPSILON = 1e-4`
-  (`audio.js`) — garde anti-zéro à seuil dans `harmonicsToPoints` + snap du
-  leakage sub-epsilon à un vrai zéro dans `canonicalToBars`. Gain re-mesuré :
-  iDFT/frame 4,93→0,65 ms à cap=256 (**7,6×**), 2,40→0,40 ms à cap=128 (6,0×).
-  Transparence tenue (créneau broadband : max|Δ canonical| = 8e-15, quasi
-  bit-identique ; signal sparse : 1e-4 = −80 dB, sous-pixel ; 0 harmonique
-  légitime tuée). Hors scope inchangé : refactor de la grille FFT 600↔512 (#12).
+- **Iteration N — « Stabilité & fluidité » (close, v1.6.0)**. État présent du
+  Designer après l'itération (détail par phase N.1→N.6 dans `CONTEXT-ARCHIVE.md`) :
+  - **Édition d'ancres refondue — principe « représentation vs forme »** : les
+    actions de *représentation* (re-fit du nombre d'ancres, ADD/REMOVE, bascule
+    Doux/Anguleux) laissent la canonical **strictement inchangée** — le résidu
+    est recalculé contre la nouvelle spline, une ancre ajoutée snappe sur le
+    tracé (`y=canonical[x]`, hauteur du clic ignorée). Seul le drag d'ancre
+    change la *forme*, via un **warp 2D horizontal du résidu à support local**
+    (le détail dessiné « ride » sur la tendance portée par la spline ; pré-image
+    smoothstep C¹ en Doux / PL en Anguleux, garde anti-repli). `fitAnchorsToCurve`
+    pose les ancres par **Douglas-Peucker à compte fixe** (sur les transitions,
+    plus à l'équiréparti). Réf figée au début du drag, 1 commit = 1 undo.
+  - **Presets « Timbres »** : la modale `PresetPicker` est le **point d'entrée
+    unique** des sons pré-fabriqués (la barre des 4 presets géométriques du mode
+    Libre est retirée). 4 sections — Formes de base (2 vues **idéale /
+    band-limitée** + N éditable), Formes **paramétriques** (escalier, scie à
+    étages, sinus décroissante, pulse, trapèze, demi-sinus, impulsion : params de
+    forme + N + 2 vignettes, redraw live), Timbres conçus, Inattendus. Moteur pur
+    `lib/waveforms.js` (`idealWaveform`/`bandlimitWaveform`, DFT directe sur 600,
+    phase naturelle, normalisée). Chargement unifié `LOAD_PRESET`, **en place**
+    (conserve `currentPatchId`, marque dirty), **sans confirmation** (undo = filet).
+  - **Lissage du tracé** : deux boutons undoables/répétables dans le header Forme
+    d'onde, gardés tous deux (fonctions distinctes et complémentaires) — passe-bas
+    Gaussien périodique (`Waves` → `SMOOTH_EDITOR_CANONICAL`) et lerp vers la
+    spline des ancres (`ChartSpline` → `TEND_TOWARD_SPLINE`, répété → résidu→0).
+  - **Durcissements** : `// @ts-check` opt-in sur `src/reducer.js` (checkJs:false
+    global) — 4 erreurs réelles corrigées sans `@ts-ignore` ; auto-sizing intégré
+    au **groupe radio de dimensionnement** (5ᵉ bouton AUTO + 4 presets de
+    proportions, actif dérivé, coloration = toggles radio du Spectrogramme).
+  - **Perf** : régression de latence de drag (depuis M.r.5) corrigée à la cause —
+    seuil `HARMONIC_EPSILON = 1e-4` anti-leakage sur l'iDFT harmonique (7,6× à
+    cap=256, transparent) + quick wins sans regret (cache `themeColor` /
+    `PeriodicWave`, arrondi du payload localStorage à 1e-4 → −63 %). Les refactors
+    React Groupe B/C restent **gelés** jusqu'au verdict du profilage prod.
 - Iteration M — phase M.3 (mode points/spline, 2026-05-30). 3ᵉ mode de
   fabrication de timbre, propre par construction. 3 sous-commits :
   - **3.1** `SplinePatch` (`mode:'spline'`, `anchors` 4..32, `interpolation`
@@ -2561,68 +2489,14 @@ Conventions tacites. Les enfreindre sans raison crée des bugs subtils.
 > Détail des roadmaps des itérations livrées (A→M) → `CONTEXT-ARCHIVE.md`.
 > Ci-dessous : l'itération en cours, puis le backlog général (non planifié).
 
-### Iteration N « Stabilité & fluidité » (en cours, cadrée 2026-06-03)
+### Entre deux itérations (depuis la clôture de N, 2026-06-04)
 
-Apurement et polish de la base avant le prochain grand saut créatif (Monde B).
-Cadrage et suspects détaillés dans `archi/BACKLOG.md`.
-
-- ✅ **N.1 — Latence audio** (livré). Deux temps : `fix(iter-N/phase-1.2)` =
-  seuil epsilon anti-leakage sur l'iDFT harmonique (drag de barre 7,6× plus
-  rapide à cap=256 ; cause (b) confirmée, (a)/(c)/(d) infirmés au profilage).
-  `fix(iter-N/phase-1.4.x)` = quick wins perf Groupe A (cache `themeColor`, cache
-  `PeriodicWave`, arrondi payload localStorage −63 % ; cf. État actuel). Le
-  Groupe B/C (re-renders par note/frame, isolation drafts, mémoïsation d'arbre,
-  débounce persistance) reste **gelé** jusqu'au verdict du profilage prod.
-- ✅ **N.2 — Disposition des ancres / Douglas-Peucker** (livré
-  `feat(iter-N/phase-2)`). `fitAnchorsToCurve` réécrit : simplification
-  Douglas-Peucker à compte fixe (déviation verticale, signal périodique avec
-  borne virtuelle `x=600`) au lieu de l'équiréparti `x = i·600/N`. Ancres aux
-  points qui comptent (sur un créneau : pile sur les transitions, plus au plat ;
-  N=2 → `x=0` + déviation max globale ; courbe plate → complétion par milieu
-  géométrique). API/signature/contrat inchangés (exactement N ancres, x entiers
-  distincts triés, y=canonical[x] clampé) → les ~8 call-sites héritent. Canonical
-  (audio + courbe affichée) INCHANGÉE, le résidu absorbe le delta. Densité plus
-  forte autour des transitions → atténue mécaniquement l'overshoot Catmull-Rom.
-- ✅ **N.2.1 — Bascule Doux/Anguleux = no-op sur la canonical** (livré
-  `fix(iter-N/phase-2.1)`). `SET_SPLINE_INTERPOLATION` ne recompose plus la
-  canonical via `splinePlusResidual` (résidu gelé → tracé déformé sans drag) :
-  canonical strictement inchangée, **résidu recalculé** contre le nouveau mode,
-  `canonicalNormalized` préservé. Le switch ne change donc que la tendance (courbe
-  orange « spline des ancres ») et la façon dont un futur drag d'ancre déformera.
-- ✅ **N.3 — Drag d'ancre = déformation 2D à support local** (livré
-  `feat(iter-N/phase-3)`). **Remplace** l'ancien N.3 (PCHIP/overshoot) :
-  `MOVE_SPLINE_ANCHOR` warpe horizontalement le résidu sur le support
-  `(ancre_gauche, ancre_droite)` (helper pur `warpResidualForAnchorMove`, wrap
-  périodique aux bords) au lieu de le geler → le détail dessiné « ride » sur la
-  tendance (plus de double pointe), la verticale est portée par la spline. Réf
-  figée au début du drag (draft local SplineEditor, 1 commit/1 undo au mouseup).
-  Pas de re-fit DP. Cf. décision dédiée. PCHIP/overshoot Catmull-Rom **abandonné**
-  (rendu secondaire par ce modèle).
-- ✅ **N.3.1 — Warp lisse du résidu en mode doux** (livré `fix(iter-N/phase-3.1)`).
-  La pré-image du warp était linéaire par morceaux → angles **parasites** sur
-  l'ancre et la voisine, glaring en Doux. Pré-image branchée sur le mode : bump
-  smoothstep **C¹** (`W=3t²−2t³`, dérivée nulle en Lx/xN/Rx) en `soft`, PL conservé
-  en `hard`. Garde anti-repli (clamp d'amplitude à `(2/3)·h`). On ne lisse pas les
-  vrais angles du dessin (portés par la tendance).
-- ✅ **N.3.2 — ADD/REMOVE d'ancre préservent la canonical** (livré
-  `fix(iter-N/phase-3.2)`). `ADD`/`REMOVE_SPLINE_ANCHOR` recomposaient la canonical
-  via le résidu gelé → ajout/retrait **déformait** le tracé et l'ancre ajoutée
-  flottait hors courbe. Désormais (modèle N.2.1) : canonical inchangée, résidu
-  recalculé, `canonicalNormalized` préservé ; ADD **snappe sur le tracé**
-  (`y = canonical[x]`, x entier, hauteur du clic ignorée). Principe « représentation
-  vs forme » posé en décision archi.
-- **N.4 — Boutons de lissage du tracé** : passe-bas sur la canonical et/ou
-  tendre vers la spline pure.
-- **N.5 — Refonte des presets** ✅ **CLOSE** : modale = point d'entrée unique,
-  2 vues idéale/band-limitée + N éditable. N.5a (Effacer sans confirmation) +
-  N.5b (moteur de formes, `lib/waveforms.js`) + N.5c (refonte modale + chargement
-  unifié + retrait barre géométrique) livrées. Cf. décision archi « Modale
-  Presets = point d'entrée unique + modèle 2-vues ».
-- **N.6 — Durcissements** ✅ **CLOSE** : 6.1 `// @ts-check` opt-in sur
-  `src/reducer.js` (4 erreurs réelles corrigées, 0 `@ts-ignore` ; reducer typé
-  `(State, Action)→State`) ; 6.2 auto-sizing **gardé** et intégré au groupe radio
-  de dimensionnement (5ᵉ bouton AUTO + 4 presets, actif dérivé, coloration =
-  toggles radio du Spectrogramme). Dernière phase de l'itération N.
+Iteration N « Stabilité & fluidité » **close** (release v1.6.0). Roadmap
+détaillée N.1→N.6 archivée dans `CONTEXT-ARCHIVE.md` (« Roadmaps des itérations
+closes » + Historique). **Prochaine itération non cadrée** : le grand saut
+créatif « Monde B » est pressenti mais pas encore spécifié — cadrage à venir
+côté archi (`archi/BACKLOG.md`). En attendant, le backlog général ci-dessous
+reste la réserve.
 
 ### Backlog général (à caser quand pertinent)
 
