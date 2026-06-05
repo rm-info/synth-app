@@ -323,7 +323,10 @@
   align-items: baseline;
   gap: 10px;
   min-width: 0;
-  flex: 1;
+  /* iter-O phase-2.2 : le titre prend sa largeur de contenu (titres courts) et
+     laisse tout le reste à l'OverflowToolbar des contrôles (flex:1) à sa droite.
+     Auparavant flex:1 → les deux se partageaient l'espace, bridant la toolbar. */
+  flex: 0 1 auto;
 }
 
 .we-header-right {

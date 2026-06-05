@@ -3,16 +3,15 @@
    au mode (toggle d'interpolation, indice, menu contextuel). */
 
 .spline-header-controls {
-  display: inline-flex;
+  display: flex;
   align-items: center;
-  justify-content: flex-end;
-  gap: 8px;
-  /* iter-N phase-4 : le header accueille désormais 6 groupes de contrôles
-     (toggle Libre/Ancres + ancres + Doux/Anguleux + Normaliser + Lisser + Tendre).
-     On autorise le retour à la ligne plutôt que de laisser le dernier bouton
-     déborder hors de la colonne et se faire rogner quand elle est étroite. */
-  flex-wrap: wrap;
-  flex-shrink: 1;
+  /* iter-O phase-2.2 : conteneur du header rempli par l'OverflowToolbar (qui se
+     mesure dessus). flex:1 + min-width:0 → largeur = espace restant après le
+     titre, indépendante du contenu (pas de boucle ResizeObserver). Le
+     flex-wrap/retour-à-la-ligne d'iter-N n'a plus lieu d'être : le débordement
+     part désormais dans le tiroir `⋯`. */
+  flex: 1 1 0;
+  min-width: 0;
 }
 
 /* iter-M phase-r.2.6.2/.4 : toggle Doux / Anguleux — deux boutons-icônes

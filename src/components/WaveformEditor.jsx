@@ -7,6 +7,7 @@ import { CAP_MIN, CAP_MAX, SPLINE_ANCHOR_MIN, SPLINE_ANCHOR_MAX } from '../reduc
 import useWindowSize from '../hooks/useWindowSize'
 import FreqInput from './FreqInput'
 import NumberInput from './NumberInput'
+import OverflowToolbar from './OverflowToolbar'
 import { PianoKeyboard, OctaveSelector } from './PianoKeyboard'
 import ShortLabelSelect from './ShortLabelSelect'
 import {
@@ -1925,92 +1926,122 @@ function WaveformEditor({
     // sauter le layout au switch), simplement désactivés en mode Libre.
     const splineDisabled = currentLens !== 'spline'
     const lensActive = currentLens === 'spline'
+
+    // iter-O phase-2.2 : les 6 contrôles deviennent des items `bar`/`tray` d'un
+    // OverflowToolbar (priority-plus). Les nodes (état dans le parent) sont
+    // réutilisés tels quels en forme compacte (bar) ; la forme tiroir (tray)
+    // ajoute un libellé. tous les disabled/is-active/title/aria sont conservés.
+    const trayLabel = (txt) => <span className="overflow-toolbar-tray-label">{txt}</span>
+
+    // iter-M phase-r.2.6.2 : toggle unique Libre↔Ancres (icône Spline).
+    const lensBtn = (
+      <button
+        type="button"
+        className={`icon-btn we-lens-toggle${lensActive ? ' is-active' : ''}`}
+        onClick={() => editorActions.setCurrentLens(lensActive ? 'free' : 'spline')}
+        aria-pressed={lensActive}
+        aria-label={STRINGS.editor.lensSwitchLabel}
+        title={lensActive ? STRINGS.editor.lensToggleActiveTitle : STRINGS.editor.lensToggleInactiveTitle}
+      ><Spline size={18} /></button>
+    )
+    // iter-O phase-1.2 : stepper ▴▾ (4..32, ±1, Shift=±10, appui maintenu).
+    const anchorReadout = (
+      <span className="we-anchor-count-readout">
+        <NumberInput
+          value={anchorCount}
+          onChange={(v) => editorActions.setAnchorCount(v)}
+          min={SPLINE_ANCHOR_MIN}
+          max={SPLINE_ANCHOR_MAX}
+          parse={parseDefinition}
+          format={formatDefinition}
+          className="we-anchor-count-input"
+          ariaLabel={STRINGS.editor.anchorCountTitle}
+          disabled={splineDisabled}
+          showSteppers
+          step={1}
+          shiftStep={10}
+        />
+        <span className="we-cap-suffix">/ {SPLINE_ANCHOR_MAX}</span>
+      </span>
+    )
+    const anchorBar = (
+      <label className={`we-anchor-count${splineDisabled ? ' is-disabled' : ''}`} title={STRINGS.editor.anchorCountTitle}>
+        {anchorReadout}
+      </label>
+    )
+    // iter-M phase-r.2.6.2 : toggle Doux/Anguleux (SVG custom). Désactivé en Libre.
+    const interpToggle = (
+      <div className="spline-interp-toggle" role="group" aria-label={STRINGS.editor.splineInterpolation}>
+        <button
+          type="button"
+          className={`icon-btn${interpolation !== 'hard' ? ' is-active' : ''}`}
+          onClick={() => editorActions.setSplineInterpolation('soft')}
+          title={STRINGS.editor.splineSoftTitle}
+          aria-label={STRINGS.editor.splineSoft}
+          aria-pressed={interpolation !== 'hard'}
+          disabled={splineDisabled}
+        ><IconDoux size={18} /></button>
+        <button
+          type="button"
+          className={`icon-btn${interpolation === 'hard' ? ' is-active' : ''}`}
+          onClick={() => editorActions.setSplineInterpolation('hard')}
+          title={STRINGS.editor.splineHardTitle}
+          aria-label={STRINGS.editor.splineHard}
+          aria-pressed={interpolation === 'hard'}
+          disabled={splineDisabled}
+        ><IconAnguleux size={18} /></button>
+      </div>
+    )
+    // iter-M phase-r.2.6.7 : Normaliser (Σ), partagé Libre/Ancres.
+    const normalizeBtn = (
+      <button
+        type="button"
+        className="icon-btn we-normalize-btn"
+        onClick={normalizeWaveform}
+        title={isNormalized
+          ? 'Déjà normalisé'
+          : 'Normaliser : redessiner le tracé comme la somme des harmoniques courantes (phase canonique)'}
+        aria-label="Normaliser"
+        disabled={isNormalized}
+      ><Sigma size={18} /></button>
+    )
+    // iter-N phase-4 : lissages du tracé (expérimentaux, répétables).
+    const smoothBtn = (
+      <button
+        type="button"
+        className="icon-btn"
+        onClick={smoothWaveform}
+        title={STRINGS.editor.smoothTitle}
+        aria-label={STRINGS.editor.smooth}
+      ><Waves size={18} /></button>
+    )
+    const tendBtn = (
+      <button
+        type="button"
+        className="icon-btn"
+        onClick={tendWaveform}
+        title={STRINGS.editor.tendSplineTitle}
+        aria-label={STRINGS.editor.tendSpline}
+      ><ChartSpline size={18} /></button>
+    )
+
+    // Ordre visuel actuel préservé (cœur à gauche / ponctuel à droite) = ordre
+    // de priorité ; le repli se fait depuis la droite.
+    const items = [
+      { id: 'lens', bar: lensBtn, tray: <>{lensBtn}{trayLabel(lensActive ? 'Mode : Ancres' : 'Mode : Libre')}</> },
+      { id: 'anchors', bar: anchorBar, tray: <>{trayLabel('Ancres :')}{anchorReadout}</> },
+      { id: 'interp', bar: interpToggle, tray: <>{trayLabel('Courbe :')}{interpToggle}</> },
+      { id: 'normalize', bar: normalizeBtn, tray: <>{normalizeBtn}{trayLabel('Normaliser')}</> },
+      { id: 'smooth-lp', bar: smoothBtn, tray: <>{smoothBtn}{trayLabel('Lisser (passe-bas)')}</> },
+      { id: 'smooth-sp', bar: tendBtn, tray: <>{tendBtn}{trayLabel('Tendre vers la spline')}</> },
+    ]
+
     return (
-      <>
-        {/* iter-M phase-r.2.6.2 : toggle unique Libre↔Ancres (icône Spline).
-            Toggled = lentille spline ; sert aussi de label visuel devant le
-            slider Nombre d'ancres placé juste à sa droite. */}
-        <button
-          type="button"
-          className={`icon-btn we-lens-toggle${lensActive ? ' is-active' : ''}`}
-          onClick={() => editorActions.setCurrentLens(lensActive ? 'free' : 'spline')}
-          aria-pressed={lensActive}
-          aria-label={STRINGS.editor.lensSwitchLabel}
-          title={lensActive ? STRINGS.editor.lensToggleActiveTitle : STRINGS.editor.lensToggleInactiveTitle}
-        ><Spline size={18} /></button>
-        {/* iter-O phase-1.2 : slider range retiré ; saisie directe + steppers
-            ▴▾ (4..32, ±1, Shift=±10, appui maintenu = défile en accélérant). */}
-        <label className={`we-anchor-count${splineDisabled ? ' is-disabled' : ''}`} title={STRINGS.editor.anchorCountTitle}>
-          <span className="we-anchor-count-readout">
-            <NumberInput
-              value={anchorCount}
-              onChange={(v) => editorActions.setAnchorCount(v)}
-              min={SPLINE_ANCHOR_MIN}
-              max={SPLINE_ANCHOR_MAX}
-              parse={parseDefinition}
-              format={formatDefinition}
-              className="we-anchor-count-input"
-              ariaLabel={STRINGS.editor.anchorCountTitle}
-              disabled={splineDisabled}
-              showSteppers
-              step={1}
-              shiftStep={10}
-            />
-            <span className="we-cap-suffix">/ {SPLINE_ANCHOR_MAX}</span>
-          </span>
-        </label>
-        {/* iter-M phase-r.2.6.2 : toggle Doux/Anguleux (SVG custom) — 2-state
-            séparé, après le bloc Spline. Désactivé en mode Libre. */}
-        <div className="spline-interp-toggle" role="group" aria-label={STRINGS.editor.splineInterpolation}>
-          <button
-            type="button"
-            className={`icon-btn${interpolation !== 'hard' ? ' is-active' : ''}`}
-            onClick={() => editorActions.setSplineInterpolation('soft')}
-            title={STRINGS.editor.splineSoftTitle}
-            aria-label={STRINGS.editor.splineSoft}
-            aria-pressed={interpolation !== 'hard'}
-            disabled={splineDisabled}
-          ><IconDoux size={18} /></button>
-          <button
-            type="button"
-            className={`icon-btn${interpolation === 'hard' ? ' is-active' : ''}`}
-            onClick={() => editorActions.setSplineInterpolation('hard')}
-            title={STRINGS.editor.splineHardTitle}
-            aria-label={STRINGS.editor.splineHard}
-            aria-pressed={interpolation === 'hard'}
-            disabled={splineDisabled}
-          ><IconAnguleux size={18} /></button>
-        </div>
-        {/* iter-M phase-r.2.6.7 : Normaliser (icône Σ) déplacé depuis la barre du
-            haut vers le header de la zone Forme d'onde — partagé, donc visible
-            en mode Libre comme en Ancres. */}
-        <button
-          type="button"
-          className="icon-btn we-normalize-btn"
-          onClick={normalizeWaveform}
-          title={isNormalized
-            ? 'Déjà normalisé'
-            : 'Normaliser : redessiner le tracé comme la somme des harmoniques courantes (phase canonique)'}
-          aria-label="Normaliser"
-          disabled={isNormalized}
-        ><Sigma size={18} /></button>
-        {/* iter-N phase-4 : lissages du tracé (expérimentaux, répétables). 4.1
-            passe-bas indépendant des ancres ; 4.2 tend vers la spline des ancres. */}
-        <button
-          type="button"
-          className="icon-btn"
-          onClick={smoothWaveform}
-          title={STRINGS.editor.smoothTitle}
-          aria-label={STRINGS.editor.smooth}
-        ><Waves size={18} /></button>
-        <button
-          type="button"
-          className="icon-btn"
-          onClick={tendWaveform}
-          title={STRINGS.editor.tendSplineTitle}
-          aria-label={STRINGS.editor.tendSpline}
-        ><ChartSpline size={18} /></button>
-      </>
+      <OverflowToolbar
+        items={items}
+        ariaLabel="Contrôles forme d'onde"
+        menuLabel="Contrôles forme d'onde"
+      />
     )
   }
 
