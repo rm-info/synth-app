@@ -311,6 +311,39 @@
   flex: 0 0 var(--module-band-width);
 }
 
+/* iter-O phase-5b : maximize d'un module. Le module maximisé remplit la zone de
+   contenu Designer (sous la DesignerToolbar) ; tout le reste (rangée opposée,
+   colonnes/cellules voisines, séparateurs) est caché en CSS (display:none —
+   jamais démonté, les canvas redessinent au retour). Ciblage par :has() sur
+   .designer-module.is-maximized (porté par le DesignerModule du module). */
+
+/* Rangée NE contenant PAS le module maximisé → cachée. */
+.designer-main.is-maximized .designer-columns:not(:has(.designer-module.is-maximized)),
+.designer-main.is-maximized .designer-row:not(:has(.designer-module.is-maximized)) {
+  display: none;
+}
+/* Rangée contenant le module maximisé → remplit la hauteur dispo. */
+.designer-main.is-maximized .designer-columns:has(.designer-module.is-maximized),
+.designer-main.is-maximized .designer-row:has(.designer-module.is-maximized) {
+  flex: 1 1 auto;
+}
+/* Dans cette rangée : cacher les voisins + tous les séparateurs. */
+.designer-main.is-maximized .designer-column:not(:has(.designer-module.is-maximized)),
+.designer-main.is-maximized .designer-cell:not(:has(.designer-module.is-maximized)),
+.designer-main.is-maximized .designer-columns-sep {
+  display: none;
+}
+/* Étaler le module maximisé : !important pour battre le flex-grow inline des
+   .designer-column (cf. DesignerColumns.colStyle) et le cas défensif replié. */
+.designer-main.is-maximized .designer-column:has(.designer-module.is-maximized),
+.designer-main.is-maximized .designer-cell:has(.designer-module.is-maximized) {
+  flex: 1 1 100% !important;
+}
+/* Les contrôles de proportions des colonnes n'ont plus de sens en maximisé. */
+.designer-main.is-maximized .designer-toolbar > .overflow-toolbar {
+  display: none;
+}
+
 /* ============== Mode mobile (v1.2.0) ==============
    En dessous de 924 × 668 px (ResolutionGate supprimé en v1.2.0), le
    Designer bascule en accordéon vertical : 4 zones (canvas / spectro /
