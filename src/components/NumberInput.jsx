@@ -1,4 +1,5 @@
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
+import { ChevronUp, ChevronDown } from 'lucide-react'
 
 function clamp(v, min, max) {
   return Math.max(min, Math.min(max, v))
@@ -25,8 +26,18 @@ function clamp(v, min, max) {
  * - parse (string → number|NaN) : parser custom (ex. lit "75%" → 75).
  *   Défaut : parseFloat permissif (virgule = point, espaces ignorés).
  * - format (number → string) : formatter custom (ex. "75%"). Défaut : String.
+ *
+ * Mode stepper (iter-O phase-1.1) — props optionnelles, comportement inchangé
+ * si absentes :
+ * - showSteppers (bool) : rend la colonne de chevrons `▴▾` à droite du champ et
+ *   active la gestion clavier ↑/↓.
+ * - step (number, défaut 1) : incrément d'un clic / d'une flèche.
+ * - shiftStep (number, défaut 10) : incrément quand Shift est tenu.
+ * Clic chevron = ±step (commit immédiat) ; appui maintenu = un cran tout de
+ * suite puis auto-répétition accélérée après ~300 ms (120 ms → ×0.85 → 30 ms),
+ * arrêt au relâchement / sortie / borne atteinte. Shift = shiftStep.
  */
-function NumberInput({ value, onChange, min, max, parse, format, className, ariaLabel, disabled }) {
+function NumberInput({ value, onChange, min, max, parse, format, className, ariaLabel, disabled, showSteppers, step = 1, shiftStep = 10 }) {
   const fmt = format ?? String
   const parser = parse ?? defaultParse
   const [text, setText] = useState(fmt(value))
@@ -34,6 +45,31 @@ function NumberInput({ value, onChange, min, max, parse, format, className, aria
   const [lastSeenValue, setLastSeenValue] = useState(value)
   const preFocusValueRef = useRef(value)
   const skipBlurCommitRef = useRef(false)
+  // Miroir synchrone de `value` : base des crans stepper, indépendante du
+  // cycle async de React (l'auto-répétition tire ses délais d'un setTimeout
+  // dont la closure capturerait sinon une `value` périmée).
+  const liveValueRef = useRef(value)
+  const repeatTimerRef = useRef(null)
+
+  useEffect(() => { liveValueRef.current = value }, [value])
+
+  // Cleanup du timer d'auto-répétition : à l'unmount ET sur un pointerup/cancel
+  // global (relâchement hors du chevron — anticipe O.2 où le stepper voyage).
+  useEffect(() => {
+    const stop = () => {
+      if (repeatTimerRef.current != null) {
+        clearTimeout(repeatTimerRef.current)
+        repeatTimerRef.current = null
+      }
+    }
+    window.addEventListener('pointerup', stop)
+    window.addEventListener('pointercancel', stop)
+    return () => {
+      window.removeEventListener('pointerup', stop)
+      window.removeEventListener('pointercancel', stop)
+      stop()
+    }
+  }, [])
 
   if (value !== lastSeenValue && !focused) {
     setLastSeenValue(value)
@@ -51,6 +87,42 @@ function NumberInput({ value, onChange, min, max, parse, format, className, aria
     if (clamped !== value) onChange(clamped)
   }
 
+  // Applique un cran ±delta clampé. Renvoie true si la valeur a bougé (false =
+  // borne atteinte → l'auto-répétition s'arrête).
+  const stepBy = (delta) => {
+    const base = liveValueRef.current
+    const next = clamp(base + delta, min, max)
+    if (next === base) return false
+    liveValueRef.current = next
+    setText(fmt(next))
+    onChange(next)
+    return true
+  }
+
+  const stopRepeat = () => {
+    if (repeatTimerRef.current != null) {
+      clearTimeout(repeatTimerRef.current)
+      repeatTimerRef.current = null
+    }
+  }
+
+  const startRepeat = (delta) => {
+    stepBy(delta) // cran immédiat
+    let interval = 120
+    const tick = () => {
+      if (!stepBy(delta)) { stopRepeat(); return }
+      repeatTimerRef.current = setTimeout(tick, interval)
+      interval = Math.max(30, interval * 0.85)
+    }
+    repeatTimerRef.current = setTimeout(tick, 300) // délai avant l'accélération
+  }
+
+  const handleChevronDown = (e, dir) => {
+    if (disabled) return
+    e.preventDefault() // pas de vol de focus / sélection texte
+    startRepeat(dir * (e.shiftKey ? shiftStep : step))
+  }
+
   const handleKeyDown = (e) => {
     if (e.key === 'Enter') {
       e.preventDefault()
@@ -59,10 +131,13 @@ function NumberInput({ value, onChange, min, max, parse, format, className, aria
       e.preventDefault()
       skipBlurCommitRef.current = true
       e.target.blur()
+    } else if (showSteppers && !disabled && (e.key === 'ArrowUp' || e.key === 'ArrowDown')) {
+      e.preventDefault() // ne pas déplacer le curseur texte
+      stepBy((e.key === 'ArrowUp' ? 1 : -1) * (e.shiftKey ? shiftStep : step))
     }
   }
 
-  return (
+  const input = (
     <input
       type="text"
       inputMode="decimal"
@@ -91,6 +166,38 @@ function NumberInput({ value, onChange, min, max, parse, format, className, aria
       }}
       onKeyDown={handleKeyDown}
     />
+  )
+
+  if (!showSteppers) return input
+
+  return (
+    <span className="number-input-stepper">
+      {input}
+      <span className="number-input-steppers">
+        <button
+          type="button"
+          className="number-input-stepper-btn"
+          aria-label="Augmenter"
+          tabIndex={-1}
+          disabled={disabled}
+          onPointerDown={(e) => handleChevronDown(e, 1)}
+          onPointerLeave={stopRepeat}
+          onPointerUp={stopRepeat}
+          onContextMenu={(e) => e.preventDefault()}
+        ><ChevronUp size={12} /></button>
+        <button
+          type="button"
+          className="number-input-stepper-btn"
+          aria-label="Diminuer"
+          tabIndex={-1}
+          disabled={disabled}
+          onPointerDown={(e) => handleChevronDown(e, -1)}
+          onPointerLeave={stopRepeat}
+          onPointerUp={stopRepeat}
+          onContextMenu={(e) => e.preventDefault()}
+        ><ChevronDown size={12} /></button>
+      </span>
+    </span>
   )
 }
 
