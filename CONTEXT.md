@@ -39,8 +39,9 @@ framework UI (CSS manuscrit), pas de routing, pas de backend.
 
 **État courant** : Iteration N « Stabilité & fluidité » **close** (release
 v1.6.0, 2026-06-04). **Iteration O — Ergonomie & responsive du Designer** ouverte
-(cf. `archi/BACKLOG.md` § Iteration O) : **phase 1** livrée (steppers `▴▾` au lieu
-des sliders ancres/cap). Le détail par phase N.1→N.6 (audit
+(cf. `archi/BACKLOG.md` § Iteration O) : **phases 1-2** livrées (steppers `▴▾` au
+lieu des sliders ancres/cap ; `OverflowToolbar` priority-plus sur les barres de
+titre surchargées). Le détail par phase N.1→N.6 (audit
 perf + verdict prod, warp 2D, presets « Timbres », lissage, durcissements TS)
 vit dans `CONTEXT-ARCHIVE.md` ; l'état présent du Designer est résumé dans
 `## État actuel` ci-dessous. Hygiène restante (hors itération) : purge des
@@ -127,6 +128,7 @@ synth-app/
         ├── WaveformEditor.jsx + .css          # éditeur ondes / patch (Designer)
         ├── Spectrogram.jsx + .css             # spectrogramme statique (Designer)
         ├── DesignerColumns.jsx + .css         # layout 3 colonnes ajustables (Designer, M.2.2)
+        ├── OverflowToolbar.jsx + .css         # barre d'outils générique « priority-plus » : items bar/tray, débordement → tiroir `⋯` (iter-O phase-2). Branché : header Forme d'onde + groupe droit DesignerToolbar
         ├── SplineEditor.jsx + .css            # éditeur points/courbe mode spline (Designer, M.3)
         ├── ConvertToHarmonicDialog.jsx + .css # dialog passerelle draw/spline→harmonic (M.2.5)
         ├── ConvertToSplineDialog.jsx          # dialog passerelle draw/harmonic→spline (M.3.3)
@@ -443,7 +445,13 @@ Seuls les **placements timeline** s'appellent "clips".
     `SMOOTH_EDITOR_CANONICAL` (passe-bas) et `ChartSpline` → `TEND_TOWARD_SPLINE`
     (tend vers la spline) — y sont **toujours rendus** (positions stables) ; les
     contrôles d'ancres sont `disabled` en mode Libre (M.r.2.5.2) ; saisie directe
-    du nombre d'ancres via `<NumberInput>` (M.r.2.5.3).
+    du nombre d'ancres via `<NumberInput>` (M.r.2.5.3). **iter-O phase-2.2** : ces
+    6 contrôles (lens · ancres · interp · normalize · smooth-lp · smooth-sp) sont
+    désormais les items d'un **`OverflowToolbar`** (priority-plus) ; au lieu d'un
+    fragment, `renderWaveformHeaderControls` construit un tableau d'items
+    `bar`/`tray` (ordre visuel préservé) — quand la colonne se rétrécit, les
+    derniers passent dans le tiroir `⋯`. Le node unique marche aux deux endroits
+    (header Libre `.we-canvas-area` et `headerControls` de `SplineEditor`).
     - **Convention d'amplitude (M.r.5.1)** : l'axe Y du canvas s'**auto-fit** à
       `[-peak, +peak]` (peak = `max(max(|canonical|), max(|normalizedBg|), 1)`,
       minimum 1 pour garder le marqueur visible) au lieu de `[-1, +1]` fixe — la
@@ -596,6 +604,33 @@ Seuls les **placements timeline** s'appellent "clips".
   AUTO → `onToggleAutoSizing`. En mobile, ces contrôles ne sont pas rendus.
 - Présentational : tous les handlers viennent d'App.jsx (proportions/auto) et de
   `WaveformEditor` via l'API children (Presets/Reset/Normaliser/patchLabel).
+- **iter-O phase-2.3** : le groupe droit (4 presets + AUTO) est rendu via
+  `OverflowToolbar` (priority-plus). Le séparateur passe en prop `prefix` (chrome
+  fixe). `is-active`/`aria-pressed` (état dérivé) conservés. Gauche inchangée.
+
+### `OverflowToolbar.jsx` (iter-O phase-2.1)
+- Barre d'outils **générique réutilisable** « priority-plus » : affiche un max
+  d'items en ligne (forme `bar`), pousse le reste dans un **tiroir popover `⋯`**
+  (forme `tray`, ligne libellée). Repli **droite→gauche** (index 0 = plus
+  prioritaire). Props : `items:[{id,bar,tray}]`, `prefix?` (chrome fixe en tête),
+  `className?`, `ariaLabel?`, `menuLabel?`. Retourne `null` si `items` vide.
+- **Mesure** : *ghost row* hors flux (`position:absolute; visibility:hidden;
+  pointer-events:none`) rendant toutes les formes `bar` (+ clone inerte du `⋯`)
+  → largeurs naturelles même à largeur variable. **`ResizeObserver`** sur root +
+  ghost (resize fenêtre + drag séparateurs + presets ; pas de `window.resize`) ;
+  la mesure initiale est portée par le 1er callback RO (pas de `setState`
+  synchrone dans l'effet).
+- **Anti-boucle** : le root remplit l'espace alloué par le flex parent
+  (`flex:1 1 0; min-width:0`) et aligne son contenu à droite → largeur observée =
+  espace dispo, **indépendante du contenu** ; `setState` seulement si le set
+  visible change (le changement ferme le tiroir, sans voler le focus).
+- **Popover** : `Esc` / clic-dehors ferment, focus à l'ouverture + retour au `⋯`
+  à la fermeture (aligné sur `BibContextMenu`). L'**état des contrôles vit dans le
+  parent** ; l'OverflowToolbar ne fait que **relocaliser** où le node est rendu,
+  au resize seulement (geste délibéré, pas de surprise en plein geste).
+- Branché en O.2 : header **Forme d'onde** (6 contrôles, même node aux deux
+  endroits Libre/Ancres) et **groupe droit DesignerToolbar**. Destiné à d'autres
+  zones en O.3→O.5.
 
 ### `DesignerColumns.jsx` (iter-M phase-2.2, allégé r.2.1)
 - Moitié haute du Designer en 3 colonnes ajustables (Forme d'onde /
@@ -1736,6 +1771,18 @@ Conventions tacites. Les enfreindre sans raison crée des bugs subtils.
 
 ✅ **Terminé**
 - **Iteration O — Ergonomie & responsive du Designer (en cours)** :
+  - **Phase 2 — `OverflowToolbar` (priority-plus)** : nouveau composant générique
+    réutilisable (`src/components/OverflowToolbar.jsx`) qui affiche un maximum de
+    contrôles en ligne et pousse le débordement dans un **tiroir `⋯`** (popover de
+    lignes libellées). Mesure par *ghost row* + `ResizeObserver` (root + ghost),
+    anti-boucle (root rempli par le flex parent → largeur observée indépendante du
+    contenu), repli droite→gauche, focus/Esc/clic-dehors alignés sur
+    `BibContextMenu`. Appliqué à **deux** zones : le **header Forme d'onde** (6
+    contrôles, même node en mode Libre et Ancres) et le **groupe droit de la
+    `DesignerToolbar`** (4 presets de proportions + AUTO, séparateur en `prefix`).
+    Les barres de titre surchargées ne se font plus rogner / wrapper ; les
+    contrôles débordés restent **pleinement fonctionnels** dans le tiroir (l'état
+    vit dans le parent, on ne fait que relocaliser le rendu, au resize seulement).
   - **Phase 1 — Steppers `▴▾`** : les deux **sliders range** du Designer (nombre
     d'ancres `4..32`, plafond d'harmoniques `1..256`) sont retirés au profit de
     **steppers** = saisie libre du `NumberInput` + colonne de **chevrons `▴▾`**
@@ -2511,8 +2558,12 @@ chargé, on dégraisse en partant de la dette la plus simple.
 
 - **Phase 1 — Steppers `▴▾`** (livrée) : sliders range ancres/cap remplacés par
   steppers (`NumberInput` étendu, opt-in). Détail dans `## État actuel`.
-- **Phase 2+ — à venir** : `OverflowToolbar` (débordement des headers de colonne),
-  puis responsive / modularisation (O.3→O.5). Cf. `archi/BACKLOG.md`.
+- **Phase 2 — `OverflowToolbar` priority-plus** (livrée) : débordement des barres
+  de titre surchargées dans un tiroir `⋯`. Branché au header Forme d'onde et au
+  groupe droit de la `DesignerToolbar`. Détail dans `## État actuel`.
+- **Phase 3+ — à venir** : Instrument/AHDSR (quand ils gagneront des contrôles),
+  responsive / modularisation, chrome Réduire/Agrandir + auto-collapse (O.3→O.5).
+  Cf. `archi/BACKLOG.md`.
 
 Iteration N « Stabilité & fluidité » **close** (release v1.6.0). Roadmap
 détaillée N.1→N.6 archivée dans `CONTEXT-ARCHIVE.md`.
