@@ -65,6 +65,11 @@
   text-transform: uppercase;
   letter-spacing: 0.05em;
   font-weight: 600;
+  /* iter-O phase-6.1 : ellipsis progressive (idem .we-area-title). */
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .spectrogram-canvas-container {

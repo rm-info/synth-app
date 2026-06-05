@@ -320,13 +320,18 @@
 
 .we-header-left {
   display: flex;
-  align-items: baseline;
+  /* iter-O phase-6.1 : center (était baseline) — overflow:hidden sur le titre
+     casse l'alignement baseline (la baseline devient le bord bas) ; center cadre
+     proprement icône + titre tronqué. */
+  align-items: center;
   gap: 10px;
   min-width: 0;
   /* iter-O phase-2.2 : le titre prend sa largeur de contenu (titres courts) et
      laisse tout le reste à l'OverflowToolbar des contrôles (flex:1) à sa droite.
-     Auparavant flex:1 → les deux se partageaient l'espace, bridant la toolbar. */
-  flex: 0 1 auto;
+     Auparavant flex:1 → les deux se partageaient l'espace, bridant la toolbar.
+     iter-O phase-6.1 : flex-shrink fort → le titre cède (ellipsis) AVANT que les
+     contrôles ne débordent dans le « … ». */
+  flex: 0 100 auto;
 }
 
 .we-header-right {
@@ -402,6 +407,15 @@
   text-transform: uppercase;
   letter-spacing: 0.05em;
   font-weight: 600;
+  /* iter-O phase-6.1 : ellipsis progressive — le titre rétrécit avec « … » dans
+     we-header-left (min-width:0) ; l'icône (.we-area-icon, flex:0 0 auto) reste
+     toujours visible. Plus de masquage dur par container query (retirée en 5c.f5
+     car `container-type` cassait le shrink flex) : l'ellipsis jusqu'à 0 laisse
+     l'icône seule à l'extrême. */
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 /* iter-O phase-5c : icône d'identité du module, devant le titre (we-header-left
    est aligné baseline → align-self:center pour cadrer l'icône sur la ligne). */
