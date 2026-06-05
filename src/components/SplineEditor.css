@@ -6,12 +6,16 @@
   display: flex;
   align-items: center;
   /* iter-O phase-2.2 : conteneur du header rempli par l'OverflowToolbar (qui se
-     mesure dessus). flex:1 + min-width:0 → largeur = espace restant après le
-     titre, indépendante du contenu (pas de boucle ResizeObserver). Le
-     flex-wrap/retour-à-la-ligne d'iter-N n'a plus lieu d'être : le débordement
-     part désormais dans le tiroir `⋯`. */
+     mesure dessus). flex:1 → largeur = espace restant après le titre,
+     indépendante du contenu (pas de boucle ResizeObserver). Le débordement part
+     dans le tiroir `⋯`.
+     iter-O phase-6.f2 : min-width aligné sur le plancher de l'OverflowToolbar
+     (2.25rem, cf. 6.f1) — sinon ce wrapper (propre à Forme d'onde) s'écrasait à 0
+     et la toolbar débordait à droite, par-dessus le padding chrome (à cheval sur
+     les boutons Réduire/Agrandir). Les autres headers ont l'OverflowToolbar en
+     enfant direct, sans ce wrapper. */
   flex: 1 1 0;
-  min-width: 0;
+  min-width: 2.25rem;
 }
 
 /* iter-M phase-r.2.6.2/.4 : toggle Doux / Anguleux — deux boutons-icônes
