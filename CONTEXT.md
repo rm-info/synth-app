@@ -38,8 +38,9 @@ framework UI (CSS manuscrit), pas de routing, pas de backend.
 | N | Stabilité & fluidité : édition d'ancres refondue (warp 2D), presets « Timbres » (vues idéale/band-limitée + formes paramétriques), lissage, durcissements — v1.6.0 | 2026-06-04 |
 
 **État courant** : Iteration N « Stabilité & fluidité » **close** (release
-v1.6.0, 2026-06-04). On est **entre deux itérations** — la prochaine (grand saut
-créatif « Monde B ») n'est pas encore cadrée. Le détail par phase N.1→N.6 (audit
+v1.6.0, 2026-06-04). **Iteration O — Ergonomie & responsive du Designer** ouverte
+(cf. `archi/BACKLOG.md` § Iteration O) : **phase 1** livrée (steppers `▴▾` au lieu
+des sliders ancres/cap). Le détail par phase N.1→N.6 (audit
 perf + verdict prod, warp 2D, presets « Timbres », lissage, durcissements TS)
 vit dans `CONTEXT-ARCHIVE.md` ; l'état présent du Designer est résumé dans
 `## État actuel` ci-dessous. Hygiène restante (hors itération) : purge des
@@ -137,7 +138,7 @@ synth-app/
         ├── BpmInput.jsx                       # input BPM validation différée
         ├── A4Input.jsx                        # input A4 validation différée (F.2.2)
         ├── FreqInput.jsx                      # input fréquence libre (phase 3.7)
-        ├── NumberInput.jsx                    # input numérique générique paramétré par parse/format (F.3.11.2)
+        ├── NumberInput.jsx                    # input numérique générique paramétré par parse/format (F.3.11.2) ; mode stepper opt-in (iter-O phase-1 : showSteppers/step/shiftStep → chevrons ▴▾ Lucide, clic/Shift/appui-maintenu accéléré + clavier ↑↓)
         ├── Toast.jsx + .css                   # toast d'erreur (undo cross-onglet)
         ├── Toolbar.jsx + .css                 # toolbar (Composer)
         ├── Timeline.jsx + .css                # grille + clips + curseur (Composer)
@@ -431,9 +432,10 @@ Seuls les **placements timeline** s'appellent "clips".
     l'ancien switch 2-boutons est devenu un **toggle unique** porteur de l'icône
     `Spline` (`is-active`/`aria-pressed` = mode interpolé ; tooltips « Mode Dessin
     libre/interpolé » sans le mot « lentille », r.2.6.4), qui sert aussi de label
-    visuel devant le slider Nombre d'ancres. Le toggle **Doux/Anguleux** (icônes
+    visuel devant le contrôle Nombre d'ancres. Le toggle **Doux/Anguleux** (icônes
     **SVG custom** `IconDoux`/`IconAnguleux`, style Lucide, **joint en switch
-    segmenté** r.2.6.4) + le slider/input « N / 32 » (input aligné sur la hauteur
+    segmenté** r.2.6.4) + le **stepper** « N / 32 » (saisie libre + chevrons `▴▾`,
+    iter-O phase-1 : l'ancien slider range est retiré ; input aligné sur la hauteur
     des boutons, r.2.6.4) + le bouton **Normaliser** (icône `Sigma`, déplacé
     depuis la barre du haut en r.2.6.8 → `NORMALIZE_EDITOR_CANONICAL` ; **M.r.4 :
     `disabled` quand `editor.canonicalNormalized`**, tooltip « Déjà normalisé »)
@@ -502,7 +504,9 @@ Seuls les **placements timeline** s'appellent "clips".
     l'index au mousedown, commit unique → 1 undo), indépendantes de
     `currentLens` (le type ne porte plus 'bars' depuis M.r.3.2). Header : **indicateur non
     interactif** (icône `AlignEndHorizontal`, r.2.6.2) + **contrôle unique du
-    cap** (slider 1..256 + readout « N / 256 », NumberInput éditable).
+    cap** = **stepper** « N / 256 » (saisie libre + chevrons `▴▾`, iter-O phase-1 :
+    l'ancien slider range 1..256 est retiré ; l'appui maintenu récupère le scrub
+    live des harmoniques).
     - **Cosmétique (M.r.5.2)** : **code couleur des barres** — bleu (accent) quand
       `editor.canonicalNormalized` est true (édition directe possible), gris
       (classe `is-unnormalized`) sinon (un clic ouvre le dialog edit-bars
@@ -1731,6 +1735,17 @@ Conventions tacites. Les enfreindre sans raison crée des bugs subtils.
 ## État actuel
 
 ✅ **Terminé**
+- **Iteration O — Ergonomie & responsive du Designer (en cours)** :
+  - **Phase 1 — Steppers `▴▾`** : les deux **sliders range** du Designer (nombre
+    d'ancres `4..32`, plafond d'harmoniques `1..256`) sont retirés au profit de
+    **steppers** = saisie libre du `NumberInput` + colonne de **chevrons `▴▾`**
+    (Lucide). Clic = `±1`, `Shift+clic` = `±10`, **appui maintenu** = cran immédiat
+    puis auto-répétition accélérée (~300 ms d'amorce, 120 ms → ×0.85 → plancher
+    30 ms, arrêt à la borne) — récupère le « scrub live » de l'ancien slider du
+    cap. Clavier `↑↓`/`Shift+↑↓` quand le champ a le focus. Extension **opt-in**
+    de `NumberInput` (`showSteppers`/`step`/`shiftStep`, terrain prêt pour
+    ADSR/ampli/fréquence mais non activé). Les deux barres de titre sont plus
+    étroites. Livre l'item backlog **« flèches ↑↓ dans NumberInput »**.
 - **Iteration N — « Stabilité & fluidité » (close, v1.6.0)**. État présent du
   Designer après l'itération (détail par phase N.1→N.6 dans `CONTEXT-ARCHIVE.md`) :
   - **Édition d'ancres refondue — principe « représentation vs forme »** : les
@@ -2489,14 +2504,18 @@ Conventions tacites. Les enfreindre sans raison crée des bugs subtils.
 > Détail des roadmaps des itérations livrées (A→M) → `CONTEXT-ARCHIVE.md`.
 > Ci-dessous : l'itération en cours, puis le backlog général (non planifié).
 
-### Entre deux itérations (depuis la clôture de N, 2026-06-04)
+### Iteration O — Ergonomie & responsive du Designer (en cours)
+
+Cadrée côté archi (`archi/BACKLOG.md` § Iteration O) : le Designer est trop
+chargé, on dégraisse en partant de la dette la plus simple.
+
+- **Phase 1 — Steppers `▴▾`** (livrée) : sliders range ancres/cap remplacés par
+  steppers (`NumberInput` étendu, opt-in). Détail dans `## État actuel`.
+- **Phase 2+ — à venir** : `OverflowToolbar` (débordement des headers de colonne),
+  puis responsive / modularisation (O.3→O.5). Cf. `archi/BACKLOG.md`.
 
 Iteration N « Stabilité & fluidité » **close** (release v1.6.0). Roadmap
-détaillée N.1→N.6 archivée dans `CONTEXT-ARCHIVE.md` (« Roadmaps des itérations
-closes » + Historique). **Prochaine itération non cadrée** : le grand saut
-créatif « Monde B » est pressenti mais pas encore spécifié — cadrage à venir
-côté archi (`archi/BACKLOG.md`). En attendant, le backlog général ci-dessous
-reste la réserve.
+détaillée N.1→N.6 archivée dans `CONTEXT-ARCHIVE.md`.
 
 ### Backlog général (à caser quand pertinent)
 
@@ -2548,8 +2567,10 @@ reste la réserve.
 - Optimisation stockage localStorage (résolution points, quantification,
   ou IndexedDB)
 - Fréquence libre : flèches haut/bas dans FreqInput pour incréments fins
-- Flèches haut/bas dans NumberInput (sliders ADSR : Amp, A, D, S, R) pour
-  incréments fins, sur le modèle de A4Input/BpmInput
+- Flèches haut/bas dans NumberInput — **mécanisme livré (iter-O phase-1**,
+  `showSteppers`/`step`/`shiftStep` : chevrons `▴▾` + clavier `↑↓`). Activé sur
+  ancres/cap ; **reste à activer** sur les sliders ADSR (Amp, A, D, S, R) et la
+  fréquence libre si souhaité (terrain prêt, hors scope phase-1).
 - N configurable par patch (de 2^0 à 2^9) — pédagogique : l'utilisateur
   pourrait voir/entendre l'effet du nombre d'harmoniques sur le timbre.
   Demande UI dédiée (slider + persistance + decision preset). Reporté
