@@ -1,4 +1,4 @@
-import { FolderOpenDot, Eraser } from 'lucide-react'
+import { FolderOpenDot, Eraser, FoldHorizontal } from 'lucide-react'
 import { IconColumnLayout, IconAuto } from './icons'
 import { STRINGS } from '../lib/strings'
 import OverflowToolbar from './OverflowToolbar'
@@ -33,7 +33,7 @@ function widthsEqual(a, b) {
 // + AUTO), un seul actif à la fois. L'actif est DÉRIVÉ (aucun nouvel état
 // persisté) : autoSizing → AUTO ; sinon le preset dont les widths égalent
 // designerColumnWidths ; sinon (drag manuel = custom) aucun.
-function DesignerToolbar({ patchLabel, onPresets, onReset, onSelectPreset, widths, autoSizing, onToggleAutoSizing }) {
+function DesignerToolbar({ patchLabel, onPresets, onReset, onSelectPreset, widths, autoSizing, onToggleAutoSizing, autoCollapse, onToggleAutoCollapse, autoCollapseForced }) {
   // Les contrôles de proportions n'ont de sens qu'en layout 3-colonnes : on
   // ne les affiche que si le parent fournit le sélecteur de preset (desktop).
   const showColumnControls = typeof onSelectPreset === 'function'
@@ -72,15 +72,39 @@ function DesignerToolbar({ patchLabel, onPresets, onReset, onSelectPreset, width
         onClick={onToggleAutoSizing}
       ><IconAuto /></button>
     )
+    // iter-O phase-5d : toggle Auto-réduction — item INDÉPENDANT (pas dans le
+    // groupe radio des proportions), précédé d'un séparateur. Actif si activé OU
+    // forcé en écran étroit (auquel cas il est aussi désactivé : on ne peut pas
+    // le couper, l'espace l'impose).
+    const acActive = autoCollapse || autoCollapseForced
+    const acTitle = autoCollapseForced
+      ? 'Auto-réduction active automatiquement en écran étroit'
+      : 'Auto-réduction des modules (ouvrir un module réduit les autres de sa rangée)'
+    const acBtn = (
+      <button
+        type="button"
+        className={`designer-toolbar-preset-btn${acActive ? ' is-active' : ''}`}
+        title={acTitle}
+        aria-label="Auto-réduction des modules"
+        aria-pressed={acActive}
+        disabled={autoCollapseForced}
+        onClick={onToggleAutoCollapse}
+      ><FoldHorizontal size={18} /></button>
+    )
     const items = [
       ...presetItems,
       { id: 'auto', bar: autoBtn, tray: <>{autoBtn}{trayLabel(STRINGS.editor.autoSizing)}</> },
+      {
+        id: 'auto-collapse',
+        bar: <><span className="designer-toolbar-divider" aria-hidden="true" />{acBtn}</>,
+        tray: <>{acBtn}{trayLabel('Auto-réduction des modules')}</>,
+      },
     ]
     return (
       <OverflowToolbar
         items={items}
-        ariaLabel="Proportions des colonnes"
-        menuLabel="Proportions des colonnes"
+        ariaLabel="Disposition des colonnes"
+        menuLabel="Disposition des colonnes"
         prefix={<span className="designer-toolbar-divider" aria-hidden="true" />}
       />
     )

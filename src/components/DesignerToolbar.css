@@ -96,3 +96,7 @@
   color: var(--accent);
   border-color: var(--accent);
 }
+/* iter-O phase-5d : toggle Auto-réduction forcé en écran étroit = actif + verrouillé. */
+.designer-toolbar-preset-btn:disabled {
+  cursor: not-allowed;
+}

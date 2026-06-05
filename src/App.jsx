@@ -70,6 +70,11 @@ import './styles/highlight.css'
 
 const wrappedReducer = withUndo(reducer)
 
+// iter-O phase-5d : sous ce seuil de largeur (desktop étroit), l'auto-réduction
+// est EFFECTIVEMENT active même toggle off — sinon les modules d'une rangée se
+// replient tous en bande « … » faute de place. Calibrable au test.
+const AUTO_COLLAPSE_DEFAULT_WIDTH = 1100
+
 function triggerDownload(blob, filename) {
   const url = URL.createObjectURL(blob)
   const a = document.createElement('a')
@@ -107,7 +112,7 @@ function App() {
     durationMode, adsrView, selectedClipIds, selectedTrackId, composerFlash, lastAnchorClipId,
     composerBankWidth, composerAsideWidth, composerBankCollapsed, composerAsideCollapsed,
     designerSidebarWidth, designerSidebarCollapsed, designerColumnWidths, autoSizing,
-    designerCollapsed, maximized,
+    designerCollapsed, maximized, autoCollapse,
     doc, docSidebarWidth, docSidebarCollapsed,
     bibHierarchyMode, bibDisplayMode, bibCurrentFolderId, bibPopupWidth,
     bibSelectedIds, bibSelectionAnchor, bibCollapsedFolders,
@@ -704,6 +709,8 @@ function App() {
           designerCollapsed,
           // iter-O phase-5b : module maximisé (préférence UI).
           maximized,
+          // iter-O phase-5d : politique d'auto-réduction (préférence UI).
+          autoCollapse,
           // iter-L phase-2.1 : préférences sidebar Documentation (collapsed
           // + largeur). La position de lecture (article courant + scrolls)
           // est gérée séparément via sessionStorage.
@@ -740,7 +747,7 @@ function App() {
     durationMode, adsrView, activeTab, patchCounter, clipCounter, folderCounter, trackCounter,
     composerBankWidth, composerAsideWidth, composerBankCollapsed, composerAsideCollapsed,
     designerSidebarWidth, designerSidebarCollapsed, designerColumnWidths, autoSizing,
-    designerCollapsed, maximized,
+    designerCollapsed, maximized, autoCollapse,
     docSidebarWidth, docSidebarCollapsed,
     bibHierarchyMode, bibDisplayMode, bibCurrentFolderId, bibCollapsedFolders, bibPopupWidth,
     recentPatchIds, theme, selectedTrackId,
@@ -889,6 +896,10 @@ function App() {
   const handleToggleModuleMaximized = useCallback((id) => {
     dispatch({ type: 'SET_DESIGNER_MAXIMIZED', payload: maximized === id ? null : id })
   }, [maximized])
+  // iter-O phase-5d : bascule la politique d'auto-réduction.
+  const handleToggleAutoCollapse = useCallback(() => {
+    dispatch({ type: 'SET_DESIGNER_AUTO_COLLAPSE', payload: !autoCollapse })
+  }, [autoCollapse])
   // iter-M phase-2-as : toggle auto-sizing (essai).
   const toggleAutoSizing = useCallback(() => {
     dispatch({ type: 'SET_AUTO_SIZING', payload: !autoSizing })
@@ -2382,6 +2393,9 @@ function App() {
                     widths={designerColumnWidths}
                     autoSizing={autoSizing}
                     onToggleAutoSizing={toggleAutoSizing}
+                    autoCollapse={autoCollapse}
+                    onToggleAutoCollapse={handleToggleAutoCollapse}
+                    autoCollapseForced={winWidth < AUTO_COLLAPSE_DEFAULT_WIDTH}
                   />
                   {/* iter-M phase-2.2 : moitié haute = 3 colonnes ajustables
                       Forme d'onde / Harmoniques / Spectrogramme (le spectro,
