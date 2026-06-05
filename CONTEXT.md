@@ -724,10 +724,11 @@ Seuls les **placements timeline** s'appellent "clips".
   = `{ label, Icon Lucide }` par module (`AudioWaveform`/`BarChart3`/`Grid2x2`/
   `Piano`/`AudioLines`), **source unique** réutilisée par les headers (icône
   `.we-area-icon` devant `h3` dans `we-header-left`, 6 sites) et la bande. Le
-  **titre disparaît quand le module rétrécit** (< 260px) via une classe
-  `is-narrow` posée par un `ResizeObserver` sur `.designer-module` (5c.f3 — la
-  container query d'origine posait `container-type:inline-size` qui **bloquait le
-  shrink flex** des modules en Chromium, cassant le mode compact AHDSR).
+  **masquage auto du titre quand le module rétrécit** (spec 5c.2) a été **retiré**
+  (5c.f5) : la container query posait `container-type:inline-size` qui bloquait le
+  shrink flex (5c.f3), et son remplacement par un `ResizeObserver` JS perturbait la
+  livraison des RO canvas (Forme d'onde non rafraîchie) et du mode compact AHDSR
+  (5c.f4). Le titre reste donc affiché. À ré-aborder autrement si souhaité.
 - **Collapse** (O.5a) : `designerCollapsed` (5 booléens) persisté, non-undoable.
   `TOGGLE_DESIGNER_MODULE_COLLAPSED` (payload `{ id, autoCollapse }`, Réduire +
   réouverture). `DesignerColumns` reçoit `collapsed` (3 booléens) → colonne repliée
