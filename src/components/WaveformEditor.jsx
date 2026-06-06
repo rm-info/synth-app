@@ -3,7 +3,7 @@ import { Plus, Save, SaveAll, Undo2, Redo2, Sliders, X, Lock, Spline, AlignEndHo
 import { IconDoux, IconAnguleux } from './icons'
 import { pointsToPeriodicWave, MIN_ATTACK, HARMONIC_COUNT, harmonicsToPoints, canonicalToBars } from '../audio'
 import { splineToPoints } from '../lib/spline'
-import { CAP_MIN, CAP_MAX, SPLINE_ANCHOR_MIN, SPLINE_ANCHOR_MAX } from '../reducer'
+import { CAP_MIN, CAP_MAX, SPLINE_ANCHOR_MIN, SPLINE_ANCHOR_MAX, DEFAULT_VIBRATO, DEFAULT_TREMOLO } from '../reducer'
 import useWindowSize from '../hooks/useWindowSize'
 import FreqInput from './FreqInput'
 import NumberInput from './NumberInput'
@@ -229,6 +229,17 @@ function blankPointsArray() {
 // interpolation) + ADSR + amplitude + preset. Le résidu dérive de
 // canonical/anchors, donc inutile de le comparer. Les champs test* sont
 // volatils et ne participent pas au dirty.
+// itération P : égalité d'un objet Lfo (vibrato/trémolo). Champs comparés un à un.
+function lfoEqual(a, b) {
+  const da = a ?? {}
+  const db = b ?? {}
+  return (da.enabled ?? false) === (db.enabled ?? false)
+    && da.rate === db.rate
+    && da.depth === db.depth
+    && da.onset === db.onset
+    && da.shape === db.shape
+}
+
 function patchFieldsEqual(a, b) {
   if (!a || !b) return false
   if (a.amplitude !== b.amplitude) return false
@@ -238,6 +249,9 @@ function patchFieldsEqual(a, b) {
   if (a.decay !== b.decay) return false
   if (a.sustain !== b.sustain) return false
   if (a.release !== b.release) return false
+  // itération P : modulations LFO (font partie de l'identité du patch).
+  if (!lfoEqual(a.vibrato, b.vibrato)) return false
+  if (!lfoEqual(a.tremolo, b.tremolo)) return false
   if ((a.cap ?? HARMONIC_COUNT) !== (b.cap ?? HARMONIC_COUNT)) return false
   if ((a.interpolation ?? 'soft') !== (b.interpolation ?? 'soft')) return false
   const aan = a.anchors ?? []
@@ -257,6 +271,12 @@ function cloneAnchors(anchors) {
   return (anchors ?? []).map((a) => ({ x: a.x, y: a.y }))
 }
 
+// itération P : clone défensif d'un Lfo pour les snapshots de dirty check.
+function cloneLfo(lfo, fallback) {
+  const src = lfo ?? fallback
+  return { enabled: src.enabled, rate: src.rate, depth: src.depth, onset: src.onset, shape: src.shape }
+}
+
 function snapshotPatchFields(editor) {
   return {
     canonical: Array.from(editor.canonical),
@@ -270,6 +290,8 @@ function snapshotPatchFields(editor) {
     decay: editor.decay,
     sustain: editor.sustain,
     release: editor.release,
+    vibrato: cloneLfo(editor.vibrato, DEFAULT_VIBRATO),
+    tremolo: cloneLfo(editor.tremolo, DEFAULT_TREMOLO),
   }
 }
 
@@ -286,6 +308,8 @@ function patchToReference(patch) {
     decay: patch.decay,
     sustain: patch.sustain,
     release: patch.release,
+    vibrato: cloneLfo(patch.vibrato, DEFAULT_VIBRATO),
+    tremolo: cloneLfo(patch.tremolo, DEFAULT_TREMOLO),
   }
 }
 
@@ -431,6 +455,10 @@ function WaveformEditor({
   const decay = draftAdsr?.decay ?? editor.decay
   const sustain = draftAdsr?.sustain ?? editor.sustain
   const release = draftAdsr?.release ?? editor.release
+  // itération P : modulations LFO de l'éditeur (toujours présentes depuis P.1 ;
+  // `??` défensif pour un état hydraté avant migration).
+  const vibrato = editor.vibrato ?? DEFAULT_VIBRATO
+  const tremolo = editor.tremolo ?? DEFAULT_TREMOLO
 
   const {
     testTuningSystem, testNoteIndex, testOctave, preset: activePreset,
@@ -567,6 +595,8 @@ function WaveformEditor({
   stateSnapshotRef.current = {
     points, amplitude, definition, preset: activePreset, attack, hold, decay, sustain, release,
     mode, N, amplitudes, anchors, interpolation,
+    // itération P : modulations LFO incluses dans le dirty check.
+    vibrato, tremolo,
   }
 
   useImperativeHandle(ref, () => ({
@@ -1444,6 +1474,9 @@ function WaveformEditor({
     anchors: cloneAnchors(anchors),
     interpolation,
     residual: Array.from(editor.residual ?? []),
+    // itération P : modulations LFO du patch.
+    vibrato: cloneLfo(vibrato, DEFAULT_VIBRATO),
+    tremolo: cloneLfo(tremolo, DEFAULT_TREMOLO),
     attack,
     hold,
     decay,

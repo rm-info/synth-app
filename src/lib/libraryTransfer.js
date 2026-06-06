@@ -8,7 +8,7 @@
 
 import { OSA_VERSION } from './osaFormat.js'
 import { nextAvailableFolderName } from './folderNames.js'
-import { migrateLegacyPatch } from '../reducer.js'
+import { migrateLegacyPatch, sanitizeVibrato, sanitizeTremolo } from '../reducer.js'
 
 export class EmptyExportError extends Error {
   constructor() { super('Rien à exporter'); this.name = 'EmptyExportError' }
@@ -39,6 +39,10 @@ function normalizePatchForExport(patch, folderId) {
     anchors: patch.anchors,
     interpolation: patch.interpolation,
     residual: patch.residual,
+    // itération P (.osa v3) : modulations LFO. Sanitize défensif pour qu'un
+    // patch en mémoire non encore migré n'émette jamais un objet partiel.
+    vibrato: sanitizeVibrato(patch.vibrato),
+    tremolo: sanitizeTremolo(patch.tremolo),
   }
 }
 

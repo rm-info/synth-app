@@ -82,6 +82,22 @@ export interface AdsrEnvelope {
   release: number
 }
 
+// === Modulations LFO (itération P) ===
+
+// Forme d'onde du LFO. Map directement sur `OscillatorNode.type` (Web Audio).
+export type LfoShape = 'sine' | 'triangle' | 'square'
+
+// Un oscillateur basse fréquence par patch, strictement symétrique entre
+// vibrato (LFO sur la hauteur, depth en cents) et trémolo (LFO sur le volume,
+// depth ∈ [0,1]). `onset` = fondu d'installation depuis le début de la note (ms).
+export interface Lfo {
+  enabled: boolean
+  rate: number     // Hz, borné [LFO_RATE_MIN, LFO_RATE_MAX]
+  depth: number    // vibrato : cents [0, VIBRATO_DEPTH_MAX] ; trémolo : [0, TREMOLO_DEPTH_MAX]
+  onset: number    // ms, borné [0, LFO_ONSET_MAX]
+  shape: LfoShape
+}
+
 // === Modèle métier ===
 
 // Hauteur portée par un clip : système-based (noteIndex/octave non nuls) OU
@@ -156,6 +172,9 @@ export interface Patch extends AdsrEnvelope {
   anchors: SplineAnchor[]
   interpolation: SplineInterpolation
   residual: number[]
+  // itération P : modulations LFO par patch (vibrato = hauteur, trémolo = volume).
+  vibrato: Lfo
+  tremolo: Lfo
 }
 
 // Données d'un patch transmises à SAVE_PATCH / UPDATE_PATCH (sans id/color).
@@ -170,6 +189,10 @@ export interface PatchData {
   residual: number[]
   amplitude: number
   preset: string | null
+  // itération P : modulations LFO (optionnelles dans le payload, défauts injectés
+  // par le reducer si absentes — rétro-compat call-sites).
+  vibrato?: Lfo
+  tremolo?: Lfo
   attack?: number
   hold?: number
   decay?: number
@@ -203,6 +226,10 @@ export interface Editor extends AdsrEnvelope {
   // non persisté dans Patch/PatchData. Pilote bouton Normaliser, courbe grise,
   // dialog edit-bars.
   canonicalNormalized: boolean
+  // itération P : modulations LFO éditées avant sauvegarde (font partie de
+  // l'identité du patch, comme l'AHDSR — ≠ champs `test*` volatils).
+  vibrato: Lfo
+  tremolo: Lfo
   testTuningSystem: TuningSystemId
   testNoteIndex: number
   testOctave: number
@@ -530,6 +557,9 @@ export type ActionBody =
   | { type: 'SET_SPLINE_INTERPOLATION'; payload: SplineInterpolation }
   | { type: 'SET_EDITOR_ADSR'; payload: Partial<AdsrEnvelope> }
   | { type: 'SET_EDITOR_ADSR_AND_AMP'; payload: { adsr?: Partial<AdsrEnvelope>; amplitude?: number } }
+  // itération P : édition d'un paramètre de modulation. Action générique unique
+  // (10 champs × set) qui clampe selon effect+key dans le reducer.
+  | { type: 'SET_EDITOR_MODULATION'; payload: { effect: 'vibrato' | 'tremolo'; key: keyof Lfo; value: boolean | number | LfoShape } }
   | { type: 'RESET_EDITOR' }
   // iter-M phase-r.2.2 : reset du timbre seul (canonical + cap + lentille
   // spline). Préserve ADSR / amplitude / test* / currentLens / currentPatchId.

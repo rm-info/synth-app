@@ -72,6 +72,60 @@ export const DEFAULT_DOC_ARTICLE_ID = 'about'
 // de plateau, comportement strictement identique à un ADSR classique.
 export const DEFAULT_ADSR = { attack: 10, hold: 0, decay: 100, sustain: 0.7, release: 200 }
 
+// === Modulations LFO (itération P) ===
+//
+// Vibrato (LFO sur la hauteur, depth en cents) et trémolo (LFO sur le volume,
+// depth ∈ [0,1]). Bornes clampées partout (modèle, UI, migration). Défauts
+// désactivés mais déjà musicaux → activer rend l'effet audible immédiatement
+// sans avoir à régler un depth nul.
+export const LFO_RATE_MIN = 0.1
+export const LFO_RATE_MAX = 20
+export const VIBRATO_DEPTH_MAX = 200 // cents
+export const TREMOLO_DEPTH_MAX = 1
+export const LFO_ONSET_MAX = 2000 // ms
+/** @type {import('./types').LfoShape[]} */
+export const LFO_SHAPES = ['sine', 'triangle', 'square']
+
+/** @type {import('./types').Lfo} */
+export const DEFAULT_VIBRATO = { enabled: false, rate: 5, depth: 20, onset: 0, shape: 'sine' }
+/** @type {import('./types').Lfo} */
+export const DEFAULT_TREMOLO = { enabled: false, rate: 5, depth: 0.3, onset: 0, shape: 'sine' }
+
+const clampToRange = (v, lo, hi, fallback) => {
+  const n = Number(v)
+  return Number.isFinite(n) ? Math.max(lo, Math.min(hi, n)) : fallback
+}
+
+// Sanitize un objet Lfo brut (localStorage / .osa / payload). `depthMax` borne
+// la profondeur (200 cents pour le vibrato, 1 pour le trémolo). Renvoie toujours
+// un objet complet, défauts injectés pour les champs absents/invalides.
+function clampLfo(raw, depthMax, fallback) {
+  if (!raw || typeof raw !== 'object') return { ...fallback }
+  return {
+    enabled: raw.enabled === true,
+    rate: clampToRange(raw.rate, LFO_RATE_MIN, LFO_RATE_MAX, fallback.rate),
+    depth: clampToRange(raw.depth, 0, depthMax, fallback.depth),
+    onset: clampToRange(raw.onset, 0, LFO_ONSET_MAX, fallback.onset),
+    shape: LFO_SHAPES.includes(raw.shape) ? raw.shape : fallback.shape,
+  }
+}
+export function sanitizeVibrato(raw) { return clampLfo(raw, VIBRATO_DEPTH_MAX, DEFAULT_VIBRATO) }
+export function sanitizeTremolo(raw) { return clampLfo(raw, TREMOLO_DEPTH_MAX, DEFAULT_TREMOLO) }
+
+// Clamp d'un champ unique pour SET_EDITOR_MODULATION (action paramétrée).
+function clampModulationValue(effect, key, value) {
+  const fallback = effect === 'vibrato' ? DEFAULT_VIBRATO : DEFAULT_TREMOLO
+  if (key === 'enabled') return value === true
+  if (key === 'shape') return LFO_SHAPES.includes(value) ? value : fallback.shape
+  if (key === 'rate') return clampToRange(value, LFO_RATE_MIN, LFO_RATE_MAX, fallback.rate)
+  if (key === 'onset') return clampToRange(value, 0, LFO_ONSET_MAX, fallback.onset)
+  if (key === 'depth') {
+    const depthMax = effect === 'vibrato' ? VIBRATO_DEPTH_MAX : TREMOLO_DEPTH_MAX
+    return clampToRange(value, 0, depthMax, fallback.depth)
+  }
+  return value
+}
+
 // Modèle unifié (M rattrapage) : `cap` ∈ [1, 256] est le plafond
 // d'harmoniques unique (remplace `definition` du tracé ET `N` des barres).
 // `cap = 256` : pleine bande. `cap = 1` : fondamentale seule (cas dégénéré
@@ -294,6 +348,9 @@ export const DEFAULT_EDITOR = {
   // true), courbe grise background (masquée si true), dialog edit-bars (intercepte
   // si false). Chaque action qui écrit canonical le repositionne explicitement.
   canonicalNormalized: true,
+  // itération P : modulations LFO par patch (défauts désactivés mais musicaux).
+  vibrato: { ...DEFAULT_VIBRATO },
+  tremolo: { ...DEFAULT_TREMOLO },
   testTuningSystem: '12-TET', // '12-TET' | 'free'
   testNoteIndex: 9, // A
   testOctave: 4,
@@ -413,6 +470,9 @@ function patchMeta(p) {
     decay: p.decay,
     sustain: p.sustain,
     release: p.release,
+    // itération P : modulations LFO (absentes des patches v1/v2 → défauts).
+    vibrato: sanitizeVibrato(p.vibrato),
+    tremolo: sanitizeTremolo(p.tremolo),
   }
 }
 
@@ -733,6 +793,8 @@ export function buildInitialState() {
       canonical: [...DEFAULT_EDITOR.canonical],
       residual: [...DEFAULT_EDITOR.residual],
       anchors: DEFAULT_EDITOR.anchors.map((a) => ({ ...a })),
+      vibrato: { ...DEFAULT_VIBRATO },
+      tremolo: { ...DEFAULT_TREMOLO },
       testTuningSystem: persisted?.editorTestTuningSystem ?? DEFAULT_EDITOR.testTuningSystem,
       testNoteIndex: persisted?.editorTestNoteIndex ?? DEFAULT_EDITOR.testNoteIndex,
       testOctave: persisted?.editorTestOctave ?? DEFAULT_EDITOR.testOctave,
@@ -1590,6 +1652,9 @@ export function reducer(state, action) {
         anchors: sanitizeAnchors(patchData.anchors) ?? defaultSplineAnchors(),
         interpolation: patchData.interpolation === 'hard' ? 'hard' : 'soft',
         residual: Array.from(patchData.residual),
+        // itération P : modulations LFO du patch.
+        vibrato: sanitizeVibrato(patchData.vibrato),
+        tremolo: sanitizeTremolo(patchData.tremolo),
       }
 
       // SAVE_PATCH non-undoable, mais on rewrite les snapshots LIBRARY
@@ -1637,6 +1702,9 @@ export function reducer(state, action) {
             anchors: sanitizeAnchors(patchData.anchors) ?? defaultSplineAnchors(),
             interpolation: patchData.interpolation === 'hard' ? 'hard' : 'soft',
             residual: Array.from(patchData.residual),
+            // itération P : modulations LFO du patch.
+            vibrato: sanitizeVibrato(patchData.vibrato),
+            tremolo: sanitizeTremolo(patchData.tremolo),
           }
         }),
       }
@@ -2050,6 +2118,16 @@ export function reducer(state, action) {
       if (amplitude !== undefined) next.amplitude = amplitude
       return { ...state, editor: next }
     }
+    // itération P : édition d'un paramètre de modulation (vibrato/trémolo). Une
+    // seule action paramétrée (10 champs × set) qui clampe selon effect+key.
+    case 'SET_EDITOR_MODULATION': {
+      const { effect, key, value } = action.payload
+      if (effect !== 'vibrato' && effect !== 'tremolo') return state
+      const clamped = clampModulationValue(effect, key, value)
+      const current = state.editor[effect]
+      if (current[key] === clamped) return state
+      return { ...state, editor: { ...state.editor, [effect]: { ...current, [key]: clamped } } }
+    }
     // iter-N phase-5c.3 : APPLY_EDITOR_PRESET supprimé — la barre des presets
     // géométriques (mode Libre) qui le déclenchait a été retirée au profit de la
     // modale (chemin LOAD_PRESET unifié).
@@ -2071,6 +2149,9 @@ export function reducer(state, action) {
           canonical: [...DEFAULT_EDITOR.canonical],
           residual: [...DEFAULT_EDITOR.residual],
           anchors: DEFAULT_EDITOR.anchors.map((a) => ({ ...a })),
+          // itération P : modulations remises aux défauts (« Nouveau patch »).
+          vibrato: { ...DEFAULT_VIBRATO },
+          tremolo: { ...DEFAULT_TREMOLO },
           testTuningSystem,
           testNoteIndex,
           testOctave,
@@ -2165,6 +2246,10 @@ export function reducer(state, action) {
           preset: null,
           // M.r.4 — canonical = silence = trivialement normalisée.
           canonicalNormalized: true,
+          // itération P : le Reset du timbre remet aussi les modulations aux
+          // défauts (cohérent avec le reset des autres champs de timbre).
+          vibrato: { ...DEFAULT_VIBRATO },
+          tremolo: { ...DEFAULT_TREMOLO },
           // cap & nombre d'ancres : PRÉSERVÉS (≠ Ctrl+Alt+N qui réinitialise tout).
         },
       }
@@ -2181,6 +2266,8 @@ export function reducer(state, action) {
             canonical: [...DEFAULT_EDITOR.canonical],
             residual: [...DEFAULT_EDITOR.residual],
             anchors: DEFAULT_EDITOR.anchors.map((a) => ({ ...a })),
+            vibrato: { ...DEFAULT_VIBRATO },
+            tremolo: { ...DEFAULT_TREMOLO },
           },
         }
       }
@@ -2196,6 +2283,9 @@ export function reducer(state, action) {
           anchors: (sanitizeAnchors(patch.anchors) ?? defaultSplineAnchors()).map((a) => ({ ...a })),
           interpolation: patch.interpolation === 'hard' ? 'hard' : 'soft',
           residual: Array.from(patch.residual),
+          // itération P : modulations recopiées du patch (font partie de son identité).
+          vibrato: sanitizeVibrato(patch.vibrato),
+          tremolo: sanitizeTremolo(patch.tremolo),
           currentLens: 'free',
           // M.r.4 — le flag n'est pas persisté dans le patch : phase inconnue au
           // rechargement → false (l'utilisateur normalisera explicitement avant
@@ -2771,6 +2861,8 @@ const DESIGNER_UNDOABLE = new Set([
   'UPDATE_PATCH',
   'SET_EDITOR_CANONICAL', 'SET_EDITOR_AMPLITUDE', 'SET_EDITOR_CAP',
   'SET_EDITOR_ADSR', 'SET_EDITOR_ADSR_AND_AMP', 'RESET_EDITOR',
+  // itération P : édition des modulations LFO (vibrato/trémolo).
+  'SET_EDITOR_MODULATION',
   // iter-M phase-r.2 : reset du timbre seul + normalisation (iDFT phase
   // canonique) + re-fit du nombre d'ancres.
   'RESET_EDITOR_WAVEFORM', 'NORMALIZE_EDITOR_CANONICAL', 'SET_EDITOR_ANCHOR_COUNT',
