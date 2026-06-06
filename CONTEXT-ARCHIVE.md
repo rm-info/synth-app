@@ -883,6 +883,71 @@ Phases listées ci-dessous dans l'ordre chronologique d'implémentation.
 
 ## Historique (chronologie inverse)
 
+- **2026-06-06 — Iteration P « Effets & modulations : vibrato & trémolo (LFO par
+  patch) » — CLOSE. Release v1.8.0.** Première itération de la section « Effets et
+  modulations » du backlog. Deux LFO **par patch** (pas par clip) : vibrato (LFO
+  sur la hauteur) et trémolo (LFO sur le volume). L'enjeu était la **plomberie
+  transverse** réutilisable par les futurs effets : modèle typé, migration,
+  persistance `.osa`, helper audio partagé sur les **4 chemins de synthèse**, 6ᵉ
+  module Designer inséré dans le gestionnaire de modules d'O. Features additives,
+  zéro breaking → bump **minor**. Composant/fichier nouveau : `lib/modulation.js` ;
+  champ persisté nouveau : `designerCollapsed.modulation` ; `OSA_VERSION 3`.
+  - **P.1 — Fondation typée** (`feat(iter-P/phase-1)`). Type `Lfo`
+    (enabled/rate/depth/onset/shape) strictement symétrique vibrato/trémolo ;
+    `Patch`/`PatchData`/`Editor` += vibrato/tremolo. Constantes
+    (`LFO_RATE_MIN/MAX`, `VIBRATO_DEPTH_MAX`=200 cents, `TREMOLO_DEPTH_MAX`=1,
+    `LFO_ONSET_MAX`=2000 ms, `LFO_SHAPES`) + fabriques de défauts
+    (`DEFAULT_VIBRATO` rate:5 depth:20, `DEFAULT_TREMOLO` rate:5 depth:0.3,
+    désactivés mais musicaux) + sanitizers clampants. Action paramétrée unique
+    `SET_EDITOR_MODULATION` ({effect,key,value}, clampée selon effect+key,
+    undoable) au lieu de 10 actions. Câblé dans `DEFAULT_EDITOR`,
+    `buildInitialState`, `RESET_EDITOR`, `RESET_EDITOR_WAVEFORM`,
+    `HYDRATE_EDITOR_FROM_PATCH`, `SAVE_PATCH`, `UPDATE_PATCH`, `patchMeta`
+    (migration). Dirty check étendu (`lfoEqual` + snapshots). `.osa` :
+    `OSA_VERSION 2→3`, `validatePayload` accepte v1/v2/v3 (modulations tolérées à
+    l'absence, validées si présentes) ; `libraryTransfer` émet vibrato/tremolo ;
+    migration localStorage via `migrateLegacyPatch` (défauts injectés pour v1/v2).
+    Aucun son, aucune UI : vérifié par `npx tsc --noEmit` + round-trip
+    migration/export/import.
+  - **P.2 — Helper `modulation.js` + 4 chemins** (`feat(iter-P/phase-2)`).
+    `applyModulation(ctx, {osc, gain, vibrato, tremolo, startTime, stopTime,
+    baseAmplitude})` ajoute les branches LFO sur un couple (osc, gain) déjà créé
+    par l'appelant, sans jamais l'allouer ni le connecter à `dest` ; retourne
+    `{ nodes, tremoloDepthGain }` pour le cleanup. Vibrato → `osc.detune` (cents),
+    trémolo → `gain.gain` (sommé à l'AHDSR). Onset = fondu d'installation ;
+    extinction du trémolo programmée à `stopTime` (timeline/export) ou rampée au
+    release (previews) → pas de souffle dans la traîne. Branché sur
+    `scheduleOneClip` + `scheduleAllClips` (`usePlayback`, cleanup aux 3 sites :
+    stopScheduler, invalidation tick, unmount) ET `playInstrumentNote` +
+    `playFreeNote` (`WaveformEditor`, `mod`+`tremoloDepthGain` dans le record de
+    voix, fermés à retrigger/release/stopAll/onended). Son piloté par l'état ;
+    aucune régression quand les deux effets sont off (helper retourne `[]`).
+  - **P.3 — 6ᵉ module Designer « Modulation »** (`feat(iter-P/phase-3)`).
+    `MODULE_META.modulation` (icône Lucide `Vibrate`), `DESIGNER_ROWS.bottom` à 3
+    cellules (params/adsr/modulation) — `rowSiblings`, auto-réduction (O.5d),
+    collapse/maximize (O.5a/b), `OverflowToolbar` (O.6.2) marchent génériquement
+    sur le 3ᵉ membre (sélecteurs `:has()` + état par id). `DesignerModuleId` /
+    `DesignerCollapsed` / `DESIGNER_MODULE_IDS` / `sanitizeDesignerCollapsed` +=
+    modulation (persistance du repli). `renderModulationArea` (patron
+    `renderAdsrArea`) : 2 sous-blocs Vibrato/Trémolo — interrupteur pastille,
+    switch de forme en icônes SVG (`IconSine`/`IconTriangleWave`/`IconSquareWave`,
+    style Lucide), 3 `NumberInput` à steppers (vitesse 0.1/1 ; profondeur vibrato
+    1/10, trémolo 0.05/0.1 ; installation 10/100). **Mini-courbe LFO animée** : 1
+    seule boucle `rAF` par module dessinant les deux courbes, gatée par
+    `modulationVisible` (prop App.jsx : onglet+collapse+maximize+mobile) ET ≥1
+    effet `enabled` ; sous-bloc désactivé = ligne plate figée ; arrêt propre
+    (`cancelAnimationFrame`) au repli/maximize/démontage (audit perf N.1). Mobile :
+    6ᵉ zone d'accordéon.
+  - **P.4 — Re-schedule live + clôture** (`feat(iter-P/phase-4)` +
+    `feat(v1.8.0)`). `usePlayback.sigOf` étendu (vibrato + trémolo sérialisés) →
+    éditer une modulation d'un patch utilisé en cours de lecture re-schedule les
+    clips concernés, comme l'AHDSR (F.3.12.1). Bump mineur SemVer **v1.8.0**
+    (package.json + about.md). Décisions consignées dans `CONTEXT.md` : modulations
+    par patch via helper partagé sur les 4 chemins ; detune cents (vibrato) /
+    addition sur `gain.gain` (trémolo). Hors scope (→ backlog) : pitch envelope,
+    filtre + enveloppe, distorsion, effets temporels/mixage par piste, surfaçage
+    Composer read-only, override par clip, synchro tempo du LFO.
+
 - **2026-06-06 — Iteration O « Ergonomie & responsive du Designer » — CLOSE.
   Release v1.7.0.** Désencombrement / densification / responsive du **Designer**
   (tout scopé Designer), calibré jusqu'au plancher accordéon 924×668. Features

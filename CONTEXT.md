@@ -16,7 +16,7 @@ persistance localStorage (clé `synth-app-state`). **TypeScript incrémental**
 lib audio, pas de state manager (un `useReducer` global dans `App.jsx`), pas de
 framework UI (CSS manuscrit), pas de routing, pas de backend.
 
-**Version courante : v1.7.0** (2026-06-06).
+**Version courante : v1.8.0** (2026-06-06).
 
 **Itérations livrées** (détail complet dans `CONTEXT-ARCHIVE.md`) :
 
@@ -37,15 +37,20 @@ framework UI (CSS manuscrit), pas de routing, pas de backend.
 | M | Waveform Designer : modèle canonique unifié + 3 lentilles + patch typé — v1.5.0 | 2026-06-03 |
 | N | Stabilité & fluidité : édition d'ancres refondue (warp 2D), presets « Timbres » (vues idéale/band-limitée + formes paramétriques), lissage, durcissements — v1.6.0 | 2026-06-04 |
 | O | Ergonomie & responsive Designer : steppers, OverflowToolbar généralisé, responsive Instrument/AHDSR, gestionnaire de modules (collapse/maximize/auto-collapse), titres ellipsis — v1.7.0 | 2026-06-06 |
+| P | Effets & modulations : vibrato & trémolo (LFO par patch) — helper audio partagé sur les 4 chemins, 6ᵉ module Designer, .osa v3 — v1.8.0 | 2026-06-06 |
 
-**État courant** : Iteration O « Ergonomie & responsive du Designer » **close**
-(release v1.7.0, 2026-06-06) — **entre deux itérations**, prochaine non cadrée
-(« Monde B » pressenti). Le Designer desktop est traité de bout en bout jusqu'au
-plancher accordéon (924×668) ; l'épuration sous ce seuil est reportée (cf.
-`archi/BACKLOG.md` § Iteration O « Différé / reste »). L'état présent du Designer
-est résumé dans `## État actuel` ci-dessous ; le détail par phase O.1→O.6 vit dans
-`CONTEXT-ARCHIVE.md`. Hygiène restante (hors itération) : purge des prompt-fichiers
-`archi/O*`, `archi/N*`, `archi/Mr*`, `archi/M5b*` consommés.
+**État courant** : Iteration P « Effets & modulations : vibrato & trémolo (LFO
+par patch) » **close** (release v1.8.0, 2026-06-06) — **entre deux itérations**,
+prochaine non cadrée (« Monde B » pressenti). Première itération de la section
+« Effets et modulations » du backlog : deux LFO par patch (vibrato → hauteur via
+`osc.detune`, trémolo → volume sommé sur `gain.gain`), un helper audio partagé
+(`lib/modulation.js`) câblé sur les **4 chemins de synthèse**, un 6ᵉ module
+Designer « Modulation », persistance `.osa` v3. Détail par phase P.1→P.4 dans
+`CONTEXT-ARCHIVE.md`. Iteration O (v1.7.0) reste la référence du Designer desktop,
+traité jusqu'au plancher accordéon (924×668) ; l'épuration sous ce seuil est
+reportée (cf. `archi/BACKLOG.md`). Hygiène restante (hors itération) : purge des
+prompt-fichiers `archi/O*`, `archi/P*`, `archi/N*`, `archi/Mr*`, `archi/M5b*`
+consommés.
 
 > **Structure des fichiers de contexte.** Ce `CONTEXT.md` est le **brief
 > vivant** : état présent, modèle de données, composants, architecture,
@@ -104,7 +109,8 @@ synth-app/
     │   ├── folderNames.js    # nextAvailableFolderName partagé (extraction H.1.4)
     │   ├── bibTransfer.js               # wouldCreateCycle + duplicateItemsToFolder (K.1.7)
     │   ├── shortcuts.js      # table déclarative + matchesShortcut / getAnchor (iter-L phase-1.1)
-    │   ├── designerModules.js # (iter-O phase-5c/5d) MODULE_META des 5 modules Designer { label, Icon Lucide } + DESIGNER_ROWS / rowSiblings (rangées haut/bas) — source unique (headers, bande, auto-réduction)
+    │   ├── designerModules.js # (iter-O phase-5c/5d, iter-P) MODULE_META des 6 modules Designer { label, Icon Lucide } + DESIGNER_ROWS / rowSiblings (rangée haut 3 / bas 3) — source unique (headers, bande, auto-réduction)
+    │   ├── modulation.js     # (iter-P) applyModulation : branche les LFO vibrato/trémolo (osc.detune cents / gain.gain sommé) sur un couple (osc, gain) existant ; helper partagé des 4 chemins de synthèse
     │   ├── getAnchoredPosition.js # résolution viewport rect d'un [data-anchor] (iter-L phase-1.5)
     │   ├── highlightElement.js # halo temporaire ancré (DocLink), retry RAF (iter-L phase-3.1)
     │   ├── markdown.js       # parser Markdown maison + AST, délègue le math à mathParse (iter-L phase-2.2 / R.1)
@@ -129,7 +135,7 @@ synth-app/
         ├── WaveformEditor.jsx + .css          # éditeur ondes / patch (Designer)
         ├── Spectrogram.jsx + .css             # spectrogramme statique (Designer)
         ├── DesignerColumns.jsx + .css         # layout 3 colonnes ajustables (Designer, M.2.2) ; prop collapsed → colonne repliée en bande (iter-O phase-5a)
-        ├── DesignerModule.jsx + .css          # wrapper réductible/maximisable des 5 modules Designer : bande verticale (icône+titre) ↔ contenu (toujours monté, display:none si replié — contrainte canvas) ; rend la ModuleChrome en coin absolu (iter-O phase-5a/5c)
+        ├── DesignerModule.jsx + .css          # wrapper réductible/maximisable des 6 modules Designer : bande verticale (icône+titre) ↔ contenu (toujours monté, display:none si replié — contrainte canvas) ; rend la ModuleChrome en coin absolu (iter-O phase-5a/5c)
         ├── ModuleChrome.jsx + .css            # chrome « contrôle de fenêtre » d'un module : Réduire (désactivé en maximisé) + Agrandir/Restaurer ; centralisée dans DesignerModule, coin haut-droit absolu (iter-O phase-5a→5c)
         ├── OverflowToolbar.jsx + .css         # barre d'outils générique « priority-plus » : items bar/tray, débordement → tiroir `⋯` (iter-O phase-2). Branché : les 5 headers de module + groupe droit DesignerToolbar (généralisé O.6.2)
         ├── SplineEditor.jsx + .css            # éditeur points/courbe mode spline (Designer, M.3)
@@ -218,13 +224,21 @@ type Patch = {
   decay: number                   // ms, 0-1000 (F.3.11)
   sustain: number                 // 0..1
   release: number                 // ms, 0-1000 (F.3.11)
+  // itération P : modulations LFO par patch (vibrato = hauteur, trémolo = volume).
+  vibrato: Lfo                    // { enabled, rate Hz, depth cents, onset ms, shape }
+  tremolo: Lfo                    // { enabled, rate Hz, depth 0..1, onset ms, shape }
 }
-// Editor : mêmes champs + `currentLens: 'free'|'spline'` (volatile, non
+// type Lfo = { enabled:boolean, rate:number /*0.1-20 Hz*/, depth:number
+//   /*vibrato 0-200 cents ; trémolo 0-1*/, onset:number /*0-2000 ms*/,
+//   shape:'sine'|'triangle'|'square' }. Défauts désactivés mais musicaux
+//   (DEFAULT_VIBRATO rate:5 depth:20 ; DEFAULT_TREMOLO rate:5 depth:0.3).
+// Editor : mêmes champs (dont vibrato/tremolo) + `currentLens: 'free'|'spline'` (volatile, non
 // persisté) = quelle lentille est active (M.r.3.2 : 'bars' retiré, vestigial).
 // Migration v1→v2 (M.r.1) : les anciens
 // patches (draw/harmonic/spline) sont convertis à l'hydratation localStorage et
-// à l'import .osa v1 (reducer.migrateLegacyPatch, idempotent). OSA_VERSION = 2 ;
-// l'import accepte v1 (legacy) ET v2.
+// à l'import .osa v1 (reducer.migrateLegacyPatch, idempotent). OSA_VERSION = 3
+// (iter-P : += vibrato/tremolo) ; l'import accepte v1 (legacy), v2 ET v3 —
+// modulations absentes (v1/v2) → DEFAULT_VIBRATO/TREMOLO injectés à l'hydratation.
 
 type Track = {
   id: string                      // "track-N"
@@ -277,8 +291,8 @@ type Clip = {                     // placement timeline + hauteur
 //   composerBankCollapsed, composerAsideCollapsed,
 //   docSidebarWidth, docSidebarCollapsed (iter-L phase-2.1),
 //   designerColumnWidths, autoSizing,
-//   designerCollapsed (iter-O phase-5a : { canvas, harmonics, spectrogram,
-//     params, adsr } booléens, état replié des 5 modules Designer),
+//   designerCollapsed (iter-O phase-5a, iter-P : { canvas, harmonics, spectrogram,
+//     params, adsr, modulation } booléens, état replié des 6 modules Designer),
 //   maximized (iter-O phase-5b : id du module maximisé ou null),
 //   autoCollapse (iter-O phase-5d : politique d'auto-réduction par rangée),
 //   editorTestTuningSystem, editorTestNoteIndex, editorTestOctave,
@@ -392,16 +406,28 @@ Seuls les **placements timeline** s'appellent "clips".
   - Libre : slider log 2^4-2^15 Hz + FreqInput éditable + bouton
     **Test** (canal mono via `playFreeNote()` lisant `testFrequency`
     direct, raccourci `s`).
-- Children-API (iter-M phase-2, étendue r.2) : `renderCanvasArea`,
+- Children-API (iter-M phase-2, étendue r.2, iter-P) : `renderCanvasArea`,
   `renderHarmonicsArea`, `renderParamsArea` (≡ zone "Instrument" depuis
-  G.1.1), `renderAdsrArea`, `renderActions` ({collapsed}) + valeurs/handlers
+  G.1.1), `renderAdsrArea`, `renderModulationArea` (iter-P, 6ᵉ module),
+  `renderActions` ({collapsed}) + valeurs/handlers
   pour la barre du haut : `patchLabel`, `openPresetPicker`,
   `requestResetWaveform`, `normalizeWaveform` (le picker de presets et les
   ConfirmDialog restent montés dans `WaveformEditor` ; la barre ne fait que
   piloter leur ouverture). App.jsx compose la moitié haute = `DesignerToolbar`
   (barre du haut) + 3 colonnes via `DesignerColumns` (Forme d'onde /
-  Harmoniques / Spectrogramme), et garde la moitié basse (Instrument / ADSR).
-  Le panneau Actions est placé par App.jsx dans la sidebar gauche.
+  Harmoniques / Spectrogramme), et garde la moitié basse à **3 cellules**
+  (Instrument / AHDSR / Modulation, iter-P). Le panneau Actions est placé par
+  App.jsx dans la sidebar gauche.
+- **Module Modulation (iter-P)** : `renderModulationArea` rend 2 sous-blocs
+  symétriques Vibrato/Trémolo — interrupteur on/off, switch de forme (icônes SVG
+  IconSine/IconTriangleWave/IconSquareWave), 3 `NumberInput` à steppers
+  (vitesse Hz / profondeur cents|0..1 / installation ms) + une **mini-courbe LFO
+  animée** par sous-bloc. **Une seule** boucle `rAF` pour le module (dessine les
+  deux courbes), gatée strictement par `modulationVisible` (prop App.jsx couvrant
+  collapse/maximize/onglet/mobile) ET au moins un effet `enabled` (sous-bloc
+  désactivé = ligne plate figée) — arrêt propre au repli/maximize/démontage
+  (audit perf N.1). Édition via `editorActions.setModulation(effect, key, value)`
+  → action paramétrée unique `SET_EDITOR_MODULATION` (clampée, undoable).
 - **Quadrant Instrument responsive (iter-O phase-3, desktop only)** : reçoit
   `isMobile` (prop, source unique App.jsx) et lit `windowHeight`. Dégradation à
   **2 étages** qui libère des lignes pour le clavier quand l'espace se resserre
@@ -855,7 +881,9 @@ Seuls les **placements timeline** s'appellent "clips".
   frequency → un clip dont la hauteur change pendant la lecture est
   invalidé et reprogrammé comme les autres modifications.
   `scheduledClipIds` (Set) évite le double-scheduling. `activeNodesRef`
-  stocke les oscillators actifs.
+  stocke les oscillators actifs. **iter-P** : la signature inclut aussi
+  vibrato/trémolo du patch (sérialisés) ; chaque record d'`activeNodesRef`
+  porte un `mod` (nœuds LFO) stoppé/déconnecté avec l'`osc`.
 - **GainNode par piste** (`trackGainNodesRef`) : chaque piste a son propre
   gain, tous convergent vers `analyserGain` → `AnalyserNode` + `destination`.
 - `updateTrackGains(tracks)` : met à jour les gains en temps réel pendant
@@ -911,7 +939,17 @@ Seuls les **placements timeline** s'appellent "clips".
   clips modifiés invalidés et reprogrammés. Depuis F.3.12.1, la
   signature inclut l'enveloppe du patch référencé → modifier
   attack/hold/decay/sustain/release/amplitude pendant la lecture
-  re-schedule les clips à venir.
+  re-schedule les clips à venir. **iter-P** : la signature inclut aussi
+  vibrato + trémolo → éditer une modulation re-schedule de même.
+- **Modulations LFO par patch (iter-P)** : helper partagé `lib/modulation.js`
+  (`applyModulation`) branché sur les **4 chemins de synthèse** (lecture timeline
+  `scheduleOneClip`, export WAV `scheduleAllClips`, preview clavier, preview note
+  libre). Vibrato → `osc.detune` (cents, indépendant de la note, n'écrase pas
+  `osc.frequency`). Trémolo → `gain.gain` (sommé à l'automation AHDSR, jamais
+  multiplié). `onset` = fondu d'installation depuis le début de la note ;
+  extinction du trémolo programmée à `stopTime` (timeline/export) ou rampée au
+  release (previews) pour ne pas laisser de souffle dans la traîne. Cleanup
+  symétrique : chaque nœud LFO est stoppé/déconnecté partout où l'`osc` l'est.
 - **Export WAV** : `OfflineAudioContext(2, sampleRate * totalDurationSec, 44100)`,
   même routage per-track GainNode, mono up-mixé en stéréo, encodage RIFF/PCM16
 - **AHDSR par note** : rampes linéaires
@@ -926,6 +964,24 @@ Seuls les **placements timeline** s'appellent "clips".
 Choix non évidents pris pour de bonnes raisons. À ne pas remettre en question
 à la légère — relire ici avant de refactorer.
 
+- **Modulations par patch via helper partagé sur les 4 chemins (iter-P)** : le
+  vibrato et le trémolo sont des **LFO par patch** (pas par clip — pas de champ de
+  modulation sur `Clip`). Un **helper unique** `lib/modulation.js` (`applyModulation`)
+  est câblé sur les **4 chemins de synthèse** (lecture timeline, export WAV, preview
+  clavier, preview note libre) — `scheduleOneClip` et `scheduleAllClips` étant du
+  code dupliqué, le helper partagé est la seule défense contre la divergence
+  one/all (régression classique documentée). Le helper **n'alloue jamais** osc/gain
+  et ne les connecte pas à `dest` : il ne fait qu'**ajouter des branches** ;
+  l'appelant possède la chaîne principale et stoppe/déconnecte les nœuds LFO
+  symétriquement à l'`osc` (cleanup programmé via `stopTime` pour timeline/export,
+  manuel au release pour les previews qui sustainent indéfiniment).
+- **Detune (cents) pour le vibrato / addition sur `gain.gain` pour le trémolo
+  (iter-P)** : le vibrato module `osc.detune` (en **cents**) et **non**
+  `osc.frequency` — indépendant de la note (même intervalle de vibrato à toute
+  hauteur) et n'écrase pas la fréquence déjà programmée par l'appelant. Le trémolo
+  connecte son `depthGain` à `gain.gain` : Web Audio **somme** ce signal à
+  l'automation AHDSR déjà programmée — on n'essaie **ni** de multiplier **ni** de
+  reprogrammer l'enveloppe. Cible de profondeur trémolo = `baseAmplitude × depth`.
 - **Slider = grandeur continue / stepper = décompte discret (iter-O O.1)** :
   convention d'entrée. Un nombre qu'on **compte** (nombre d'ancres, plafond
   d'harmoniques) se règle au **stepper `▴▾`** (`NumberInput` opt-in) — la valeur
@@ -1814,10 +1870,10 @@ Conventions tacites. Les enfreindre sans raison crée des bugs subtils.
 - **Modèle unifié (M rattrapage)** : `cap` (1..256) remplace `definition` (tracé)
   ET `N` (barres) ; `editor.currentLens` (`'free'|'spline'`, M.r.3.2) est
   **volatile** (non persisté en localStorage, non écrit dans `.osa`) ; le résidu
-  (`residual`) vit sur l'editor ET le patch. `.osa` : `OSA_VERSION = 2`, l'import
-  accepte v1 (legacy, migré à l'hydratation) et v2. Migration idempotente
-  `reducer.migrateLegacyPatch` — une implémentation, deux call-sites
-  (localStorage + import .osa).
+  (`residual`) vit sur l'editor ET le patch. `.osa` : `OSA_VERSION = 3` (iter-P :
+  += vibrato/tremolo), l'import accepte v1 (legacy, migré à l'hydratation), v2 et
+  v3. Migration idempotente `reducer.migrateLegacyPatch` — une implémentation,
+  deux call-sites (localStorage + import .osa).
 - **Reset vs Normaliser vs Nouveau patch (M.r.2, portée resserrée r.2.6.1)** :
   trois actions distinctes. `RESET_EDITOR_WAVEFORM` (bouton Reset) réinitialise
   **le timbre seul** (canonical = silence, ancres aplaties, interpolation =
@@ -1897,6 +1953,25 @@ Conventions tacites. Les enfreindre sans raison crée des bugs subtils.
 ## État actuel
 
 ✅ **Terminé**
+- **Iteration P — « Effets & modulations : vibrato & trémolo (LFO par patch) »
+  (close, v1.8.0)**. Première itération de la section « Effets et modulations ».
+  Détail par phase P.1→P.4 dans `CONTEXT-ARCHIVE.md`.
+  - **P.1 — Fondation typée** : type `Lfo` symétrique vibrato/trémolo
+    (enabled/rate/depth/onset/shape), `Patch`/`Editor` += vibrato/tremolo,
+    constantes + défauts + bornes (clampées partout), action paramétrée unique
+    `SET_EDITOR_MODULATION` (undoable), hydratation/payload/dirty check/reset,
+    migration localStorage + `.osa` `OSA_VERSION 3` (accepte v1/v2/v3).
+  - **P.2 — Helper audio + 4 chemins** : `lib/modulation.js` (`applyModulation`)
+    branché sur lecture timeline, export WAV, preview clavier, preview note libre
+    (helper partagé = pas de divergence one/all) ; vibrato → `osc.detune` (cents),
+    trémolo → `gain.gain` (sommé) ; onset + extinction propre au release ; cleanup
+    symétrique des nœuds LFO partout où l'`osc` est stoppé.
+  - **P.3 — 6ᵉ module Designer « Modulation »** : rangée du bas à 3 cellules,
+    persistance `designerCollapsed.modulation` ; 2 sous-blocs (interrupteur,
+    switch de forme en icônes, 3 steppers) + mini-courbe LFO animée gatée (1 rAF
+    par module, pause au repli/maximize, audit perf N.1).
+  - **P.4 — Re-schedule live + clôture** : `sigOf` étendu (vibrato/trémolo) →
+    édition live audible pendant la lecture ; bump v1.8.0.
 - **Iteration O — « Ergonomie & responsive du Designer » (close, v1.7.0)**. État
   présent du Designer après l'itération (détail par phase O.1→O.6 dans
   `CONTEXT-ARCHIVE.md`). Tout est scopé Designer, calibré jusqu'au plancher
@@ -2710,11 +2785,21 @@ Conventions tacites. Les enfreindre sans raison crée des bugs subtils.
 > Détail des roadmaps des itérations livrées (A→M) → `CONTEXT-ARCHIVE.md`.
 > Ci-dessous : l'itération en cours, puis le backlog général (non planifié).
 
-### Entre deux itérations (depuis la clôture d'O, 2026-06-06)
+### Entre deux itérations (depuis la clôture de P, 2026-06-06)
 
-Iteration O « Ergonomie & responsive du Designer » **close** (release v1.7.0).
-Roadmap détaillée O.1→O.6 archivée dans `CONTEXT-ARCHIVE.md`. Prochaine itération
-**non cadrée** (« Monde B » inharmonique + morph pressenti, cf. `archi/BACKLOG.md`).
+Iteration P « Effets & modulations : vibrato & trémolo (LFO par patch) » **close**
+(release v1.8.0). Roadmap détaillée P.1→P.4 archivée dans `CONTEXT-ARCHIVE.md`.
+Suite de la section « Effets et modulations » du backlog (pitch envelope, filtre +
+enveloppe de filtre, distorsion, effets temporels par piste, mixage/pan…) **non
+cadrée** ; « Monde B » inharmonique + morph toujours pressenti (cf.
+`archi/BACKLOG.md`).
+
+**Reste lié à P (différé, future itération)** :
+- **Surfaçage en Composer / PropertiesPanel** d'un indicateur read-only « ce patch
+  a un vibrato / trémolo » (hors scope P, à backloguer si le besoin émerge).
+- **Override de modulation par clip** et **synchro tempo du LFO** (rate en
+  divisions de temps) : explicitement hors scope P, la modulation reste par patch
+  et en Hz.
 
 **Reste lié à O (différé, future itération)** :
 - **Épuration responsive sous 924×668 (accordéon mobile)** : le Designer desktop est

@@ -2,11 +2,48 @@
 
 > Suivi des idées, pistes et dettes techniques reportées.
 > Tenu par l'archi. Source de vérité pour ce qui n'est pas encore planifié.
-> Dernière mise à jour : 2026-06-03.
+> Dernière mise à jour : 2026-06-06.
 
-> Note : itérations G-M closes (M = Waveform Designer, release v1.5.0 ;
-> cf. CONTEXT.md). Prochaine itération cadrée : **Iteration N (Stabilité &
-> fluidité)** — voir section dédiée ci-dessous.
+> Note : itérations G-O closes (O = Ergonomie & responsive du Designer, release
+> v1.7.0 ; cf. CONTEXT.md). **Entre deux itérations** : prochaine non cadrée
+> (« Monde B » pressenti). Voir « Backlog général » plus bas.
+
+---
+
+## Iteration O (Ergonomie & responsive du Designer) — livrée 2026-06-06
+
+Désencombrement / densification / responsive du **Designer** (tout scopé Designer).
+**Détail par-phase : git + CONTEXT-ARCHIVE.** Livré (O.1→O.6, release v1.7.0) :
+
+- **Steppers (O.1)** — sliders ancres/cap remplacés par champ + chevrons `▴▾`
+  (clic ±1 / appui long accéléré / Shift ±10 / clavier) ; `NumberInput` étendu
+  (livre l'item backlog « flèches ↑↓ NumberInput »).
+- **OverflowToolbar (O.2, généralisé O.6)** — barre « priority-plus » réutilisable
+  (mesure ghost-row + ResizeObserver, tiroir de contrôles `bar`/`tray`), sur les
+  5 headers + la DesignerToolbar.
+- **Instrument responsive (O.3)** — dégradation à 2 étages (⚙ système puis stepper
+  octave dans le header) sur largeur **OU** hauteur ; desktop only.
+- **AHDSR (O.4)** — switch Graphe/Sliders en compact (détection mesurée sur la
+  zone), sliders en 2 colonnes ; `adsrView` persisté.
+- **Gestionnaire de modules (O.5a→d)** — collapse en bande (icône + nom), maximize
+  plein-cadre Designer (canvas jamais démonté), auto-collapse par rangée
+  (coexiste avec AUTO), chrome détachée en coin + identité par icône
+  (`MODULE_META`). États `designerCollapsed` / `maximized` / `autoCollapse` persistés.
+- **Titres en ellipsis progressive (O.6)** — tronque puis icône seule en dernier
+  recours.
+
+**Différé / reste** :
+- **Épuration responsive sous 924×668 (accordéon mobile)** : le Designer desktop est
+  traité de bout en bout *jusqu'au* plancher accordéon ; en dessous, l'accordéon n'a
+  **pas** été retravaillé → mérite une **passe d'épuration dédiée** (future
+  itération). Lié à « Adaptation UI résolutions intermédiaires » (Roadmap CONTEXT).
+- Switch Graphe/Sliders exposé **aussi en résolution normale** (replier une vue par
+  choix) — différé.
+- Séparateurs glissables dans la **rangée du bas** (parité avec le haut) — non, sauf
+  besoin avéré.
+- Calibration : ajustée en direct jusqu'à 924×668 ; seuils en variables
+  (`INSTRUMENT_*`, `ADSR_COMPACT_*`, `AUTO_COLLAPSE_DEFAULT_WIDTH`, container-query)
+  pour réglage ultérieur.
 
 ---
 
@@ -848,6 +885,50 @@ si quelqu'un en exprime le besoin réel en classe.
 
 ## Backlog général (hors itération F)
 
+### Notation / interopérabilité — import LilyPond
+
+Idée (relevée 2026-06-05) : **compatibilité avec LilyPond** = pouvoir **importer**
+un fichier `.ly` et le transformer en composition (tracks + clips) jouable dans
+l'app. Sens = LilyPond → app (PAS export ; l'export est un autre sujet, non
+demandé).
+
+- **Difficulté principale : LilyPond est un vrai langage**, pas un format de
+  données — variables, `\include`, macros, `\score`/`\new Staff`/`\new Voice`,
+  modes `\relative` vs absolu, durées « collantes »… Parser le LilyPond *général*
+  est impraticable. Il faut **cibler un sous-ensemble strictement défini** et
+  **refuser/avertir** sur les constructs hors périmètre (plutôt que mâchouiller en
+  silence). C'est l'arbitrage central.
+- **Sous-ensemble V1 pressenti** : suites de notes (hauteur + octave, absolu **et**
+  `\relative`), durées collantes (`4 8. 2`…), `\time` (défaut 4/4), `\tempo`,
+  plusieurs `\new Staff`/voix → plusieurs `Track`. Ignorer/approximer : liaisons,
+  slurs, n-olets, ornements, nuances, paroles.
+- **Mapping vers le modèle** : hauteur LilyPond → `noteIndex`/`octave` (12-TET) ;
+  token de durée (`1 2 4 8 16` + points) → `Clip.duration` (noires) ; position
+  dans la mesure → `measure`/`beat` (BEATS_PER_MEASURE=4) ; `\tempo 4=N` → `bpm` ;
+  chaque portée/voix → un `Track`.
+- **Pièges concrets** :
+  - `\relative` : inférence d'octave par rapport à la note précédente (la quarte
+    de référence) — logique d'état à tenir.
+  - **durées collantes** : une note sans durée hérite de la précédente — le parser
+    doit suivre l'état.
+  - **accords** `<c e g>` : un `Clip` joue **une** hauteur → soit éclater en N
+    clips empilés (même beat, pistes ≠ ou même piste), soit non supporté V1.
+  - **patch à assigner** : un clip importé doit référencer un `patchId` → choisir
+    le patch courant / un patch par défaut par track (l'import ne crée pas de
+    timbre).
+- **Tempéraments — caveat *inversé* vs l'export** : LilyPond est nativement 12-TET,
+  donc l'import retombe proprement en 12-TET — **pas** le problème bloquant qu'on
+  aurait à l'export. (La notation microtonale LilyPond existe mais est rare ; hors
+  périmètre V1.)
+- **Périmètre / coût** : parser autonome `src/lib/lilypondImport.js` + entrée
+  d'import à côté du `.osa` (modale Import existante). **Aucune dépendance npm**
+  (parsing texte, comme `osaFormat`/`markdown` maison) — cohérent avec la
+  philosophie. Risque = le scope du sous-ensemble (à border serré). Valeur :
+  faire **entendre/synthétiser une partition écrite** avec les timbres de l'app
+  (fort en usage classe).
+- À cadrer en itération dédiée. **Décision préalable indispensable** : la liste
+  exacte des constructs supportés vs refusés-avec-message.
+
 ### Clavier
 
 - **Clavier piano étendu (2 octaves)** : afficher 2 octaves d'un coup sur le
@@ -1204,11 +1285,11 @@ Aujourd'hui un patch = forme d'onde + amplitude + AHDSR. Tout le reste
 gagner, tout en restant 100% Web Audio natif (nodes existants
 suffisent pour 80% du catalogue).
 
-**Modulations temporelles** (probablement *par patch*) :
-- **Vibrato** : LFO sur la fréquence de l'oscillator. Params : rate
-  (Hz), depth (cents), délai avant activation.
-- **Trémolo** : LFO sur le GainNode. Params : rate, depth, forme du
-  LFO.
+**Modulations temporelles** (*par patch*) :
+- ✅ **Vibrato** (livré iter P, v1.8.0) : LFO sur `osc.detune` (cents). Params :
+  rate (Hz), depth (cents), onset (ms), forme. Détail = git + CONTEXT-ARCHIVE.
+- ✅ **Trémolo** (livré iter P, v1.8.0) : LFO sommé sur `gain.gain`. Params :
+  rate (Hz), depth (0..1), onset (ms), forme. Détail = git + CONTEXT-ARCHIVE.
 - **Pitch envelope** : enveloppe dédiée sur la fréquence (attack →
   settle), utile pour les attaques percussives (drums tonaux, bass
   synth).
