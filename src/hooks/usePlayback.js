@@ -293,13 +293,15 @@ export function usePlayback({ clips, patches, tracks, bpm, a4Ref, xEdoN, totalDu
       const currentBpm = bpmRef.current
 
       if (currentClips !== prevClipsRef.current || currentPatches !== prevPatchesRef.current) {
-        // La signature inclut l'enveloppe du patch référencé (F.3.12.1) :
-        // changer hold/attack/decay/sustain/release/amplitude d'un patch
-        // utilisé en cours de lecture re-schedule les clips à venir.
+        // La signature inclut l'enveloppe du patch référencé (F.3.12.1) ET ses
+        // modulations LFO (itération P) : changer hold/attack/decay/sustain/
+        // release/amplitude OU le vibrato/trémolo d'un patch utilisé en cours de
+        // lecture re-schedule les clips à venir (même mécanique que l'AHDSR).
+        const sigOfLfo = (l) => l ? `${l.enabled ? 1 : 0}:${l.rate}:${l.depth}:${l.onset}:${l.shape}` : ''
         const sigOf = (c, patchList) => {
           const p = patchList?.find(p => p.id === c.patchId)
           const env = p
-            ? `${p.attack}:${p.hold ?? 0}:${p.decay}:${p.sustain}:${p.release}:${p.amplitude}`
+            ? `${p.attack}:${p.hold ?? 0}:${p.decay}:${p.sustain}:${p.release}:${p.amplitude}|${sigOfLfo(p.vibrato)}|${sigOfLfo(p.tremolo)}`
             : ''
           return `${c.measure}:${c.beat}:${c.duration}:${c.patchId}:${c.trackId}:${c.tuningSystem}:${c.noteIndex}:${c.octave}:${c.frequency}|${env}`
         }
