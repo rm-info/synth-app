@@ -43,6 +43,32 @@ export function IconAnguleux(props) {
   )
 }
 
+// itération P — formes d'onde du LFO (switch sine/triangle/square du module
+// Modulation). Les icônes Lucide `Triangle`/`Square` sont des polygones
+// géométriques, pas des FORMES D'ONDE : on dessine ici les profils en style
+// Lucide (un peu plus d'un cycle, centré sur la médiane y=12).
+export function IconSine(props) {
+  return (
+    <svg {...lucideProps(props)}>
+      <path d="M2 12 Q 6 3 10 12 T 18 12 T 22 12" />
+    </svg>
+  )
+}
+export function IconTriangleWave(props) {
+  return (
+    <svg {...lucideProps(props)}>
+      <path d="M2 12 L 6 4 L 12 20 L 18 4 L 22 12" />
+    </svg>
+  )
+}
+export function IconSquareWave(props) {
+  return (
+    <svg {...lucideProps(props)}>
+      <path d="M2 16 L 2 8 L 8 8 L 8 16 L 14 16 L 14 8 L 20 8 L 20 16 L 22 16" />
+    </svg>
+  )
+}
+
 // Aperçu de répartition des 3 colonnes du Designer : un rectangle 48×16 avec
 // deux séparateurs verticaux placés aux proportions `widths` ([a, b, c], somme 1).
 // Remplace les anciens libellés Unicode ⅓⅓⅓ · ½¼¼ · ¼½¼ · ¼¼½ (r.2.6.6).

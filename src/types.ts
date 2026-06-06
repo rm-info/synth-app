@@ -303,9 +303,10 @@ export interface History {
 }
 
 export type TabId = 'library' | 'composer' | 'designer' | 'documentation'
-// iter-O phase-5a : identifiants des 5 modules réductibles du Designer.
-export type DesignerModuleId = 'canvas' | 'harmonics' | 'spectrogram' | 'params' | 'adsr'
-// iter-O phase-5a : état replié (bande) de chacun des 5 modules. Préférence UI
+// iter-O phase-5a : identifiants des modules réductibles du Designer.
+// itération P : 6ᵉ module 'modulation'.
+export type DesignerModuleId = 'canvas' | 'harmonics' | 'spectrogram' | 'params' | 'adsr' | 'modulation'
+// iter-O phase-5a : état replié (bande) de chacun des modules. Préférence UI
 // persistée (localStorage), non-undoable — comme designerColumnWidths.
 export interface DesignerCollapsed {
   canvas: boolean
@@ -313,6 +314,7 @@ export interface DesignerCollapsed {
   spectrogram: boolean
   params: boolean
   adsr: boolean
+  modulation: boolean
 }
 export type Theme = 'dark' | 'light'
 export type DurationMode = 'solfège' | 'fraction'

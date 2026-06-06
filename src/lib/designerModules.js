@@ -1,4 +1,4 @@
-import { AudioWaveform, BarChart3, Grid2x2, Piano, AudioLines } from 'lucide-react'
+import { AudioWaveform, BarChart3, Grid2x2, Piano, AudioLines, Vibrate } from 'lucide-react'
 import { STRINGS } from './strings'
 
 // iter-O phase-5c : table partagée des 5 modules du Designer (identité visuelle).
@@ -15,14 +15,20 @@ export const MODULE_META = {
   spectrogram: { label: 'Spectrogramme',               Icon: Grid2x2 },
   params:      { label: 'Instrument',                  Icon: Piano },
   adsr:        { label: 'Enveloppe AHDSR',             Icon: AudioLines },
+  // itération P : 6ᵉ module. `Vibrate` (Lucide) — évocateur de la modulation,
+  // libre (pas d'autre usage), pas d'Unicode.
+  modulation:  { label: 'Modulation',                  Icon: Vibrate },
 }
 
-// iter-O phase-5d : rangées du layout Designer (haut = 3 colonnes, bas = 2
+// iter-O phase-5d : rangées du layout Designer (haut = 3 colonnes, bas = N
 // cellules). Source unique de la politique d'auto-réduction « accordéon par
 // rangée » : ouvrir un module replié réduit ses siblings de rangée ouverts.
+// itération P : la rangée du bas passe à 3 cellules (params / adsr / modulation) ;
+// rowSiblings, l'auto-réduction (O.5d), collapse/maximize (O.5a/b) et
+// l'OverflowToolbar des headers (O.6.2) fonctionnent génériquement sur ce 3ᵉ membre.
 export const DESIGNER_ROWS = {
   top: ['canvas', 'harmonics', 'spectrogram'],
-  bottom: ['params', 'adsr'],
+  bottom: ['params', 'adsr', 'modulation'],
 }
 export const rowSiblings = (id) =>
   (Object.values(DESIGNER_ROWS).find((r) => r.includes(id)) ?? []).filter((m) => m !== id)

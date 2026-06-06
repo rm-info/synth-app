@@ -300,9 +300,9 @@ function sanitizeColumnWidths(raw) {
 
 // iter-O phase-5a : 5 clés booléennes (modules repliés), défaut `false`. Toute
 // entrée absente/invalide retombe à false. Renvoie toujours un objet complet.
-const DESIGNER_MODULE_IDS = ['canvas', 'harmonics', 'spectrogram', 'params', 'adsr']
+const DESIGNER_MODULE_IDS = ['canvas', 'harmonics', 'spectrogram', 'params', 'adsr', 'modulation']
 function sanitizeDesignerCollapsed(raw) {
-  const out = { canvas: false, harmonics: false, spectrogram: false, params: false, adsr: false }
+  const out = { canvas: false, harmonics: false, spectrogram: false, params: false, adsr: false, modulation: false }
   if (raw && typeof raw === 'object') {
     for (const id of DESIGNER_MODULE_IDS) {
       if (raw[id] === true) out[id] = true

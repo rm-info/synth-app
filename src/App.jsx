@@ -1087,6 +1087,16 @@ function App() {
   const toggleMobileZone = useCallback((zoneId) => {
     setMobileExpandedZone((cur) => (cur === zoneId ? null : zoneId))
   }, [])
+  // itération P : le module Modulation est-il réellement VISIBLE ? Gate de la
+  // boucle rAF de la mini-courbe LFO (audit perf N.1 : aucune rAF perpétuelle
+  // quand le module est caché). Couvre tous les chemins de masquage : onglet
+  // non-Designer, module replié en bande, masqué par un autre module maximisé
+  // (desktop), accordéon non-déplié (mobile).
+  const modulationVisible = activeTab === 'designer'
+    && !designerCollapsed.modulation
+    && (isMobile
+      ? mobileExpandedZone === 'modulation'
+      : (maximized === null || maximized === 'modulation'))
 
   // Reclampe les largeurs quand la fenêtre rétrécit : on préserve l'invariant
   // "main ≥ COMPOSER_MAIN_MIN_WIDTH" sans perdre les préférences de l'utilisateur
@@ -2060,6 +2070,9 @@ function App() {
     setSplineInterpolation: (v) => dispatch({ type: 'SET_SPLINE_INTERPOLATION', payload: v }),
     setAdsr: (patch) => dispatch({ type: 'SET_EDITOR_ADSR', payload: patch }),
     setAdsrAndAmp: (payload) => dispatch({ type: 'SET_EDITOR_ADSR_AND_AMP', payload }),
+    // itération P : édition d'un paramètre de modulation (vibrato/trémolo).
+    setModulation: (effect, key, value) =>
+      dispatch({ type: 'SET_EDITOR_MODULATION', payload: { effect, key, value } }),
     // iter-M phase-r.2.2 : reset du timbre seul (≠ RESET_EDITOR « Nouveau patch »).
     resetWaveform: () => dispatch({ type: 'RESET_EDITOR_WAVEFORM' }),
     // iter-M phase-r.2.3 : normalisation (iDFT phase canonique).
@@ -2200,8 +2213,9 @@ function App() {
         isMobile={isMobile}
         adsrView={adsrView}
         onSetAdsrView={(v) => dispatch({ type: 'SET_ADSR_VIEW', payload: v })}
+        modulationVisible={modulationVisible}
       >
-        {({ renderCanvasArea, renderHarmonicsArea, renderParamsArea, renderAdsrArea, renderActions, patchLabel, openPresetPicker, requestResetWaveform }) => (
+        {({ renderCanvasArea, renderHarmonicsArea, renderParamsArea, renderAdsrArea, renderModulationArea, renderActions, patchLabel, openPresetPicker, requestResetWaveform }) => (
           <>
             <main
               className={`designer-layout${isMobile ? ' designer-layout-mobile' : ''}`}
@@ -2364,6 +2378,7 @@ function App() {
                     { id: 'spectrogram', title: 'Spectrogramme', body: spectrogramNode },
                     { id: 'adsr', title: 'Enveloppe AHDSR', body: renderAdsrArea() },
                     { id: 'params', title: 'Instrument', body: renderParamsArea() },
+                    { id: 'modulation', title: 'Modulation', body: renderModulationArea() },
                   ].map((zone) => {
                     const expanded = mobileExpandedZone === zone.id
                     return (
@@ -2457,6 +2472,16 @@ function App() {
                         onToggleCollapse={() => handleToggleModuleCollapsed('adsr', effectiveAutoCollapse)}
                         onToggleMaximize={() => handleToggleModuleMaximized('adsr')}
                       >{renderAdsrArea()}</DesignerModule>
+                    </div>
+                    {/* itération P : 6ᵉ module Modulation (rangée du bas à 3 cellules). */}
+                    <div className={`designer-cell${designerCollapsed.modulation ? ' is-collapsed' : ''}`}>
+                      <DesignerModule
+                        id="modulation"
+                        collapsed={designerCollapsed.modulation}
+                        maximized={maximized === 'modulation'}
+                        onToggleCollapse={() => handleToggleModuleCollapsed('modulation', effectiveAutoCollapse)}
+                        onToggleMaximize={() => handleToggleModuleMaximized('modulation')}
+                      >{renderModulationArea()}</DesignerModule>
                     </div>
                   </div>
                 </div>

@@ -3,7 +3,8 @@
 .we-canvas-area,
 .we-harmonics-area,
 .we-params-area,
-.we-adsr-area {
+.we-adsr-area,
+.we-modulation-area {
   display: flex;
   flex-direction: column;
   min-height: 0;
@@ -1416,4 +1417,125 @@
   accent-color: var(--accent);
   height: 4px;
   cursor: pointer;
+}
+
+/* ============== itération P : module Modulation ============== */
+
+.we-modulation-body {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  min-height: 0;
+  overflow: auto;
+}
+
+/* Deux sous-blocs Vibrato / Trémolo : côte à côte si large, empilés si étroit. */
+.we-lfo-block {
+  flex: 1 1 190px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+  padding: 10px;
+  border: 1px solid var(--surface-border-strong);
+  border-radius: 7px;
+  background: var(--app-bg);
+}
+
+.we-lfo-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+/* Interrupteur on/off (pastille) en tête du sous-bloc. */
+.we-lfo-switch {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  user-select: none;
+}
+.we-lfo-switch-input {
+  position: absolute;
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+.we-lfo-switch-track {
+  position: relative;
+  display: inline-block;
+  width: 34px;
+  height: 18px;
+  border-radius: 9px;
+  background: var(--surface-border-strong);
+  transition: background 0.15s ease;
+  flex-shrink: 0;
+}
+.we-lfo-switch-thumb {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--surface-elevated);
+  transition: transform 0.15s ease;
+}
+.we-lfo-switch-input:checked + .we-lfo-switch-track {
+  background: var(--accent);
+}
+.we-lfo-switch-input:checked + .we-lfo-switch-track .we-lfo-switch-thumb {
+  transform: translateX(16px);
+}
+.we-lfo-switch-input:focus-visible + .we-lfo-switch-track {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+.we-lfo-switch-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+/* Switch de forme (réutilise .spline-interp-toggle pour le cadre segmenté). */
+.we-lfo-shape .icon-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+/* Mini-courbe LFO animée. */
+.we-lfo-canvas {
+  width: 100%;
+  height: 38px;
+  display: block;
+  border-radius: 5px;
+  background: var(--surface-elevated);
+  border: 1px solid var(--surface-border-strong);
+}
+
+.we-lfo-controls {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+}
+.we-lfo-control {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+.we-lfo-control > span {
+  font-size: 11px;
+  color: var(--text-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+/* Contrôles grisés quand l'effet est désactivé (l'interrupteur reste actif). */
+.we-lfo-block:not(.is-enabled) .we-lfo-controls,
+.we-lfo-block:not(.is-enabled) .we-lfo-canvas {
+  opacity: 0.5;
 }

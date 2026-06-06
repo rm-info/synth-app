@@ -1,10 +1,14 @@
 import { useRef, useState, useCallback, useEffect, useImperativeHandle, useMemo } from 'react'
 import { Plus, Save, SaveAll, Undo2, Redo2, Sliders, X, Lock, Spline, AlignEndHorizontal, Sigma, Waves, ChartSpline, Activity, SlidersHorizontal } from 'lucide-react'
-import { IconDoux, IconAnguleux } from './icons'
+import { IconDoux, IconAnguleux, IconSine, IconTriangleWave, IconSquareWave } from './icons'
 import { pointsToPeriodicWave, MIN_ATTACK, HARMONIC_COUNT, harmonicsToPoints, canonicalToBars } from '../audio'
 import { applyModulation } from '../lib/modulation'
 import { splineToPoints } from '../lib/spline'
-import { CAP_MIN, CAP_MAX, SPLINE_ANCHOR_MIN, SPLINE_ANCHOR_MAX, DEFAULT_VIBRATO, DEFAULT_TREMOLO } from '../reducer'
+import {
+  CAP_MIN, CAP_MAX, SPLINE_ANCHOR_MIN, SPLINE_ANCHOR_MAX,
+  DEFAULT_VIBRATO, DEFAULT_TREMOLO,
+  LFO_RATE_MIN, LFO_RATE_MAX, VIBRATO_DEPTH_MAX, TREMOLO_DEPTH_MAX, LFO_ONSET_MAX, LFO_SHAPES,
+} from '../reducer'
 import useWindowSize from '../hooks/useWindowSize'
 import FreqInput from './FreqInput'
 import NumberInput from './NumberInput'
@@ -203,6 +207,81 @@ function formatDefinition(v) {
   return String(v)
 }
 
+// === itération P : module Modulation ===
+
+// Métadonnées du switch de forme (icône style Lucide + libellé court).
+const LFO_SHAPE_META = {
+  sine: { Icon: IconSine, label: 'Sinus' },
+  triangle: { Icon: IconTriangleWave, label: 'Triangle' },
+  square: { Icon: IconSquareWave, label: 'Carré' },
+}
+
+// Parse permissif d'un nombre (virgule = point) pour les NumberInput de modulation.
+function parseLfoNum(raw) {
+  if (typeof raw !== 'string') return NaN
+  const s = raw.trim().replace(',', '.')
+  if (s === '') return NaN
+  const v = parseFloat(s)
+  return Number.isFinite(v) ? v : NaN
+}
+
+// Échantillon d'une forme d'onde LFO normalisée [-1, 1] à la phase `t` (en cycles).
+function lfoSample(shape, t) {
+  const frac = t - Math.floor(t)
+  if (shape === 'square') return frac < 0.5 ? 1 : -1
+  if (shape === 'triangle') {
+    // 0→1→0→-1→0 sur un cycle ; pic à 0.25, creux à 0.75.
+    return frac < 0.25 ? frac * 4
+      : frac < 0.75 ? 2 - frac * 4
+      : frac * 4 - 4
+  }
+  return Math.sin(2 * Math.PI * frac) // sine
+}
+
+// Mini-courbe LFO « qui défile » : reflète rate (vitesse), depth (amplitude
+// normalisée à la hauteur, purement illustrative) et shape. `phase` (en cycles)
+// avance dans la boucle rAF. Largeur de cycle fixe → un rate plus élevé fait
+// défiler plus vite ET affiche plus d'ondulations. Effet enabled false → ligne
+// plate (l'appelant fige la phase). Pur, hors cycle React (peint directement).
+const LFO_PX_PER_CYCLE = 34
+function drawLfoCurve(canvas, lfo, depthMax, phase) {
+  if (!canvas) return
+  const dpr = window.devicePixelRatio || 1
+  const cssW = canvas.clientWidth || 140
+  const cssH = canvas.clientHeight || 38
+  const w = Math.round(cssW * dpr)
+  const h = Math.round(cssH * dpr)
+  if (canvas.width !== w) canvas.width = w
+  if (canvas.height !== h) canvas.height = h
+  const ctx = canvas.getContext('2d')
+  if (!ctx) return
+  ctx.clearRect(0, 0, w, h)
+  const midY = h / 2
+  // Médiane discrète.
+  ctx.strokeStyle = themeColor('canvas-grid-secondary')
+  ctx.lineWidth = 1
+  ctx.beginPath()
+  ctx.moveTo(0, midY)
+  ctx.lineTo(w, midY)
+  ctx.stroke()
+  // Profondeur normalisée [0,1] → amplitude verticale (85 % de la demi-hauteur).
+  // Effet désactivé → amplitude nulle = ligne plate figée (spec : non animée).
+  const ampFrac = (lfo.enabled && depthMax > 0) ? Math.min(1, (lfo.depth ?? 0) / depthMax) : 0
+  const amp = ampFrac * (h / 2) * 0.85
+  ctx.strokeStyle = lfo.enabled ? themeColor('accent') : themeColor('canvas-text-secondary')
+  ctx.lineWidth = Math.max(1.5, 2 * dpr)
+  ctx.lineJoin = 'round'
+  ctx.beginPath()
+  const pxPerCycle = LFO_PX_PER_CYCLE * dpr
+  for (let x = 0; x <= w; x++) {
+    const t = x / pxPerCycle - phase
+    const y = midY - lfoSample(lfo.shape, t) * amp
+    if (x === 0) ctx.moveTo(x, y)
+    else ctx.lineTo(x, y)
+  }
+  ctx.stroke()
+}
+
 function stripSuffix(name) {
   let s = name
   for (;;) {
@@ -352,6 +431,9 @@ function WaveformEditor({
   isMobile,
   adsrView,
   onSetAdsrView,
+  // itération P : le module Modulation est-il visible (gate de la boucle rAF
+  // de la mini-courbe LFO) ? Source unique App.jsx (collapse/maximize/tab/mobile).
+  modulationVisible,
   ref,
   children,
 }) {
@@ -580,6 +662,52 @@ function WaveformEditor({
     // itération P : modulations LFO lues par les previews clavier / note libre.
     vibrato, tremolo,
   }
+
+  // itération P — mini-courbes LFO animées du module Modulation. UNE seule boucle
+  // rAF pour le module (dessine les deux sous-blocs). Gating strict (audit perf
+  // N.1) : ne tourne QUE si le module est visible (`modulationVisible`, source
+  // App.jsx couvrant collapse/maximize/onglet/mobile) ET qu'au moins un effet est
+  // enabled. Un sous-bloc disabled est dessiné figé (ligne plate). La boucle
+  // s'arrête (cancelAnimationFrame) dès que ces conditions tombent / au démontage.
+  const vibratoCanvasRef = useRef(null)
+  const tremoloCanvasRef = useRef(null)
+  const lfoPhaseRef = useRef({ vibrato: 0, tremolo: 0 })
+  useEffect(() => {
+    const subs = [
+      { canvas: vibratoCanvasRef.current, lfo: vibrato, depthMax: VIBRATO_DEPTH_MAX, key: 'vibrato' },
+      { canvas: tremoloCanvasRef.current, lfo: tremolo, depthMax: TREMOLO_DEPTH_MAX, key: 'tremolo' },
+    ]
+    const phases = lfoPhaseRef.current
+    const paint = () => { for (const s of subs) drawLfoCurve(s.canvas, s.lfo, s.depthMax, phases[s.key]) }
+    // Dessin statique immédiat (état courant, thème, depth/shape) — vaut aussi
+    // quand on ne lance pas la boucle (effets off ou module caché).
+    paint()
+    // Re-peint au changement de thème (le cache themeColor est vidé sur l'event).
+    window.addEventListener('themechange', paint)
+
+    const anyEnabled = vibrato.enabled || tremolo.enabled
+    if (!modulationVisible || !anyEnabled) {
+      return () => window.removeEventListener('themechange', paint)
+    }
+
+    let raf = 0
+    let last = null
+    const tick = (ts) => {
+      if (last == null) last = ts
+      const dt = Math.min(0.05, (ts - last) / 1000) // clamp anti-saut (onglet en arrière-plan)
+      last = ts
+      for (const s of subs) {
+        if (s.lfo.enabled) phases[s.key] += s.lfo.rate * dt
+        drawLfoCurve(s.canvas, s.lfo, s.depthMax, phases[s.key])
+      }
+      raf = requestAnimationFrame(tick)
+    }
+    raf = requestAnimationFrame(tick)
+    return () => {
+      cancelAnimationFrame(raf)
+      window.removeEventListener('themechange', paint)
+    }
+  }, [vibrato, tremolo, modulationVisible])
 
   const referenceRef = useRef(snapshotPatchFields(editor))
   const referencedPatchIdRef = useRef(null)
@@ -3013,9 +3141,132 @@ function WaveformEditor({
     )
   }
 
+  // itération P — 6ᵉ module « Modulation ». Deux sous-blocs symétriques
+  // Vibrato/Trémolo : interrupteur on/off, switch de forme (icônes), 3 steppers
+  // (vitesse/profondeur/installation) + une mini-courbe LFO animée. Header
+  // aligné sur les autres modules (icône + titre ellipsis O.6) ; la chrome
+  // (réduire/agrandir) est posée par DesignerModule en coin absolu.
+  const renderModulationArea = () => {
+    const renderLfoBlock = (effect) => {
+      const isVibrato = effect === 'vibrato'
+      const lfo = isVibrato ? vibrato : tremolo
+      const enabled = lfo.enabled
+      const title = isVibrato ? 'Vibrato' : 'Trémolo'
+      const depthMax = isVibrato ? VIBRATO_DEPTH_MAX : TREMOLO_DEPTH_MAX
+      const set = (key, value) => editorActions.setModulation(effect, key, value)
+      return (
+        <div className={`we-lfo-block${enabled ? ' is-enabled' : ''}`} key={effect}>
+          <div className="we-lfo-head">
+            <label className="we-lfo-switch">
+              <input
+                type="checkbox"
+                className="we-lfo-switch-input"
+                checked={enabled}
+                onChange={(e) => set('enabled', e.target.checked)}
+              />
+              <span className="we-lfo-switch-track" aria-hidden="true">
+                <span className="we-lfo-switch-thumb" />
+              </span>
+              <span className="we-lfo-switch-label">{title}</span>
+            </label>
+            <div className="spline-interp-toggle we-lfo-shape" role="group" aria-label={`Forme du ${title}`}>
+              {LFO_SHAPES.map((sh) => {
+                const { Icon, label } = LFO_SHAPE_META[sh]
+                return (
+                  <button
+                    key={sh}
+                    type="button"
+                    className={`icon-btn${lfo.shape === sh ? ' is-active' : ''}`}
+                    onClick={() => set('shape', sh)}
+                    disabled={!enabled}
+                    title={label}
+                    aria-label={label}
+                    aria-pressed={lfo.shape === sh}
+                  ><Icon size={16} /></button>
+                )
+              })}
+            </div>
+          </div>
+          <canvas
+            className="we-lfo-canvas"
+            ref={isVibrato ? vibratoCanvasRef : tremoloCanvasRef}
+            aria-hidden="true"
+          />
+          <div className="we-lfo-controls">
+            <label className="we-lfo-control">
+              <span>Vitesse (Hz)</span>
+              <NumberInput
+                value={lfo.rate}
+                onChange={(v) => set('rate', v)}
+                min={LFO_RATE_MIN}
+                max={LFO_RATE_MAX}
+                parse={parseLfoNum}
+                format={(v) => String(Math.round(v * 10) / 10)}
+                showSteppers
+                step={0.1}
+                shiftStep={1}
+                className="adsr-value-input"
+                disabled={!enabled}
+                ariaLabel={`Vitesse du ${title} en Hz`}
+              />
+            </label>
+            <label className="we-lfo-control">
+              <span>{isVibrato ? 'Profondeur (cents)' : 'Profondeur'}</span>
+              <NumberInput
+                value={lfo.depth}
+                onChange={(v) => set('depth', v)}
+                min={0}
+                max={depthMax}
+                parse={parseLfoNum}
+                format={isVibrato ? (v) => String(Math.round(v)) : (v) => v.toFixed(2)}
+                showSteppers
+                step={isVibrato ? 1 : 0.05}
+                shiftStep={isVibrato ? 10 : 0.1}
+                className="adsr-value-input"
+                disabled={!enabled}
+                ariaLabel={`Profondeur du ${title}`}
+              />
+            </label>
+            <label className="we-lfo-control">
+              <span>Installation (ms)</span>
+              <NumberInput
+                value={lfo.onset}
+                onChange={(v) => set('onset', v)}
+                min={0}
+                max={LFO_ONSET_MAX}
+                parse={parseLfoNum}
+                format={(v) => String(Math.round(v))}
+                showSteppers
+                step={10}
+                shiftStep={100}
+                className="adsr-value-input"
+                disabled={!enabled}
+                ariaLabel={`Temps d'installation du ${title} en millisecondes`}
+              />
+            </label>
+          </div>
+        </div>
+      )
+    }
+    return (
+      <div className="we-modulation-area" data-anchor="designer-modulation">
+        <header className="we-area-header">
+          <div className="we-header-left">
+            <MODULE_META.modulation.Icon className="we-area-icon" size={15} aria-hidden="true" />
+            <h3 className="we-area-title" title="Modulation">Modulation</h3>
+          </div>
+        </header>
+        <div className="we-modulation-body">
+          {renderLfoBlock('vibrato')}
+          {renderLfoBlock('tremolo')}
+        </div>
+      </div>
+    )
+  }
+
   return (
     <>
-      {children({ renderCanvasArea, renderHarmonicsArea, renderParamsArea, renderAdsrArea, renderActions, patchLabel, openPresetPicker, requestResetWaveform })}
+      {children({ renderCanvasArea, renderHarmonicsArea, renderParamsArea, renderAdsrArea, renderModulationArea, renderActions, patchLabel, openPresetPicker, requestResetWaveform })}
       <ConfirmDialog
         open={confirmNewOpen}
         title="Nouveau patch ?"
