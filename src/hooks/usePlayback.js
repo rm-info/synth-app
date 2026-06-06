@@ -1,6 +1,17 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { pointsToPeriodicWave, audioBufferToWav, downloadWav, MIN_ATTACK } from '../audio'
 import { clipFrequency } from '../reducer'
+import { applyModulation } from '../lib/modulation'
+
+// Stoppe/déconnecte les nœuds LFO d'un record de voix (symétrique à osc/gain).
+// `m.stop()` n'existe que sur les OscillatorNode → try/catch absorbe les GainNode.
+function stopModNodes(mod) {
+  if (!mod) return
+  for (const m of mod) {
+    try { m.stop() } catch { /* GainNode ou déjà stoppé */ }
+    try { m.disconnect() } catch { /* déjà déconnecté */ }
+  }
+}
 
 const BEATS_PER_MEASURE = 4
 const LOOK_AHEAD = 0.1    // seconds of audio to schedule ahead
@@ -66,10 +77,19 @@ function scheduleOneClip(ctx, clip, patch, startTime, trackGainNodes, defaultDes
 
   osc.connect(gain)
   gain.connect(dest)
+
+  // Modulations LFO (itération P) : branchées après la programmation de
+  // l'enveloppe, avant osc.start(). stopTime fourni → extinction programmée.
+  const { nodes: mod } = applyModulation(ctx, {
+    osc, gain,
+    vibrato: patch.vibrato, tremolo: patch.tremolo,
+    startTime: clipStart, stopTime: clipStart + totalDuration, baseAmplitude: amp,
+  })
+
   osc.start(clipStart)
   osc.stop(clipStart + totalDuration)
 
-  return { osc, gain, clipId: clip.id, endTime: clipStart + totalDuration }
+  return { osc, gain, clipId: clip.id, endTime: clipStart + totalDuration, mod }
 }
 
 /**
@@ -114,6 +134,17 @@ function scheduleAllClips(ctx, clips, patches, startTime, trackGainNodes, defaul
 
     osc.connect(gain)
     gain.connect(dest)
+
+    // Modulations LFO (itération P) — MÊME helper que scheduleOneClip, sinon
+    // l'export WAV diverge de la lecture timeline (régression classique du code
+    // dupliqué). Pas de cleanup manuel : l'OfflineAudioContext est jeté après
+    // rendu, seul lfo.start/stop programmé suffit.
+    applyModulation(ctx, {
+      osc, gain,
+      vibrato: patch.vibrato, tremolo: patch.tremolo,
+      startTime: clipStart, stopTime: clipStart + totalDuration, baseAmplitude: amp,
+    })
+
     osc.start(clipStart)
     osc.stop(clipStart + totalDuration)
 
@@ -185,6 +216,7 @@ export function usePlayback({ clips, patches, tracks, bpm, a4Ref, xEdoN, totalDu
       try { node.osc.stop() } catch { /* already stopped */ }
       try { node.osc.disconnect() } catch { /* disconnected */ }
       try { node.gain.disconnect() } catch { /* disconnected */ }
+      stopModNodes(node.mod)
     }
     activeNodesRef.current = []
     scheduledClipIdsRef.current.clear()
@@ -303,6 +335,7 @@ export function usePlayback({ clips, patches, tracks, bpm, a4Ref, xEdoN, totalDu
               try { node.osc.stop() } catch { /* already stopped */ }
               try { node.osc.disconnect() } catch { /* disconnected */ }
               try { node.gain.disconnect() } catch { /* disconnected */ }
+              stopModNodes(node.mod)
               toRemove.push(i)
             }
           }
@@ -404,6 +437,7 @@ export function usePlayback({ clips, patches, tracks, bpm, a4Ref, xEdoN, totalDu
         try { node.osc.stop() } catch { /* already stopped */ }
         try { node.osc.disconnect() } catch { /* idem */ }
         try { node.gain.disconnect() } catch { /* idem */ }
+        stopModNodes(node.mod)
       }
     }
   }, [])

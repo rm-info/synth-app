@@ -2,6 +2,7 @@ import { useRef, useState, useCallback, useEffect, useImperativeHandle, useMemo 
 import { Plus, Save, SaveAll, Undo2, Redo2, Sliders, X, Lock, Spline, AlignEndHorizontal, Sigma, Waves, ChartSpline, Activity, SlidersHorizontal } from 'lucide-react'
 import { IconDoux, IconAnguleux } from './icons'
 import { pointsToPeriodicWave, MIN_ATTACK, HARMONIC_COUNT, harmonicsToPoints, canonicalToBars } from '../audio'
+import { applyModulation } from '../lib/modulation'
 import { splineToPoints } from '../lib/spline'
 import { CAP_MIN, CAP_MAX, SPLINE_ANCHOR_MIN, SPLINE_ANCHOR_MAX, DEFAULT_VIBRATO, DEFAULT_TREMOLO } from '../reducer'
 import useWindowSize from '../hooks/useWindowSize'
@@ -576,6 +577,8 @@ function WaveformEditor({
   instrumentParamsRef.current = {
     attack, hold, decay, sustain, release, amplitude, definition: effectiveDefinition,
     testOctave, testTuningSystem, testFrequency, a4Ref, xEdoN,
+    // itération P : modulations LFO lues par les previews clavier / note libre.
+    vibrato, tremolo,
   }
 
   const referenceRef = useRef(snapshotPatchFields(editor))
@@ -965,6 +968,41 @@ function WaveformEditor({
     return ctx
   }
 
+  // itération P — cleanup des nœuds LFO d'une voix de preview. Les previews
+  // n'ont pas de stopTime (sustain indéfini) : c'est l'appelant qui stoppe.
+  //
+  // Coupe nette (retrigger / stopAll) : stop + disconnect immédiats.
+  const stopModImmediate = (rec) => {
+    if (!rec?.mod) return
+    for (const m of rec.mod) {
+      try { m.stop() } catch { /* GainNode ou déjà stoppé */ }
+      try { m.disconnect() } catch { /* déjà déconnecté */ }
+    }
+  }
+  // Release : éteindre le trémolo sur la durée de release (sinon il continue de
+  // faire osciller gain.gain dans la traîne → souffle), puis stopper les LFO en
+  // fin de release. Le disconnect final est fait dans le onended de la voix.
+  const releaseModNodes = (rec, now, r) => {
+    if (!rec) return
+    if (rec.tremoloDepthGain) {
+      try {
+        const g = rec.tremoloDepthGain.gain
+        g.cancelScheduledValues(now)
+        g.setValueAtTime(g.value, now)
+        g.linearRampToValueAtTime(0, now + r)
+      } catch { /* param indisponible */ }
+    }
+    if (rec.mod) {
+      for (const m of rec.mod) {
+        try { m.stop(now + r + 0.02) } catch { /* GainNode ou déjà stoppé */ }
+      }
+    }
+  }
+  const disconnectModNodes = (rec) => {
+    if (!rec?.mod) return
+    for (const m of rec.mod) { try { m.disconnect() } catch { /* déjà déconnecté */ } }
+  }
+
   const playInstrumentNote = (idx) => {
     const params = instrumentParamsRef.current
     // Mode libre : on ne joue pas via le clavier (édition via slider Hz).
@@ -989,6 +1027,8 @@ function WaveformEditor({
         try { existing.osc.disconnect() } catch { /* already */ }
         try { existing.gain.disconnect() } catch { /* already */ }
       }
+      // itération P : coupe les LFO de la voix retriggée.
+      stopModImmediate(existing)
       activeNotesMapRef.current.delete(idx)
       sustainedNotesRef.current.delete(idx)
       // Retrigger : la voix précédente est en train d'être stoppée,
@@ -1025,6 +1065,13 @@ function WaveformEditor({
     osc.connect(gain)
     gain.connect(analyserGainRef.current)
 
+    // itération P : modulations LFO. Pas de stopTime (sustain indéfini) → le
+    // cleanup est manuel (release / retrigger / stopAll / onended).
+    const { nodes: mod, tremoloDepthGain } = applyModulation(ctx, {
+      osc, gain, vibrato: params.vibrato, tremolo: params.tremolo,
+      startTime: now, baseAmplitude: params.amplitude,
+    })
+
     // Décrément réel à la fin de la voix : osc.onended fire quand
     // l'oscillator s'arrête effectivement (release naturel OU osc.stop()
     // forcé via retrigger / stopAll). Plus précis que setTimeout planifié
@@ -1037,7 +1084,7 @@ function WaveformEditor({
     }
     osc.start(now)
 
-    activeNotesMapRef.current.set(idx, { osc, gain, octave: oct })
+    activeNotesMapRef.current.set(idx, { osc, gain, octave: oct, mod, tremoloDepthGain })
     setActiveNoteIndices(new Set(activeNotesMapRef.current.keys()))
 
     // Compteur de voix actives (iter I) : incrément à la création.
@@ -1065,12 +1112,15 @@ function WaveformEditor({
     node.gain.gain.linearRampToValueAtTime(0, now + r)
     // Marge pour garantir que l'osc ne soit pas coupé avant la fin de la rampe.
     try { node.osc.stop(now + r + 0.02) } catch { /* already stopped */ }
+    // itération P : éteindre le trémolo sur la release + stopper les LFO.
+    releaseModNodes(node, now, r)
     // Le onended posé par playInstrumentNote (décrément du compteur)
     // serait écrasé par cette réassignation : on intègre le décrément ici
     // pour que la voix soit comptabilisée jusqu'à la fin réelle du release.
     node.osc.onended = () => {
       try { node.osc.disconnect() } catch { /* already */ }
       try { node.gain.disconnect() } catch { /* already */ }
+      disconnectModNodes(node)
       if (activeVoicesCountRef) {
         activeVoicesCountRef.current = Math.max(0, activeVoicesCountRef.current - 1)
       }
@@ -1136,6 +1186,7 @@ function WaveformEditor({
       try { node.osc.stop() } catch { /* already stopped */ }
       try { node.osc.disconnect() } catch { /* already */ }
       try { node.gain.disconnect() } catch { /* already */ }
+      stopModImmediate(node)
     }
     activeNotesMapRef.current.clear()
     sustainedNotesRef.current.clear()
@@ -1166,6 +1217,7 @@ function WaveformEditor({
     try { v.osc.stop() } catch { /* already */ }
     try { v.osc.disconnect() } catch { /* already */ }
     try { v.gain.disconnect() } catch { /* already */ }
+    stopModImmediate(v)
     freeVoiceRef.current = null
     setFreeNoteActive(false)
   }
@@ -1189,6 +1241,8 @@ function WaveformEditor({
         try { existing.osc.disconnect() } catch { /* already */ }
         try { existing.gain.disconnect() } catch { /* already */ }
       }
+      // itération P : coupe les LFO de la voix libre retriggée.
+      stopModImmediate(existing)
       freeVoiceRef.current = null
       if (activeVoicesCountRef) {
         activeVoicesCountRef.current = Math.max(0, activeVoicesCountRef.current - 1)
@@ -1215,6 +1269,12 @@ function WaveformEditor({
     osc.connect(gain)
     gain.connect(analyserGainRef.current)
 
+    // itération P : modulations LFO (canal libre, sustain indéfini → cleanup manuel).
+    const { nodes: mod, tremoloDepthGain } = applyModulation(ctx, {
+      osc, gain, vibrato: params.vibrato, tremolo: params.tremolo,
+      startTime: now, baseAmplitude: params.amplitude,
+    })
+
     // Décrément réel à la fin de la voix : osc.onended fire quand
     // l'oscillator s'arrête effectivement (release naturel OU osc.stop()
     // forcé via retrigger / stopAll). Plus précis que setTimeout planifié
@@ -1227,7 +1287,7 @@ function WaveformEditor({
     }
     osc.start(now)
 
-    freeVoiceRef.current = { osc, gain }
+    freeVoiceRef.current = { osc, gain, mod, tremoloDepthGain }
     setFreeNoteActive(true)
 
     // Compteur de voix actives (iter I) : symétrique à playInstrumentNote.
@@ -1249,12 +1309,15 @@ function WaveformEditor({
     node.gain.gain.setValueAtTime(currentGain, now)
     node.gain.gain.linearRampToValueAtTime(0, now + r)
     try { node.osc.stop(now + r + 0.02) } catch { /* already */ }
+    // itération P : éteindre le trémolo sur la release + stopper les LFO.
+    releaseModNodes(node, now, r)
     // Le onended posé par playFreeNote (décrément du compteur) serait
     // écrasé par cette réassignation : on intègre le décrément ici pour
     // que la voix soit comptabilisée jusqu'à la fin réelle du release.
     node.osc.onended = () => {
       try { node.osc.disconnect() } catch { /* already */ }
       try { node.gain.disconnect() } catch { /* already */ }
+      disconnectModNodes(node)
       if (activeVoicesCountRef) {
         activeVoicesCountRef.current = Math.max(0, activeVoicesCountRef.current - 1)
       }
