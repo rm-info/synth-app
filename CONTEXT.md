@@ -16,7 +16,7 @@ persistance localStorage (clé `synth-app-state`). **TypeScript incrémental**
 lib audio, pas de state manager (un `useReducer` global dans `App.jsx`), pas de
 framework UI (CSS manuscrit), pas de routing, pas de backend.
 
-**Version courante : v1.6.0** (2026-06-04).
+**Version courante : v1.7.0** (2026-06-06).
 
 **Itérations livrées** (détail complet dans `CONTEXT-ARCHIVE.md`) :
 
@@ -36,25 +36,16 @@ framework UI (CSS manuscrit), pas de routing, pas de backend.
 | L | Documentation (onglet + Raccourcis Ctrl+K + Tour Ctrl+J) — v1.4.0 | 2026-05-28 |
 | M | Waveform Designer : modèle canonique unifié + 3 lentilles + patch typé — v1.5.0 | 2026-06-03 |
 | N | Stabilité & fluidité : édition d'ancres refondue (warp 2D), presets « Timbres » (vues idéale/band-limitée + formes paramétriques), lissage, durcissements — v1.6.0 | 2026-06-04 |
+| O | Ergonomie & responsive Designer : steppers, OverflowToolbar généralisé, responsive Instrument/AHDSR, gestionnaire de modules (collapse/maximize/auto-collapse), titres ellipsis — v1.7.0 | 2026-06-06 |
 
-**État courant** : Iteration N « Stabilité & fluidité » **close** (release
-v1.6.0, 2026-06-04). **Iteration O — Ergonomie & responsive du Designer** ouverte
-(cf. `archi/BACKLOG.md` § Iteration O) : **phases 1-4 + 5a-5d** livrées (steppers
-`▴▾` au lieu des sliders ancres/cap ; `OverflowToolbar` priority-plus sur les
-barres de titre surchargées ; quadrant Instrument responsive desktop à 2 étages ;
-bascule Graphe/Sliders de l'AHDSR en basse résolution ; **gestionnaire de modules
-Designer** (O.5) : **collapse** en bande verticale (icône + titre, `designerCollapsed`),
-**maximize** plein cadre (`maximized`, autres cachés CSS), **chrome détachée** (coin
-haut-droit, icônes contrôles-fenêtre) + **icône d'identité** par module (`MODULE_META`),
-**auto-réduction** par rangée (`autoCollapse` + toggle, forcée en écran étroit) ;
-tout ça desktop only. **O.6** : `OverflowToolbar` **généralisé aux 5 headers** +
-**titres en ellipsis progressive** (« … », l'icône reste ; repli ultime = icône
-seule). **O fonctionnellement complète** — reste une passe de calibration (seuils,
-icônes) + doc/release (bump version) en clôture). Le détail par phase N.1→N.6 (audit
-perf + verdict prod, warp 2D, presets « Timbres », lissage, durcissements TS)
-vit dans `CONTEXT-ARCHIVE.md` ; l'état présent du Designer est résumé dans
-`## État actuel` ci-dessous. Hygiène restante (hors itération) : purge des
-prompt-fichiers `archi/N*`, `archi/Mr*`, `archi/M5b*` consommés.
+**État courant** : Iteration O « Ergonomie & responsive du Designer » **close**
+(release v1.7.0, 2026-06-06) — **entre deux itérations**, prochaine non cadrée
+(« Monde B » pressenti). Le Designer desktop est traité de bout en bout jusqu'au
+plancher accordéon (924×668) ; l'épuration sous ce seuil est reportée (cf.
+`archi/BACKLOG.md` § Iteration O « Différé / reste »). L'état présent du Designer
+est résumé dans `## État actuel` ci-dessous ; le détail par phase O.1→O.6 vit dans
+`CONTEXT-ARCHIVE.md`. Hygiène restante (hors itération) : purge des prompt-fichiers
+`archi/O*`, `archi/N*`, `archi/Mr*`, `archi/M5b*` consommés.
 
 > **Structure des fichiers de contexte.** Ce `CONTEXT.md` est le **brief
 > vivant** : état présent, modèle de données, composants, architecture,
@@ -935,6 +926,40 @@ Seuls les **placements timeline** s'appellent "clips".
 Choix non évidents pris pour de bonnes raisons. À ne pas remettre en question
 à la légère — relire ici avant de refactorer.
 
+- **Slider = grandeur continue / stepper = décompte discret (iter-O O.1)** :
+  convention d'entrée. Un nombre qu'on **compte** (nombre d'ancres, plafond
+  d'harmoniques) se règle au **stepper `▴▾`** (`NumberInput` opt-in) — la valeur
+  exacte compte, un cran = `±1`. Une grandeur **continue** perçue à l'oreille ou à
+  l'œil (amplitude, ADSR) reste un **slider**. On ne « slide » pas un compte ni ne
+  « steppe » une enveloppe.
+- **`OverflowToolbar` (priority-plus, iter-O O.2/O.6) = relocalisation, pas
+  duplication** : barre générique qui mesure par *ghost row* + `ResizeObserver` et
+  pousse le débordement dans un tiroir `bar`/`tray`, repli droite→gauche.
+  L'**anti-boucle** est structurel : le root remplit l'espace du flex parent
+  (`flex:1 1 0; min-width:0`, contenu aligné à droite) → la largeur observée = espace
+  dispo, indépendante du contenu. L'**état des contrôles vit dans le parent** ;
+  l'OverflowToolbar **relocalise** seulement *où* le node est rendu (au resize, jamais
+  en plein geste) — pas de double-rendu, pas de state dupliqué. Icône + titre du
+  module restent hors de la barre.
+- **Gestionnaire de modules Designer (iter-O O.5) — collapse/maximize par CSS,
+  canvas jamais démonté** : replier/maximiser un module est **purement CSS**
+  (`display:none` + flexGrow / `:has()`), le contenu reste **monté** — démonter
+  viderait les canvas (état perdu, RO orphelins). Corollaire vérifié à la dure : les
+  `ResizeObserver` (canvas, zone AHDSR) sont posés via **callback ref**, car la
+  render-prop du `WaveformEditor` remonte les nodes sans démonter le composant (un RO
+  posé en `useEffect` devient orphelin → canvas figé 300×150 / décision compact
+  erratique). **Auto-réduction par rangée** (à l'ouverture) **coexiste avec l'AUTO**
+  du dimensionnement (au focus) : deux politiques orthogonales. Chrome de fenêtre
+  détachée en coin (hors OverflowToolbar) ; identité par `MODULE_META` (source unique
+  icône + label).
+- **Détection « compact » mesurée sur la zone, pas sur `windowWidth` (iter-O O.4)** :
+  l'AHDSR décide de basculer en mode compact via un `ResizeObserver` sur sa propre
+  zone, pas via la largeur fenêtre — robuste à travers desktop, accordéon mobile et
+  collapse de module (un module replié rétrécit la zone sans changer la fenêtre).
+- **Responsive Instrument = desktop only (iter-O O.3)** : la dégradation à 2 étages
+  (système → `[⚙]`, octaves → stepper) ne s'applique **qu'au desktop**. Sous 924×668,
+  l'**accordéon mobile reste la stratégie** (inchangé). L'épuration responsive sous ce
+  plancher est une itération future à part entière (cf. backlog).
 - **Modale Presets = point d'entrée unique + modèle 2-vues (iter-N N.5c)** : tous
   les sons pré-fabriqués passent par la modale `PresetPicker` (plus de barre de
   presets géométriques en mode Libre). Les 4 formes de base (`BASE_WAVEFORMS`,
@@ -1872,50 +1897,61 @@ Conventions tacites. Les enfreindre sans raison crée des bugs subtils.
 ## État actuel
 
 ✅ **Terminé**
-- **Iteration O — Ergonomie & responsive du Designer (en cours)** :
-  - **Phase 4 — Enveloppe AHDSR : bascule Graphe/Sliders en basse résolution** :
-    la zone AHDSR est observée (`ResizeObserver` sur `.we-adsr-area`, mesure de la
-    zone — pas `windowWidth` — donc layout-agnostique : desktop, accordéon mobile,
-    futur collapse O.5). Sous les seuils `ADSR_COMPACT_WIDTH`/`HEIGHT`, un **switch
-    segmenté Graphe/Sliders** apparaît dans le header et n'affiche **qu'une vue à
-    la fois** ; la vue Sliders seule passe en **grille 2 colonnes** (canvas masqué
-    libère la largeur). Choix persisté `adsrView: 'graph' | 'sliders'` (défaut
-    `graph`, non-undoable comme `durationMode`). Canvas **jamais démonté**
-    (`display:none` + redraw forcé au retour Graphe). Hors scope : exposer le
-    switch aussi en résolution normale (différé, backlog) ; collapse/maximize (O.5).
-  - **Phase 3 — Quadrant Instrument responsive (desktop only)** : dégradation à
-    **2 étages** (seuils `width OU height`) qui libère des lignes pour le clavier.
-    Étage 1 (`instrumentCollapsed`, w<950 ∥ h<780) : contrôles système → icône
-    `[⚙]` dans le header (modale inchangée), le corps n'affiche plus la row
-    système. Étage 2 (`octaveInHeader`, w<924 ∥ h<710) : les 11 boutons d'octave →
-    **stepper `▴▾`** (réutilise O.1) dans le header, `we-octave-row` du corps
-    retirée. `WaveformEditor` reçoit `isMobile` (prop App.jsx) ; le
-    `data-anchor="designer-octave-selector"` suit le contrôle. **Mobile
-    (accordéon < 924×668) strictement inchangé** (bouton système full-width +
-    modale ; 11 boutons d'octave). Hors scope ici : AHDSR (O.4), collapse/maximize
-    des modules (O.5).
-  - **Phase 2 — `OverflowToolbar` (priority-plus)** : nouveau composant générique
-    réutilisable (`src/components/OverflowToolbar.jsx`) qui affiche un maximum de
-    contrôles en ligne et pousse le débordement dans un **tiroir `⋯`** (popover de
-    lignes libellées). Mesure par *ghost row* + `ResizeObserver` (root + ghost),
-    anti-boucle (root rempli par le flex parent → largeur observée indépendante du
-    contenu), repli droite→gauche, focus/Esc/clic-dehors alignés sur
-    `BibContextMenu`. Appliqué à **deux** zones : le **header Forme d'onde** (6
-    contrôles, même node en mode Libre et Ancres) et le **groupe droit de la
-    `DesignerToolbar`** (4 presets de proportions + AUTO, séparateur en `prefix`).
-    Les barres de titre surchargées ne se font plus rogner / wrapper ; les
-    contrôles débordés restent **pleinement fonctionnels** dans le tiroir (l'état
-    vit dans le parent, on ne fait que relocaliser le rendu, au resize seulement).
-  - **Phase 1 — Steppers `▴▾`** : les deux **sliders range** du Designer (nombre
-    d'ancres `4..32`, plafond d'harmoniques `1..256`) sont retirés au profit de
+- **Iteration O — « Ergonomie & responsive du Designer » (close, v1.7.0)**. État
+  présent du Designer après l'itération (détail par phase O.1→O.6 dans
+  `CONTEXT-ARCHIVE.md`). Tout est scopé Designer, calibré jusqu'au plancher
+  accordéon (924×668) ; sous ce seuil, l'accordéon mobile n'a pas été retravaillé
+  (différé, cf. backlog). Composants nouveaux : `OverflowToolbar`, `DesignerModule`,
+  `ModuleChrome`, `lib/designerModules.js`. Champs persistés nouveaux : `adsrView`,
+  `designerCollapsed`, `maximized`, `autoCollapse`.
+  - **Steppers `▴▾` (O.1)** : les deux **sliders range** du Designer (nombre
+    d'ancres `4..32`, plafond d'harmoniques `1..256`) sont remplacés par des
     **steppers** = saisie libre du `NumberInput` + colonne de **chevrons `▴▾`**
     (Lucide). Clic = `±1`, `Shift+clic` = `±10`, **appui maintenu** = cran immédiat
-    puis auto-répétition accélérée (~300 ms d'amorce, 120 ms → ×0.85 → plancher
-    30 ms, arrêt à la borne) — récupère le « scrub live » de l'ancien slider du
-    cap. Clavier `↑↓`/`Shift+↑↓` quand le champ a le focus. Extension **opt-in**
-    de `NumberInput` (`showSteppers`/`step`/`shiftStep`, terrain prêt pour
-    ADSR/ampli/fréquence mais non activé). Les deux barres de titre sont plus
-    étroites. Livre l'item backlog **« flèches ↑↓ dans NumberInput »**.
+    puis auto-répétition accélérée (récupère le « scrub live » de l'ancien slider
+    du cap), clavier `↑↓`/`Shift+↑↓` au focus. Extension **opt-in** de `NumberInput`
+    (`showSteppers`/`step`/`shiftStep`, terrain prêt pour ADSR/ampli/fréquence, non
+    activé). Livre l'item backlog **« flèches ↑↓ dans NumberInput »**.
+  - **`OverflowToolbar` priority-plus (O.2, généralisé O.6.2)** : composant
+    générique réutilisable qui affiche un maximum de contrôles en ligne et pousse
+    le débordement dans un **tiroir `⋯`** (popover de lignes libellées). Mesure par
+    *ghost row* + `ResizeObserver` (root + ghost), anti-boucle (root rempli par le
+    flex parent → largeur observée indépendante du contenu), repli droite→gauche,
+    focus/Esc/clic-dehors alignés sur `BibContextMenu`, état des contrôles dans le
+    parent (on ne fait que relocaliser le rendu, au resize). Branché sur **les 5
+    headers de module** (Forme d'onde, Harmoniques, Instrument, AHDSR, Spectro) +
+    le **groupe droit de la `DesignerToolbar`** (séparateur en `prefix`). L'icône
+    + le titre du module restent **hors** de l'OverflowToolbar (`we-header-left`).
+  - **Quadrant Instrument responsive (O.3, desktop only)** : dégradation à
+    **2 étages** (seuils `width OU height`, au-dessus du plancher accordéon) qui
+    libère des lignes pour le clavier. Étage 1 (`instrumentCollapsed`) : contrôles
+    système → icône `[⚙]` dans le header (modale inchangée). Étage 2
+    (`octaveInHeader`, ⟹ étage 1) : les 11 boutons d'octave → **stepper `▴▾`** dans
+    le header. `data-anchor="designer-octave-selector"` suit le contrôle. **Mobile
+    (accordéon < 924×668) strictement inchangé**.
+  - **AHDSR compact (O.4)** : la zone est observée (`ResizeObserver` sur
+    `.we-adsr-area`, mesure de la **zone** — pas `windowWidth` — donc
+    layout-agnostique : desktop, accordéon, collapse). Sous `ADSR_COMPACT_*`, un
+    **switch segmenté Graphe/Sliders** dans le header n'affiche **qu'une vue à la
+    fois** ; la vue Sliders seule passe en **grille 2 colonnes**. `adsrView:
+    'graph'|'sliders'` persisté (défaut `graph`, non-undoable). Canvas **jamais
+    démonté** (`display:none` + redraw forcé au retour Graphe).
+  - **Gestionnaire de modules (O.5a→d)** : les 5 modules Designer sont enveloppés
+    dans `DesignerModule` + `ModuleChrome`. **Collapse** en bande verticale (icône
+    en tête + titre en rotation, `designerCollapsed`, libère l'espace via flexGrow
+    normalisé). **Maximize** plein-cadre Designer (`maximized`, autres modules
+    masqués en CSS via `:has()`). **Chrome détachée** en coin haut-droit (boutons
+    nus Réduire/Agrandir-Restaurer, icônes contrôles-fenêtre SVG) — hors
+    OverflowToolbar. **Identité** par module (`MODULE_META` : icône Lucide + label,
+    source unique). **Auto-réduction par rangée** (`autoCollapse` + toggle dans la
+    DesignerToolbar, forcée en écran étroit) — **coexiste avec l'AUTO** du
+    dimensionnement (auto-collapse = à l'ouverture ; AUTO = au focus). Canvas
+    **jamais démonté** (collapse/maximize = CSS pur ; sinon canvas vide). Les
+    `ResizeObserver` des canvas / de la zone AHDSR sont posés via **callback ref**
+    (anti-orphelin : la render-prop remonte les nodes sans démonter `WaveformEditor`).
+  - **Titres en ellipsis progressive (O.6.1)** : quand un header se resserre, le
+    titre se tronque (« … »), l'icône d'identité reste ; repli ultime = **icône
+    seule**.
 - **Iteration N — « Stabilité & fluidité » (close, v1.6.0)**. État présent du
   Designer après l'itération (détail par phase N.1→N.6 dans `CONTEXT-ARCHIVE.md`) :
   - **Édition d'ancres refondue — principe « représentation vs forme »** : les
@@ -2674,28 +2710,21 @@ Conventions tacites. Les enfreindre sans raison crée des bugs subtils.
 > Détail des roadmaps des itérations livrées (A→M) → `CONTEXT-ARCHIVE.md`.
 > Ci-dessous : l'itération en cours, puis le backlog général (non planifié).
 
-### Iteration O — Ergonomie & responsive du Designer (en cours)
+### Entre deux itérations (depuis la clôture d'O, 2026-06-06)
 
-Cadrée côté archi (`archi/BACKLOG.md` § Iteration O) : le Designer est trop
-chargé, on dégraisse en partant de la dette la plus simple.
+Iteration O « Ergonomie & responsive du Designer » **close** (release v1.7.0).
+Roadmap détaillée O.1→O.6 archivée dans `CONTEXT-ARCHIVE.md`. Prochaine itération
+**non cadrée** (« Monde B » inharmonique + morph pressenti, cf. `archi/BACKLOG.md`).
 
-- **Phase 1 — Steppers `▴▾`** (livrée) : sliders range ancres/cap remplacés par
-  steppers (`NumberInput` étendu, opt-in). Détail dans `## État actuel`.
-- **Phase 2 — `OverflowToolbar` priority-plus** (livrée) : débordement des barres
-  de titre surchargées dans un tiroir `⋯`. Branché au header Forme d'onde et au
-  groupe droit de la `DesignerToolbar`. Détail dans `## État actuel`.
-- **Phase 3 — Quadrant Instrument responsive** (livrée) : dégradation desktop à 2
-  étages (système → `[⚙]`, octaves → stepper `▴▾`) pour libérer des lignes au
-  clavier. Mobile inchangé. Détail dans `## État actuel`.
-- **Phase 4 — Enveloppe AHDSR compacte** (livrée) : switch Graphe/Sliders mesuré
-  sur la zone, une vue à la fois + sliders 2 colonnes en basse résolution ;
-  `adsrView` persisté. Détail dans `## État actuel`.
-- **Phase 5+ — à venir** : collapse/auto-collapse/maximize des modules + chrome
-  Réduire/Agrandir (O.5). Cf. `archi/BACKLOG.md`. Différé : exposer le switch
-  AHDSR aussi en résolution normale (replier une vue par choix).
-
-Iteration N « Stabilité & fluidité » **close** (release v1.6.0). Roadmap
-détaillée N.1→N.6 archivée dans `CONTEXT-ARCHIVE.md`.
+**Reste lié à O (différé, future itération)** :
+- **Épuration responsive sous 924×668 (accordéon mobile)** : le Designer desktop est
+  traité jusqu'au plancher accordéon ; en dessous, l'accordéon n'a pas été
+  retravaillé → passe d'épuration dédiée. Lié à « Adaptation UI résolutions
+  intermédiaires » ci-dessous.
+- Switch Graphe/Sliders AHDSR exposé **aussi en résolution normale** (replier une
+  vue par choix).
+- Seuils de calibration en variables (`INSTRUMENT_*`, `ADSR_COMPACT_*`,
+  `AUTO_COLLAPSE_DEFAULT_WIDTH`, container-query) pour réglage ultérieur.
 
 ### Backlog général (à caser quand pertinent)
 
