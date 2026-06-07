@@ -2162,6 +2162,7 @@ function App() {
         onToggleShortcuts={() => setShortcutsOverlay(!shortcutsOverlayOpen)}
         tourActive={tour.active}
         onToggleTour={() => dispatch(tour.active ? { type: 'END_TOUR' } : { type: 'START_TOUR', payload: activeTab })}
+        isMobile={isMobile}
       />
       <ShortcutsOverlay
         isOpen={shortcutsOverlayOpen}

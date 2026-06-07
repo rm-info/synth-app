@@ -137,6 +137,41 @@
   border-color: var(--accent);
 }
 
+/* iter-R phase-2.2 : header compact (< 924×668) = priority-plus + hamburger.
+   Le titre reste à gauche (peut tronquer) ; la nav (onglets + auxiliaires) vit
+   dans un OverflowToolbar qui remplit le reste et aligne son contenu + le
+   hamburger à droite. */
+.tabs-compact .tabs-title {
+  /* Le titre cède la place : il tronque plutôt que de pousser la nav hors champ. */
+  flex-shrink: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.tabs-compact-nav {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: stretch;
+  /* La « ghost row » de mesure de l'OverflowToolbar (position:absolute, nowrap)
+     déborderait à droite → scroll horizontal du header. `clip` sur X la borne ;
+     Y reste `visible` pour que le tiroir hamburger s'ouvre vers le bas. */
+  overflow-x: clip;
+}
+.tabs-compact-nav.is-tour-hidden {
+  visibility: hidden;
+}
+/* Onglets dans le tiroir : libellé pleine ligne, sans la bordure d'onglet
+   (l'« actif » se lit déjà à la couleur accent). */
+.tabs-compact-nav .overflow-toolbar-tray-row .tab {
+  padding: 4px 6px;
+  border-bottom: none;
+  margin-bottom: 0;
+  width: 100%;
+  text-align: left;
+}
+
 @media (max-width: 600px) {
   .tabs {
     padding: 0 8px;
