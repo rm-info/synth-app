@@ -154,10 +154,6 @@
   min-width: 0;
   display: flex;
   align-items: stretch;
-  /* La « ghost row » de mesure de l'OverflowToolbar (position:absolute, nowrap)
-     déborderait à droite → scroll horizontal du header. `clip` sur X la borne ;
-     Y reste `visible` pour que le tiroir hamburger s'ouvre vers le bas. */
-  overflow-x: clip;
 }
 .tabs-compact-nav.is-tour-hidden {
   visibility: hidden;
@@ -197,6 +193,13 @@
 }
 .tabs-compact {
   padding-right: 6px;
+  /* Clippe la « ghost row » de mesure de l'OverflowToolbar (position:absolute,
+     nowrap) qui déborde à droite. Posé sur le HEADER entier (et non sur
+     `.tabs-compact-nav`, plus étroit) : sinon le tiroir hamburger (popover
+     `right:0; min-width:200px`, qui s'étend vers la GAUCHE) serait tronqué quand
+     il dépasse la largeur de la nav. `clip` sur X laisse Y `visible` (tiroir vers
+     le bas). Le popover tient dans la largeur du header → non tronqué. */
+  overflow-x: clip;
 }
 
 @media (max-width: 600px) {

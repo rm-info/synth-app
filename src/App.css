@@ -190,7 +190,11 @@
     left: 50%;
     transform: translate(-50%, -50%);
     width: calc(100vw - 30px);
-    max-width: 480px;
+    /* iter-R phase-3.3 : le composant pose un `style={{ width: bibPopupWidth }}`
+       INLINE (défaut 480) qui bat le `width` ci-dessus. Seul `max-width` peut le
+       brider — le caper au viewport (et non à 480) pour qu'il rétrécisse jusqu'à
+       300px sans déborder. */
+    max-width: calc(100vw - 30px);
     max-height: calc(100dvh - 60px);
   }
 }
