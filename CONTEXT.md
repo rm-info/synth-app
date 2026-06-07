@@ -40,23 +40,27 @@ framework UI (CSS manuscrit), pas de routing, pas de backend.
 | P | Effets & modulations : vibrato & trémolo (LFO par patch) — helper audio partagé sur les 4 chemins, 6ᵉ module Designer, .osa v3 ; + édition visuelle LFO & polish responsive (P.5/P.6) — v1.9.0 | 2026-06-07 |
 | Q | Désencombrement Designer : retrait auto-sizing + bouton « Égaliser » deux rangées + fix taille boutons spectro — v1.9.1 | 2026-06-07 |
 
-**État courant** : Iteration Q « Désencombrement du Designer » **close** (release
-**v1.9.1**, 2026-06-07) — **entre deux itérations**, prochaine non cadrée
-(« Monde B » pressenti). Petite itération de désencombrement à la suite de P.6 :
-**(1)** retrait complet de l'**auto-sizing** (redimensionnement auto des colonnes
-au focus, jugé impraticable) — état/reducer/types/composants nettoyés, champ
-`autoSizing` persisté abandonné (ignoré à l'hydratation) ; **(2)** les 4 presets de
-proportions + le bouton AUTO deviennent un **unique bouton « Égaliser »**
-(`DesignerToolbar`, icône `Table` pivotée 90°) qui remet les **deux rangées** à
-⅓⅓⅓ — les proportions custom passent par le drag des séparateurs (haut + bas) ;
-**(3)** fix de la taille des boutons spectro live/dB/peak (boîte fixe au lieu d'un
-plancher → empreinte strictement égale). La rangée du bas (P.6.2) et la rangée du
-haut sont désormais strictement identiques. L'accordéon mobile **sous 924** reste
-non retravaillé (backlog). Iteration O (v1.7.0) reste la référence du Designer
-desktop, traité jusqu'au plancher accordéon (924×668) ; l'épuration sous ce seuil
-est reportée (cf. `archi/BACKLOG.md`). Hygiène restante (hors itération) : purge
-des prompt-fichiers `archi/O*`, `archi/P*`, `archi/Q*`, `archi/N*`, `archi/Mr*`,
-`archi/M5b*` consommés.
+**État courant** : **Iteration R « Refonte petit écran du Designer »** ouverte (à
+la suite de Q, release v1.9.1) — but : rendre le Designer utilisable sous le
+plancher accordéon (< 924×668), où l'on manque de largeur ET de hauteur. Phases :
+**R.1** (switcher de modules / hauteur — **livrée**) → R.2 (hamburger d'en-tête /
+largeur) → R.3 (densification) → R.4 (orientation adaptative). **Pas de bump en
+R.1** ; bump mineur (**v1.10.0**) à la clôture de R.
+
+**R.1 livrée** : le petit écran abandonne l'**accordéon** (barres repliées qui
+mangeaient la hauteur) au profit d'un **switcher** : une rangée d'icônes de module
+dans la `DesignerToolbar` (`.designer-module-switcher`, mobile only) sélectionne
+**un seul module affiché plein cadre** dans la zone centrale ; toute la hauteur va
+au module ouvert. Les 6 corps restent **montés en permanence** (contrainte canvas /
+RO — masqués en `display:none`, l'actif en `display:flex`). Nouveau champ persisté
+**`designerMobileModule`** (∈ les 6 ids, défaut `'canvas'`, validé à l'hydratation)
+— remplace l'ex-état volatile/nullable `mobileExpandedZone` ; **toujours exactement
+un module actif** (clic sur l'actif = no-op). Gating rAF de la mini-courbe LFO
+rebranché sur `designerMobileModule === 'modulation'`. **Desktop ≥ 924×668
+inchangé.**
+
+Hygiène restante (hors itération) : purge des prompt-fichiers `archi/O*`,
+`archi/P*`, `archi/Q*`, `archi/N*`, `archi/Mr*`, `archi/M5b*` consommés.
 
 > **Structure des fichiers de contexte.** Ce `CONTEXT.md` est le **brief
 > vivant** : état présent, modèle de données, composants, architecture,
@@ -188,8 +192,11 @@ l'attribut `hidden` (override CSS pour battre `display:grid`). Raison : ne pas
 démonter le `WaveformEditor`, sinon perte de l'état local + du dirty check.
 
 **Responsive Designer desktop (seuils, iter-P P.6)** : trois paliers de largeur.
-`isMobile` (`< 924` OU `h < 668`) → accordéon mobile (6 zones empilées, une seule
-dépliée, **Instrument en dernier**, Modulation juste avant). `ESSENTIALS_WIDTH`
+`isMobile` (`< 924` OU `h < 668`) → **switcher de modules** (iter-R R.1, remplace
+l'accordéon) : rangée d'icônes dans la `DesignerToolbar` + **un seul module plein
+cadre** (`designerMobileModule` persisté, défaut `'canvas'`) ; ordre du switcher
+canvas/harmonics/spectro/adsr/modulation/**params (Instrument dernier)**, corps
+montés en permanence. `ESSENTIALS_WIDTH`
 (**1100**, = seuil d'auto-collapse forcé O.5d) → en desktop sous ce seuil :
 (a) **auto-collapse « essentiel »** au franchissement (edge-triggered) — seuls
 Forme d'onde + Instrument restent ouverts, le reste replié ; tout rouvert au
@@ -317,6 +324,8 @@ type Clip = {                     // placement timeline + hauteur
 //     params, adsr, modulation } booléens, état replié des 6 modules Designer),
 //   maximized (iter-O phase-5b : id du module maximisé ou null),
 //   autoCollapse (iter-O phase-5d : politique d'auto-réduction par rangée),
+//   designerMobileModule (iter-R phase-1.1 : module plein cadre en petit écran,
+//     ∈ les 6 ids, défaut 'canvas' ; remplace l'ex-volatile mobileExpandedZone),
 //   editorTestTuningSystem, editorTestNoteIndex, editorTestOctave,
 //   editorTestFrequency, editorVisualCuePattern, editorVisualCueTonic,
 //   selectedTrackId (iter-L phase-1.4.b) }
@@ -1086,8 +1095,22 @@ Choix non évidents pris pour de bonnes raisons. À ne pas remettre en question
   collapse de module (un module replié rétrécit la zone sans changer la fenêtre).
 - **Responsive Instrument = desktop only (iter-O O.3)** : la dégradation à 2 étages
   (système → `[⚙]`, octaves → stepper) ne s'applique **qu'au desktop**. Sous 924×668,
-  l'**accordéon mobile reste la stratégie** (inchangé). L'épuration responsive sous ce
-  plancher est une itération future à part entière (cf. backlog).
+  le **switcher de modules** (iter-R R.1) est la stratégie (cf. décision dédiée) ;
+  l'épuration responsive sous ce plancher est traitée par l'itération R.
+- **Designer petit écran = un module plein cadre + switcher d'icônes (iter-R R.1,
+  remplace l'accordéon)** : sous 924×668, plus de barres repliées empilées qui
+  mangeaient la hauteur ; une **rangée d'icônes** dans la `DesignerToolbar`
+  (`.designer-module-switcher`, mobile only — **pas** d'OverflowToolbar, c'est la
+  navigation primaire) sélectionne **le** module affiché plein cadre. **Toujours
+  exactement un module actif** (`designerMobileModule` persisté, défaut `'canvas'` ;
+  clic sur l'actif = no-op) — fini l'état nullable « tout replié » de l'ex-volatile
+  `mobileExpandedZone`. Les **6 corps restent montés en permanence**, visibilité par
+  CSS (`display:none` ↔ `display:flex`) — **même contrainte canvas que le
+  gestionnaire desktop** : démonter viderait les canvas (Forme d'onde / Harmoniques /
+  Spectro + mini-courbe Modulation) et laisserait des RO orphelins. Le redraw au
+  changement de module est porté par le **passage `display:none` → `flex`** (les RO
+  détectent le retour à des dimensions non-nulles) — pas de redraw explicite. Le
+  switcher vit dans la `DesignerToolbar` (groupe flex simple, réorienté en R.4).
 - **Modale Presets = point d'entrée unique + modèle 2-vues (iter-N N.5c)** : tous
   les sons pré-fabriqués passent par la modale `PresetPicker` (plus de barre de
   presets géométriques en mode Libre). Les 4 formes de base (`BASE_WAVEFORMS`,

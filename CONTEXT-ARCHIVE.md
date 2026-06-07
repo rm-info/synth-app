@@ -883,6 +883,53 @@ Phases listées ci-dessous dans l'ordre chronologique d'implémentation.
 
 ## Historique (chronologie inverse)
 
+- **2026-06-07 — Iteration R « Refonte petit écran du Designer » — OUVERTE.**
+  Cadrée à la suite de Q. But : rendre le Designer utilisable **sous le plancher
+  accordéon** (< 924×668), où l'on manque de largeur ET de hauteur. Phases : **R.1**
+  (switcher de modules / hauteur) → R.2 (hamburger d'en-tête / largeur) → R.3
+  (densification) → R.4 (orientation adaptative gauche/haut selon le ratio). **Pas
+  de bump en R.1** ; bump mineur (**v1.10.0**) à la clôture de R.
+  - **R.1 — Switcher de modules en petit écran (libération de la hauteur)**
+    (`feat(iter-R/phase-1)`). Remplace l'**accordéon** (6 modules empilés, un déplié,
+    les autres en barres repliées qui mangeaient la hauteur — ex-état volatile
+    `mobileExpandedZone`, défaut `'canvas'`, nullable) par un **switcher** : une
+    **rangée de 6 boutons-icônes** dans la `DesignerToolbar`
+    (`.designer-module-switcher`, **mobile only**, groupe flex simple — **pas**
+    d'OverflowToolbar : c'est la navigation primaire, toujours visible ; icône/label
+    via `MODULE_META`, actif `is-active` réutilisant `.icon-btn.is-active`), et **un
+    seul module affiché plein cadre** dans la zone centrale (`.designer-mobile-stack`
+    + `.designer-mobile-panel`, l'actif `is-active` en `display:flex`, les autres
+    `display:none`). Toute la hauteur va au module ouvert.
+    - **État (désormais persisté)** : nouveau champ **`designerMobileModule`** (∈ les
+      6 ids, défaut `'canvas'`) — `reducer.js` (validation à l'hydratation
+      `loadPersistedState` + défaut `buildInitialState` + action
+      `SET_DESIGNER_MOBILE_MODULE` clampée), `types.ts` (champ `AppState` +
+      union `Action`), `App.jsx` (destructuration + persistance localStorage +
+      `handleSelectMobileModule`). **Toujours exactement un module actif** : clic sur
+      l'actif = **no-op** (le reducer renvoie l'état inchangé).
+    - **Ordre du switcher** : `DESIGNER_MOBILE_ORDER` (`lib/designerModules.js`) =
+      canvas / harmonics / spectrogram / adsr / modulation / **params (Instrument
+      dernier)** — distinct de `DESIGNER_ROWS` (layout desktop). Source unique de la
+      rangée d'icônes ET de l'empilement des corps.
+    - **Corps montés en permanence** (contrainte canvas / RO — démonter viderait les
+      canvas Forme d'onde/Harmoniques/Spectro + mini-courbe Modulation et laisserait
+      des RO orphelins) : visibilité par CSS uniquement. Le **redraw au changement de
+      module** est porté par le passage `display:none` → `flex` (les RO détectent le
+      retour à des dimensions non-nulles) — mécanisme identique à l'ex-accordéon, pas
+      de redraw explicite.
+    - **Gating rAF** de la mini-courbe LFO rebranché : `App.jsx` `modulationVisible`
+      lit désormais `designerMobileModule === 'modulation'` (et non plus
+      `mobileExpandedZone === 'modulation'`) — la rAF ne tourne que si le module
+      Modulation est le module plein cadre actif.
+    - **CSS** : réécriture de la section mobile d'`App.css` (suppression des barres
+      repliées / headers / chevrons de l'accordéon ; zone centrale = conteneur unique
+      plein cadre ; corps masqués en `display:none`). Headers internes des modules
+      restent masqués en petit écran (leurs contrôles reviendront via le hamburger
+      d'en-tête, R.2).
+    - **Desktop ≥ 924×668 inchangé.** **Vérif** : `npm run lint` (0 erreurs, 4
+      warnings `exhaustive-deps` préexistants) + `npx tsc --noEmit` + `npm run build`
+      propres.
+
 - **2026-06-07 — Iteration Q « Désencombrement du Designer » — CLOSE. Release
   v1.9.1.** Petite itération de suite après P.6 : P.6.2 ayant ajouté des
   séparateurs drag à la rangée du bas, plusieurs contrôles de la `DesignerToolbar`
