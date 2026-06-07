@@ -1059,6 +1059,16 @@ Phases listées ci-dessous dans l'ordre chronologique d'implémentation.
       content-box débordait à 300px). Popover Bibliothèque déjà capé (modale fixe
       `calc(100vw - 30px)` < 700px) ; `.we-sound-tag` déjà tronquée. **Vérif** :
       `npm run lint` + `npx tsc --noEmit` + `npm run build` propres.
+    - **3.3 — fixes débordement à 300×500** (`fix(iter-R/phase-3.3)`). (1) Tiroir
+      hamburger tronqué à GAUCHE : le `overflow-x:clip` posé en R.2 sur
+      `.tabs-compact-nav` (étroit) clippait le popover (`right:0; min-width:200px`,
+      qui s'étend vers la gauche). Déplacé sur `.tabs-compact` (header entier) : la
+      ghost row reste clippée, le popover (qui tient dans la largeur du header) ne
+      l'est plus. (2) Popover Bibliothèque débordant : il porte un
+      `style={{ width: bibPopupWidth }}` **inline** (480) qui bat le `width` CSS ;
+      seul `max-width` peut le brider → media `<700px` `max-width` passé de `480` à
+      `calc(100vw - 30px)`. (Modulation/Instrument en 500×300 gardent un scroll
+      vertical — repoussé à R.4, récupération de hauteur par réorientation.)
 
 - **2026-06-07 — Iteration Q « Désencombrement du Designer » — CLOSE. Release
   v1.9.1.** Petite itération de suite après P.6 : P.6.2 ayant ajouté des
