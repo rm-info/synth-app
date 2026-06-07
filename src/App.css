@@ -548,3 +548,28 @@
    conflit avec lui (la sidebar Designer partait en vrille au seuil
    800 px). Le mode mobile (< 924 × 668) couvre désormais ces cas
    correctement via accordéon. */
+
+/* ============== iter-R phase-3.2 : densification < 700×500 ==============
+   Passe purement CSS, bornée STRICTEMENT à width < 700 OU height < 500 (virgule =
+   OR, reproduit l'ancien gate). Rien ne change ≥ 700×500. Cette bande est toujours
+   en layout mobile (subset de isMobile < 924×668). But : gagner de la place et
+   éviter tout débordement horizontal jusqu'au nouveau plancher 300/500. */
+@media (max-width: 699px), (max-height: 499px) {
+  .designer-layout {
+    gap: 6px;
+    padding: 6px;
+  }
+  .designer-main-mobile {
+    gap: 0;
+  }
+  /* Corps de module plein cadre : padding interne neutralisé (les modules non
+     listés par l'override R.1 — harmoniques, modulation — gardaient 12px). */
+  .designer-mobile-panel .we-canvas-area,
+  .designer-mobile-panel .we-harmonics-area,
+  .designer-mobile-panel .we-params-area,
+  .designer-mobile-panel .we-adsr-area,
+  .designer-mobile-panel .we-modulation-area,
+  .designer-mobile-panel .spectrogram {
+    padding: 0;
+  }
+}

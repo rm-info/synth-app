@@ -99,3 +99,13 @@
 }
 .modal-radio input { margin: 0; }
 .modal-field-indent { margin-left: 24px; }
+
+/* iter-R phase-3.2 : sous 700×500, le gate s'ouvre jusqu'à 300/500 — caper la
+   modale au viewport (width:100% + margin en content-box déborderait à 300px). */
+@media (max-width: 699px), (max-height: 499px) {
+  .modal-dialog {
+    box-sizing: border-box;
+    max-width: calc(100vw - 24px);
+    margin: 12px;
+  }
+}

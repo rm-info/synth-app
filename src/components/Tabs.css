@@ -220,3 +220,18 @@
     margin: auto 4px;
   }
 }
+
+/* iter-R phase-3.2 : densification du header compact < 700×500 (placé après le
+   bloc 600px pour gagner en source-order sur la plage 600-700). */
+@media (max-width: 699px), (max-height: 499px) {
+  .tabs-compact {
+    padding: 0 4px 0 8px;
+  }
+  .tabs-compact .tabs-title {
+    font-size: 0.8rem;
+  }
+  .tabs-compact .tab {
+    padding: 8px 10px;
+    font-size: 0.82rem;
+  }
+}

@@ -130,3 +130,15 @@
 .designer-toolbar-preset-btn:disabled {
   cursor: not-allowed;
 }
+
+/* iter-R phase-3.2 : densification de la toolbar Designer en petit écran. */
+@media (max-width: 699px), (max-height: 499px) {
+  .designer-main-mobile .designer-toolbar {
+    padding: 2px 2px 4px;
+    gap: 6px;
+    margin-bottom: 2px;
+  }
+  .designer-module-switcher {
+    gap: 2px;
+  }
+}
