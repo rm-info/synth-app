@@ -628,6 +628,9 @@ export type ActionBody =
   | { type: 'SET_DESIGNER_MAXIMIZED'; payload: DesignerModuleId | null }
   // iter-O phase-5d : bascule la politique d'auto-réduction.
   | { type: 'SET_DESIGNER_AUTO_COLLAPSE'; payload: boolean }
+  // iter-P phase-6.1 : remplace l'état replié des 6 modules en bloc (auto-collapse
+  // essentiel < ESSENTIALS_WIDTH / réouverture totale au-dessus).
+  | { type: 'SET_DESIGNER_COLLAPSED_BULK'; payload: DesignerCollapsed }
   | { type: 'SET_CURRENT_ARTICLE'; payload: string | null }
   | { type: 'SET_ARTICLE_SCROLL'; payload: { articleId: string; scrollTop: number } }
   | { type: 'TOGGLE_DOC_SIDEBAR' }

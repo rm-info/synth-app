@@ -2574,6 +2574,15 @@ export function reducer(state, action) {
       if (state.autoCollapse === value) return state
       return { ...state, autoCollapse: value }
     }
+    // iter-P phase-6.1 : remplace l'état replié des 6 modules EN BLOC (auto-collapse
+    // « essentiel » sous ESSENTIALS_WIDTH / réouverture totale au-dessus). Sanitize
+    // comme l'init ; no-op si identique (évite render/persist inutiles). Non-undoable.
+    case 'SET_DESIGNER_COLLAPSED_BULK': {
+      const next = sanitizeDesignerCollapsed(action.payload)
+      const cur = state.designerCollapsed
+      if (DESIGNER_MODULE_IDS.every((id) => cur[id] === next[id])) return state
+      return { ...state, designerCollapsed: next }
+    }
     case 'SET_COMPOSER_SIDEBAR_WIDTH': {
       const { side, width } = action.payload
       const clamped = Math.max(COMPOSER_SIDEBAR_MIN_WIDTH, Math.round(width))

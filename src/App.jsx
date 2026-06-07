@@ -74,6 +74,11 @@ const wrappedReducer = withUndo(reducer)
 // est EFFECTIVEMENT active même toggle off — sinon les modules d'une rangée se
 // replient tous en bande « … » faute de place. Calibrable au test.
 const AUTO_COLLAPSE_DEFAULT_WIDTH = 1100
+// iter-P phase-6.1 : sous ce seuil (desktop étroit, hors accordéon), on ne garde
+// ouverts que l'« essentiel » (Forme d'onde + Instrument) et on replie le reste —
+// automatiquement, par franchissement de seuil ; tout rouvert au-dessus. Constante
+// dédiée (= seuil d'auto-collapse forcé), réglable indépendamment.
+const ESSENTIALS_WIDTH = AUTO_COLLAPSE_DEFAULT_WIDTH
 
 function triggerDownload(blob, filename) {
   const url = URL.createObjectURL(blob)
@@ -1097,6 +1102,36 @@ function App() {
     && (isMobile
       ? mobileExpandedZone === 'modulation'
       : (maximized === null || maximized === 'modulation'))
+
+  // iter-P phase-6.1 : auto-collapse « essentiel » edge-triggered. On mémorise la
+  // bande précédente (winWidth < ESSENTIALS_WIDTH) dans un ref et on n'agit qu'au
+  // FRANCHISSEMENT — jamais à chaque render, sinon on combattrait les toggles
+  // manuels de l'utilisateur en petit écran. Entrée (grand→petit ou montage
+  // déjà-petit, hors accordéon, aucun module maximisé) : replie tout sauf Forme
+  // d'onde + Instrument. Sortie (petit→grand réelle, pas le montage en grand) :
+  // tout rouvrir. maximized != null à l'entrée → on respecte le choix manuel.
+  const prevEssentialsSmallRef = useRef(null)
+  useEffect(() => {
+    const small = winWidth < ESSENTIALS_WIDTH
+    const prev = prevEssentialsSmallRef.current
+    prevEssentialsSmallRef.current = small
+    if (small === prev) return // pas de franchissement (1er run : null ≠ bool → agit)
+    if (small) {
+      if (!isMobile && maximized === null) {
+        dispatch({
+          type: 'SET_DESIGNER_COLLAPSED_BULK',
+          payload: { canvas: false, params: false, harmonics: true, spectrogram: true, adsr: true, modulation: true },
+        })
+      }
+    } else if (prev === true) {
+      // Transition réelle petit→grand uniquement (au montage en grand, prev=null →
+      // on ne touche pas à l'état replié persisté de l'utilisateur).
+      dispatch({
+        type: 'SET_DESIGNER_COLLAPSED_BULK',
+        payload: { canvas: false, harmonics: false, spectrogram: false, params: false, adsr: false, modulation: false },
+      })
+    }
+  }, [winWidth, isMobile, maximized])
 
   // Reclampe les largeurs quand la fenêtre rétrécit : on préserve l'invariant
   // "main ≥ COMPOSER_MAIN_MIN_WIDTH" sans perdre les préférences de l'utilisateur
