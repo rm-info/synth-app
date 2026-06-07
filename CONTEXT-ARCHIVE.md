@@ -947,6 +947,38 @@ Phases listées ci-dessous dans l'ordre chronologique d'implémentation.
     addition sur `gain.gain` (trémolo). Hors scope (→ backlog) : pitch envelope,
     filtre + enveloppe, distorsion, effets temporels/mixage par piste, surfaçage
     Composer read-only, override par clip, synchro tempo du LFO.
+  - **P.5 — Graphe LFO éditable + fix extinction trémolo** (`fix(iter-P/phase-5.0)`
+    + `feat(iter-P/phase-5.1)`). **5.0 — fix trémolo** : sur les chemins programmés
+    (timeline + export WAV), la profondeur trémolo décroissait linéairement sur
+    TOUTE la note (`linearRampToValueAtTime(0, stopTime)` posé dès la fin de
+    l'onset interpolait jusqu'à `stopTime`) → fort à l'attaque puis effacé sur les
+    notes longues. `applyModulation` reçoit désormais `releaseStart` :
+    `setValueAtTime(target, releaseStart)` (plateau implicite pendant le sustain)
+    puis `linearRampToValueAtTime(0, stopTime)` (extinction sur la seule durée du
+    release). `scheduleOneClip`/`scheduleAllClips` passent le `releaseStart` qu'ils
+    calculent déjà. Vibrato inchangé. Previews (sans `stopTime`) éteignaient déjà
+    le trémolo au release via `releaseModNodes` (inchangées). **5.1 — éditeur
+    visuel** : la mini-courbe « qui défile » devient un **graphe temporel éditable
+    à poignées** (esprit AHDSR ; retour utilisateur « réglable visuellement comme
+    l'enveloppe »), pour les deux sous-blocs. Représentation : x = temps depuis
+    l'attaque, y = valeur de modulation (médiane au centre) ; courbe `shape` à la
+    fréquence `rate`, amplitude 0→`depth` sur `onset` puis stable (display
+    normalisé à la demi-hauteur) ; fenêtre = onset + ~2,5 cycles. **3 poignées**
+    (cercles isotropes, curseur grab/grabbing, tooltips de rôle via `LfoTooltip`
+    réutilisant `.adsr-tooltip`) : Profondeur (drag vertical → `depth`),
+    Installation (drag horizontal → `onset`), Vitesse (drag horizontal du marqueur
+    de période → `rate`) ; la forme reste un switch segmenté. **Coexistence** avec
+    les 3 steppers (les deux pilotent `SET_EDITOR_MODULATION` ; tirer une poignée
+    met à jour le stepper et réciproquement). **Undo aligné AHDSR** : draft local
+    `draftMod` pendant le geste, **un seul** dispatch au relâchement. **Animation =
+    point de phase** (un seul point mobile parcourant la courbe figée) en
+    remplacement du scroll ; même gating `rAF` strict (`modulationVisible` + ≥1
+    effet enabled) ; **figé pendant un drag** ; effet off → médiane grise, poignées
+    inertes. **Géométrie x gelée** au mousedown (`modDragGeomRef`) le temps du
+    geste, sinon la fenêtre se redimensionnerait sous la poignée (recalibrée au
+    relâchement). Canvas porté de 38→92 px. **Pas de bump** en P.5 : release
+    coordonnée avec P.6 (→ v1.9.0). Hors scope : forme draggable, synchro tempo,
+    formes de LFO supplémentaires, 2ᵉ LFO, surfaçage Composer.
 
 - **2026-06-06 — Iteration O « Ergonomie & responsive du Designer » — CLOSE.
   Release v1.7.0.** Désencombrement / densification / responsive du **Designer**

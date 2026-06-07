@@ -40,13 +40,15 @@ framework UI (CSS manuscrit), pas de routing, pas de backend.
 | P | Effets & modulations : vibrato & trémolo (LFO par patch) — helper audio partagé sur les 4 chemins, 6ᵉ module Designer, .osa v3 — v1.8.0 | 2026-06-06 |
 
 **État courant** : Iteration P « Effets & modulations : vibrato & trémolo (LFO
-par patch) » **close** (release v1.8.0, 2026-06-06) — **entre deux itérations**,
-prochaine non cadrée (« Monde B » pressenti). Première itération de la section
-« Effets et modulations » du backlog : deux LFO par patch (vibrato → hauteur via
-`osc.detune`, trémolo → volume sommé sur `gain.gain`), un helper audio partagé
-(`lib/modulation.js`) câblé sur les **4 chemins de synthèse**, un 6ᵉ module
-Designer « Modulation », persistance `.osa` v3. Détail par phase P.1→P.4 dans
-`CONTEXT-ARCHIVE.md`. Iteration O (v1.7.0) reste la référence du Designer desktop,
+par patch) » livrée en v1.8.0 (2026-06-06), **prolongée par P.5** (graphe LFO
+éditable à poignées + fix extinction trémolo plateau-puis-release). Première
+itération de la section « Effets et modulations » du backlog : deux LFO par patch
+(vibrato → hauteur via `osc.detune`, trémolo → volume sommé sur `gain.gain`), un
+helper audio partagé (`lib/modulation.js`) câblé sur les **4 chemins de
+synthèse**, un 6ᵉ module Designer « Modulation » (steppers **+ graphe éditable**),
+persistance `.osa` v3. Détail par phase P.1→P.5 dans `CONTEXT-ARCHIVE.md`. **Bump
+non appliqué en P.5** : l'éditeur visuel justifie un mineur (**v1.9.0**) mais la
+release est coordonnée avec **P.6** (polish responsive), qui la partagera. Iteration O (v1.7.0) reste la référence du Designer desktop,
 traité jusqu'au plancher accordéon (924×668) ; l'épuration sous ce seuil est
 reportée (cf. `archi/BACKLOG.md`). Hygiène restante (hors itération) : purge des
 prompt-fichiers `archi/O*`, `archi/P*`, `archi/N*`, `archi/Mr*`, `archi/M5b*`
@@ -418,16 +420,31 @@ Seuls les **placements timeline** s'appellent "clips".
   Harmoniques / Spectrogramme), et garde la moitié basse à **3 cellules**
   (Instrument / AHDSR / Modulation, iter-P). Le panneau Actions est placé par
   App.jsx dans la sidebar gauche.
-- **Module Modulation (iter-P)** : `renderModulationArea` rend 2 sous-blocs
-  symétriques Vibrato/Trémolo — interrupteur on/off, switch de forme (icônes SVG
-  IconSine/IconTriangleWave/IconSquareWave), 3 `NumberInput` à steppers
-  (vitesse Hz / profondeur cents|0..1 / installation ms) + une **mini-courbe LFO
-  animée** par sous-bloc. **Une seule** boucle `rAF` pour le module (dessine les
-  deux courbes), gatée strictement par `modulationVisible` (prop App.jsx couvrant
-  collapse/maximize/onglet/mobile) ET au moins un effet `enabled` (sous-bloc
-  désactivé = ligne plate figée) — arrêt propre au repli/maximize/démontage
-  (audit perf N.1). Édition via `editorActions.setModulation(effect, key, value)`
-  → action paramétrée unique `SET_EDITOR_MODULATION` (clampée, undoable).
+- **Module Modulation (iter-P, graphe éditable P.5)** : `renderModulationArea`
+  rend 2 sous-blocs symétriques Vibrato/Trémolo — interrupteur on/off, switch de
+  forme (icônes SVG IconSine/IconTriangleWave/IconSquareWave), 3 `NumberInput` à
+  steppers (vitesse Hz / profondeur cents|0..1 / installation ms) + un **graphe
+  LFO éditable à poignées** par sous-bloc (P.5). Le graphe est **temporel** (axe
+  x = temps depuis l'attaque, axe y = valeur de modulation, médiane au centre) :
+  oscillation `shape` à la fréquence `rate`, amplitude montant de 0 à `depth` sur
+  `onset` puis stable (display **normalisé** à la demi-hauteur). **3 poignées**
+  (cercles isotropes + curseur grab/grabbing + tooltips de rôle via `LfoTooltip`
+  réutilisant `.adsr-tooltip`) calquées sur l'AHDSR : Profondeur (drag vertical →
+  `depth`), Installation (drag horizontal → `onset`), Vitesse (drag horizontal du
+  marqueur de période → `rate`) ; la forme reste le switch segmenté. Le graphe
+  **coexiste** avec les 3 steppers (les deux pilotent `SET_EDITOR_MODULATION`).
+  Discipline d'undo **identique à l'AHDSR** : draft local `draftMod` pendant le
+  drag, **un seul** dispatch au relâchement (pas de spam de la pile). Géométrie x
+  **gelée** au mousedown (`modDragGeomRef`) le temps du geste, sinon la fenêtre se
+  redimensionnerait sous la poignée. **Animation = point de phase** (remplace le
+  scroll) : un seul point mobile parcourt la courbe figée à la vitesse `rate`.
+  **Une seule** boucle `rAF` pour le module (dessine les deux graphes), gatée
+  strictement par `modulationVisible` (prop App.jsx couvrant collapse/maximize/
+  onglet/mobile) ET au moins un effet `enabled` (sous-bloc désactivé = médiane
+  grise, poignées inertes) ET **figée pendant un drag** — arrêt propre au repli/
+  maximize/démontage (audit perf N.1). Édition via
+  `editorActions.setModulation(effect, key, value)` → action paramétrée unique
+  `SET_EDITOR_MODULATION` (clampée, undoable).
 - **Quadrant Instrument responsive (iter-O phase-3, desktop only)** : reçoit
   `isMobile` (prop, source unique App.jsx) et lit `windowHeight`. Dégradation à
   **2 étages** qui libère des lignes pour le clavier quand l'espace se resserre
@@ -946,10 +963,16 @@ Seuls les **placements timeline** s'appellent "clips".
   `scheduleOneClip`, export WAV `scheduleAllClips`, preview clavier, preview note
   libre). Vibrato → `osc.detune` (cents, indépendant de la note, n'écrase pas
   `osc.frequency`). Trémolo → `gain.gain` (sommé à l'automation AHDSR, jamais
-  multiplié). `onset` = fondu d'installation depuis le début de la note ;
-  extinction du trémolo programmée à `stopTime` (timeline/export) ou rampée au
-  release (previews) pour ne pas laisser de souffle dans la traîne. Cleanup
-  symétrique : chaque nœud LFO est stoppé/déconnecté partout où l'`osc` l'est.
+  multiplié). `onset` = fondu d'installation depuis le début de la note. Le
+  trémolo reste **constant pendant le sustain** et ne s'éteint **qu'au release**
+  (P.5) : sur les chemins programmés (timeline/export), `applyModulation` reçoit
+  `releaseStart` et pose `setValueAtTime(target, releaseStart)` (plateau implicite)
+  puis `linearRampToValueAtTime(0, stopTime)` (extinction sur la seule durée du
+  release) ; sur les previews (sans `stopTime`), l'appelant rampe le `depthGain`
+  au release réel (`releaseModNodes`). Évite le souffle dans la traîne **et** la
+  décroissance erronée sur toute la note. Le vibrato, lui, garde un `depth`
+  constant jusqu'au bout (wobble naturel sur l'extinction). Cleanup symétrique :
+  chaque nœud LFO est stoppé/déconnecté partout où l'`osc` l'est.
 - **Export WAV** : `OfflineAudioContext(2, sampleRate * totalDurationSec, 44100)`,
   même routage per-track GainNode, mono up-mixé en stéréo, encodage RIFF/PCM16
 - **AHDSR par note** : rampes linéaires
@@ -982,6 +1005,22 @@ Choix non évidents pris pour de bonnes raisons. À ne pas remettre en question
   connecte son `depthGain` à `gain.gain` : Web Audio **somme** ce signal à
   l'automation AHDSR déjà programmée — on n'essaie **ni** de multiplier **ni** de
   reprogrammer l'enveloppe. Cible de profondeur trémolo = `baseAmplitude × depth`.
+- **LFO éditable au domaine temporel, 3 poignées calquées sur l'AHDSR,
+  coexistence avec les steppers (iter-P P.5)** : le réglage visuel du LFO se fait
+  sur un **graphe temporel** (x = temps depuis l'attaque, y = valeur de
+  modulation), pas sur une vue fréquentielle ni un défilement. Les **3 poignées**
+  (Profondeur / Installation / Vitesse) **réutilisent** les primitives de l'AHDSR
+  (cercles isotropes en coords physiques, curseur dynamique, tooltip
+  `.adsr-tooltip`) — cohérence visuelle, moins de code neuf ; la **forme** reste un
+  switch (on ne tire pas une forme). Le graphe **coexiste** avec les 3 steppers
+  (comme l'AHDSR a son canvas **et** ses sliders), les deux pilotant le même état
+  via `SET_EDITOR_MODULATION`. **Undo** : draft local + commit unique au
+  relâchement (politique AHDSR copiée, pas réinventée — `SET_EDITOR_MODULATION`
+  étant undoable par dispatch, un drag non drafté exploserait la pile).
+  **Animation = point de phase** (un seul point mobile) au lieu du scroll, qui se
+  battrait avec des poignées fixes ; **fenêtre x adaptative** (onset + ~2,5
+  cycles) **gelée pendant un drag** (`modDragGeomRef`) pour que la poignée suive
+  le curseur sans rétroaction d'échelle.
 - **Slider = grandeur continue / stepper = décompte discret (iter-O O.1)** :
   convention d'entrée. Un nombre qu'on **compte** (nombre d'ancres, plafond
   d'harmoniques) se règle au **stepper `▴▾`** (`NumberInput` opt-in) — la valeur
