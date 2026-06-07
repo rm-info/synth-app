@@ -2,7 +2,7 @@
 
 > Suivi des idées, pistes et dettes techniques reportées.
 > Tenu par l'archi. Source de vérité pour ce qui n'est pas encore planifié.
-> Dernière mise à jour : 2026-06-06.
+> Dernière mise à jour : 2026-06-07.
 
 > Note : itérations G-O closes (O = Ergonomie & responsive du Designer, release
 > v1.7.0 ; cf. CONTEXT.md). **Entre deux itérations** : prochaine non cadrée
@@ -32,18 +32,23 @@ Désencombrement / densification / responsive du **Designer** (tout scopé Desig
 - **Titres en ellipsis progressive (O.6)** — tronque puis icône seule en dernier
   recours.
 
-**Différé / reste** :
-- **Épuration responsive sous 924×668 (accordéon mobile)** : le Designer desktop est
-  traité de bout en bout *jusqu'au* plancher accordéon ; en dessous, l'accordéon n'a
-  **pas** été retravaillé → mérite une **passe d'épuration dédiée** (future
-  itération). Lié à « Adaptation UI résolutions intermédiaires » (Roadmap CONTEXT).
+**Différé / reste** (mise à jour : plusieurs items résorbés par l'itération P,
+prompt `archi/P6-prompt.md`) :
+- **Épuration responsive sous 924×668 (accordéon mobile)** : la bande intermédiaire
+  **924–1100** (desktop serré) est désormais traitée par **P.6** — auto-collapse
+  « essentiel » (Forme d'onde + Instrument ouverts, reste replié, réversible au
+  ré-élargissement ; livré P.6.1, `bd35a96`), panneau gauche **verrouillé fermé**
+  sous 1100, Instrument remis **en fin d'accordéon** (P.6.3). L'accordéon mobile
+  **sous 924** reste **non retravaillé** → passe d'épuration dédiée à prévoir.
+  Lié à « Adaptation UI résolutions intermédiaires » (Roadmap CONTEXT).
 - Switch Graphe/Sliders exposé **aussi en résolution normale** (replier une vue par
   choix) — différé.
-- Séparateurs glissables dans la **rangée du bas** (parité avec le haut) — non, sauf
-  besoin avéré.
+- ✅ Séparateurs glissables dans la **rangée du bas** (parité avec le haut) —
+  *besoin avéré* avec le 6ᵉ module Modulation (rangée à 3 cellules) → **repris en
+  P.6.2** (réutilisation de `DesignerColumns`, largeurs `designerBottomRowWidths`).
 - Calibration : ajustée en direct jusqu'à 924×668 ; seuils en variables
-  (`INSTRUMENT_*`, `ADSR_COMPACT_*`, `AUTO_COLLAPSE_DEFAULT_WIDTH`, container-query)
-  pour réglage ultérieur.
+  (`INSTRUMENT_*`, `ADSR_COMPACT_*`, `AUTO_COLLAPSE_DEFAULT_WIDTH`/`ESSENTIALS_WIDTH`,
+  container-query) pour réglage ultérieur.
 
 ---
 
@@ -1290,6 +1295,9 @@ suffisent pour 80% du catalogue).
   rate (Hz), depth (cents), onset (ms), forme. Détail = git + CONTEXT-ARCHIVE.
 - ✅ **Trémolo** (livré iter P, v1.8.0) : LFO sommé sur `gain.gain`. Params :
   rate (Hz), depth (0..1), onset (ms), forme. Détail = git + CONTEXT-ARCHIVE.
+- ✅ **Édition visuelle des LFO** (livré P.5, v1.9.0 à la clôture) : chaque LFO est
+  éditable au geste sur un **graphe temporel à poignées** (depth / onset / rate),
+  en plus des steppers ; correctif trémolo plateau-puis-release au passage.
 - **Pitch envelope** : enveloppe dédiée sur la fréquence (attack →
   settle), utile pour les attaques percussives (drums tonaux, bass
   synth).

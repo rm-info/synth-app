@@ -979,6 +979,35 @@ Phases listées ci-dessous dans l'ordre chronologique d'implémentation.
     relâchement). Canvas porté de 38→92 px. **Pas de bump** en P.5 : release
     coordonnée avec P.6 (→ v1.9.0). Hors scope : forme draggable, synchro tempo,
     formes de LFO supplémentaires, 2ᵉ LFO, surfaçage Composer.
+  - **P.6 — Polish responsive du Designer** (`feat(iter-P/phase-6.1)` +
+    `feat(iter-P/phase-6.2)` + `fix(iter-P/phase-6.3)`). Cinq correctifs
+    ergonomiques/responsive scopés Designer, prolongeant la dette « épuration sous
+    924×668 » différée en clôture d'O. **6.1 (a) — auto-collapse essentiel** : sous
+    `ESSENTIALS_WIDTH` (1100, = seuil d'auto-collapse forcé) et hors accordéon, seuls
+    Forme d'onde + Instrument restent ouverts, le reste replié, **au franchissement
+    de seuil** (effet edge-triggered, `ref` mémorisant la bande précédente — jamais
+    à chaque render, sinon il combattrait les toggles manuels). Tout rouvert au
+    retour > 1100 (transition réelle petit→grand uniquement ; au montage en grand on
+    respecte l'état persisté). Garde : un module déjà `maximized` à l'entrée n'est
+    pas perturbé. Action `SET_DESIGNER_COLLAPSED_BULK` (remplace `designerCollapsed`
+    en bloc, sanitize, no-op si identique, non-undoable). **6.2 (c) — séparateurs
+    rangée du bas** : la rangée Instrument/AHDSR/Modulation passe par le **même
+    `DesignerColumns`** que le haut (DRY → 2 séparateurs draggables, gestion
+    `collapsed`/bande réutilisée). Largeurs `designerBottomRowWidths` (3 fractions,
+    défaut tiers) + action `SET_DESIGNER_BOTTOM_ROW_WIDTHS` (sanitize, non-undoable),
+    hydratation/init/persistance câblées ; `DesignerColumns` reçoit une prop
+    `sepLabels` (défaut = haut) et `autoSizing={false}` (drag manuel uniquement, le
+    focus tracking/FOCUS_WIDTHS restent inertes). Les règles CSS de maximize ciblant
+    `.designer-columns` couvrent désormais les deux rangées sans changement. **6.3
+    (b/d/e) — trio court** : (b) accordéon mobile, **Instrument en dernier**
+    (ordre canvas/harmonics/spectrogram/adsr/modulation/params — l'ajout de
+    Modulation en P.3 l'avait relégué après) ; (d) **panneau gauche forcé fermé** dès
+    1100 (rail + popover, chemin mobile) au lieu de 924 — fin de l'état bâtard
+    « ouvrable mais non redimensionnable » entre 924 et 1100 ; (e) **boutons spectro
+    live/dB/peak uniformisés** (empreinte commune min-width 34 / min-height 28 /
+    box-sizing / centrage → même taille en barre ET dans le tiroir ; CSS seul).
+    Hors scope : épuration fine de l'accordéon mobile (reste backlog), auto-sizing
+    sur la rangée du bas, snapshot/restore fin de l'agencement.
 
 - **2026-06-06 — Iteration O « Ergonomie & responsive du Designer » — CLOSE.
   Release v1.7.0.** Désencombrement / densification / responsive du **Designer**

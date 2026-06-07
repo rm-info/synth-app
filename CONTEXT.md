@@ -136,7 +136,7 @@ synth-app/
         ├── PatchBank.jsx + .css               # banque de patches partagée
         ├── WaveformEditor.jsx + .css          # éditeur ondes / patch (Designer)
         ├── Spectrogram.jsx + .css             # spectrogramme statique (Designer)
-        ├── DesignerColumns.jsx + .css         # layout 3 colonnes ajustables (Designer, M.2.2) ; prop collapsed → colonne repliée en bande (iter-O phase-5a)
+        ├── DesignerColumns.jsx + .css         # layout 3 colonnes ajustables (Designer, M.2.2) ; prop collapsed → colonne repliée en bande (iter-O phase-5a) ; réutilisé pour la RANGÉE DU BAS (iter-P phase-6.2 : prop sepLabels, autoSizing off)
         ├── DesignerModule.jsx + .css          # wrapper réductible/maximisable des 6 modules Designer : bande verticale (icône+titre) ↔ contenu (toujours monté, display:none si replié — contrainte canvas) ; rend la ModuleChrome en coin absolu (iter-O phase-5a/5c)
         ├── ModuleChrome.jsx + .css            # chrome « contrôle de fenêtre » d'un module : Réduire (désactivé en maximisé) + Agrandir/Restaurer ; centralisée dans DesignerModule, coin haut-droit absolu (iter-O phase-5a→5c)
         ├── OverflowToolbar.jsx + .css         # barre d'outils générique « priority-plus » : items bar/tray, débordement → tiroir `⋯` (iter-O phase-2). Branché : les 5 headers de module + groupe droit DesignerToolbar (généralisé O.6.2)
@@ -182,6 +182,20 @@ synth-app/
 L'`App` rend **les deux layouts en permanence** et toggle leur visibilité via
 l'attribut `hidden` (override CSS pour battre `display:grid`). Raison : ne pas
 démonter le `WaveformEditor`, sinon perte de l'état local + du dirty check.
+
+**Responsive Designer desktop (seuils, iter-P P.6)** : trois paliers de largeur.
+`isMobile` (`< 924` OU `h < 668`) → accordéon mobile (6 zones empilées, une seule
+dépliée, **Instrument en dernier**, Modulation juste avant). `ESSENTIALS_WIDTH`
+(**1100**, = seuil d'auto-collapse forcé O.5d) → en desktop sous ce seuil :
+(a) **auto-collapse « essentiel »** au franchissement (edge-triggered) — seuls
+Forme d'onde + Instrument restent ouverts, le reste replié ; tout rouvert au
+retour au-dessus de 1100 (sauf si un module est maximisé : choix manuel respecté) ;
+(d) **panneau gauche forcé fermé** (rail + popover Bibliothèque, même chemin que
+le mobile, non redimensionnable). Au-dessus de 1100 : comportement plein (modules
+ouvrables librement, sidebar redimensionnable). Les **deux rangées** de modules
+(haut Forme d'onde/Harmoniques/Spectro **et** bas Instrument/AHDSR/Modulation)
+partagent le composant `DesignerColumns` → 2 séparateurs draggables chacune,
+largeurs persistées (`designerColumnWidths` / `designerBottomRowWidths`).
 
 ## Modèle de données
 
@@ -292,7 +306,8 @@ type Clip = {                     // placement timeline + hauteur
 //   composerBankWidth, composerAsideWidth,
 //   composerBankCollapsed, composerAsideCollapsed,
 //   docSidebarWidth, docSidebarCollapsed (iter-L phase-2.1),
-//   designerColumnWidths, autoSizing,
+//   designerColumnWidths, designerBottomRowWidths (iter-P phase-6.2 :
+//     proportions de la rangée du bas, 3 fractions, défaut tiers), autoSizing,
 //   designerCollapsed (iter-O phase-5a, iter-P : { canvas, harmonics, spectrogram,
 //     params, adsr, modulation } booléens, état replié des 6 modules Designer),
 //   maximized (iter-O phase-5b : id du module maximisé ou null),
@@ -1047,6 +1062,24 @@ Choix non évidents pris pour de bonnes raisons. À ne pas remettre en question
   du dimensionnement (au focus) : deux politiques orthogonales. Chrome de fenêtre
   détachée en coin (hors OverflowToolbar) ; identité par `MODULE_META` (source unique
   icône + label).
+- **Auto-collapse « essentiel » edge-triggered + tout-rouvrir au retour (iter-P
+  P.6.1)** : sous `ESSENTIALS_WIDTH` (1100, = seuil d'auto-collapse forcé), le
+  desktop ne garde ouverts que Forme d'onde + Instrument et replie le reste — mais
+  **uniquement au franchissement de seuil** (un `ref` mémorise la bande précédente),
+  jamais à chaque render, sinon l'effet combattrait les toggles manuels en petit
+  écran. Politique « **on rouvre tout au retour grand écran** » (pas de
+  snapshot/restore fin de l'agencement : décision validée — simplicité > fidélité
+  de l'état antérieur), et **garde `maximized`** : si un module est déjà maximisé à
+  l'entrée, on ne touche à rien (choix manuel persisté respecté). Action en bloc
+  `SET_DESIGNER_COLLAPSED_BULK` (non-undoable). Le **panneau gauche** est forcé
+  fermé au même seuil (1100) — plus d'état bâtard « ouvrable mais non
+  redimensionnable » entre 924 et 1100 (P.6.3).
+- **Rangée du bas = même `DesignerColumns` que le haut (iter-P P.6.2)** : les deux
+  rangées de modules partagent le composant (DRY → 2 séparateurs draggables
+  identiques, gestion `collapsed`/bande réutilisée). La rangée du bas passe
+  `autoSizing={false}` (pas de focus tracking ni FOCUS_WIDTHS : drag manuel +
+  largeurs persistées `designerBottomRowWidths` uniquement) et ses propres
+  `sepLabels`. L'auto-sizing au focus reste spécifique à la rangée du haut.
 - **Détection « compact » mesurée sur la zone, pas sur `windowWidth` (iter-O O.4)** :
   l'AHDSR décide de basculer en mode compact via un `ResizeObserver` sur sa propre
   zone, pas via la largeur fenêtre — robuste à travers desktop, accordéon mobile et
