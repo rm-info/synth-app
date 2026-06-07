@@ -68,8 +68,8 @@
   background: var(--surface-border-strong);
 }
 
-/* Presets de répartition (déplacés depuis .designer-columns-preset-btn).
-   r.2.6.6 : aperçu SVG des proportions (IconColumnLayout) au lieu du texte. */
+/* Boutons de disposition (iter-Q : Égaliser + Auto-réduction ; classe héritée
+   de l'ancien groupe de presets, conservée pour le style commun). */
 .designer-toolbar-preset-btn {
   display: inline-flex;
   align-items: center;
@@ -87,10 +87,10 @@
   border-color: var(--accent);
   color: var(--text-strong);
 }
-/* iter-N N.6.2 : état actif du groupe radio de dimensionnement (4 presets +
-   AUTO, un seul actif). Reprend la coloration accent des toggles radio
-   live/dB/peak du Spectrogramme (.spectrogram-toggle.is-active, M.r.2.6.7) pour
-   la cohérence visuelle entre les deux groupes radio. */
+/* État actif (iter-Q : bouton Égaliser quand les deux rangées sont déjà à
+   ⅓⅓⅓ ; Auto-réduction quand activée/forcée). Reprend la coloration accent des
+   toggles live/dB/peak du Spectrogramme (.spectrogram-toggle.is-active,
+   M.r.2.6.7) pour la cohérence visuelle. */
 .designer-toolbar-preset-btn.is-active {
   background: var(--accent-bg-strong);
   color: var(--accent);

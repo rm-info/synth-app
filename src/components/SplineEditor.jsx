@@ -39,8 +39,6 @@ function SplineEditor({
   onMoveAnchor,
   onAddAnchor,
   onRemoveAnchor,
-  autoSizing,
-  autoSizeFocusGuardRef,
   headerControls,
 }) {
   const canvasRef = useRef(null)
@@ -330,9 +328,6 @@ function SplineEditor({
   // --- Interactions souris ---
   const handleMouseDown = (e) => {
     if (e.button !== 0) return // clic gauche seulement (le droit ouvre le menu)
-    // AS.3.2 : si ce mousedown vient de donner le focus à la colonne (auto-sizing),
-    // il ne fait que focuser — pas d'édition.
-    if (autoSizing && autoSizeFocusGuardRef?.current) return
     setMenu(null)
     const idx = hitTest(e)
     if (idx !== null) {

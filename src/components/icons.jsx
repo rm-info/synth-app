@@ -69,68 +69,6 @@ export function IconSquareWave(props) {
   )
 }
 
-// Aperçu de répartition des 3 colonnes du Designer : un rectangle 48×16 avec
-// deux séparateurs verticaux placés aux proportions `widths` ([a, b, c], somme 1).
-// Remplace les anciens libellés Unicode ⅓⅓⅓ · ½¼¼ · ¼½¼ · ¼¼½ (r.2.6.6).
-export function IconColumnLayout({ widths, ...rest }) {
-  const W = 48
-  const H = 16
-  const x1 = Math.round(W * widths[0])
-  const x2 = Math.round(W * (widths[0] + widths[1]))
-  return (
-    <svg
-      xmlns="http://www.w3.org/2000/svg"
-      width={W}
-      height={H}
-      viewBox={`0 0 ${W} ${H}`}
-      fill="none"
-      stroke="currentColor"
-      strokeWidth={1.5}
-      strokeLinejoin="round"
-      {...rest}
-    >
-      <rect x="1" y="1" width={W - 2} height={H - 2} rx="2" />
-      <line x1={x1} y1="1" x2={x1} y2={H - 1} />
-      <line x1={x2} y1="1" x2={x2} y2={H - 1} />
-    </svg>
-  )
-}
-
-// Auto-sizing : même cadre 48×16 que IconColumnLayout, mais au lieu des
-// séparateurs de colonnes, le mot « AUTO » écrit en SVG <text> (convention
-// projet : pas d'Unicode-icône, du texte vectoriel). Sert de 5ᵉ « preset »
-// dans le groupe radio de dimensionnement des colonnes (iter-N N.6.2).
-export function IconAuto({ ...rest }) {
-  const W = 48
-  const H = 16
-  return (
-    <svg
-      xmlns="http://www.w3.org/2000/svg"
-      width={W}
-      height={H}
-      viewBox={`0 0 ${W} ${H}`}
-      fill="none"
-      stroke="currentColor"
-      strokeWidth={1.5}
-      strokeLinejoin="round"
-      {...rest}
-    >
-      <rect x="1" y="1" width={W - 2} height={H - 2} rx="2" />
-      <text
-        x={W / 2}
-        y={H / 2 + 0.5}
-        fill="currentColor"
-        stroke="none"
-        fontSize="9"
-        fontWeight="600"
-        letterSpacing="0.5"
-        textAnchor="middle"
-        dominantBaseline="central"
-      >AUTO</text>
-    </svg>
-  )
-}
-
 // Crête (peak hold du spectrogramme) : un mini-spectre de barres verticales de
 // hauteurs variées, chacune coiffée d'un court rectangle horizontal détaché — la
 // « crête maintenue » au-dessus de la barre courante. Visuellement une série de

@@ -116,7 +116,7 @@ function App() {
     spectrogramVisible, spectrogramDbScale, spectrogramPeakHold, spectrogramMode,
     durationMode, adsrView, selectedClipIds, selectedTrackId, composerFlash, lastAnchorClipId,
     composerBankWidth, composerAsideWidth, composerBankCollapsed, composerAsideCollapsed,
-    designerSidebarWidth, designerSidebarCollapsed, designerColumnWidths, designerBottomRowWidths, autoSizing,
+    designerSidebarWidth, designerSidebarCollapsed, designerColumnWidths, designerBottomRowWidths,
     designerCollapsed, maximized, autoCollapse,
     doc, docSidebarWidth, docSidebarCollapsed,
     bibHierarchyMode, bibDisplayMode, bibCurrentFolderId, bibPopupWidth,
@@ -710,9 +710,6 @@ function App() {
           // iter-P phase-6.2 : proportions de la rangée du bas (Instrument /
           // AHDSR / Modulation).
           designerBottomRowWidths,
-          // iter-M phase-2-as : toggle auto-sizing (essai). Le focus, lui,
-          // reste volatile (jamais persisté).
-          autoSizing,
           // iter-O phase-5a : modules Designer repliés (préférence UI).
           designerCollapsed,
           // iter-O phase-5b : module maximisé (préférence UI).
@@ -754,7 +751,7 @@ function App() {
     spectrogramVisible, spectrogramDbScale, spectrogramPeakHold, spectrogramMode,
     durationMode, adsrView, activeTab, patchCounter, clipCounter, folderCounter, trackCounter,
     composerBankWidth, composerAsideWidth, composerBankCollapsed, composerAsideCollapsed,
-    designerSidebarWidth, designerSidebarCollapsed, designerColumnWidths, designerBottomRowWidths, autoSizing,
+    designerSidebarWidth, designerSidebarCollapsed, designerColumnWidths, designerBottomRowWidths,
     designerCollapsed, maximized, autoCollapse,
     docSidebarWidth, docSidebarCollapsed,
     bibHierarchyMode, bibDisplayMode, bibCurrentFolderId, bibCollapsedFolders, bibPopupWidth,
@@ -914,27 +911,13 @@ function App() {
   const handleToggleAutoCollapse = useCallback(() => {
     dispatch({ type: 'SET_DESIGNER_AUTO_COLLAPSE', payload: !autoCollapse })
   }, [autoCollapse])
-  // iter-M phase-2-as : toggle auto-sizing (essai).
-  const toggleAutoSizing = useCallback(() => {
-    dispatch({ type: 'SET_AUTO_SIZING', payload: !autoSizing })
-  }, [autoSizing])
-  // iter-N N.6.2 : clic sur un preset = setAutoSizing(false) PUIS onWidths.
-  // Le setAutoSizing(false) vit ici (call-site manuel), pas dans onWidths
-  // (que l'effet auto-resize appelle aussi → il se couperait lui-même).
-  const selectColumnPreset = useCallback((widths) => {
-    dispatch({ type: 'SET_AUTO_SIZING', payload: false })
-    dispatch({ type: 'SET_DESIGNER_COLUMN_WIDTHS', payload: widths })
+  // iter-Q : action momentanée « Égaliser les largeurs » — remet les DEUX
+  // rangées (haut + bas) à trois colonnes égales (⅓⅓⅓). Les proportions
+  // custom restent accessibles via le drag des séparateurs.
+  const handleEqualizeWidths = useCallback(() => {
+    dispatch({ type: 'SET_DESIGNER_COLUMN_WIDTHS', payload: [1 / 3, 1 / 3, 1 / 3] })
+    dispatch({ type: 'SET_DESIGNER_BOTTOM_ROW_WIDTHS', payload: [1 / 3, 1 / 3, 1 / 3] })
   }, [])
-  // iter-N N.6.2 : début d'un drag manuel de séparateur → l'auto-sizing se coupe
-  // (proportions custom). Idem : call-site manuel, jamais dans onWidths.
-  const disableAutoSizing = useCallback(() => {
-    dispatch({ type: 'SET_AUTO_SIZING', payload: false })
-  }, [])
-  // iter-M phase-2-as : guard partagé DesignerColumns (writer) ↔ WaveformEditor
-  // (reader). Volatile (ref, jamais persisté). Le listener de focus le passe à
-  // true le temps du geste qui *change* le focus → l'éditable suppose alors
-  // que ce mousedown ne fait que focuser, pas éditer (cf. règle AS.3.2).
-  const autoSizeFocusGuardRef = useRef(false)
 
   const setBibHierarchyMode = useCallback((mode) => {
     dispatch({ type: 'SET_BIB_HIERARCHY_MODE', payload: mode })
@@ -2254,8 +2237,6 @@ function App() {
         onRedo={handleRedoDesigner}
         analyserRef={analyserRef}
         activeVoicesCountRef={activeVoicesCountRef}
-        autoSizing={autoSizing}
-        autoSizeFocusGuardRef={autoSizeFocusGuardRef}
         isMobile={isMobile}
         adsrView={adsrView}
         onSetAdsrView={(v) => dispatch({ type: 'SET_ADSR_VIEW', payload: v })}
@@ -2456,10 +2437,9 @@ function App() {
                     patchLabel={patchLabel}
                     onPresets={openPresetPicker}
                     onReset={requestResetWaveform}
-                    onSelectPreset={selectColumnPreset}
-                    widths={designerColumnWidths}
-                    autoSizing={autoSizing}
-                    onToggleAutoSizing={toggleAutoSizing}
+                    onEqualizeWidths={handleEqualizeWidths}
+                    columnWidths={designerColumnWidths}
+                    bottomRowWidths={designerBottomRowWidths}
                     autoCollapse={autoCollapse}
                     onToggleAutoCollapse={handleToggleAutoCollapse}
                     autoCollapseForced={winWidth < AUTO_COLLAPSE_DEFAULT_WIDTH}
@@ -2470,9 +2450,6 @@ function App() {
                   <DesignerColumns
                     widths={designerColumnWidths}
                     onWidths={setDesignerColumnWidths}
-                    onManualResize={disableAutoSizing}
-                    autoSizing={autoSizing}
-                    focusGuardRef={autoSizeFocusGuardRef}
                     collapsed={[designerCollapsed.canvas, designerCollapsed.harmonics, designerCollapsed.spectrogram]}
                     columns={[
                       <DesignerModule
@@ -2503,11 +2480,10 @@ function App() {
                   />
                   {/* iter-P phase-6.2 : rangée du bas via le MÊME DesignerColumns
                       que le haut (DRY → 2 séparateurs draggables identiques).
-                      Pas d'auto-sizing (drag manuel + largeurs persistées). */}
+                      Largeurs persistées, drag manuel. */}
                   <DesignerColumns
                     widths={designerBottomRowWidths}
                     onWidths={setDesignerBottomRowWidths}
-                    autoSizing={false}
                     collapsed={[designerCollapsed.params, designerCollapsed.adsr, designerCollapsed.modulation]}
                     sepLabels={['Redimensionner Instrument / Enveloppe', 'Redimensionner Enveloppe / Modulation']}
                     columns={[

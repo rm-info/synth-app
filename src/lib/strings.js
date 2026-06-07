@@ -46,9 +46,6 @@ const fr = {
     convertToHarmonic: 'Convertir en Harmoniques',
     convertToDraw: 'Convertir en Dessin',
     convertToSpline: 'Convertir en Spline',
-    // iter-M phase-2-as : toggle auto-sizing des 3 colonnes (essai).
-    autoSizing: 'Dimension auto',
-    autoSizingTitle: 'La colonne en cours d’édition s’élargit automatiquement',
     // iter-M phase-r.2.4 : switch des deux modes d'édition de la zone Forme
     // d'onde (Libre = tracé main levée, Ancres = spline) + nombre d'ancres.
     lensSwitchLabel: 'Mode d’édition de la forme d’onde',

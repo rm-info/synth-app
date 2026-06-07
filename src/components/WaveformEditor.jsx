@@ -518,12 +518,6 @@ function WaveformEditor({
   onRedo,
   analyserRef,
   activeVoicesCountRef,
-  // iter-M phase-2-as : auto-sizing (essai). Quand ON, le guard est levé par
-  // DesignerColumns le temps du geste qui *change* le focus → l'édition est
-  // suppriméee sur ce mousedown-là (règle AS.3.2), elle reprend au geste
-  // suivant (la colonne est désormais à 60 %, le contenu ne reflue plus).
-  autoSizing,
-  autoSizeFocusGuardRef,
   isMobile,
   adsrView,
   onSetAdsrView,
@@ -1045,9 +1039,6 @@ function WaveformEditor({
   const lastPointRef = useRef(null)
 
   const handleMouseDown = (e) => {
-    // AS.3.2 : si ce mousedown vient de donner le focus à la colonne Forme
-    // d'onde (auto-sizing), il ne fait que focuser — pas de tracé.
-    if (autoSizing && autoSizeFocusGuardRef?.current) return
     setIsDrawing(true)
     const pt = getCanvasPoint(e)
     lastPointRef.current = pt
@@ -1130,9 +1121,6 @@ function WaveformEditor({
   }
 
   const handleHarmonicMouseDown = (e) => {
-    // AS.3.2 : si ce mousedown vient de donner le focus à la colonne
-    // Harmoniques (auto-sizing), il ne fait que focuser — pas d'édition de barre.
-    if (autoSizing && autoSizeFocusGuardRef?.current) return
     const index = harmonicIndexFromEvent(e, amplitudes.length)
     // M.r.5.bis.3 — clic droit = raccourci « éteindre cette harmonique » (mise à
     // zéro). Aucun draft/drag initié (sinon un draft resterait coincé à attendre
@@ -2485,8 +2473,6 @@ function WaveformEditor({
           onMoveAnchor={editorActions.moveSplineAnchor}
           onAddAnchor={editorActions.addSplineAnchor}
           onRemoveAnchor={editorActions.removeSplineAnchor}
-          autoSizing={autoSizing}
-          autoSizeFocusGuardRef={autoSizeFocusGuardRef}
           headerControls={renderWaveformHeaderControls()}
         />
       )

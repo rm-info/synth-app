@@ -1,79 +1,56 @@
-import { FolderOpenDot, Eraser, FoldHorizontal } from 'lucide-react'
-import { IconColumnLayout, IconAuto } from './icons'
+import { FolderOpenDot, Eraser, FoldHorizontal, Table } from 'lucide-react'
 import { STRINGS } from '../lib/strings'
 import OverflowToolbar from './OverflowToolbar'
 import './DesignerToolbar.css'
 
 // iter-M phase-r.2 : barre d'outils unique du Designer, posée au-dessus des
 // 3 colonnes (Forme d'onde / Harmoniques / Spectro). Regroupe l'identité du
-// patch (gauche) et les contrôles de proportions des colonnes (droite,
-// desktop uniquement — sans objet dans l'accordéon mobile). Les boutons
-// Presets / Reset / Normaliser s'ajoutent dans les sous-commits suivants
-// (r.2.2 / r.2.3).
-
-// Presets de répartition des 3 colonnes — déplacés depuis DesignerColumns en
-// phase r.2.1 (cf. spec §7.1). r.2.6.6 : libellés Unicode ⅓⅓⅓ · ½¼¼ · ¼½¼ · ¼¼½
-// remplacés par un aperçu SVG (IconColumnLayout) des proportions.
-const COLUMN_PRESETS = [
-  { id: 'even', widths: [1 / 3, 1 / 3, 1 / 3], title: 'Trois colonnes égales' },
-  { id: 'wave', widths: [0.5, 0.25, 0.25], title: 'Forme d’onde large' },
-  { id: 'harm', widths: [0.25, 0.5, 0.25], title: 'Harmoniques large' },
-  { id: 'spec', widths: [0.25, 0.25, 0.5], title: 'Spectrogramme large' },
-]
+// patch (gauche) et les contrôles de disposition des modules (droite, desktop
+// uniquement — sans objet dans l'accordéon mobile).
 
 // Égalité de proportions à epsilon près (les widths persistées sont
-// renormalisées à somme 1, donc un preset y atterrit à ~1e-9 près ; 1e-3
-// couvre largement). Sert à dériver le preset actif depuis designerColumnWidths.
+// renormalisées à somme 1, donc ⅓⅓⅓ y atterrit à ~1e-9 près ; 1e-3 couvre
+// largement). Sert à dériver l'état actif du bouton « Égaliser ».
 function widthsEqual(a, b) {
   return Array.isArray(a) && Array.isArray(b) && a.length === b.length
     && a.every((v, i) => Math.abs(v - b[i]) < 1e-3)
 }
 
-// iter-N N.6.2 : le dimensionnement est un groupe radio de 5 boutons (4 presets
-// + AUTO), un seul actif à la fois. L'actif est DÉRIVÉ (aucun nouvel état
-// persisté) : autoSizing → AUTO ; sinon le preset dont les widths égalent
-// designerColumnWidths ; sinon (drag manuel = custom) aucun.
-function DesignerToolbar({ patchLabel, onPresets, onReset, onSelectPreset, widths, autoSizing, onToggleAutoSizing, autoCollapse, onToggleAutoCollapse, autoCollapseForced }) {
-  // Les contrôles de proportions n'ont de sens qu'en layout 3-colonnes : on
-  // ne les affiche que si le parent fournit le sélecteur de preset (desktop).
-  const showColumnControls = typeof onSelectPreset === 'function'
-  const activePresetId = autoSizing
-    ? null
-    : (COLUMN_PRESETS.find((p) => widthsEqual(p.widths, widths))?.id ?? null)
+const EVEN_WIDTHS = [1 / 3, 1 / 3, 1 / 3]
 
-  // iter-O phase-2.3 : le groupe radio de dimensionnement (4 presets + AUTO) est
-  // un OverflowToolbar (priority-plus). bar = bouton actuel ; tray = même bouton
-  // + libellé. Le séparateur reste en chrome fixe via la prop `prefix`. is-active
-  // / aria-pressed (état dérivé) conservés dans les deux formes.
+// iter-Q : les 4 presets de proportions + le bouton AUTO (auto-sizing) sont
+// remplacés par un unique bouton « Égaliser » (action momentanée, deux rangées).
+// Les proportions custom restent accessibles via le drag des séparateurs (haut
+// + bas). État actif DÉRIVÉ (aucun nouvel état persisté) : vrai quand les DEUX
+// rangées sont déjà à ⅓⅓⅓.
+function DesignerToolbar({ patchLabel, onPresets, onReset, onEqualizeWidths, columnWidths, bottomRowWidths, autoCollapse, onToggleAutoCollapse, autoCollapseForced }) {
+  // Les contrôles de disposition n'ont de sens qu'en layout 3-colonnes : on
+  // ne les affiche que si le parent fournit le handler d'égalisation (desktop).
+  const showColumnControls = typeof onEqualizeWidths === 'function'
+  const allEqual = widthsEqual(columnWidths, EVEN_WIDTHS) && widthsEqual(bottomRowWidths, EVEN_WIDTHS)
+
+  // iter-Q : 2 items (Égaliser + Auto-réduction) dans un OverflowToolbar
+  // (priority-plus) — le tiroir reste utile en header étroit. bar = bouton ;
+  // tray = même bouton + libellé. is-active/aria-pressed (état dérivé)
+  // conservés dans les deux formes.
   const renderColumnControls = () => {
     const trayLabel = (txt) => <span className="overflow-toolbar-tray-label">{txt}</span>
-    const presetItems = COLUMN_PRESETS.map((p) => {
-      const active = activePresetId === p.id
-      const btn = (
-        <button
-          type="button"
-          className={`designer-toolbar-preset-btn${active ? ' is-active' : ''}`}
-          title={p.title}
-          aria-label={p.title}
-          aria-pressed={active}
-          onClick={() => onSelectPreset(p.widths)}
-        ><IconColumnLayout widths={p.widths} /></button>
-      )
-      return { id: `preset-${p.id}`, bar: btn, tray: <>{btn}{trayLabel(p.title)}</> }
-    })
-    // AUTO = 5ᵉ item du groupe radio. Bascule autoSizing ; actif quand ON.
-    const autoBtn = (
+    // « Égaliser » : action momentanée (pas un toggle). Icône Table de Lucide
+    // (grille 2×3) pivotée 90° → 3×2 = les deux rangées de trois colonnes du
+    // Designer, soit exactement ce que le bouton égalise.
+    const equalizeLabel = 'Égaliser les largeurs des deux rangées'
+    const equalizeBtn = (
       <button
         type="button"
-        className={`designer-toolbar-preset-btn${autoSizing ? ' is-active' : ''}`}
-        title={STRINGS.editor.autoSizingTitle}
-        aria-label={STRINGS.editor.autoSizing}
-        aria-pressed={autoSizing}
-        onClick={onToggleAutoSizing}
-      ><IconAuto /></button>
+        className={`designer-toolbar-preset-btn${allEqual ? ' is-active' : ''}`}
+        title={equalizeLabel}
+        aria-label={equalizeLabel}
+        aria-pressed={allEqual}
+        onClick={onEqualizeWidths}
+      ><Table size={18} style={{ transform: 'rotate(90deg)' }} /></button>
     )
-    // iter-O phase-5d : toggle Auto-réduction — item INDÉPENDANT (pas dans le
-    // groupe radio des proportions), précédé d'un séparateur. Actif si activé OU
+    // iter-O phase-5d : toggle Auto-réduction — item INDÉPENDANT, précédé d'un
+    // séparateur. Actif si activé OU
     // forcé en écran étroit (auquel cas il est aussi désactivé : on ne peut pas
     // le couper, l'espace l'impose).
     const acActive = autoCollapse || autoCollapseForced
@@ -92,8 +69,7 @@ function DesignerToolbar({ patchLabel, onPresets, onReset, onSelectPreset, width
       ><FoldHorizontal size={18} /></button>
     )
     const items = [
-      ...presetItems,
-      { id: 'auto', bar: autoBtn, tray: <>{autoBtn}{trayLabel(STRINGS.editor.autoSizing)}</> },
+      { id: 'equalize', bar: equalizeBtn, tray: <>{equalizeBtn}{trayLabel(equalizeLabel)}</> },
       {
         id: 'auto-collapse',
         bar: <><span className="designer-toolbar-divider" aria-hidden="true" />{acBtn}</>,
@@ -103,8 +79,8 @@ function DesignerToolbar({ patchLabel, onPresets, onReset, onSelectPreset, width
     return (
       <OverflowToolbar
         items={items}
-        ariaLabel="Disposition des colonnes"
-        menuLabel="Disposition des colonnes"
+        ariaLabel="Disposition des modules"
+        menuLabel="Disposition des modules"
         prefix={<span className="designer-toolbar-divider" aria-hidden="true" />}
       />
     )

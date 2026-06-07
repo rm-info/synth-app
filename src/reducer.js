@@ -645,8 +645,8 @@ export function loadPersistedState() {
       // iter-P phase-6.2 : proportions de la rangée du bas (null si absent/invalide
       // → défaut tiers appliqué dans buildInitialState).
       designerBottomRowWidths: sanitizeColumnWidths(parsed.designerBottomRowWidths),
-      // iter-M phase-2-as : toggle auto-sizing (essai). OFF par défaut.
-      autoSizing: typeof parsed.autoSizing === 'boolean' ? parsed.autoSizing : false,
+      // iter-Q : auto-sizing retiré. Un éventuel `autoSizing` persisté est
+      // simplement ignoré (champ abandonné, pas de migration).
       // iter-O phase-5a : état replié des 5 modules Designer (défaut tout ouvert).
       designerCollapsed: sanitizeDesignerCollapsed(parsed.designerCollapsed),
       // iter-O phase-5b : module maximisé (id connu) ou null.
@@ -881,8 +881,6 @@ export function buildInitialState() {
     designerColumnWidths: persisted?.designerColumnWidths ?? defaultColumnWidthsForLens('free'),
     // iter-P phase-6.2 : proportions de la rangée du bas (tiers par défaut).
     designerBottomRowWidths: persisted?.designerBottomRowWidths ?? [1 / 3, 1 / 3, 1 / 3],
-    // iter-M phase-2-as : toggle auto-sizing (essai). OFF par défaut.
-    autoSizing: persisted?.autoSizing ?? false,
     // iter-O phase-5a : modules Designer repliés (tout ouvert par défaut).
     designerCollapsed: persisted?.designerCollapsed ?? sanitizeDesignerCollapsed(null),
     // iter-O phase-5b : module maximisé (validé à l'hydratation), null par défaut.
@@ -2637,14 +2635,6 @@ export function reducer(state, action) {
       const widths = sanitizeColumnWidths(action.payload)
       if (!widths) return state
       return { ...state, designerBottomRowWidths: widths }
-    }
-    // iter-M phase-2-as : toggle auto-sizing (essai). Écrit dans le même état
-    // de proportions au gré du focus (cf. DesignerColumns). Retrait éventuel
-    // (« jeter ») = supprimer ce case + le champ persisté + le listener.
-    case 'SET_AUTO_SIZING': {
-      const value = !!action.payload
-      if (state.autoSizing === value) return state
-      return { ...state, autoSizing: value }
     }
     // iter-L phase-2.1 : actions de l'onglet Documentation.
     case 'SET_CURRENT_ARTICLE': {

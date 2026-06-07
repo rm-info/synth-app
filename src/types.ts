@@ -388,10 +388,6 @@ export interface AppState {
   // iter-P phase-6.2 : proportions persistées des 3 colonnes de la RANGÉE DU BAS
   // (Instrument / AHDSR / Modulation). 3 fractions sommant à 1, défaut tiers.
   designerBottomRowWidths: number[]
-  // iter-M phase-2-as : toggle auto-sizing (essai). OFF par défaut. Quand ON,
-  // les proportions deviennent contextuelles au focus — écrites dans
-  // designerColumnWidths (pas de nouvel état canonique).
-  autoSizing: boolean
   // iter-O phase-5a : état replié (bande verticale fine) de chacun des 5
   // modules du Designer. Préférence UI persistée, non-undoable.
   designerCollapsed: DesignerCollapsed
@@ -623,8 +619,6 @@ export type ActionBody =
   | { type: 'SET_DESIGNER_COLUMN_WIDTHS'; payload: number[] }
   // iter-P phase-6.2 : proportions des 3 colonnes de la rangée du bas.
   | { type: 'SET_DESIGNER_BOTTOM_ROW_WIDTHS'; payload: number[] }
-  // iter-M phase-2-as : toggle auto-sizing.
-  | { type: 'SET_AUTO_SIZING'; payload: boolean }
   // iter-O phase-5a/5d : bascule l'état replié d'un module du Designer (bande).
   // `autoCollapse` (5d) : si vrai ET réouverture, replie aussi les siblings de
   // la même rangée actuellement ouverts (politique accordéon par rangée).
