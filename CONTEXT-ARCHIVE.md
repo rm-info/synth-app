@@ -1022,6 +1022,16 @@ Phases listées ci-dessous dans l'ordre chronologique d'implémentation.
       proprement (pas de crash). À traiter si gênant (ex. exclure `data-anchor` du ghost).
     - **Vérif** : `npm run lint` (0 erreurs, 4 warnings préexistants) +
       `npx tsc --noEmit` + `npm run build` propres.
+  - **R.2.3 — polish header compact** (`fix(iter-R/phase-2.3)`). Retours de test :
+    (1) bouton thème désaligné (sa marge propre `auto 8px` ≠ raccourcis/visite
+    `auto 4px`, s'ajoutant au gap 8px de l'OT) → marges des 3 boutons aux
+    neutralisées en compact (le gap de l'OT cadence seul). (2) Version d'app
+    « perdue » en compact → **réintroduite dans l'OT** via une nouvelle prop **`suffix`**
+    (`OverflowToolbar` : chrome fixe en QUEUE, après les items, avant le trigger,
+    jamais débordé — symétrique de `prefix`, soustrait de `avail` au recompute) ;
+    le header y met `séparateur + vX.Y.Z`. (3) Hamburger sans bordure
+    (`overflow-toolbar-trigger` border transparente en compact) + collé à droite
+    (`.tabs-compact` padding-right 16→6). Desktop inchangé.
 
 - **2026-06-07 — Iteration Q « Désencombrement du Designer » — CLOSE. Release
   v1.9.1.** Petite itération de suite après P.6 : P.6.2 ayant ajouté des
