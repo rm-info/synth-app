@@ -26,12 +26,22 @@
   gap: 4px;
 }
 
+/* iter-P phase-6.3 : empreinte commune aux 3 boutons (live/peak = icônes,
+   dB = texte) → même taille en barre ET dans le tiroir de l'OverflowToolbar.
+   min-width + min-height + box-sizing + centrage garantissent l'égalité quel
+   que soit le contenu. */
 .spectrogram-toggle {
+  box-sizing: border-box;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 34px;
+  min-height: 28px;
   background: transparent;
   color: var(--text-secondary);
   border: 1px solid var(--surface-border-strong);
   border-radius: 4px;
-  padding: 4px 10px;
+  padding: 4px 8px;
   font-size: 0.85em;
   font-family: inherit;
   cursor: pointer;
@@ -39,12 +49,9 @@
 }
 
 /* r.2.6.5 : variantes boutons-icônes (Direct → Radio, Crête → SVG custom).
-   Centre l'icône ; align-items:stretch du conteneur égalise la hauteur avec dB. */
+   L'empreinte (taille/centrage) est désormais portée par .spectrogram-toggle. */
 .spectrogram-toggle-icon {
   display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  padding: 4px 8px;
 }
 
 .spectrogram-toggle:hover {

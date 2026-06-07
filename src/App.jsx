@@ -1091,7 +1091,11 @@ function App() {
   // iter-O phase-5d : flag effectif passé aux réouvertures de module — actif si
   // le toggle est ON, ou forcé sous le seuil de largeur (desktop étroit).
   const effectiveAutoCollapse = autoCollapse || winWidth < AUTO_COLLAPSE_DEFAULT_WIDTH
-  const designerSidebarCollapsedEffective = isMobile || designerSidebarCollapsed
+  // iter-P phase-6.3 : panneau gauche forcé fermé (rail + popover Bibliothèque,
+  // chemin mobile) dès le seuil de l'« essentiel » — entre 924 et 1100 il était
+  // « ouvrable mais non redimensionnable » (état bâtard). `winWidth < ESSENTIALS_WIDTH`
+  // subsume la largeur mobile ; on garde `isMobile` pour couvrir aussi h < 668.
+  const designerSidebarCollapsedEffective = isMobile || winWidth < ESSENTIALS_WIDTH || designerSidebarCollapsed
   // Mode accordéon : zone dépliée par défaut = 'canvas' (waveform).
   // null serait possible aussi (tout fermé) mais on choisit d'avoir
   // un état initial utile.
@@ -2396,11 +2400,12 @@ function App() {
                 )}
               </aside>
               {isMobile ? (
-                /* v1.2.0 / v1.2.1 : mode accordéon mobile. Les 4 zones
+                /* v1.2.0 / v1.2.1 : mode accordéon mobile. Les 6 zones
                    s'organisent en 1 colonne. Une seule dépliée à la fois.
-                   Ordre v1.2.1 : Waveform / Spectrogramme / Enveloppe /
-                   Instrument (Instrument en dernier — plus accessible
-                   au scroll de bas de page). Bodies TOUJOURS rendus
+                   Ordre (iter-P phase-6.3) : Forme d'onde / Harmoniques /
+                   Spectrogramme / Enveloppe / Modulation / Instrument
+                   (Instrument en dernier — plus accessible au scroll de bas
+                   de page ; Modulation juste avant). Bodies TOUJOURS rendus
                    (juste hide/show via CSS) — garantit que les
                    ResizeObserver des canvas waveform/ADSR détectent le
                    retour à des dimensions non-nulles à l'expand et
@@ -2419,8 +2424,8 @@ function App() {
                     { id: 'harmonics', title: STRINGS.editor.harmonicsTitle, body: renderHarmonicsArea() },
                     { id: 'spectrogram', title: 'Spectrogramme', body: spectrogramNode },
                     { id: 'adsr', title: 'Enveloppe AHDSR', body: renderAdsrArea() },
-                    { id: 'params', title: 'Instrument', body: renderParamsArea() },
                     { id: 'modulation', title: 'Modulation', body: renderModulationArea() },
+                    { id: 'params', title: 'Instrument', body: renderParamsArea() },
                   ].map((zone) => {
                     const expanded = mobileExpandedZone === zone.id
                     return (
