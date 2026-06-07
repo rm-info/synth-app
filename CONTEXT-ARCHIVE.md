@@ -972,6 +972,16 @@ Phases listées ci-dessous dans l'ordre chronologique d'implémentation.
       ancré au lot patch/Presets/Reset via un `designer-toolbar-divider`) ; l'OT des
       contrôles garde `flex:1` (aligné droite) → absent, rien ne pousse le switcher.
       Desktop garde `space-between`. Lint propre.
+    - **1.3d — scroll horizontal parasite en petit écran** (`fix(iter-R/phase-1.3d)`).
+      Bug : sous 700×500, ascenseur horizontal sur Forme d'onde (large bande vide
+      défilable) et AHDSR (léger). Cause unique : la **« ghost row »** de mesure des
+      `OverflowToolbar` relogés (`position:absolute; white-space:nowrap`,
+      `visibility:hidden`) déborde à droite avec la largeur naturelle des contrôles —
+      6 sur Forme d'onde (large), 1 sur AHDSR compact (léger) ; absolue, elle gonfle
+      le scroll-overflow sans être clippée par aucun ancêtre du toolbar mobile (en
+      desktop, les colonnes redimensionnables la clippent). Fix CSS 1 ligne :
+      `.designer-main-mobile .designer-toolbar { overflow-x: clip }` — `clip` sur X
+      laisse Y `visible` (le tiroir `…` s'ouvre vers le bas). Desktop inchangé.
 
 - **2026-06-07 — Iteration Q « Désencombrement du Designer » — CLOSE. Release
   v1.9.1.** Petite itération de suite après P.6 : P.6.2 ayant ajouté des
