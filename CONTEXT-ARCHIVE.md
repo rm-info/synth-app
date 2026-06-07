@@ -982,6 +982,17 @@ Phases listées ci-dessous dans l'ordre chronologique d'implémentation.
       desktop, les colonnes redimensionnables la clippent). Fix CSS 1 ligne :
       `.designer-main-mobile .designer-toolbar { overflow-x: clip }` — `clip` sur X
       laisse Y `visible` (le tiroir `…` s'ouvre vers le bas). Desktop inchangé.
+    - **1.3e — overflow-x implicite du panneau de module** (`fix(iter-R/phase-1.3e)`).
+      Reliquat 1.3d : AHDSR gardait un ascenseur horizontal (le canvas flex:1
+      grandissait avec la fenêtre, ascenseur persistant). Cause : la règle CSS
+      « `visible` + `auto` → `auto` » — `.designer-mobile-panel.is-active` ayant
+      `overflow-y:auto` et `overflow-x` à `visible` (défaut), **`overflow-x` calculait
+      en `auto`** → le panneau devenait un conteneur de défilement HORIZONTAL. Un
+      corps pile à la largeur (AHDSR : canvas flex:1 + sliders 160px) y générait un
+      sous-pixel de débordement → ascenseur. Forme d'onde (canvas plein cadre, pas de
+      sliders) n'avait pas ce reliquat (son débordement à elle était la ghost row du
+      toolbar, traitée en 1.3d). Fix : `overflow-x: hidden` explicite sur le panneau
+      actif. Complémentaire du clip toolbar (corps vs barre d'outils). Desktop inchangé.
 
 - **2026-06-07 — Iteration Q « Désencombrement du Designer » — CLOSE. Release
   v1.9.1.** Petite itération de suite après P.6 : P.6.2 ayant ajouté des
