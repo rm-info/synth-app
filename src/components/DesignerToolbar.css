@@ -82,6 +82,12 @@
    Desktop garde space-between (intact). */
 .designer-main-mobile .designer-toolbar {
   justify-content: flex-start;
+  /* iter-R phase-1.3d : la « ghost row » de mesure des OverflowToolbar relogés
+     (position:absolute, white-space:nowrap) déborde à droite avec la largeur
+     naturelle des contrôles (6 sur Forme d'onde → large bande vide défilable ;
+     invisible car visibility:hidden). On la clippe ici. `clip` sur X laisse Y
+     `visible` → le tiroir `…` (qui s'ouvre vers le bas) reste affiché. */
+  overflow-x: clip;
 }
 
 /* Séparateur visuel entre le groupe d'actions et les proportions. */
