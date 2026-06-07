@@ -16,7 +16,7 @@ persistance localStorage (clé `synth-app-state`). **TypeScript incrémental**
 lib audio, pas de state manager (un `useReducer` global dans `App.jsx`), pas de
 framework UI (CSS manuscrit), pas de routing, pas de backend.
 
-**Version courante : v1.8.0** (2026-06-06).
+**Version courante : v1.9.0** (2026-06-07).
 
 **Itérations livrées** (détail complet dans `CONTEXT-ARCHIVE.md`) :
 
@@ -37,18 +37,21 @@ framework UI (CSS manuscrit), pas de routing, pas de backend.
 | M | Waveform Designer : modèle canonique unifié + 3 lentilles + patch typé — v1.5.0 | 2026-06-03 |
 | N | Stabilité & fluidité : édition d'ancres refondue (warp 2D), presets « Timbres » (vues idéale/band-limitée + formes paramétriques), lissage, durcissements — v1.6.0 | 2026-06-04 |
 | O | Ergonomie & responsive Designer : steppers, OverflowToolbar généralisé, responsive Instrument/AHDSR, gestionnaire de modules (collapse/maximize/auto-collapse), titres ellipsis — v1.7.0 | 2026-06-06 |
-| P | Effets & modulations : vibrato & trémolo (LFO par patch) — helper audio partagé sur les 4 chemins, 6ᵉ module Designer, .osa v3 — v1.8.0 | 2026-06-06 |
+| P | Effets & modulations : vibrato & trémolo (LFO par patch) — helper audio partagé sur les 4 chemins, 6ᵉ module Designer, .osa v3 ; + édition visuelle LFO & polish responsive (P.5/P.6) — v1.9.0 | 2026-06-07 |
 
 **État courant** : Iteration P « Effets & modulations : vibrato & trémolo (LFO
-par patch) » livrée en v1.8.0 (2026-06-06), **prolongée par P.5** (graphe LFO
-éditable à poignées + fix extinction trémolo plateau-puis-release). Première
-itération de la section « Effets et modulations » du backlog : deux LFO par patch
-(vibrato → hauteur via `osc.detune`, trémolo → volume sommé sur `gain.gain`), un
-helper audio partagé (`lib/modulation.js`) câblé sur les **4 chemins de
-synthèse**, un 6ᵉ module Designer « Modulation » (steppers **+ graphe éditable**),
-persistance `.osa` v3. Détail par phase P.1→P.5 dans `CONTEXT-ARCHIVE.md`. **Bump
-non appliqué en P.5** : l'éditeur visuel justifie un mineur (**v1.9.0**) mais la
-release est coordonnée avec **P.6** (polish responsive), qui la partagera. Iteration O (v1.7.0) reste la référence du Designer desktop,
+par patch) » **close** (release **v1.9.0**, 2026-06-07) — **entre deux
+itérations**, prochaine non cadrée (« Monde B » pressenti). Première itération de
+la section « Effets et modulations » du backlog : deux LFO par patch (vibrato →
+hauteur via `osc.detune`, trémolo → volume sommé sur `gain.gain`), un helper audio
+partagé (`lib/modulation.js`) câblé sur les **4 chemins de synthèse**, un 6ᵉ module
+Designer « Modulation » (steppers **+ graphe LFO éditable**, P.5), persistance
+`.osa` v3. **P.5/P.6** ont prolongé l'itération après la v1.8.0 : édition visuelle
+du LFO à poignées + fix extinction trémolo (P.5), polish responsive du Designer
+(auto-collapse essentiel < 1100, rangée du bas redimensionnable, sidebar
+verrouillée < 1100, ordre accordéon — P.6). Détail par phase P.1→P.6 dans
+`CONTEXT-ARCHIVE.md`. L'accordéon mobile **sous 924** reste non retravaillé
+(backlog). Iteration O (v1.7.0) reste la référence du Designer desktop,
 traité jusqu'au plancher accordéon (924×668) ; l'épuration sous ce seuil est
 reportée (cf. `archi/BACKLOG.md`). Hygiène restante (hors itération) : purge des
 prompt-fichiers `archi/O*`, `archi/P*`, `archi/N*`, `archi/Mr*`, `archi/M5b*`
