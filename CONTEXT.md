@@ -16,7 +16,7 @@ persistance localStorage (clé `synth-app-state`). **TypeScript incrémental**
 lib audio, pas de state manager (un `useReducer` global dans `App.jsx`), pas de
 framework UI (CSS manuscrit), pas de routing, pas de backend.
 
-**Version courante : v1.9.0** (2026-06-07).
+**Version courante : v1.9.1** (2026-06-07).
 
 **Itérations livrées** (détail complet dans `CONTEXT-ARCHIVE.md`) :
 
@@ -38,24 +38,25 @@ framework UI (CSS manuscrit), pas de routing, pas de backend.
 | N | Stabilité & fluidité : édition d'ancres refondue (warp 2D), presets « Timbres » (vues idéale/band-limitée + formes paramétriques), lissage, durcissements — v1.6.0 | 2026-06-04 |
 | O | Ergonomie & responsive Designer : steppers, OverflowToolbar généralisé, responsive Instrument/AHDSR, gestionnaire de modules (collapse/maximize/auto-collapse), titres ellipsis — v1.7.0 | 2026-06-06 |
 | P | Effets & modulations : vibrato & trémolo (LFO par patch) — helper audio partagé sur les 4 chemins, 6ᵉ module Designer, .osa v3 ; + édition visuelle LFO & polish responsive (P.5/P.6) — v1.9.0 | 2026-06-07 |
+| Q | Désencombrement Designer : retrait auto-sizing + bouton « Égaliser » deux rangées + fix taille boutons spectro — v1.9.1 | 2026-06-07 |
 
-**État courant** : Iteration P « Effets & modulations : vibrato & trémolo (LFO
-par patch) » **close** (release **v1.9.0**, 2026-06-07) — **entre deux
-itérations**, prochaine non cadrée (« Monde B » pressenti). Première itération de
-la section « Effets et modulations » du backlog : deux LFO par patch (vibrato →
-hauteur via `osc.detune`, trémolo → volume sommé sur `gain.gain`), un helper audio
-partagé (`lib/modulation.js`) câblé sur les **4 chemins de synthèse**, un 6ᵉ module
-Designer « Modulation » (steppers **+ graphe LFO éditable**, P.5), persistance
-`.osa` v3. **P.5/P.6** ont prolongé l'itération après la v1.8.0 : édition visuelle
-du LFO à poignées + fix extinction trémolo (P.5), polish responsive du Designer
-(auto-collapse essentiel < 1100, rangée du bas redimensionnable, sidebar
-verrouillée < 1100, ordre accordéon — P.6). Détail par phase P.1→P.6 dans
-`CONTEXT-ARCHIVE.md`. L'accordéon mobile **sous 924** reste non retravaillé
-(backlog). Iteration O (v1.7.0) reste la référence du Designer desktop,
-traité jusqu'au plancher accordéon (924×668) ; l'épuration sous ce seuil est
-reportée (cf. `archi/BACKLOG.md`). Hygiène restante (hors itération) : purge des
-prompt-fichiers `archi/O*`, `archi/P*`, `archi/N*`, `archi/Mr*`, `archi/M5b*`
-consommés.
+**État courant** : Iteration Q « Désencombrement du Designer » **close** (release
+**v1.9.1**, 2026-06-07) — **entre deux itérations**, prochaine non cadrée
+(« Monde B » pressenti). Petite itération de désencombrement à la suite de P.6 :
+**(1)** retrait complet de l'**auto-sizing** (redimensionnement auto des colonnes
+au focus, jugé impraticable) — état/reducer/types/composants nettoyés, champ
+`autoSizing` persisté abandonné (ignoré à l'hydratation) ; **(2)** les 4 presets de
+proportions + le bouton AUTO deviennent un **unique bouton « Égaliser »**
+(`DesignerToolbar`, icône `Table` pivotée 90°) qui remet les **deux rangées** à
+⅓⅓⅓ — les proportions custom passent par le drag des séparateurs (haut + bas) ;
+**(3)** fix de la taille des boutons spectro live/dB/peak (boîte fixe au lieu d'un
+plancher → empreinte strictement égale). La rangée du bas (P.6.2) et la rangée du
+haut sont désormais strictement identiques. L'accordéon mobile **sous 924** reste
+non retravaillé (backlog). Iteration O (v1.7.0) reste la référence du Designer
+desktop, traité jusqu'au plancher accordéon (924×668) ; l'épuration sous ce seuil
+est reportée (cf. `archi/BACKLOG.md`). Hygiène restante (hors itération) : purge
+des prompt-fichiers `archi/O*`, `archi/P*`, `archi/Q*`, `archi/N*`, `archi/Mr*`,
+`archi/M5b*` consommés.
 
 > **Structure des fichiers de contexte.** Ce `CONTEXT.md` est le **brief
 > vivant** : état présent, modèle de données, composants, architecture,
@@ -139,7 +140,7 @@ synth-app/
         ├── PatchBank.jsx + .css               # banque de patches partagée
         ├── WaveformEditor.jsx + .css          # éditeur ondes / patch (Designer)
         ├── Spectrogram.jsx + .css             # spectrogramme statique (Designer)
-        ├── DesignerColumns.jsx + .css         # layout 3 colonnes ajustables (Designer, M.2.2) ; prop collapsed → colonne repliée en bande (iter-O phase-5a) ; réutilisé pour la RANGÉE DU BAS (iter-P phase-6.2 : prop sepLabels, autoSizing off)
+        ├── DesignerColumns.jsx + .css         # layout 3 colonnes ajustables (Designer, M.2.2) ; prop collapsed → colonne repliée en bande (iter-O phase-5a) ; réutilisé pour la RANGÉE DU BAS (iter-P phase-6.2 : prop sepLabels) ; auto-sizing retiré (iter-Q : drag des séparateurs seul)
         ├── DesignerModule.jsx + .css          # wrapper réductible/maximisable des 6 modules Designer : bande verticale (icône+titre) ↔ contenu (toujours monté, display:none si replié — contrainte canvas) ; rend la ModuleChrome en coin absolu (iter-O phase-5a/5c)
         ├── ModuleChrome.jsx + .css            # chrome « contrôle de fenêtre » d'un module : Réduire (désactivé en maximisé) + Agrandir/Restaurer ; centralisée dans DesignerModule, coin haut-droit absolu (iter-O phase-5a→5c)
         ├── OverflowToolbar.jsx + .css         # barre d'outils générique « priority-plus » : items bar/tray, débordement → tiroir `⋯` (iter-O phase-2). Branché : les 5 headers de module + groupe droit DesignerToolbar (généralisé O.6.2)
@@ -310,7 +311,8 @@ type Clip = {                     // placement timeline + hauteur
 //   composerBankCollapsed, composerAsideCollapsed,
 //   docSidebarWidth, docSidebarCollapsed (iter-L phase-2.1),
 //   designerColumnWidths, designerBottomRowWidths (iter-P phase-6.2 :
-//     proportions de la rangée du bas, 3 fractions, défaut tiers), autoSizing,
+//     proportions de la rangée du bas, 3 fractions, défaut tiers ; iter-Q :
+//     champ autoSizing retiré, ignoré à l'hydratation),
 //   designerCollapsed (iter-O phase-5a, iter-P : { canvas, harmonics, spectrogram,
 //     params, adsr, modulation } booléens, état replié des 6 modules Designer),
 //   maximized (iter-O phase-5b : id du module maximisé ou null),
@@ -677,24 +679,26 @@ Seuls les **placements timeline** s'appellent "clips".
   **Normaliser** (`Sigma`) a quitté la barre du haut pour le **header de la zone
   Forme d'onde** (cf. `renderWaveformHeaderControls`), où il est visible dans les
   deux modes d'édition.
-- **r.2.6.5/.6** : les presets de proportions des colonnes (anciens libellés
-  Unicode ⅓⅓⅓ · ½¼¼ · ¼½¼ · ¼¼½) sont rendus par un **aperçu SVG**
-  (`IconColumnLayout` : rectangle 48×16 + 2 séparateurs aux proportions).
-- Droite (desktop seulement, si `onSelectPreset` fourni) : séparateur visuel +
-  **groupe radio de dimensionnement** (iter-N N.6.2) = 4 presets de proportions
-  (`IconColumnLayout`) + bouton **AUTO** (`IconAuto`, même style
-  `.designer-toolbar-preset-btn`). **Actif dérivé** (aucun état persisté en plus) :
-  `autoSizing` → AUTO ; sinon le preset dont les `widths` égalent `widths`
-  (= `designerColumnWidths`, compare epsilon 1e-3) ; sinon (drag custom) aucun.
-  Un seul actif, coloration accent reprise de `.spectrogram-toggle.is-active`
-  (M.r.2.6.7) via `.designer-toolbar-preset-btn.is-active`. Clic preset →
-  `onSelectPreset(widths)` (App : `setAutoSizing(false)` puis `onWidths`) ; clic
-  AUTO → `onToggleAutoSizing`. En mobile, ces contrôles ne sont pas rendus.
-- Présentational : tous les handlers viennent d'App.jsx (proportions/auto) et de
-  `WaveformEditor` via l'API children (Presets/Reset/Normaliser/patchLabel).
-- **iter-O phase-2.3** : le groupe droit (4 presets + AUTO) est rendu via
-  `OverflowToolbar` (priority-plus). Le séparateur passe en prop `prefix` (chrome
-  fixe). `is-active`/`aria-pressed` (état dérivé) conservés. Gauche inchangée.
+- Droite (desktop seulement, si `onEqualizeWidths` fourni) : séparateur visuel +
+  **bouton « Égaliser »** (iter-Q, icône `Table` de Lucide pivotée 90° → grille
+  3×2 = les deux rangées de trois colonnes) + séparateur + toggle
+  **Auto-réduction** (`FoldHorizontal`). Le bouton Égaliser est une **action
+  momentanée** (pas un toggle) : clic → `onEqualizeWidths` (App :
+  `designerColumnWidths` ET `designerBottomRowWidths` remis à ⅓⅓⅓). **Actif
+  dérivé** (aucun état persisté en plus) : vrai quand les **deux** rangées sont
+  déjà à ⅓⅓⅓ (`widthsEqual` sur `columnWidths` + `bottomRowWidths`, epsilon
+  1e-3) ; coloration accent reprise de `.spectrogram-toggle.is-active`
+  (M.r.2.6.7) via `.designer-toolbar-preset-btn.is-active`. Les proportions
+  custom restent accessibles via le **drag des séparateurs** (haut + bas). En
+  mobile, ces contrôles ne sont pas rendus. **iter-Q** : les 4 presets de
+  proportions + le bouton AUTO (auto-sizing) ont été retirés ; `IconColumnLayout`
+  / `IconAuto` supprimés d'`icons.jsx`.
+- Présentational : tous les handlers viennent d'App.jsx (égalisation/auto-réduction)
+  et de `WaveformEditor` via l'API children (Presets/Reset/Normaliser/patchLabel).
+- Le groupe droit (2 items : Égaliser + Auto-réduction) est rendu via
+  `OverflowToolbar` (priority-plus, libellés « Disposition des modules »). Le
+  séparateur de tête passe en prop `prefix` (chrome fixe). `is-active`/`aria-pressed`
+  (état dérivé) conservés. Gauche inchangée.
 
 ### `OverflowToolbar.jsx` (iter-O phase-2.1)
 - Barre d'outils **générique réutilisable** « priority-plus » : affiche un max
@@ -728,30 +732,23 @@ Seuls les **placements timeline** s'appellent "clips".
 ### `DesignerColumns.jsx` (iter-M phase-2.2, allégé r.2.1)
 - Moitié haute du Designer en 3 colonnes ajustables (Forme d'onde /
   Harmoniques / Spectrogramme). Props : `widths` (3 fractions sommant à 1,
-  persistées), `onWidths`, `onManualResize` (iter-N N.6.2 : coupe l'auto-sizing
-  au début d'un drag de séparateur), `columns` (3 nodes), `autoSizing`,
-  `focusGuardRef`.
-- **r.2.1** : les presets de proportions ⅓⅓⅓ · ½¼¼ · ¼½¼ · ¼¼½ et le toggle
-  « Dimension auto » ont migré dans `DesignerToolbar`. Ce composant ne gère plus
-  que les séparateurs glissables + le tracking du focus auto-sizing.
+  persistées), `onWidths`, `columns` (3 nodes), `collapsed`, `sepLabels`.
+  Réutilisé tel quel pour la **rangée du bas** (iter-P P.6.2 : Instrument /
+  AHDSR / Modulation, `designerBottomRowWidths`).
+- **iter-Q** : l'auto-sizing (redimensionnement auto au focus) a été **retiré**
+  (impraticable). Les props `autoSizing` / `onManualResize` / `focusGuardRef`,
+  les constantes `FOCUS_WIDTHS`/`REST_WIDTHS`, le `useEffect` de tracking focus
+  et le `focusColRef` ont disparu. Ce composant ne gère **plus que** les
+  séparateurs glissables ; l'égalisation passe par le bouton « Égaliser » de la
+  `DesignerToolbar` (les deux rangées à la fois).
 - Séparateurs glissables (`flex-grow` = fractions) : `mousedown` capture l'event
   (`stopPropagation`, recalcul absolu depuis `startWidths`/`startX`, plancher
-  12 % par colonne). Le `stopPropagation` isole le drag du clic-colonne.
+  12 % par colonne). Le `stopPropagation` isole le drag du clic-colonne. Le drag
+  commit directement les largeurs (`onWidths`).
 - État `designerColumnWidths` (reducer, non-undoable, persisté). Défaut piloté
   par la lentille (½¼¼ en free/spline) tant qu'aucune valeur n'est persistée. Le
   spectro est une **colonne permanente** (toggle « Spectro » retiré ;
   `spectrogramVisible` vestigial, clé localStorage conservée).
-- **Auto-sizing (iter-M phase-2-as, essai)** : props `autoSizing`,
-  `focusGuardRef` (toggle « Dimension auto » désormais dans `DesignerToolbar`).
-  Quand ON, un `useEffect` attache un listener `mousedown` (capture)
-  qui pilote `designerColumnWidths` selon le focus (3 états : `[0.6,0.2,0.2]` /
-  `[0.2,0.6,0.2]` / `[0.2,0.2,0.6]`=repos) et lève `focusGuardRef` le temps du
-  geste qui change le focus (consommé par `WaveformEditor` pour supprimer
-  l'édition sur ce mousedown). Focus volatile (`focusColRef`). OFF → aucun
-  listener, comportement M.2 strict. Retrait = supprimer le bouton AUTO +
-  `useEffect`. **N.6.2** : un drag manuel de séparateur appelle `onManualResize`
-  (→ `setAutoSizing(false)`) au début, donc les proportions custom coupent
-  l'auto-sizing au lieu d'être réécrites au focus suivant.
 
 ### `DesignerModule.jsx` + `ModuleChrome.jsx` (iter-O phase-5a→5c)
 - **`DesignerModule`** : wrapper uniforme des 5 modules Designer (canvas /
@@ -802,9 +799,9 @@ Seuls les **placements timeline** s'appellent "clips".
   **effectif** = `autoCollapse || winWidth < AUTO_COLLAPSE_DEFAULT_WIDTH` (1100,
   calibrable) — **forcé** sous le seuil (toggle alors `is-active` + `disabled`),
   sinon les modules d'une rangée se replient tous faute de place. Calculé au rendu
-  (pas de closure sur winWidth dans le handler — TDZ). **Coexiste avec l'AUTO**
-  (auto-sizing) : auto-réduction agit à l'ouverture, AUTO au focus ; actions
-  distinctes, pas de conflit.
+  (pas de closure sur winWidth dans le handler — TDZ). (iter-Q : l'auto-sizing
+  ayant été retiré, l'auto-réduction est désormais le seul automatisme de
+  disposition.)
 - **Maximize** (O.5b) : `maximized` (id ou null, un seul à la fois) persisté,
   non-undoable. Action `SET_DESIGNER_MAXIMIZED` (setter pur, toggle côté handler
   `handleToggleModuleMaximized`). **Prioritaire sur collapse**, restaure l'état au
@@ -1079,10 +1076,10 @@ Choix non évidents pris pour de bonnes raisons. À ne pas remettre en question
   redimensionnable » entre 924 et 1100 (P.6.3).
 - **Rangée du bas = même `DesignerColumns` que le haut (iter-P P.6.2)** : les deux
   rangées de modules partagent le composant (DRY → 2 séparateurs draggables
-  identiques, gestion `collapsed`/bande réutilisée). La rangée du bas passe
-  `autoSizing={false}` (pas de focus tracking ni FOCUS_WIDTHS : drag manuel +
-  largeurs persistées `designerBottomRowWidths` uniquement) et ses propres
-  `sepLabels`. L'auto-sizing au focus reste spécifique à la rangée du haut.
+  identiques, gestion `collapsed`/bande réutilisée). La rangée du bas porte ses
+  propres `sepLabels` + `designerBottomRowWidths` (largeurs persistées). **iter-Q** :
+  l'auto-sizing au focus ayant été retiré, les deux rangées sont désormais
+  strictement identiques (drag des séparateurs + bouton « Égaliser »).
 - **Détection « compact » mesurée sur la zone, pas sur `windowWidth` (iter-O O.4)** :
   l'AHDSR décide de basculer en mode compact via un `ResizeObserver` sur sa propre
   zone, pas via la largeur fenêtre — robuste à travers desktop, accordéon mobile et
@@ -2159,8 +2156,9 @@ Conventions tacites. Les enfreindre sans raison crée des bugs subtils.
   - **Hors scope** : presets de formes spline → M.4 ; auto-fit depuis un tracé →
     backlog ; B-spline/Bézier → non retenu (Catmull-Rom + polyligne).
 - Iteration M — phase M.2-AS (auto-sizing, livré en essai 2026-05-30 ;
-  **keep/drop tranché en iter-N N.6.2 → GARDÉ**, la checkbox devenant le bouton
-  AUTO d'un groupe radio avec les 4 presets, cf. `DesignerToolbar`). Opt-in, OFF
+  gardé en iter-N N.6.2 sous forme de bouton AUTO d'un groupe radio ;
+  **finalement RETIRÉ en iter-Q** — impraticable, cf. `CONTEXT-ARCHIVE.md`
+  « Itération terminée : Q »). Opt-in, OFF
   par défaut, posé **par-dessus** l'état de proportions de M.2 (il l'écrit ;
   aucun nouvel état canonique). 3 sous-commits :
   - **AS.1** Champ `autoSizing: boolean` (initial `false`, persisté localStorage,
@@ -2179,9 +2177,9 @@ Conventions tacites. Les enfreindre sans raison crée des bugs subtils.
     geste, canvas/barres s'abstiennent, l'édition reprend au geste suivant ;
     (3) sortie → repos. **N.6.2** : en plus, un drag manuel de séparateur coupe
     désormais l'auto-sizing (`onManualResize` → `setAutoSizing(false)`) au lieu
-    d'attendre le prochain focus. **Retrait éventuel (« jeter ») = supprimer le
-    bouton AUTO + le `useEffect` de focus + le champ persisté → retour à M.2
-    intact.**
+    d'attendre le prochain focus. **iter-Q : retrait effectif** — bouton AUTO,
+    `useEffect` de focus, champ persisté et 4 presets supprimés (les proportions
+    se font au drag des séparateurs + bouton « Égaliser » deux rangées).
 - Iteration M — phase M.2 (layout 3-vues + Patch typé + éditeur Harmoniques +
   passerelle, 2026-05-30). 5 sous-commits :
   - **2.1** Patch typé : union discriminée `Patch = DrawPatch | HarmonicPatch`
@@ -2860,14 +2858,15 @@ Conventions tacites. Les enfreindre sans raison crée des bugs subtils.
 > Détail des roadmaps des itérations livrées (A→M) → `CONTEXT-ARCHIVE.md`.
 > Ci-dessous : l'itération en cours, puis le backlog général (non planifié).
 
-### Entre deux itérations (depuis la clôture de P, 2026-06-06)
+### Entre deux itérations (depuis la clôture de Q, 2026-06-07)
 
-Iteration P « Effets & modulations : vibrato & trémolo (LFO par patch) » **close**
-(release v1.8.0). Roadmap détaillée P.1→P.4 archivée dans `CONTEXT-ARCHIVE.md`.
-Suite de la section « Effets et modulations » du backlog (pitch envelope, filtre +
-enveloppe de filtre, distorsion, effets temporels par piste, mixage/pan…) **non
-cadrée** ; « Monde B » inharmonique + morph toujours pressenti (cf.
-`archi/BACKLOG.md`).
+Iteration Q « Désencombrement du Designer » **close** (release v1.9.1) — petite
+itération de suite (retrait auto-sizing + bouton « Égaliser » deux rangées + fix
+boutons spectro), détail dans `CONTEXT-ARCHIVE.md`. Avant elle, Iteration P
+« Effets & modulations » (v1.9.0). Suite de la section « Effets et modulations »
+du backlog (pitch envelope, filtre + enveloppe de filtre, distorsion, effets
+temporels par piste, mixage/pan…) **non cadrée** ; « Monde B » inharmonique +
+morph toujours pressenti (cf. `archi/BACKLOG.md`).
 
 **Reste lié à P (différé, future itération)** :
 - **Surfaçage en Composer / PropertiesPanel** d'un indicateur read-only « ce patch

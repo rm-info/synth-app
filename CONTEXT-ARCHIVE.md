@@ -883,6 +883,42 @@ Phases listées ci-dessous dans l'ordre chronologique d'implémentation.
 
 ## Historique (chronologie inverse)
 
+- **2026-06-07 — Iteration Q « Désencombrement du Designer » — CLOSE. Release
+  v1.9.1.** Petite itération de suite après P.6 : P.6.2 ayant ajouté des
+  séparateurs drag à la rangée du bas, plusieurs contrôles de la `DesignerToolbar`
+  (qui ne pilotaient que la rangée du haut) devenaient obsolètes/incohérents.
+  Retrait de feature + simplification + fix → bump **patch**.
+  - **Q.1+Q.2 — Retrait auto-sizing + bouton « Égaliser »**
+    (`refactor(iter-Q/phase-1+2)`). **Q.1** : suppression nette de l'auto-sizing
+    (redimensionnement auto des colonnes au focus, jugé impraticable et
+    déroutant). État/reducer (`autoSizing`, `SET_AUTO_SIZING`, init + persistance ;
+    un `autoSizing` persisté est désormais **ignoré** à l'hydratation, pas de
+    migration), `types.ts`, `DesignerColumns` (`FOCUS_WIDTHS`/`REST_WIDTHS`,
+    `useEffect` de tracking focus, props `autoSizing`/`onManualResize`/
+    `focusGuardRef`, `focusColRef`/`rootRef`), `WaveformEditor` + `SplineEditor`
+    (gardes `focusGuardRef` qui supprimaient l'édition au mousedown de prise de
+    focus), `App.jsx` (handlers `toggleAutoSizing`/`selectColumnPreset`/
+    `disableAutoSizing` + `autoSizeFocusGuardRef`), `strings.js`
+    (`autoSizing`/`autoSizingTitle`), `icons.jsx` (`IconAuto`, `IconColumnLayout`).
+    **Q.2** : les 4 presets de proportions + le bouton AUTO deviennent un **unique
+    bouton « Égaliser »** (icône `Table` de Lucide pivotée 90° → grille 3×2 = les
+    deux rangées de trois colonnes). Action **momentanée** : `handleEqualizeWidths`
+    remet `designerColumnWidths` ET `designerBottomRowWidths` à ⅓⅓⅓ (deux
+    dispatchs). **État actif dérivé** (aucun état persisté en plus) : vrai quand les
+    deux rangées sont déjà à ⅓⅓⅓ (`widthsEqual` sur les deux). Toggle Auto-réduction
+    conservé tel quel. Rendu via `OverflowToolbar` (2 items, libellés « Disposition
+    des modules »). Les proportions custom passent par le drag des séparateurs
+    (haut + bas). `grep` propre (zéro `autoSizing` résiduel hors commentaire).
+  - **Q.3 — Boîte fixe des boutons spectro** (`fix(iter-Q/phase-3)`). Cause
+    racine : P.6.3 avait posé `min-width:34px; min-height:28px` (un **plancher**) ;
+    le texte « dB » dépassait le plancher tandis que les boutons-icônes y butaient
+    → dB restait plus large. Fix CSS (`.spectrogram-toggle`) : **boîte fixe**
+    (`width:34px; height:28px; padding:0; box-sizing:border-box`, contenu centré
+    déjà en place). Les trois boutons (live/dB/peak) ont désormais strictement la
+    même empreinte, en barre comme dans le tiroir. CSS uniquement.
+  - **Vérif** : `npm run lint` (0 erreurs, 4 warnings `exhaustive-deps`
+    préexistants) + `npx tsc --noEmit` propres + `npm run build` OK.
+
 - **2026-06-06 — Iteration P « Effets & modulations : vibrato & trémolo (LFO par
   patch) » — CLOSE. Release v1.8.0.** Première itération de la section « Effets et
   modulations » du backlog. Deux LFO **par patch** (pas par clip) : vibrato (LFO

@@ -162,9 +162,11 @@ Items backlog issus de la session :
   scope rattrapage et doc M.5b.
 - **i18n / multilingue complet** : la francisation M sème les chaînes
   centralisées ; le multilingue (ajout de langues) vient après.
-- **Auto-sizing au focus** : à confirmer ou jeter avant clôture de M. Critère :
-  garde si ça accélère sans distraire ; jette si le whiplash de reflow >
-  confort, ou si éditer les barres avec un spectro rétréci gêne.
+- ~~**Auto-sizing au focus** : à confirmer ou jeter avant clôture de M.~~
+  **TRANCHÉ → JETÉ (iter-Q, 2026-06-07).** Gardé en essai jusqu'en P, le whiplash
+  de reflow et la gêne d'éditer avec un spectro rétréci l'ont emporté : feature
+  retirée nette. Proportions = drag des séparateurs (haut + bas, depuis P.6.2) +
+  bouton « Égaliser » deux rangées (iter-Q).
 - **Itération « timbres riches / évolutifs »** (future) : Monde B inharmonique
   (cloches, métal) + morph A↔B (spectre évolutif). Les deux vrais chemins vers
   les sons « inattendus » qu'une mono-forme-d'onde ne peut pas produire.
