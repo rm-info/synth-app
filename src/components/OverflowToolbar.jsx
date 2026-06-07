@@ -20,6 +20,8 @@ import './OverflowToolbar.css'
 //   vit dans le parent ; on ne fait que relocaliser le rendu).
 // - prefix?: node toujours visible, rendu en tête du cluster (chrome fixe, ex.
 //   séparateur). Ne déborde jamais.
+// - suffix?: node toujours visible, rendu en QUEUE (après les items, avant le
+//   trigger). Ne déborde jamais (iter-R phase-2.3 : séparateur + version d'app).
 // - triggerIcon?: node de l'icône du bouton d'overflow (défaut `⋯` Ellipsis).
 //   iter-R phase-2.1 : le header compact passe un hamburger `Menu`. La même icône
 //   sert au clone ghost (mesure) et au trigger visible → largeurs cohérentes.
@@ -27,11 +29,12 @@ import './OverflowToolbar.css'
 
 const GAP = 8 // px — doit coller au gap CSS de .overflow-toolbar-row
 
-export default function OverflowToolbar({ items, prefix, className, ariaLabel, menuLabel, triggerIcon }) {
+export default function OverflowToolbar({ items, prefix, suffix, className, ariaLabel, menuLabel, triggerIcon }) {
   const renderTriggerIcon = () => triggerIcon ?? <Ellipsis size={18} />
   const rootRef = useRef(null)
   const ghostRef = useRef(null)
   const prefixRef = useRef(null)
+  const suffixRef = useRef(null)
   const triggerRef = useRef(null)
   const popoverRef = useRef(null)
   const visibleCountRef = useRef(items?.length ?? 0)
@@ -59,6 +62,8 @@ export default function OverflowToolbar({ items, prefix, className, ariaLabel, m
     // rangée visible mais ne déborde jamais → on le retranche du dispo.
     let avail = root.clientWidth
     if (prefixRef.current) avail -= prefixRef.current.getBoundingClientRect().width + GAP
+    // suffix : chrome fixe en QUEUE (ex. séparateur + version), jamais débordé. */
+    if (suffixRef.current) avail -= suffixRef.current.getBoundingClientRect().width + GAP
 
     // Largeur de tous les items en ligne (sans `⋯`).
     let sumAll = 0
@@ -144,6 +149,7 @@ export default function OverflowToolbar({ items, prefix, className, ariaLabel, m
         {visible.map((it) => (
           <div className="overflow-toolbar-item" key={it.id}>{it.bar}</div>
         ))}
+        {suffix && <span className="overflow-toolbar-item overflow-toolbar-suffix" ref={suffixRef}>{suffix}</span>}
         {overflow.length > 0 && (
           <button
             type="button"

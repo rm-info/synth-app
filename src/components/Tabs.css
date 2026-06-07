@@ -171,6 +171,32 @@
   width: 100%;
   text-align: left;
 }
+/* Boutons auxiliaires en compact : neutraliser leurs marges propres (theme=8px,
+   raccourcis/visite=4px) — c'est le gap de l'OverflowToolbar (8px) qui cadence
+   l'espacement, sinon le bouton thème se désaligne du reste. */
+.tabs-compact-nav .theme-toggle,
+.tabs-compact-nav .shortcuts-toggle,
+.tabs-compact-nav .tour-toggle {
+  margin: 0;
+}
+/* Suffix de l'OverflowToolbar : séparateur + version, en queue (avant le
+   hamburger). La version reprend .tabs-version mais sans le padding desktop. */
+.tabs-compact-sep {
+  width: 1px;
+  align-self: stretch;
+  margin: 4px 0;
+  background: var(--surface-border-strong);
+}
+.tabs-compact-nav .tabs-version {
+  padding: 0;
+}
+/* Hamburger : sans bordure (discret) et collé à la bordure droite du header. */
+.tabs-compact-nav .overflow-toolbar-trigger {
+  border-color: transparent;
+}
+.tabs-compact {
+  padding-right: 6px;
+}
 
 @media (max-width: 600px) {
   .tabs {
