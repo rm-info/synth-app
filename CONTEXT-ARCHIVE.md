@@ -1026,10 +1026,10 @@ Phases listées ci-dessous dans l'ordre chronologique d'implémentation.
     (1) bouton thème désaligné (sa marge propre `auto 8px` ≠ raccourcis/visite
     `auto 4px`, s'ajoutant au gap 8px de l'OT) → marges des 3 boutons aux
     neutralisées en compact (le gap de l'OT cadence seul). (2) Version d'app
-    « perdue » en compact → **réintroduite dans l'OT** via une nouvelle prop **`suffix`**
-    (`OverflowToolbar` : chrome fixe en QUEUE, après les items, avant le trigger,
-    jamais débordé — symétrique de `prefix`, soustrait de `avail` au recompute) ;
-    le header y met `séparateur + vX.Y.Z`. (3) Hamburger sans bordure
+    « perdue » en compact → **réintroduite dans le tiroir hamburger** via une nouvelle
+    prop **`trayFooter`** (`OverflowToolbar` : node rendu en bas du popover, après les
+    items débordés, visible seulement tiroir ouvert) ; le header y met `vX.Y.Z` sous
+    un filet horizontal. (3) Hamburger sans bordure
     (`overflow-toolbar-trigger` border transparente en compact) + collé à droite
     (`.tabs-compact` padding-right 16→6). Desktop inchangé.
 
