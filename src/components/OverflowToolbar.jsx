@@ -20,11 +20,15 @@ import './OverflowToolbar.css'
 //   vit dans le parent ; on ne fait que relocaliser le rendu).
 // - prefix?: node toujours visible, rendu en tête du cluster (chrome fixe, ex.
 //   séparateur). Ne déborde jamais.
+// - triggerIcon?: node de l'icône du bouton d'overflow (défaut `⋯` Ellipsis).
+//   iter-R phase-2.1 : le header compact passe un hamburger `Menu`. La même icône
+//   sert au clone ghost (mesure) et au trigger visible → largeurs cohérentes.
 // - className?, ariaLabel?, menuLabel?
 
 const GAP = 8 // px — doit coller au gap CSS de .overflow-toolbar-row
 
-export default function OverflowToolbar({ items, prefix, className, ariaLabel, menuLabel }) {
+export default function OverflowToolbar({ items, prefix, className, ariaLabel, menuLabel, triggerIcon }) {
+  const renderTriggerIcon = () => triggerIcon ?? <Ellipsis size={18} />
   const rootRef = useRef(null)
   const ghostRef = useRef(null)
   const prefixRef = useRef(null)
@@ -130,7 +134,7 @@ export default function OverflowToolbar({ items, prefix, className, ariaLabel, m
           <div className="overflow-toolbar-item" key={it.id}>{it.bar}</div>
         ))}
         <div className="overflow-toolbar-item">
-          <button type="button" className="icon-btn overflow-toolbar-trigger" tabIndex={-1}><Ellipsis size={18} /></button>
+          <button type="button" className="icon-btn overflow-toolbar-trigger" tabIndex={-1}>{renderTriggerIcon()}</button>
         </div>
       </div>
 
@@ -150,7 +154,7 @@ export default function OverflowToolbar({ items, prefix, className, ariaLabel, m
             aria-label={menuLabel ?? 'Plus de contrôles'}
             title={menuLabel ?? 'Plus de contrôles'}
             onClick={() => (menuOpen ? closeMenu() : setMenuOpen(true))}
-          ><Ellipsis size={18} /></button>
+          >{renderTriggerIcon()}</button>
         )}
       </div>
 
