@@ -397,6 +397,10 @@ export interface AppState {
   // iter-O phase-5d : politique « auto-réduction » — quand active, ouvrir un
   // module replié réduit les autres ouverts de sa rangée. Persisté, non-undoable.
   autoCollapse: boolean
+  // iter-R phase-1.1 : module affiché plein cadre en petit écran (< 924×668).
+  // Switcher d'icônes (remplace l'accordéon) ; toujours exactement un actif.
+  // Persisté, non-undoable. Défaut 'canvas'.
+  designerMobileModule: DesignerModuleId
   docSidebarWidth: number
   docSidebarCollapsed: boolean
   doc: DocState
@@ -627,6 +631,8 @@ export type ActionBody =
   | { type: 'SET_DESIGNER_MAXIMIZED'; payload: DesignerModuleId | null }
   // iter-O phase-5d : bascule la politique d'auto-réduction.
   | { type: 'SET_DESIGNER_AUTO_COLLAPSE'; payload: boolean }
+  // iter-R phase-1.1 : sélectionne le module plein cadre en petit écran (switcher).
+  | { type: 'SET_DESIGNER_MOBILE_MODULE'; payload: DesignerModuleId }
   // iter-P phase-6.1 : remplace l'état replié des 6 modules en bloc (auto-collapse
   // essentiel < ESSENTIALS_WIDTH / réouverture totale au-dessus).
   | { type: 'SET_DESIGNER_COLLAPSED_BULK'; payload: DesignerCollapsed }

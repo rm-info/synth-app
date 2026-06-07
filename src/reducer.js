@@ -653,6 +653,12 @@ export function loadPersistedState() {
       maximized: DESIGNER_MODULE_IDS.includes(parsed.maximized) ? parsed.maximized : null,
       // iter-O phase-5d : politique d'auto-réduction (défaut off).
       autoCollapse: typeof parsed.autoCollapse === 'boolean' ? parsed.autoCollapse : false,
+      // iter-R phase-1.1 : module affiché plein cadre en petit écran (switcher).
+      // Remplace l'ex-état volatile `mobileExpandedZone`. Absent/invalide →
+      // premier module ('canvas').
+      designerMobileModule: DESIGNER_MODULE_IDS.includes(parsed.designerMobileModule)
+        ? parsed.designerMobileModule
+        : 'canvas',
       // iter-L phase-2.1 : préférences sidebar Documentation. Persistées en
       // localStorage (cohérent avec les autres sidebars). La position de
       // lecture vit en sessionStorage (cf. loadDocSession).
@@ -885,6 +891,9 @@ export function buildInitialState() {
     designerCollapsed: persisted?.designerCollapsed ?? sanitizeDesignerCollapsed(null),
     // iter-O phase-5b : module maximisé (validé à l'hydratation), null par défaut.
     maximized: persisted?.maximized ?? null,
+    // iter-R phase-1.1 : module plein cadre du Designer en petit écran. Défaut
+    // 'canvas' (premier module). Persisté, non-undoable.
+    designerMobileModule: persisted?.designerMobileModule ?? 'canvas',
     // iter-O phase-5d : politique d'auto-réduction (off par défaut).
     autoCollapse: persisted?.autoCollapse ?? false,
     // iter-L phase-2.1 : sidebar TOC Documentation + position de lecture.
@@ -2570,6 +2579,14 @@ export function reducer(state, action) {
       const next = DESIGNER_MODULE_IDS.includes(action.payload) ? action.payload : null
       if (state.maximized === next) return state
       return { ...state, maximized: next }
+    }
+    // iter-R phase-1.1 : sélectionne le module plein cadre en petit écran
+    // (switcher). Toujours exactement un module actif ; clic sur l'actif = no-op
+    // (état inchangé → pas de render/persist). Non-undoable. Payload invalide ignoré.
+    case 'SET_DESIGNER_MOBILE_MODULE': {
+      if (!DESIGNER_MODULE_IDS.includes(action.payload)) return state
+      if (state.designerMobileModule === action.payload) return state
+      return { ...state, designerMobileModule: action.payload }
     }
     // iter-O phase-5d : bascule la politique d'auto-réduction. Non-undoable.
     case 'SET_DESIGNER_AUTO_COLLAPSE': {

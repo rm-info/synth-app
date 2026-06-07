@@ -1,5 +1,5 @@
 import { useReducer, useCallback, useRef, useState, useEffect, useMemo } from 'react'
-import { ChevronLeft, ChevronRight, ChevronDown, Library, Play, Square, X } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Library, Play, Square, X } from 'lucide-react'
 import useWindowSize from './hooks/useWindowSize'
 import WaveformEditor from './components/WaveformEditor'
 import Timeline from './components/Timeline'
@@ -22,6 +22,7 @@ import ConfirmDialog from './components/ConfirmDialog'
 import ShortcutsOverlay from './components/ShortcutsOverlay'
 import DocumentationTab from './components/DocumentationTab'
 import Tour from './components/Tour'
+import { DESIGNER_MOBILE_ORDER } from './lib/designerModules'
 import { STRINGS } from './lib/strings'
 import {
   reducer,
@@ -117,7 +118,7 @@ function App() {
     durationMode, adsrView, selectedClipIds, selectedTrackId, composerFlash, lastAnchorClipId,
     composerBankWidth, composerAsideWidth, composerBankCollapsed, composerAsideCollapsed,
     designerSidebarWidth, designerSidebarCollapsed, designerColumnWidths, designerBottomRowWidths,
-    designerCollapsed, maximized, autoCollapse,
+    designerCollapsed, maximized, autoCollapse, designerMobileModule,
     doc, docSidebarWidth, docSidebarCollapsed,
     bibHierarchyMode, bibDisplayMode, bibCurrentFolderId, bibPopupWidth,
     bibSelectedIds, bibSelectionAnchor, bibCollapsedFolders,
@@ -716,6 +717,8 @@ function App() {
           maximized,
           // iter-O phase-5d : politique d'auto-réduction (préférence UI).
           autoCollapse,
+          // iter-R phase-1.1 : module plein cadre en petit écran (switcher).
+          designerMobileModule,
           // iter-L phase-2.1 : préférences sidebar Documentation (collapsed
           // + largeur). La position de lecture (article courant + scrolls)
           // est gérée séparément via sessionStorage.
@@ -752,7 +755,7 @@ function App() {
     durationMode, adsrView, activeTab, patchCounter, clipCounter, folderCounter, trackCounter,
     composerBankWidth, composerAsideWidth, composerBankCollapsed, composerAsideCollapsed,
     designerSidebarWidth, designerSidebarCollapsed, designerColumnWidths, designerBottomRowWidths,
-    designerCollapsed, maximized, autoCollapse,
+    designerCollapsed, maximized, autoCollapse, designerMobileModule,
     docSidebarWidth, docSidebarCollapsed,
     bibHierarchyMode, bibDisplayMode, bibCurrentFolderId, bibCollapsedFolders, bibPopupWidth,
     recentPatchIds, theme, selectedTrackId,
@@ -1079,12 +1082,11 @@ function App() {
   // « ouvrable mais non redimensionnable » (état bâtard). `winWidth < ESSENTIALS_WIDTH`
   // subsume la largeur mobile ; on garde `isMobile` pour couvrir aussi h < 668.
   const designerSidebarCollapsedEffective = isMobile || winWidth < ESSENTIALS_WIDTH || designerSidebarCollapsed
-  // Mode accordéon : zone dépliée par défaut = 'canvas' (waveform).
-  // null serait possible aussi (tout fermé) mais on choisit d'avoir
-  // un état initial utile.
-  const [mobileExpandedZone, setMobileExpandedZone] = useState('canvas')
-  const toggleMobileZone = useCallback((zoneId) => {
-    setMobileExpandedZone((cur) => (cur === zoneId ? null : zoneId))
+  // iter-R phase-1.1 : petit écran = switcher (un module plein cadre), plus
+  // d'accordéon. Le module actif est persisté (`designerMobileModule`, défaut
+  // 'canvas'). Clic sur l'actif = no-op (géré par le reducer).
+  const handleSelectMobileModule = useCallback((id) => {
+    dispatch({ type: 'SET_DESIGNER_MOBILE_MODULE', payload: id })
   }, [])
   // itération P : le module Modulation est-il réellement VISIBLE ? Gate de la
   // boucle rAF de la mini-courbe LFO (audit perf N.1 : aucune rAF perpétuelle
@@ -1094,7 +1096,7 @@ function App() {
   const modulationVisible = activeTab === 'designer'
     && !designerCollapsed.modulation
     && (isMobile
-      ? mobileExpandedZone === 'modulation'
+      ? designerMobileModule === 'modulation'
       : (maximized === null || maximized === 'modulation'))
 
   // iter-P phase-6.1 : auto-collapse « essentiel » edge-triggered. On mémorise la
@@ -2381,53 +2383,44 @@ function App() {
                 )}
               </aside>
               {isMobile ? (
-                /* v1.2.0 / v1.2.1 : mode accordéon mobile. Les 6 zones
-                   s'organisent en 1 colonne. Une seule dépliée à la fois.
-                   Ordre (iter-P phase-6.3) : Forme d'onde / Harmoniques /
-                   Spectrogramme / Enveloppe / Modulation / Instrument
-                   (Instrument en dernier — plus accessible au scroll de bas
-                   de page ; Modulation juste avant). Bodies TOUJOURS rendus
-                   (juste hide/show via CSS) — garantit que les
-                   ResizeObserver des canvas waveform/ADSR détectent le
-                   retour à des dimensions non-nulles à l'expand et
-                   redéclenchent le draw. Sinon les canvas restaient
-                   vides après réouverture (cf. ce commit). */
+                /* iter-R phase-1 : petit écran (< 924×668) = switcher de modules.
+                   Une rangée d'icônes vit dans la DesignerToolbar ; un seul corps
+                   est affiché plein cadre dans la zone centrale, les autres masqués
+                   en CSS (display:none). Les 6 corps restent MONTÉS en permanence —
+                   sinon les canvas (Forme d'onde / Harmoniques / Spectro + mini-courbe
+                   Modulation) perdraient leur état et laisseraient des ResizeObserver
+                   orphelins (même contrainte que DesignerModule desktop). Le passage
+                   display:none → display:flex au changement de module fait détecter
+                   aux RO le retour à des dimensions non-nulles → redraw automatique. */
                 <div className="designer-main designer-main-mobile">
-                  {/* iter-M phase-r.2.1 : barre du haut (identité du patch). Les
-                      contrôles de proportions sont desktop-only — non passés ici. */}
+                  {/* iter-M phase-r.2.1 / iter-R phase-1.2 : barre du haut (identité
+                      du patch) + switcher de modules (mobile only). Les contrôles de
+                      proportions restent desktop-only — non passés ici. */}
                   <DesignerToolbar
                     patchLabel={patchLabel}
                     onPresets={openPresetPicker}
                     onReset={requestResetWaveform}
+                    mobileModuleIds={DESIGNER_MOBILE_ORDER}
+                    activeMobileModule={designerMobileModule}
+                    onSelectMobileModule={handleSelectMobileModule}
                   />
-                  {[
-                    { id: 'canvas', title: STRINGS.editor.waveformTitle, body: renderCanvasArea() },
-                    { id: 'harmonics', title: STRINGS.editor.harmonicsTitle, body: renderHarmonicsArea() },
-                    { id: 'spectrogram', title: 'Spectrogramme', body: spectrogramNode },
-                    { id: 'adsr', title: 'Enveloppe AHDSR', body: renderAdsrArea() },
-                    { id: 'modulation', title: 'Modulation', body: renderModulationArea() },
-                    { id: 'params', title: 'Instrument', body: renderParamsArea() },
-                  ].map((zone) => {
-                    const expanded = mobileExpandedZone === zone.id
-                    return (
-                      <div key={zone.id} className={`designer-mobile-item${expanded ? ' is-expanded' : ''}`}>
-                        <button
-                          type="button"
-                          className="designer-mobile-header"
-                          onClick={() => toggleMobileZone(zone.id)}
-                          aria-expanded={expanded}
-                        >
-                          <span className="designer-mobile-title">{zone.title}</span>
-                          <ChevronDown
-                            className="designer-mobile-chevron"
-                            size={16}
-                            strokeWidth={2.2}
-                          />
-                        </button>
-                        <div className="designer-mobile-body">{zone.body}</div>
+                  <div className="designer-mobile-stack">
+                    {[
+                      { id: 'canvas', body: renderCanvasArea() },
+                      { id: 'harmonics', body: renderHarmonicsArea() },
+                      { id: 'spectrogram', body: spectrogramNode },
+                      { id: 'adsr', body: renderAdsrArea() },
+                      { id: 'modulation', body: renderModulationArea() },
+                      { id: 'params', body: renderParamsArea() },
+                    ].map((mod) => (
+                      <div
+                        key={mod.id}
+                        className={`designer-mobile-panel${designerMobileModule === mod.id ? ' is-active' : ''}`}
+                      >
+                        {mod.body}
                       </div>
-                    )
-                  })}
+                    ))}
+                  </div>
                 </div>
               ) : (
                 <div className={`designer-main${maximized ? ' is-maximized' : ''}`}>

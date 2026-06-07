@@ -60,6 +60,18 @@
   color: var(--text-secondary);
 }
 
+/* iter-R phase-1.2 : switcher de modules (petit écran). Navigation primaire du
+   Designer mobile, toujours visible — un groupe flex simple (PAS d'OverflowToolbar :
+   6 petites icônes tiennent). flex-wrap pour ne pas casser la toolbar en très
+   petite largeur ; sera réorienté row/column en R.4. Les boutons réutilisent
+   `.icon-btn` (dont l'état `.is-active` accentué) pour le surlignage de l'actif. */
+.designer-module-switcher {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+
 /* Séparateur visuel entre le groupe d'actions et les proportions. */
 .designer-toolbar-divider {
   width: 1px;

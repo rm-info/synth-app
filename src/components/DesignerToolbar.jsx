@@ -1,5 +1,6 @@
 import { FolderOpenDot, Eraser, FoldHorizontal, Table } from 'lucide-react'
 import { STRINGS } from '../lib/strings'
+import { MODULE_META } from '../lib/designerModules'
 import OverflowToolbar from './OverflowToolbar'
 import './DesignerToolbar.css'
 
@@ -23,11 +24,15 @@ const EVEN_WIDTHS = [1 / 3, 1 / 3, 1 / 3]
 // Les proportions custom restent accessibles via le drag des séparateurs (haut
 // + bas). État actif DÉRIVÉ (aucun nouvel état persisté) : vrai quand les DEUX
 // rangées sont déjà à ⅓⅓⅓.
-function DesignerToolbar({ patchLabel, onPresets, onReset, onEqualizeWidths, columnWidths, bottomRowWidths, autoCollapse, onToggleAutoCollapse, autoCollapseForced }) {
+function DesignerToolbar({ patchLabel, onPresets, onReset, onEqualizeWidths, columnWidths, bottomRowWidths, autoCollapse, onToggleAutoCollapse, autoCollapseForced, mobileModuleIds, activeMobileModule, onSelectMobileModule }) {
   // Les contrôles de disposition n'ont de sens qu'en layout 3-colonnes : on
   // ne les affiche que si le parent fournit le handler d'égalisation (desktop).
   const showColumnControls = typeof onEqualizeWidths === 'function'
   const allEqual = widthsEqual(columnWidths, EVEN_WIDTHS) && widthsEqual(bottomRowWidths, EVEN_WIDTHS)
+  // iter-R phase-1.2 : switcher de modules (petit écran). Navigation primaire du
+  // Designer mobile, toujours visible — un groupe flex simple (PAS d'OverflowToolbar :
+  // 6 petites icônes tiennent), qui flowera row/column lors de la réorientation R.4.
+  const showMobileSwitcher = Array.isArray(mobileModuleIds) && mobileModuleIds.length > 0
 
   // iter-Q : 2 items (Égaliser + Auto-réduction) dans un OverflowToolbar
   // (priority-plus) — le tiroir reste utile en header étroit. bar = bouton ;
@@ -111,6 +116,27 @@ function DesignerToolbar({ patchLabel, onPresets, onReset, onEqualizeWidths, col
           ><Eraser size={18} /></button>
         )}
       </div>
+      {showMobileSwitcher && (
+        <div className="designer-module-switcher" role="group" aria-label="Modules du Designer">
+          {mobileModuleIds.map((id) => {
+            const meta = MODULE_META[id]
+            if (!meta) return null
+            const { Icon, label } = meta
+            const isActive = activeMobileModule === id
+            return (
+              <button
+                key={id}
+                type="button"
+                className={`icon-btn${isActive ? ' is-active' : ''}`}
+                title={label}
+                aria-label={label}
+                aria-pressed={isActive}
+                onClick={() => onSelectMobileModule(id)}
+              ><Icon size={18} /></button>
+            )
+          })}
+        </div>
+      )}
       {showColumnControls && renderColumnControls()}
     </div>
   )

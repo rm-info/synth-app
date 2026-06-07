@@ -32,3 +32,11 @@ export const DESIGNER_ROWS = {
 }
 export const rowSiblings = (id) =>
   (Object.values(DESIGNER_ROWS).find((r) => r.includes(id)) ?? []).filter((m) => m !== id)
+
+// iter-R phase-1 : ordre du switcher de modules en petit écran (< 924×668).
+// Reprend l'ordre établi P.6.3 de l'ancien accordéon : Forme d'onde, Harmoniques,
+// Spectro, Enveloppe, Modulation, **Instrument en dernier** (le plus accessible
+// au pouce en bas). Distinct de DESIGNER_ROWS (layout desktop, params avant adsr).
+// Source unique de la rangée d'icônes (DesignerToolbar) ET de l'empilement des
+// corps (App.jsx).
+export const DESIGNER_MOBILE_ORDER = ['canvas', 'harmonics', 'spectrogram', 'adsr', 'modulation', 'params']
