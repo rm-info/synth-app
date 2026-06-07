@@ -380,6 +380,13 @@
   display: flex;
   flex-direction: column;
   overflow-y: auto;
+  /* iter-R phase-1.3e : `overflow-x` DOIT être explicite. Laissé à `visible`, la
+     règle CSS « visible + auto → auto » le fait calculer en `auto` → le panneau
+     devient un conteneur de défilement HORIZONTAL. Un module au corps pile à la
+     largeur (ex. AHDSR : canvas flex:1 + sliders) génère alors un sous-pixel de
+     débordement → ascenseur horizontal persistant (le canvas flex grandit avec la
+     fenêtre, ça ne se résorbe jamais). `hidden` borne le panneau à sa largeur. */
+  overflow-x: hidden;
 }
 /* v1.2.1 : bouton expand sidebar masqué en mobile — le toggle est désactivé
    (la sidebar reste forcée collapsed quoi qu'il arrive), le bouton ne sert plus. */
