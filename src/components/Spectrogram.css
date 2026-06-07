@@ -26,22 +26,23 @@
   gap: 4px;
 }
 
-/* iter-P phase-6.3 : empreinte commune aux 3 boutons (live/peak = icônes,
+/* iter-Q (fix) : empreinte commune aux 3 boutons (live/peak = icônes 16px,
    dB = texte) → même taille en barre ET dans le tiroir de l'OverflowToolbar.
-   min-width + min-height + box-sizing + centrage garantissent l'égalité quel
-   que soit le contenu. */
+   BOÎTE FIXE (width/height, pas min-*) + padding 0 : un plancher laissait le
+   texte « dB » dépasser tandis que les icônes y butaient. Taille fixe + contenu
+   centré → les trois boutons ont strictement la même empreinte. */
 .spectrogram-toggle {
   box-sizing: border-box;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-width: 34px;
-  min-height: 28px;
+  width: 34px;
+  height: 28px;
   background: transparent;
   color: var(--text-secondary);
   border: 1px solid var(--surface-border-strong);
   border-radius: 4px;
-  padding: 4px 8px;
+  padding: 0;
   font-size: 0.85em;
   font-family: inherit;
   cursor: pointer;
