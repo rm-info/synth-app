@@ -83,7 +83,7 @@ function scheduleOneClip(ctx, clip, patch, startTime, trackGainNodes, defaultDes
   const { nodes: mod } = applyModulation(ctx, {
     osc, gain,
     vibrato: patch.vibrato, tremolo: patch.tremolo,
-    startTime: clipStart, stopTime: clipStart + totalDuration, baseAmplitude: amp,
+    startTime: clipStart, stopTime: clipStart + totalDuration, releaseStart, baseAmplitude: amp,
   })
 
   osc.start(clipStart)
@@ -142,7 +142,7 @@ function scheduleAllClips(ctx, clips, patches, startTime, trackGainNodes, defaul
     applyModulation(ctx, {
       osc, gain,
       vibrato: patch.vibrato, tremolo: patch.tremolo,
-      startTime: clipStart, stopTime: clipStart + totalDuration, baseAmplitude: amp,
+      startTime: clipStart, stopTime: clipStart + totalDuration, releaseStart, baseAmplitude: amp,
     })
 
     osc.start(clipStart)

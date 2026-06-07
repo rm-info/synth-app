@@ -32,13 +32,17 @@ function scheduleOnset(param, target, startTime, onsetMs) {
  * @param {{
  *   osc: OscillatorNode, gain: GainNode,
  *   vibrato?: import('../types').Lfo, tremolo?: import('../types').Lfo,
- *   startTime: number, stopTime?: number, baseAmplitude: number,
+ *   startTime: number, stopTime?: number, releaseStart?: number,
+ *   baseAmplitude: number,
  * }} opts
+ *   `releaseStart` (chemins programmés timeline/export) = instant où démarre le
+ *   release de l'enveloppe principale. Sert au trémolo pour rester constant
+ *   pendant le sustain puis ne s'éteindre que sur la durée du release.
  * @returns {{ nodes: AudioNode[], tremoloDepthGain: GainNode|null }}
  *   `nodes` = [] si aucun effet enabled. `tremoloDepthGain` exposé pour que les
  *   previews (sans stopTime) éteignent le trémolo au release.
  */
-export function applyModulation(ctx, { osc, gain, vibrato, tremolo, startTime, stopTime, baseAmplitude }) {
+export function applyModulation(ctx, { osc, gain, vibrato, tremolo, startTime, stopTime, releaseStart, baseAmplitude }) {
   const nodes = []
   let tremoloDepthGain = null
 
@@ -62,12 +66,20 @@ export function applyModulation(ctx, { osc, gain, vibrato, tremolo, startTime, s
     lfo.frequency.setValueAtTime(tremolo.rate, startTime)
     const depthGain = ctx.createGain()
     // Cible de profondeur = baseAmplitude × depth (échelle sur l'amplitude patch).
-    scheduleOnset(depthGain.gain, baseAmplitude * tremolo.depth, startTime, tremolo.onset)
-    // Extinction en fin de note : ramener la profondeur à 0 pour que le LFO ne
-    // fasse plus osciller gain.gain autour de 0 pendant l'extinction AHDSR
-    // (sinon souffle audible dans la traîne). Pour les previews (stopTime
-    // absent), l'appelant fait cette rampe au release.
-    if (stopTime != null) depthGain.gain.linearRampToValueAtTime(0, stopTime)
+    const target = baseAmplitude * tremolo.depth
+    scheduleOnset(depthGain.gain, target, startTime, tremolo.onset)
+    // Extinction en fin de note : un trémolo doit rester CONSTANT pendant le
+    // sustain et ne s'éteindre qu'AU release (sinon il décroît sur toute la note —
+    // fort à l'attaque puis effacé, audible sur les notes longues). On ancre donc
+    // la profondeur à `target` à `releaseStart` (plateau implicite : la valeur
+    // tient entre deux events sans rampe), puis on la ramène à 0 sur la seule
+    // durée du release. Sans `releaseStart` (sécurité), on retombe sur une rampe
+    // jusqu'à `stopTime`. Pour les previews (stopTime absent), l'appelant fait
+    // cette rampe au release.
+    if (stopTime != null) {
+      if (releaseStart != null) depthGain.gain.setValueAtTime(target, releaseStart)
+      depthGain.gain.linearRampToValueAtTime(0, stopTime)
+    }
     lfo.connect(depthGain)
     depthGain.connect(gain.gain)
     lfo.start(startTime)
