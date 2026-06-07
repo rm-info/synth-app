@@ -66,7 +66,11 @@ disparaissaient. Désormais les **contrôles de header du module actif** sont
 **relogés dans la `DesignerToolbar`**, après le switcher, dans un **2ᵉ
 `OverflowToolbar`** (séparateur en `prefix`, libellé « Contrôles du module ») — le
 trop-plein file dans un `…` ; aucun groupe rendu si le module actif n'a pas de
-contrôle (Modulation, ou Instrument/AHDSR selon conditions). Les items de header
+contrôle (Modulation, ou Instrument/AHDSR selon conditions). Disposition (R.1.3c) :
+`[patch · Presets · Reset] ┊ [switcher 6 icônes] … [contrôles module actif]` — le
+**switcher est ancré à gauche** (immobile : toolbar mobile en `flex-start`, switcher
+`flex:0`), les contrôles à droite ; absents, le switcher **ne drifte pas**. Les
+items de header
 sont exposés comme **donnée** (pas de double rendu) : `WaveformEditor` les remonte
 via la children-API (`moduleHeaderItems` = { canvas, harmonics, params, adsr }) ; le
 Spectrogramme via le helper partagé `buildSpectrogramHeaderItems`

@@ -964,6 +964,14 @@ Phases listées ci-dessous dans l'ordre chronologique d'implémentation.
       (partagés composant + items). **Desktop ≥ 924×668 strictement inchangé.**
       **Vérif** : `npm run lint` (0 erreurs, 4 warnings préexistants) +
       `npx tsc --noEmit` + `npm run build` propres.
+    - **1.3c — ancrage gauche du switcher (anti-drift)** (`fix(iter-R/phase-1.3c)`).
+      Constat : quand le module actif n'a pas de contrôles (l'OT droite n'est pas
+      rendu), le `justify-content:space-between` de la toolbar expédiait le switcher
+      à droite. Fix CSS **mobile only** : `.designer-main-mobile .designer-toolbar`
+      passe en `flex-start`, `.designer-module-switcher` en `flex:0 0 auto` (immobile,
+      ancré au lot patch/Presets/Reset via un `designer-toolbar-divider`) ; l'OT des
+      contrôles garde `flex:1` (aligné droite) → absent, rien ne pousse le switcher.
+      Desktop garde `space-between`. Lint propre.
 
 - **2026-06-07 — Iteration Q « Désencombrement du Designer » — CLOSE. Release
   v1.9.1.** Petite itération de suite après P.6 : P.6.2 ayant ajouté des
