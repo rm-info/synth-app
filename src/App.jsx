@@ -116,7 +116,7 @@ function App() {
     spectrogramVisible, spectrogramDbScale, spectrogramPeakHold, spectrogramMode,
     durationMode, adsrView, selectedClipIds, selectedTrackId, composerFlash, lastAnchorClipId,
     composerBankWidth, composerAsideWidth, composerBankCollapsed, composerAsideCollapsed,
-    designerSidebarWidth, designerSidebarCollapsed, designerColumnWidths, autoSizing,
+    designerSidebarWidth, designerSidebarCollapsed, designerColumnWidths, designerBottomRowWidths, autoSizing,
     designerCollapsed, maximized, autoCollapse,
     doc, docSidebarWidth, docSidebarCollapsed,
     bibHierarchyMode, bibDisplayMode, bibCurrentFolderId, bibPopupWidth,
@@ -705,8 +705,11 @@ function App() {
           composerAsideCollapsed,
           designerSidebarWidth,
           designerSidebarCollapsed,
-          // iter-M phase-2 : proportions des 3 colonnes Designer.
+          // iter-M phase-2 : proportions des 3 colonnes Designer (haut).
           designerColumnWidths,
+          // iter-P phase-6.2 : proportions de la rangée du bas (Instrument /
+          // AHDSR / Modulation).
+          designerBottomRowWidths,
           // iter-M phase-2-as : toggle auto-sizing (essai). Le focus, lui,
           // reste volatile (jamais persisté).
           autoSizing,
@@ -751,7 +754,7 @@ function App() {
     spectrogramVisible, spectrogramDbScale, spectrogramPeakHold, spectrogramMode,
     durationMode, adsrView, activeTab, patchCounter, clipCounter, folderCounter, trackCounter,
     composerBankWidth, composerAsideWidth, composerBankCollapsed, composerAsideCollapsed,
-    designerSidebarWidth, designerSidebarCollapsed, designerColumnWidths, autoSizing,
+    designerSidebarWidth, designerSidebarCollapsed, designerColumnWidths, designerBottomRowWidths, autoSizing,
     designerCollapsed, maximized, autoCollapse,
     docSidebarWidth, docSidebarCollapsed,
     bibHierarchyMode, bibDisplayMode, bibCurrentFolderId, bibCollapsedFolders, bibPopupWidth,
@@ -890,6 +893,10 @@ function App() {
   // auto-resize l'appelle aussi — cf. note d'impl. N.6.2).
   const setDesignerColumnWidths = useCallback((widths) => {
     dispatch({ type: 'SET_DESIGNER_COLUMN_WIDTHS', payload: widths })
+  }, [])
+  // iter-P phase-6.2 : proportions de la rangée du bas (drag des séparateurs).
+  const setDesignerBottomRowWidths = useCallback((widths) => {
+    dispatch({ type: 'SET_DESIGNER_BOTTOM_ROW_WIDTHS', payload: widths })
   }, [])
   // iter-O phase-5a/5d : bascule l'état replié (bande) d'un module Designer. Sert
   // de Réduire (chrome) ET de réouverture (clic bande). `autoCollapse` (5d) est
@@ -2489,36 +2496,42 @@ function App() {
                       >{spectrogramNode}</DesignerModule>,
                     ]}
                   />
-                  <div className="designer-row">
-                    <div className={`designer-cell${designerCollapsed.params ? ' is-collapsed' : ''}`}>
+                  {/* iter-P phase-6.2 : rangée du bas via le MÊME DesignerColumns
+                      que le haut (DRY → 2 séparateurs draggables identiques).
+                      Pas d'auto-sizing (drag manuel + largeurs persistées). */}
+                  <DesignerColumns
+                    widths={designerBottomRowWidths}
+                    onWidths={setDesignerBottomRowWidths}
+                    autoSizing={false}
+                    collapsed={[designerCollapsed.params, designerCollapsed.adsr, designerCollapsed.modulation]}
+                    sepLabels={['Redimensionner Instrument / Enveloppe', 'Redimensionner Enveloppe / Modulation']}
+                    columns={[
                       <DesignerModule
+                        key="params"
                         id="params"
                         collapsed={designerCollapsed.params}
                         maximized={maximized === 'params'}
                         onToggleCollapse={() => handleToggleModuleCollapsed('params', effectiveAutoCollapse)}
                         onToggleMaximize={() => handleToggleModuleMaximized('params')}
-                      >{renderParamsArea()}</DesignerModule>
-                    </div>
-                    <div className={`designer-cell${designerCollapsed.adsr ? ' is-collapsed' : ''}`}>
+                      >{renderParamsArea()}</DesignerModule>,
                       <DesignerModule
+                        key="adsr"
                         id="adsr"
                         collapsed={designerCollapsed.adsr}
                         maximized={maximized === 'adsr'}
                         onToggleCollapse={() => handleToggleModuleCollapsed('adsr', effectiveAutoCollapse)}
                         onToggleMaximize={() => handleToggleModuleMaximized('adsr')}
-                      >{renderAdsrArea()}</DesignerModule>
-                    </div>
-                    {/* itération P : 6ᵉ module Modulation (rangée du bas à 3 cellules). */}
-                    <div className={`designer-cell${designerCollapsed.modulation ? ' is-collapsed' : ''}`}>
+                      >{renderAdsrArea()}</DesignerModule>,
                       <DesignerModule
+                        key="modulation"
                         id="modulation"
                         collapsed={designerCollapsed.modulation}
                         maximized={maximized === 'modulation'}
                         onToggleCollapse={() => handleToggleModuleCollapsed('modulation', effectiveAutoCollapse)}
                         onToggleMaximize={() => handleToggleModuleMaximized('modulation')}
-                      >{renderModulationArea()}</DesignerModule>
-                    </div>
-                  </div>
+                      >{renderModulationArea()}</DesignerModule>,
+                    ]}
+                  />
                 </div>
               )}
             </main>

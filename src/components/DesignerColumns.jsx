@@ -25,7 +25,16 @@ const FOCUS_WIDTHS = [
 ]
 const REST_WIDTHS = [0.2, 0.2, 0.6]
 
-function DesignerColumns({ widths, onWidths, onManualResize, autoSizing, focusGuardRef, columns, collapsed = [false, false, false] }) {
+// `sepLabels` : libellés aria des 2 séparateurs (défaut = rangée du haut). La
+// rangée du bas (P.6.2) réutilise ce composant en passant ses propres libellés.
+// L'auto-sizing (focus tracking, FOCUS_WIDTHS) reste OFF sauf si `autoSizing` —
+// la rangée du bas le laisse à false (drag manuel uniquement).
+const DEFAULT_SEP_LABELS = [
+  'Redimensionner Forme d’onde / Harmoniques',
+  'Redimensionner Harmoniques / Spectrogramme',
+]
+
+function DesignerColumns({ widths, onWidths, onManualResize, autoSizing, focusGuardRef, columns, collapsed = [false, false, false], sepLabels = DEFAULT_SEP_LABELS }) {
   const rootRef = useRef(null)
   const rowRef = useRef(null)
   // Focus courant (index colonne 0/1/2, ou null = repos). Volatile : vit dans
@@ -155,7 +164,7 @@ function DesignerColumns({ widths, onWidths, onManualResize, autoSizing, focusGu
           className={`designer-columns-sep${sepHidden(0) ? ' is-hidden' : ''}`}
           role="separator"
           aria-orientation="vertical"
-          aria-label="Redimensionner Forme d’onde / Harmoniques"
+          aria-label={sepLabels[0]}
           onMouseDown={startDrag(0)}
         ><span className="designer-columns-sep-grip" aria-hidden="true" /></div>
         <div className="designer-column" style={colStyle(1)}>{columns[1]}</div>
@@ -163,7 +172,7 @@ function DesignerColumns({ widths, onWidths, onManualResize, autoSizing, focusGu
           className={`designer-columns-sep${sepHidden(1) ? ' is-hidden' : ''}`}
           role="separator"
           aria-orientation="vertical"
-          aria-label="Redimensionner Harmoniques / Spectrogramme"
+          aria-label={sepLabels[1]}
           onMouseDown={startDrag(1)}
         ><span className="designer-columns-sep-grip" aria-hidden="true" /></div>
         <div className="designer-column" style={colStyle(2)}>{columns[2]}</div>

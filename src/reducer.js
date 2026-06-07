@@ -642,6 +642,9 @@ export function loadPersistedState() {
       // iter-M phase-2 : proportions des 3 colonnes Designer (null si absent /
       // invalide → défaut-par-mode appliqué dans buildInitialState).
       designerColumnWidths: sanitizeColumnWidths(parsed.designerColumnWidths),
+      // iter-P phase-6.2 : proportions de la rangée du bas (null si absent/invalide
+      // → défaut tiers appliqué dans buildInitialState).
+      designerBottomRowWidths: sanitizeColumnWidths(parsed.designerBottomRowWidths),
       // iter-M phase-2-as : toggle auto-sizing (essai). OFF par défaut.
       autoSizing: typeof parsed.autoSizing === 'boolean' ? parsed.autoSizing : false,
       // iter-O phase-5a : état replié des 5 modules Designer (défaut tout ouvert).
@@ -876,6 +879,8 @@ export function buildInitialState() {
     // le mode d'édition courant (Forme d'onde large en 'draw', cf. spec §7.1)
     // tant qu'aucune valeur n'a été persistée.
     designerColumnWidths: persisted?.designerColumnWidths ?? defaultColumnWidthsForLens('free'),
+    // iter-P phase-6.2 : proportions de la rangée du bas (tiers par défaut).
+    designerBottomRowWidths: persisted?.designerBottomRowWidths ?? [1 / 3, 1 / 3, 1 / 3],
     // iter-M phase-2-as : toggle auto-sizing (essai). OFF par défaut.
     autoSizing: persisted?.autoSizing ?? false,
     // iter-O phase-5a : modules Designer repliés (tout ouvert par défaut).
@@ -2625,6 +2630,13 @@ export function reducer(state, action) {
       const widths = sanitizeColumnWidths(action.payload)
       if (!widths) return state
       return { ...state, designerColumnWidths: widths }
+    }
+    // iter-P phase-6.2 : proportions de la rangée du bas (drag des séparateurs).
+    // Même sanitize/renormalisation ; pas d'auto-sizing (drag manuel uniquement).
+    case 'SET_DESIGNER_BOTTOM_ROW_WIDTHS': {
+      const widths = sanitizeColumnWidths(action.payload)
+      if (!widths) return state
+      return { ...state, designerBottomRowWidths: widths }
     }
     // iter-M phase-2-as : toggle auto-sizing (essai). Écrit dans le même état
     // de proportions au gré du focus (cf. DesignerColumns). Retrait éventuel

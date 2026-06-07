@@ -383,8 +383,11 @@ export interface AppState {
   composerAsideCollapsed: boolean
   designerSidebarWidth: number
   designerSidebarCollapsed: boolean
-  // iter-M phase-2 : proportions persistées des 3 colonnes du Designer.
+  // iter-M phase-2 : proportions persistées des 3 colonnes du Designer (haut).
   designerColumnWidths: number[]
+  // iter-P phase-6.2 : proportions persistées des 3 colonnes de la RANGÉE DU BAS
+  // (Instrument / AHDSR / Modulation). 3 fractions sommant à 1, défaut tiers.
+  designerBottomRowWidths: number[]
   // iter-M phase-2-as : toggle auto-sizing (essai). OFF par défaut. Quand ON,
   // les proportions deviennent contextuelles au focus — écrites dans
   // designerColumnWidths (pas de nouvel état canonique).
@@ -618,6 +621,8 @@ export type ActionBody =
   // iter-M phase-2 : proportions des 3 colonnes du Designer (Forme d'onde /
   // Harmoniques / Spectro). Tableau de 3 fractions sommant à 1.
   | { type: 'SET_DESIGNER_COLUMN_WIDTHS'; payload: number[] }
+  // iter-P phase-6.2 : proportions des 3 colonnes de la rangée du bas.
+  | { type: 'SET_DESIGNER_BOTTOM_ROW_WIDTHS'; payload: number[] }
   // iter-M phase-2-as : toggle auto-sizing.
   | { type: 'SET_AUTO_SIZING'; payload: boolean }
   // iter-O phase-5a/5d : bascule l'état replié d'un module du Designer (bande).
