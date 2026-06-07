@@ -929,6 +929,41 @@ Phases listées ci-dessous dans l'ordre chronologique d'implémentation.
     - **Desktop ≥ 924×668 inchangé.** **Vérif** : `npm run lint` (0 erreurs, 4
       warnings `exhaustive-deps` préexistants) + `npx tsc --noEmit` + `npm run build`
       propres.
+  - **R.1.3 — Contrôles de module relogés dans la toolbar mobile**
+    (`refactor(iter-R/phase-1.3a)` + `feat(iter-R/phase-1.3b)`). **Correctif de
+    R.1** : R.1 masquait le header interne (`.we-area-header`) de chaque module en
+    petit écran pour gagner de la hauteur → les **contrôles de header** (toggle
+    Libre/Ancres + ancres/interp/normalize/lissages, cap harmoniques, live/dB/peak
+    spectro, switch Graphe/Sliders AHDSR…) disparaissaient. **≠ hamburger R.2** (qui
+    vise le top header / onglets) : ici ce sont les contrôles **internes du module
+    actif**, relogés dans la `DesignerToolbar` après le switcher.
+    - **1.3a — items de header exposés comme DONNÉE** (sans dupliquer le rendu) :
+      chaque module construit ses items via un `build*HeaderItems()` dédié
+      (`WaveformEditor` : `buildCanvasHeaderItems`/`buildHarmonicsHeaderItems`/
+      `buildParamsHeaderItems`/`buildAdsrHeaderItems` — extraits des `render*Area`,
+      réutilisés pour le header in-body desktop). La children-API expose
+      `moduleHeaderItems` = { canvas, harmonics, params, adsr }. Le **Spectrogramme**
+      (composant séparé) : helper **exporté** `buildSpectrogramHeaderItems` extrait
+      dans son propre module `components/spectrogramControls.jsx` (fichier dédié pour
+      éviter `react-refresh/only-export-components` — mélange export composant/
+      fonction) ; `Spectrogram` et `App` en tirent les mêmes items. Conditions de
+      header conservées (`octaveInHeader`/`instrumentCollapsed` params,
+      `adsrCompact`). **Rendu desktop in-body inchangé.**
+    - **1.3b — routage vers la toolbar (mobile)** : nouvelle prop `isMobile` sur
+      `WaveformEditor`-render*Area (via le flag existant) et `Spectrogram` → en
+      mobile les headers in-body rendent **`[]`** (pas de double rendu ; un
+      `OverflowToolbar` dans un header `display:none` mesurerait 0 et dédoublerait
+      `data-anchor`/refs). `App` passe `mobileModuleControls =
+      moduleHeaderItems[designerMobileModule]` (spectro construit inline depuis le
+      helper ; modulation → `[]`) à `DesignerToolbar`, qui rend un **2ᵉ
+      `OverflowToolbar`** après le switcher (séparateur `designer-toolbar-divider` en
+      `prefix`, libellé « Contrôles du module »). **Rien rendu** si 0 item
+      (Modulation, ou params/adsr selon conditions) → pas de séparateur orphelin.
+      Disposition : `[patch · Presets · Reset] [switcher 6 icônes] ┊ [contrôles · …]`.
+    - 3 toggles spectro (`toggleSpectro*`) extraits en consts nommées dans `App`
+      (partagés composant + items). **Desktop ≥ 924×668 strictement inchangé.**
+      **Vérif** : `npm run lint` (0 erreurs, 4 warnings préexistants) +
+      `npx tsc --noEmit` + `npm run build` propres.
 
 - **2026-06-07 — Iteration Q « Désencombrement du Designer » — CLOSE. Release
   v1.9.1.** Petite itération de suite après P.6 : P.6.2 ayant ajouté des

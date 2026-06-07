@@ -43,9 +43,10 @@ framework UI (CSS manuscrit), pas de routing, pas de backend.
 **État courant** : **Iteration R « Refonte petit écran du Designer »** ouverte (à
 la suite de Q, release v1.9.1) — but : rendre le Designer utilisable sous le
 plancher accordéon (< 924×668), où l'on manque de largeur ET de hauteur. Phases :
-**R.1** (switcher de modules / hauteur — **livrée**) → R.2 (hamburger d'en-tête /
-largeur) → R.3 (densification) → R.4 (orientation adaptative). **Pas de bump en
-R.1** ; bump mineur (**v1.10.0**) à la clôture de R.
+**R.1** (switcher de modules / hauteur — **livrée**, + correctif **R.1.3** :
+contrôles de header relogés) → R.2 (hamburger d'en-tête / largeur) → R.3
+(densification) → R.4 (orientation adaptative). **Pas de bump en R.1** ; bump
+mineur (**v1.10.0**) à la clôture de R.
 
 **R.1 livrée** : le petit écran abandonne l'**accordéon** (barres repliées qui
 mangeaient la hauteur) au profit d'un **switcher** : une rangée d'icônes de module
@@ -58,6 +59,19 @@ RO — masqués en `display:none`, l'actif en `display:flex`). Nouveau champ per
 un module actif** (clic sur l'actif = no-op). Gating rAF de la mini-courbe LFO
 rebranché sur `designerMobileModule === 'modulation'`. **Desktop ≥ 924×668
 inchangé.**
+
+**R.1.3 livrée** (correctif) : R.1 masquait les **headers internes** des modules en
+petit écran → leurs contrôles (toggle Libre/Ancres, cap, live/dB/peak, etc.)
+disparaissaient. Désormais les **contrôles de header du module actif** sont
+**relogés dans la `DesignerToolbar`**, après le switcher, dans un **2ᵉ
+`OverflowToolbar`** (séparateur en `prefix`, libellé « Contrôles du module ») — le
+trop-plein file dans un `…` ; aucun groupe rendu si le module actif n'a pas de
+contrôle (Modulation, ou Instrument/AHDSR selon conditions). Les items de header
+sont exposés comme **donnée** (pas de double rendu) : `WaveformEditor` les remonte
+via la children-API (`moduleHeaderItems` = { canvas, harmonics, params, adsr }) ; le
+Spectrogramme via le helper partagé `buildSpectrogramHeaderItems`
+(`components/spectrogramControls.jsx`). En mobile, les headers in-body ne rendent
+**rien** (items `[]`).
 
 Hygiène restante (hors itération) : purge des prompt-fichiers `archi/O*`,
 `archi/P*`, `archi/Q*`, `archi/N*`, `archi/Mr*`, `archi/M5b*` consommés.
@@ -437,14 +451,20 @@ Seuls les **placements timeline** s'appellent "clips".
   - Libre : slider log 2^4-2^15 Hz + FreqInput éditable + bouton
     **Test** (canal mono via `playFreeNote()` lisant `testFrequency`
     direct, raccourci `s`).
-- Children-API (iter-M phase-2, étendue r.2, iter-P) : `renderCanvasArea`,
+- Children-API (iter-M phase-2, étendue r.2, iter-P, iter-R) : `renderCanvasArea`,
   `renderHarmonicsArea`, `renderParamsArea` (≡ zone "Instrument" depuis
   G.1.1), `renderAdsrArea`, `renderModulationArea` (iter-P, 6ᵉ module),
   `renderActions` ({collapsed}) + valeurs/handlers
   pour la barre du haut : `patchLabel`, `openPresetPicker`,
   `requestResetWaveform`, `normalizeWaveform` (le picker de presets et les
   ConfirmDialog restent montés dans `WaveformEditor` ; la barre ne fait que
-  piloter leur ouverture). App.jsx compose la moitié haute = `DesignerToolbar`
+  piloter leur ouverture). **iter-R phase-1.3a** : expose aussi
+  `moduleHeaderItems` = { canvas, harmonics, params, adsr } — les **items de header
+  de chaque module comme donnée** (mêmes tableaux `{id, bar, tray}` que les headers
+  in-body desktop, construits par des `build*HeaderItems()` réutilisés ; en mobile
+  les headers in-body rendent `[]`). App les reloge dans la toolbar mobile pour le
+  module actif (Spectro exposé à part via `buildSpectrogramHeaderItems`, Modulation
+  sans contrôle). App.jsx compose la moitié haute = `DesignerToolbar`
   (barre du haut) + 3 colonnes via `DesignerColumns` (Forme d'onde /
   Harmoniques / Spectrogramme), et garde la moitié basse à **3 cellules**
   (Instrument / AHDSR / Modulation, iter-P). Le panneau Actions est placé par
@@ -1111,6 +1131,13 @@ Choix non évidents pris pour de bonnes raisons. À ne pas remettre en question
   changement de module est porté par le **passage `display:none` → `flex`** (les RO
   détectent le retour à des dimensions non-nulles) — pas de redraw explicite. Le
   switcher vit dans la `DesignerToolbar` (groupe flex simple, réorienté en R.4).
+  **R.1.3** : les headers in-body étant masqués en petit écran, les **contrôles de
+  header du module actif** sont **relogés dans la toolbar** (2ᵉ `OverflowToolbar`
+  après le switcher). Principe **anti-double-rendu** : les items sont exposés comme
+  **donnée** (`build*HeaderItems()` → children-API `moduleHeaderItems` +
+  `buildSpectrogramHeaderItems` partagé), rendus à **un seul endroit** — en mobile
+  l'in-body rend `[]` (un `OverflowToolbar` dans un header `display:none` mesurerait
+  0 et dédoublerait `data-anchor`/refs), la toolbar rend l'actif.
 - **Modale Presets = point d'entrée unique + modèle 2-vues (iter-N N.5c)** : tous
   les sons pré-fabriqués passent par la modale `PresetPicker` (plus de barre de
   presets géométriques en mode Libre). Les 4 formes de base (`BASE_WAVEFORMS`,
