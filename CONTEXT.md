@@ -89,6 +89,18 @@ tête). Aucun item épinglé. `OverflowToolbar` gagne une prop `triggerIcon` (d�
 connue : en compact, la *ghost row* de l'OT duplique les `data-anchor` des boutons
 aux → l'overlay Ctrl+K peut mal s'ancrer (dégrade proprement, non bloquant).
 
+**R.3 livrée** : **réouverture basse résolution + densification.** Le gate
+(`TooSmallGate`) passe d'un plancher fixe 700×500 à un plancher **orientation-aware
+300/500** (utilisable si côté court ≥ 300 ET côté long ≥ 500 → 300×500 portrait ET
+500×300 paysage passent ; constantes `MIN_USABLE_SHORT`/`MIN_USABLE_LONG`). Passe de
+**densification CSS** bornée stricte à `width < 700 OU height < 500` (`@media
+(max-width:699px),(max-height:499px)`) — paddings/gaps réduits (layout Designer,
+toolbar, header, corps de module), textes/onglets resserrés, modale capée au viewport
+(`box-sizing:border-box` + `max-width:calc(100vw - 24px)`) ; **rien ne change ≥
+700×500**. Limitation **assumée** : sous ~700 px, l'interaction **tactile fine**
+(dessin au doigt, poignées) reste inadaptée sur smartphone — à la souris (fenêtre
+desktop rétrécie) c'est le cas d'usage visé ; pointer-events = backlog actif.
+
 Hygiène restante (hors itération) : purge des prompt-fichiers `archi/O*`,
 `archi/P*`, `archi/Q*`, `archi/N*`, `archi/Mr*`, `archi/M5b*` consommés.
 
@@ -1167,6 +1179,15 @@ Choix non évidents pris pour de bonnes raisons. À ne pas remettre en question
   compact (`visibility:hidden` pendant la visite, rect conservé). Limite connue : la
   *ghost row* de l'OT duplique les `data-anchor` des boutons aux → l'overlay Ctrl+K
   dégrade son ancrage en compact (non bloquant).
+- **Gate de résolution = plancher orientation-aware 300/500, tactile fin assumé
+  (iter-R R.3)** : `TooSmallGate` bloque seulement si `min(w,h) < 300` OU
+  `max(w,h) < 500` (constantes `MIN_USABLE_SHORT`/`MIN_USABLE_LONG`) — 300×500 et
+  500×300 passent. Le seuil ne porte plus que sur l'**affichage/atteignabilité**
+  (densifié sous 700×500 par une passe CSS bornée stricte). L'**UX tactile fine**
+  sous ~700 px (dessin au doigt, poignées AHDSR/LFO, sliders) est une **limitation
+  connue assumée**, PAS un blocage : le cas d'usage visé est la souris (fenêtre
+  desktop rétrécie). Le travail pointer-events / surfaces tactiles est backlog.
+  (Remplace l'ancien plancher fixe 700×500 « anti-UX-tactile-cassée ».)
 - **Modale Presets = point d'entrée unique + modèle 2-vues (iter-N N.5c)** : tous
   les sons pré-fabriqués passent par la modale `PresetPicker` (plus de barre de
   presets géométriques en mode Libre). Les 4 formes de base (`BASE_WAVEFORMS`,

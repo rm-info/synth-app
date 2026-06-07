@@ -1031,7 +1031,34 @@ Phases listées ci-dessous dans l'ordre chronologique d'implémentation.
     items débordés, visible seulement tiroir ouvert) ; le header y met `vX.Y.Z` sous
     un filet horizontal. (3) Hamburger sans bordure
     (`overflow-toolbar-trigger` border transparente en compact) + collé à droite
-    (`.tabs-compact` padding-right 16→6). Desktop inchangé.
+    (`.tabs-compact` padding-right 16→6). Desktop inchangé. **Rectif** : la version
+    devait être DANS le tiroir hamburger (et non en barre) → prop `suffix` remplacée
+    par **`trayFooter`** (`OverflowToolbar` : node en bas du popover, après les items
+    débordés, visible seulement tiroir ouvert) ; le header y met `vX.Y.Z` sous un filet.
+  - **R.3 — Réouverture basse résolution + densification (< 700×500)**
+    (`feat(iter-R/phase-3.1)` + `feat(iter-R/phase-3.2)`). L'app était utilisable
+    jusqu'à 700×500 ; R.3 rouvre l'usage jusqu'à 300×500 / 500×300 et densifie sous
+    700×500. **Décision validée** : seuil unique 300/500 pour tous (pas de détection
+    pointeur) ; l'UX tactile fine sous 700 reste une limitation connue assumée
+    (backlog pointer-events).
+    - **3.1 — gate abaissé, orientation-aware** (`TooSmallGate.jsx`) : plancher fixe
+      700×500 → `min(w,h) < 300 || max(w,h) < 500` (constantes renommées
+      `MIN_USABLE_WIDTH/HEIGHT` → `MIN_USABLE_SHORT=300`/`MIN_USABLE_LONG=500` ; grep
+      OK, usages internes au composant uniquement). 300×500 portrait ET 500×300
+      paysage passent ; 300×300 / 400×400 (côté long < 500) bloqués. Message mis à
+      jour (« Minimum requis : 300 × 500 (ou 500 × 300) ») + commentaire d'en-tête
+      réécrit (limitation tactile = assumée).
+    - **3.2 — densification CSS < 700×500** : passe bornée STRICTE à
+      `@media (max-width:699px),(max-height:499px)` (virgule = OR, = ancienne bande du
+      gate ; subset de isMobile). Rien ne change ≥ 700×500. `App.css` (layout Designer
+      gap/padding 12→6, corps de module padding→0 y compris harmoniques/modulation
+      oubliés par l'override R.1), `Tabs.css` (titre/onglets resserrés, placé après le
+      bloc 600px pour la plage 600-700), `DesignerToolbar.css` (toolbar padding/gap +
+      switcher gap réduits), `Modal.css` (`box-sizing:border-box` +
+      `max-width:calc(100vw - 24px)` + `margin:12px` — sinon `width:100%`+margin en
+      content-box débordait à 300px). Popover Bibliothèque déjà capé (modale fixe
+      `calc(100vw - 30px)` < 700px) ; `.we-sound-tag` déjà tronquée. **Vérif** :
+      `npm run lint` + `npx tsc --noEmit` + `npm run build` propres.
 
 - **2026-06-07 — Iteration Q « Désencombrement du Designer » — CLOSE. Release
   v1.9.1.** Petite itération de suite après P.6 : P.6.2 ayant ajouté des
