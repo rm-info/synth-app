@@ -993,6 +993,35 @@ Phases listées ci-dessous dans l'ordre chronologique d'implémentation.
       sliders) n'avait pas ce reliquat (son débordement à elle était la ghost row du
       toolbar, traitée en 1.3d). Fix : `overflow-x: hidden` explicite sur le panneau
       actif. Complémentaire du clip toolbar (corps vs barre d'outils). Desktop inchangé.
+  - **R.2 — Hamburger d'en-tête (priority-plus sur le top header, < 924×668)**
+    (`feat(iter-R/phase-2.1)` + `feat(iter-R/phase-2.2)`). Sous le seuil mobile, le
+    `Tabs` (barre d'onglets + auxiliaires) ne tient plus → même pattern priority-plus
+    que les modules. **≠ relogement R.1.3** (contrôles de module dans la
+    `DesignerToolbar`) : ici c'est le **top header / onglets**.
+    - **2.1 — prop trigger personnalisable sur `OverflowToolbar`** : nouvelle prop
+      `triggerIcon` (défaut `⋯` Ellipsis), utilisée au clone ghost ET au trigger
+      visible (largeurs cohérentes). Usages existants inchangés (ne passent pas la prop).
+    - **2.2 — variante compacte de `Tabs`** : prop `isMobile` (passée par App). Chemin
+      de rendu séparé : titre `On_Synth_App` à gauche (tronquable) + `OverflowToolbar`
+      (hamburger `Menu`) relogeant les 7 items. **Ordre de priorité** (index 0 = gardé
+      le plus longtemps, débordement droite→gauche) : Création · Composition ·
+      Bibliothèque · Documentation · thème · raccourcis · visite → disparition visite →
+      raccourcis → thème → Doc → Biblio → Composition → Création. Aucun item épinglé.
+      **Nodes de boutons construits une fois** (`tabButton(t)`, `themeBtn`,
+      `shortcutsBtn`, `tourBtn`), réutilisés par le chemin desktop (rendu à plat,
+      refactor sans changement visuel) ET les items compacts (`bar`/`tray`, états
+      `active`/`is-active` conservés ; tray = libellé texte pour les aux).
+      `.tabs-version` omise en compact. **Ancre Tour** `header-tabs-zone` portée par le
+      conteneur compact (`is-tour-hidden` → `visibility:hidden` pendant la visite, rect
+      conservé ; navigation bloquée). CSS : `.tabs-compact` (titre tronquable) +
+      `.tabs-compact-nav` (flex:1, `overflow-x:clip` contre la ghost row) + onglets en
+      tiroir. **Desktop ≥ 924×668 strictement inchangé.**
+    - **Limite connue** (signalée, non bloquante) : la ghost row de l'OT duplique les
+      `data-anchor` des boutons aux → `querySelector` peut tomber sur le clone ghost
+      (`visibility:hidden`) → l'overlay Ctrl+K s'ancre mal en compact. Dégrade
+      proprement (pas de crash). À traiter si gênant (ex. exclure `data-anchor` du ghost).
+    - **Vérif** : `npm run lint` (0 erreurs, 4 warnings préexistants) +
+      `npx tsc --noEmit` + `npm run build` propres.
 
 - **2026-06-07 — Iteration Q « Désencombrement du Designer » — CLOSE. Release
   v1.9.1.** Petite itération de suite après P.6 : P.6.2 ayant ajouté des

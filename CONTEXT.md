@@ -77,6 +77,18 @@ Spectrogramme via le helper partagé `buildSpectrogramHeaderItems`
 (`components/spectrogramControls.jsx`). En mobile, les headers in-body ne rendent
 **rien** (items `[]`).
 
+**R.2 livrée** : le **top header** (`Tabs`) passe en **priority-plus** sous 924×668
+— titre à gauche (tronquable), puis un `OverflowToolbar` qui reloge onglets +
+auxiliaires, le trop-plein filant dans un **hamburger** (`Menu`) à droite. Ordre de
+priorité (gardé le plus longtemps → premier à déborder) : **Création · Composition ·
+Bibliothèque · Documentation · thème · raccourcis · visite** — donc en compact
+l'ordre visuel mène par Création/Composition (≠ desktop, où Bibliothèque est en
+tête). Aucun item épinglé. `OverflowToolbar` gagne une prop `triggerIcon` (défaut
+`⋯`). Ancre Tour `header-tabs-zone` préservée (sur le conteneur compact,
+`visibility:hidden` pendant la visite). **Desktop ≥ 924×668 inchangé.** Limite
+connue : en compact, la *ghost row* de l'OT duplique les `data-anchor` des boutons
+aux → l'overlay Ctrl+K peut mal s'ancrer (dégrade proprement, non bloquant).
+
 Hygiène restante (hors itération) : purge des prompt-fichiers `archi/O*`,
 `archi/P*`, `archi/Q*`, `archi/N*`, `archi/Mr*`, `archi/M5b*` consommés.
 
@@ -158,14 +170,14 @@ synth-app/
     │       ├── why-12-notes.md      # stub L.2.5 (rédaction confiée à writer/)
     │       └── _renderer-test.md    # validation visuelle des features V1 + math L.R (à retirer en L.5)
     └── components/
-        ├── Tabs.jsx + .css                    # bascule Bibliothèque / Designer / Composer / Documentation
+        ├── Tabs.jsx + .css                    # bascule Bibliothèque / Designer / Composer / Documentation ; variante compacte priority-plus + hamburger sous 924×668 (iter-R phase-2.2, prop isMobile)
         ├── PatchBank.jsx + .css               # banque de patches partagée
         ├── WaveformEditor.jsx + .css          # éditeur ondes / patch (Designer)
         ├── Spectrogram.jsx + .css             # spectrogramme statique (Designer)
         ├── DesignerColumns.jsx + .css         # layout 3 colonnes ajustables (Designer, M.2.2) ; prop collapsed → colonne repliée en bande (iter-O phase-5a) ; réutilisé pour la RANGÉE DU BAS (iter-P phase-6.2 : prop sepLabels) ; auto-sizing retiré (iter-Q : drag des séparateurs seul)
         ├── DesignerModule.jsx + .css          # wrapper réductible/maximisable des 6 modules Designer : bande verticale (icône+titre) ↔ contenu (toujours monté, display:none si replié — contrainte canvas) ; rend la ModuleChrome en coin absolu (iter-O phase-5a/5c)
         ├── ModuleChrome.jsx + .css            # chrome « contrôle de fenêtre » d'un module : Réduire (désactivé en maximisé) + Agrandir/Restaurer ; centralisée dans DesignerModule, coin haut-droit absolu (iter-O phase-5a→5c)
-        ├── OverflowToolbar.jsx + .css         # barre d'outils générique « priority-plus » : items bar/tray, débordement → tiroir `⋯` (iter-O phase-2). Branché : les 5 headers de module + groupe droit DesignerToolbar (généralisé O.6.2)
+        ├── OverflowToolbar.jsx + .css         # barre d'outils générique « priority-plus » : items bar/tray, débordement → tiroir `⋯` (iter-O phase-2). Branché : les 5 headers de module + groupe droit DesignerToolbar (généralisé O.6.2) + contrôles module mobile (R.1.3) + top header compact (R.2). Prop `triggerIcon` (défaut `⋯` ; header compact passe `Menu`)
         ├── SplineEditor.jsx + .css            # éditeur points/courbe mode spline (Designer, M.3)
         ├── ConvertToHarmonicDialog.jsx + .css # dialog passerelle draw/spline→harmonic (M.2.5)
         ├── ConvertToSplineDialog.jsx          # dialog passerelle draw/harmonic→spline (M.3.3)
@@ -1142,6 +1154,19 @@ Choix non évidents pris pour de bonnes raisons. À ne pas remettre en question
   `buildSpectrogramHeaderItems` partagé), rendus à **un seul endroit** — en mobile
   l'in-body rend `[]` (un `OverflowToolbar` dans un header `display:none` mesurerait
   0 et dédoublerait `data-anchor`/refs), la toolbar rend l'actif.
+- **Top header en priority-plus sous 924×668 (iter-R R.2)** : le `Tabs` (onglets +
+  thème/raccourcis/visite) bascule en `OverflowToolbar` (hamburger `Menu`) en petit
+  écran — même pattern que les modules. **Ordre de priorité positionnel** :
+  Création/Composition gardés le plus longtemps, auxiliaires (visite → raccourcis →
+  thème) puis Documentation/Bibliothèque débordant en premier. **Aucun item
+  épinglé** (à l'extrême tout file au hamburger). Conséquence assumée : l'ordre
+  visuel compact (Création d'abord) diffère du desktop (Bibliothèque d'abord) — prix
+  du priority-plus positionnel. **Desktop ≥ 924×668 strictement inchangé** (chemin de
+  rendu séparé, gardé par `isMobile`). Le top header **reste en haut** (R.4 ne le
+  déplacera pas). L'ancre Tour `header-tabs-zone` est préservée sur le conteneur
+  compact (`visibility:hidden` pendant la visite, rect conservé). Limite connue : la
+  *ghost row* de l'OT duplique les `data-anchor` des boutons aux → l'overlay Ctrl+K
+  dégrade son ancrage en compact (non bloquant).
 - **Modale Presets = point d'entrée unique + modèle 2-vues (iter-N N.5c)** : tous
   les sons pré-fabriqués passent par la modale `PresetPicker` (plus de barre de
   presets géométriques en mode Libre). Les 4 formes de base (`BASE_WAVEFORMS`,
