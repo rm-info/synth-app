@@ -70,6 +70,18 @@
   align-items: center;
   gap: 4px;
   flex-wrap: wrap;
+  /* iter-R phase-1.3c : ancré à gauche, immobile — ne grandit ni ne rétrécit.
+     C'est l'OverflowToolbar des contrôles (flex:1, aligné à droite) qui absorbe
+     l'espace ; absent, le switcher reste collé au lot patch/Presets/Reset. */
+  flex: 0 0 auto;
+}
+
+/* iter-R phase-1.3c : en mobile, on PACKE à gauche (flex-start) au lieu de
+   space-between — sinon, quand le module actif n'a pas de contrôles (l'OT à droite
+   n'est pas rendu), space-between expédie le switcher à droite (drift perturbant).
+   Desktop garde space-between (intact). */
+.designer-main-mobile .designer-toolbar {
+  justify-content: flex-start;
 }
 
 /* Séparateur visuel entre le groupe d'actions et les proportions. */

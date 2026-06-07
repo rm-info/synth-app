@@ -121,6 +121,9 @@ function DesignerToolbar({ patchLabel, onPresets, onReset, onEqualizeWidths, col
         )}
       </div>
       {showMobileSwitcher && (
+        <span className="designer-toolbar-divider" aria-hidden="true" />
+      )}
+      {showMobileSwitcher && (
         <div className="designer-module-switcher" role="group" aria-label="Modules du Designer">
           {mobileModuleIds.map((id) => {
             const meta = MODULE_META[id]
