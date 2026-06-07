@@ -116,11 +116,10 @@ function Tabs({ activeTab, onChange, theme, onToggleTheme, shortcutsOverlayOpen,
             ariaLabel="Navigation et options"
             menuLabel="Menu"
             triggerIcon={<Menu size={18} />}
-            suffix={
-              <>
-                <span className="tabs-compact-sep" aria-hidden="true" />
-                <span className="tabs-version" title={`Version ${APP_VERSION}`}>v{APP_VERSION}</span>
-              </>
+            trayFooter={
+              <div className="tabs-version-tray" title={`Version ${APP_VERSION}`}>
+                v{APP_VERSION}
+              </div>
             }
           />
         </div>
