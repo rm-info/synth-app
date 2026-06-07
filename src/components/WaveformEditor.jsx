@@ -238,48 +238,144 @@ function lfoSample(shape, t) {
   return Math.sin(2 * Math.PI * frac) // sine
 }
 
-// Mini-courbe LFO « qui défile » : reflète rate (vitesse), depth (amplitude
-// normalisée à la hauteur, purement illustrative) et shape. `phase` (en cycles)
-// avance dans la boucle rAF. Largeur de cycle fixe → un rate plus élevé fait
-// défiler plus vite ET affiche plus d'ondulations. Effet enabled false → ligne
-// plate (l'appelant fige la phase). Pur, hors cycle React (peint directement).
-const LFO_PX_PER_CYCLE = 34
-function drawLfoCurve(canvas, lfo, depthMax, phase) {
+// === Graphe LFO éditable (P.5) ===
+//
+// La mini-courbe devient un GRAPHE TEMPOREL éditable à poignées (esprit AHDSR).
+// Axe x = temps depuis l'attaque ; axe y = valeur de modulation, médiane au
+// centre (0). La courbe est l'oscillation `shape` à la fréquence `rate`, dont
+// l'amplitude monte linéairement de 0 à `depth` sur `onset` puis reste stable
+// (display NORMALISÉ à la demi-hauteur — `depth` a des unités différentes selon
+// l'effet). La fenêtre x montre toujours la rampe d'onset + ~2,5 cycles.
+const LFO_CYCLES_VISIBLE = 2.5
+const LFO_MARGIN_X = 10
+const LFO_MARGIN_Y = 12
+const LFO_HANDLE_RADIUS = 5
+const LFO_HIT_RADIUS = 12
+const LFO_HANDLE_LABELS = { depth: 'Profondeur', onset: 'Installation', rate: 'Vitesse' }
+
+// Géométrie (coords CSS px) partagée entre dessin et hit-test. Pure : ne lit que
+// les valeurs `lfo`, `depthMax` et la taille du canvas. Les 3 poignées :
+//  - onset : sommet de la rampe d'installation (drag horizontal) ;
+//  - depth : sur une crête (drag vertical) ;
+//  - rate  : marqueur de fin du 1ᵉʳ cycle plein, sur la médiane (drag horizontal).
+// `windowSecOverride` (drag en cours) : on gèle l'échelle x au mousedown sinon la
+// fenêtre se redimensionnerait sous la poignée (les valeurs sont live, seul le
+// cadrage temporel est gelé → la poignée suit exactement le curseur).
+function lfoGeometry(lfo, depthMax, cssW, cssH, windowSecOverride) {
+  const onsetSec = (lfo.onset ?? 0) / 1000
+  const period = 1 / Math.max(lfo.rate ?? 1, 0.0001)
+  const windowSec = windowSecOverride ?? (onsetSec + LFO_CYCLES_VISIBLE * period)
+  const marginL = LFO_MARGIN_X
+  const usableW = Math.max(1, cssW - 2 * LFO_MARGIN_X)
+  const midY = cssH / 2
+  const halfUsableH = Math.max(1, midY - LFO_MARGIN_Y)
+  const depthFrac = depthMax > 0 ? Math.min(1, (lfo.depth ?? 0) / depthMax) : 0
+  const xOf = (t) => marginL + (t / windowSec) * usableW
+  const yTop = midY - depthFrac * halfUsableH
+  const handles = {
+    onset: { x: xOf(onsetSec), y: yTop },
+    depth: { x: xOf(onsetSec + 1.25 * period), y: yTop },
+    rate: { x: xOf(onsetSec + period), y: midY },
+  }
+  return { onsetSec, period, windowSec, marginL, usableW, midY, halfUsableH, depthFrac, xOf, yTop, handles }
+}
+
+// Dessine le graphe LFO figé (courbe + rampe d'onset + 3 poignées) et, si
+// `dotT` est fourni, le POINT DE PHASE qui parcourt la courbe (remplace le
+// scroll : un seul point mobile, moins cher). Effet désactivé → médiane grise,
+// aucune poignée (inerte). Pur, hors cycle React (peint directement).
+function drawLfoGraph(canvas, lfo, depthMax, dotT, windowSecOverride) {
   if (!canvas) return
   const dpr = window.devicePixelRatio || 1
-  const cssW = canvas.clientWidth || 140
-  const cssH = canvas.clientHeight || 38
+  const cssW = canvas.clientWidth || 160
+  const cssH = canvas.clientHeight || 92
   const w = Math.round(cssW * dpr)
   const h = Math.round(cssH * dpr)
   if (canvas.width !== w) canvas.width = w
   if (canvas.height !== h) canvas.height = h
   const ctx = canvas.getContext('2d')
   if (!ctx) return
-  ctx.clearRect(0, 0, w, h)
-  const midY = h / 2
-  // Médiane discrète.
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0) // dessin en coords CSS px (cercles isotropes)
+  ctx.clearRect(0, 0, cssW, cssH)
+  const g = lfoGeometry(lfo, depthMax, cssW, cssH, windowSecOverride)
+  const { midY, marginL, usableW, halfUsableH, onsetSec, period, windowSec, depthFrac } = g
+
+  // Médiane (0).
   ctx.strokeStyle = themeColor('canvas-grid-secondary')
   ctx.lineWidth = 1
   ctx.beginPath()
-  ctx.moveTo(0, midY)
-  ctx.lineTo(w, midY)
+  ctx.moveTo(marginL, midY)
+  ctx.lineTo(marginL + usableW, midY)
   ctx.stroke()
-  // Profondeur normalisée [0,1] → amplitude verticale (85 % de la demi-hauteur).
-  // Effet désactivé → amplitude nulle = ligne plate figée (spec : non animée).
-  const ampFrac = (lfo.enabled && depthMax > 0) ? Math.min(1, (lfo.depth ?? 0) / depthMax) : 0
-  const amp = ampFrac * (h / 2) * 0.85
-  ctx.strokeStyle = lfo.enabled ? themeColor('accent') : themeColor('canvas-text-secondary')
-  ctx.lineWidth = Math.max(1.5, 2 * dpr)
+
+  if (!lfo.enabled) return // courbe plate grisée (médiane), poignées inertes
+
+  const rate = 1 / period
+  const ampAt = (t) => {
+    const env = onsetSec > 0 ? Math.min(1, t / onsetSec) : 1
+    return env * depthFrac * halfUsableH
+  }
+
+  // Enveloppe de la rampe d'onset (guide discret) : 0 → depth sur onset, plateau.
+  ctx.strokeStyle = themeColor('canvas-text-secondary')
+  ctx.setLineDash([3, 3])
+  ctx.lineWidth = 1
+  ctx.beginPath()
+  ctx.moveTo(marginL, midY)
+  ctx.lineTo(g.xOf(onsetSec), g.yTop)
+  ctx.lineTo(marginL + usableW, g.yTop)
+  ctx.stroke()
+  ctx.setLineDash([])
+
+  // Courbe (phase 0 au début de la note, amplitude enveloppée).
+  ctx.strokeStyle = themeColor('accent')
+  ctx.lineWidth = 1.75
   ctx.lineJoin = 'round'
   ctx.beginPath()
-  const pxPerCycle = LFO_PX_PER_CYCLE * dpr
-  for (let x = 0; x <= w; x++) {
-    const t = x / pxPerCycle - phase
-    const y = midY - lfoSample(lfo.shape, t) * amp
-    if (x === 0) ctx.moveTo(x, y)
-    else ctx.lineTo(x, y)
+  for (let x = 0; x <= usableW; x++) {
+    const t = (x / usableW) * windowSec
+    const y = midY - lfoSample(lfo.shape, t * rate) * ampAt(t)
+    if (x === 0) ctx.moveTo(marginL + x, y)
+    else ctx.lineTo(marginL + x, y)
   }
   ctx.stroke()
+
+  // Point de phase (si animé).
+  if (dotT != null) {
+    const t = ((dotT % windowSec) + windowSec) % windowSec
+    const y = midY - lfoSample(lfo.shape, t * rate) * ampAt(t)
+    ctx.beginPath()
+    ctx.arc(g.xOf(t), y, 3, 0, 2 * Math.PI)
+    ctx.fillStyle = themeColor('accent')
+    ctx.fill()
+  }
+
+  // Poignées : cercles isotropes (style AHDSR).
+  for (const key of ['rate', 'onset', 'depth']) {
+    const hd = g.handles[key]
+    ctx.beginPath()
+    ctx.arc(hd.x, hd.y, LFO_HANDLE_RADIUS, 0, 2 * Math.PI)
+    ctx.fillStyle = themeColor('canvas-marker')
+    ctx.fill()
+    ctx.strokeStyle = themeColor('accent')
+    ctx.lineWidth = 1.5
+    ctx.stroke()
+  }
+}
+
+// Tooltip de rôle d'une poignée LFO (réutilise le style .adsr-tooltip).
+function LfoTooltip({ handle, px, py }) {
+  if (handle == null) return null
+  const flip = py < 22
+  return (
+    <div
+      className={`adsr-tooltip${flip ? ' adsr-tooltip-flipped' : ''}`}
+      style={{ left: `${px}px`, top: flip ? `${py + ADSR_TOOLTIP_OFFSET}px` : `${py - ADSR_TOOLTIP_OFFSET}px` }}
+      role="tooltip"
+    >
+      {LFO_HANDLE_LABELS[handle]}
+    </div>
+  )
 }
 
 function stripSuffix(name) {
@@ -540,8 +636,18 @@ function WaveformEditor({
   const release = draftAdsr?.release ?? editor.release
   // itération P : modulations LFO de l'éditeur (toujours présentes depuis P.1 ;
   // `??` défensif pour un état hydraté avant migration).
-  const vibrato = editor.vibrato ?? DEFAULT_VIBRATO
-  const tremolo = editor.tremolo ?? DEFAULT_TREMOLO
+  const vibratoBase = editor.vibrato ?? DEFAULT_VIBRATO
+  const tremoloBase = editor.tremolo ?? DEFAULT_TREMOLO
+  // P.5 — graphe LFO éditable. Draft local d'un drag de poignée (un seul champ
+  // d'un seul effet à la fois) : la pile undo ne reçoit qu'UN cran au relâchement
+  // (SET_EDITOR_MODULATION est undoable par dispatch — cf. discipline AHDSR).
+  // `draftMod` alimente AUSSI la valeur affichée des steppers (coexistence).
+  const [draftMod, setDraftMod] = useState(null) // { effect, key, value } | null
+  const [modHover, setModHover] = useState(null) // { effect, handle, px, py } | null
+  const applyModDraft = (effect, lfo) =>
+    (draftMod && draftMod.effect === effect) ? { ...lfo, [draftMod.key]: draftMod.value } : lfo
+  const vibrato = applyModDraft('vibrato', vibratoBase)
+  const tremolo = applyModDraft('tremolo', tremoloBase)
 
   const {
     testTuningSystem, testNoteIndex, testOctave, preset: activePreset,
@@ -671,22 +777,36 @@ function WaveformEditor({
   // s'arrête (cancelAnimationFrame) dès que ces conditions tombent / au démontage.
   const vibratoCanvasRef = useRef(null)
   const tremoloCanvasRef = useRef(null)
-  const lfoPhaseRef = useRef({ vibrato: 0, tremolo: 0 })
+  // Position (en secondes depuis le début de note) du point de phase par effet.
+  const lfoDotRef = useRef({ vibrato: 0, tremolo: 0 })
+  // Géométrie figée au mousedown d'un drag (cf. lfoGeometry) : map curseur→valeur
+  // à échelle gelée tant que le drag dure (sinon la fenêtre se redimensionnerait
+  // sous la poignée). Recalculée au prochain drag.
+  const modDragGeomRef = useRef(null)
+  const dragging = draftMod != null
   useEffect(() => {
     const subs = [
       { canvas: vibratoCanvasRef.current, lfo: vibrato, depthMax: VIBRATO_DEPTH_MAX, key: 'vibrato' },
       { canvas: tremoloCanvasRef.current, lfo: tremolo, depthMax: TREMOLO_DEPTH_MAX, key: 'tremolo' },
     ]
-    const phases = lfoPhaseRef.current
-    const paint = () => { for (const s of subs) drawLfoCurve(s.canvas, s.lfo, s.depthMax, phases[s.key]) }
-    // Dessin statique immédiat (état courant, thème, depth/shape) — vaut aussi
-    // quand on ne lance pas la boucle (effets off ou module caché).
+    const dots = lfoDotRef.current
+    // Pendant un drag, le point de phase est figé (spec) → on passe null (pas de
+    // point dessiné), la courbe reflète le draft, et l'effet draggé est dessiné à
+    // l'échelle x gelée (modDragGeomRef) pour que la poignée suive le curseur.
+    const frozen = modDragGeomRef.current
+    const overrideFor = (key) => (frozen && frozen.effect === key ? frozen.windowSec : undefined)
+    const paint = () => {
+      for (const s of subs) drawLfoGraph(s.canvas, s.lfo, s.depthMax, dragging ? null : dots[s.key], overrideFor(s.key))
+    }
+    // Dessin statique immédiat (état courant, thème, depth/shape, poignées) — vaut
+    // aussi quand on ne lance pas la boucle (effets off, module caché, drag).
     paint()
     // Re-peint au changement de thème (le cache themeColor est vidé sur l'event).
     window.addEventListener('themechange', paint)
 
     const anyEnabled = vibrato.enabled || tremolo.enabled
-    if (!modulationVisible || !anyEnabled) {
+    // Gating strict (audit perf N.1) + figée pendant un drag.
+    if (!modulationVisible || !anyEnabled || dragging) {
       return () => window.removeEventListener('themechange', paint)
     }
 
@@ -697,8 +817,14 @@ function WaveformEditor({
       const dt = Math.min(0.05, (ts - last) / 1000) // clamp anti-saut (onglet en arrière-plan)
       last = ts
       for (const s of subs) {
-        if (s.lfo.enabled) phases[s.key] += s.lfo.rate * dt
-        drawLfoCurve(s.canvas, s.lfo, s.depthMax, phases[s.key])
+        if (s.lfo.enabled) {
+          const period = 1 / Math.max(s.lfo.rate ?? 1, 0.0001)
+          const windowSec = (s.lfo.onset ?? 0) / 1000 + LFO_CYCLES_VISIBLE * period
+          dots[s.key] = (dots[s.key] + dt) % windowSec
+          drawLfoGraph(s.canvas, s.lfo, s.depthMax, dots[s.key])
+        } else {
+          drawLfoGraph(s.canvas, s.lfo, s.depthMax, null)
+        }
       }
       raf = requestAnimationFrame(tick)
     }
@@ -707,7 +833,7 @@ function WaveformEditor({
       cancelAnimationFrame(raf)
       window.removeEventListener('themechange', paint)
     }
-  }, [vibrato, tremolo, modulationVisible])
+  }, [vibrato, tremolo, modulationVisible, dragging])
 
   const referenceRef = useRef(snapshotPatchFields(editor))
   const referencedPatchIdRef = useRef(null)
@@ -3141,10 +3267,100 @@ function WaveformEditor({
     )
   }
 
+  // === P.5 — drag des poignées du graphe LFO ===
+  // Discipline d'undo calquée sur l'AHDSR : draft local pendant le geste,
+  // un seul dispatch SET_EDITOR_MODULATION au relâchement.
+  const modCanvasFor = (effect) => (effect === 'vibrato' ? vibratoCanvasRef.current : tremoloCanvasRef.current)
+  const modDepthMax = (effect) => (effect === 'vibrato' ? VIBRATO_DEPTH_MAX : TREMOLO_DEPTH_MAX)
+
+  // Hit-test géométrique → clé de poignée la plus proche (ou null).
+  const modHitTest = (effect, lfo, e) => {
+    const canvas = modCanvasFor(effect)
+    if (!canvas) return { key: null }
+    const rect = canvas.getBoundingClientRect()
+    const x = e.clientX - rect.left
+    const y = e.clientY - rect.top
+    const g = lfoGeometry(lfo, modDepthMax(effect), rect.width, rect.height)
+    let best = null
+    let bestD = LFO_HIT_RADIUS
+    for (const key of Object.keys(g.handles)) {
+      const hd = g.handles[key]
+      const d = Math.hypot(x - hd.x, y - hd.y)
+      if (d < bestD) { bestD = d; best = key }
+    }
+    return { key: best, x, y, g, rect }
+  }
+
+  // Curseur→valeur via la géométrie GELÉE (modDragGeomRef). Pose le draft.
+  const applyModDrag = (e) => {
+    const fg = modDragGeomRef.current
+    if (!fg) return
+    const rect = fg.canvas.getBoundingClientRect()
+    const x = e.clientX - rect.left
+    const y = e.clientY - rect.top
+    let value
+    if (fg.key === 'depth') {
+      const frac = Math.max(0, Math.min(1, (fg.midY - y) / fg.halfUsableH))
+      const raw = frac * fg.depthMax
+      value = fg.effect === 'vibrato' ? Math.round(raw) : Math.round(raw * 100) / 100
+    } else if (fg.key === 'onset') {
+      const t = ((x - fg.marginL) / fg.usableW) * fg.windowSec
+      value = Math.round(Math.max(0, Math.min(LFO_ONSET_MAX / 1000, t)) * 1000)
+    } else { // rate : période = abscisse temporelle − onset (gelé) ; rate = 1/période
+      const t = ((x - fg.marginL) / fg.usableW) * fg.windowSec
+      const period = t - fg.onsetSec
+      const r = period > 0 ? 1 / period : LFO_RATE_MAX
+      value = Math.round(Math.max(LFO_RATE_MIN, Math.min(LFO_RATE_MAX, r)) * 10) / 10
+    }
+    setDraftMod({ effect: fg.effect, key: fg.key, value })
+  }
+
+  const handleModMouseDown = (effect, lfo, e) => {
+    if (!lfo.enabled) return
+    const hit = modHitTest(effect, lfo, e)
+    if (!hit.key) return
+    e.preventDefault()
+    modDragGeomRef.current = {
+      effect, key: hit.key, canvas: modCanvasFor(effect), depthMax: modDepthMax(effect),
+      marginL: hit.g.marginL, usableW: hit.g.usableW, midY: hit.g.midY,
+      halfUsableH: hit.g.halfUsableH, windowSec: hit.g.windowSec, onsetSec: hit.g.onsetSec,
+    }
+    // Draft = valeur courante (pas de saut au simple clic ; commit no-op si immobile).
+    setDraftMod({ effect, key: hit.key, value: lfo[hit.key] })
+  }
+
+  const handleModMouseMove = (effect, lfo, e) => {
+    if (modDragGeomRef.current) { applyModDrag(e); return }
+    if (!lfo.enabled) { if (modHover) setModHover(null); return }
+    const hit = modHitTest(effect, lfo, e)
+    if (!hit.key) { if (modHover) setModHover(null); return }
+    const hd = hit.g.handles[hit.key]
+    if (!modHover || modHover.effect !== effect || modHover.handle !== hit.key) {
+      setModHover({ effect, handle: hit.key, px: hd.x, py: hd.y })
+    }
+  }
+
+  const endModDrag = () => {
+    const fg = modDragGeomRef.current
+    modDragGeomRef.current = null
+    if (fg && draftMod) {
+      const base = fg.effect === 'vibrato' ? vibratoBase : tremoloBase
+      if (draftMod.value !== base[draftMod.key]) {
+        editorActions.setModulation(draftMod.effect, draftMod.key, draftMod.value)
+      }
+    }
+    setDraftMod(null)
+  }
+
+  const handleModMouseLeave = () => {
+    setModHover(null)
+    if (modDragGeomRef.current) endModDrag()
+  }
+
   // itération P — 6ᵉ module « Modulation ». Deux sous-blocs symétriques
   // Vibrato/Trémolo : interrupteur on/off, switch de forme (icônes), 3 steppers
-  // (vitesse/profondeur/installation) + une mini-courbe LFO animée. Header
-  // aligné sur les autres modules (icône + titre ellipsis O.6) ; la chrome
+  // (vitesse/profondeur/installation) + un GRAPHE LFO éditable à poignées (P.5).
+  // Header aligné sur les autres modules (icône + titre ellipsis O.6) ; la chrome
   // (réduire/agrandir) est posée par DesignerModule en coin absolu.
   const renderModulationArea = () => {
     const renderLfoBlock = (effect) => {
@@ -3187,11 +3403,27 @@ function WaveformEditor({
               })}
             </div>
           </div>
-          <canvas
-            className="we-lfo-canvas"
-            ref={isVibrato ? vibratoCanvasRef : tremoloCanvasRef}
-            aria-hidden="true"
-          />
+          <div className="we-lfo-canvas-wrap">
+            <canvas
+              className="we-lfo-canvas"
+              ref={isVibrato ? vibratoCanvasRef : tremoloCanvasRef}
+              aria-hidden="true"
+              style={{
+                cursor: (draftMod && draftMod.effect === effect) ? 'grabbing'
+                  : (modHover && modHover.effect === effect ? 'grab' : 'default'),
+              }}
+              onMouseDown={(e) => handleModMouseDown(effect, lfo, e)}
+              onMouseMove={(e) => handleModMouseMove(effect, lfo, e)}
+              onMouseUp={endModDrag}
+              onMouseLeave={handleModMouseLeave}
+            />
+            <LfoTooltip
+              handle={(draftMod && draftMod.effect === effect) ? null
+                : (modHover && modHover.effect === effect ? modHover.handle : null)}
+              px={modHover?.px}
+              py={modHover?.py}
+            />
+          </div>
           <div className="we-lfo-controls">
             <label className="we-lfo-control">
               <span>Vitesse (Hz)</span>

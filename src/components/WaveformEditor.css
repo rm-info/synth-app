@@ -1506,10 +1506,14 @@
   cursor: not-allowed;
 }
 
-/* Mini-courbe LFO animée. */
+/* Graphe LFO éditable à poignées (P.5). Wrapper position:relative pour ancrer
+   le tooltip de rôle (.adsr-tooltip réutilisé). */
+.we-lfo-canvas-wrap {
+  position: relative;
+}
 .we-lfo-canvas {
   width: 100%;
-  height: 38px;
+  height: 92px;
   display: block;
   border-radius: 5px;
   background: var(--surface-elevated);
