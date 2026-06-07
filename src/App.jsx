@@ -10,6 +10,7 @@ import MiniPlayer from './components/MiniPlayer'
 import Toolbar from './components/Toolbar'
 import PropertiesPanel from './components/PropertiesPanel'
 import Spectrogram from './components/Spectrogram'
+import { buildSpectrogramHeaderItems } from './components/spectrogramControls'
 import DesignerColumns from './components/DesignerColumns'
 import DesignerModule from './components/DesignerModule'
 import DesignerToolbar from './components/DesignerToolbar'
@@ -2116,7 +2117,12 @@ function App() {
     setXEdoN: (n) => dispatch({ type: 'SET_X_EDO_N', payload: n }),
   }), [])
 
-  // Computed once per render — used dans les deux variantes responsive (mobile accordion + desktop grid)
+  // iter-R phase-1.3 : handlers de toggle spectro nommés — partagés entre le
+  // composant Spectrogram et les items de header relogés dans la toolbar mobile.
+  const toggleSpectroDbScale = () => setSpectrogramDbScale(!spectrogramDbScale)
+  const toggleSpectroPeakHold = () => setSpectrogramPeakHold(!spectrogramPeakHold)
+  const toggleSpectroMode = () => setSpectrogramMode(spectrogramMode === 'live' ? 'static' : 'live')
+  // Computed once per render — used dans les deux variantes responsive (switcher mobile + desktop grid)
   const spectrogramNode = (
     <Spectrogram
       points={editor.canonical}
@@ -2127,13 +2133,23 @@ function App() {
       dbScale={spectrogramDbScale}
       peakHold={spectrogramPeakHold}
       mode={spectrogramMode}
-      onToggleDbScale={() => setSpectrogramDbScale(!spectrogramDbScale)}
-      onTogglePeakHold={() => setSpectrogramPeakHold(!spectrogramPeakHold)}
-      onToggleMode={() =>
-        setSpectrogramMode(spectrogramMode === 'live' ? 'static' : 'live')
-      }
+      isMobile={isMobile}
+      onToggleDbScale={toggleSpectroDbScale}
+      onTogglePeakHold={toggleSpectroPeakHold}
+      onToggleMode={toggleSpectroMode}
     />
   )
+  // iter-R phase-1.3b : items de header du Spectrogramme, construits depuis le
+  // même helper que le composant (App détient l'état/handlers) → relogés dans la
+  // toolbar mobile pour le module actif. Vide n'a pas de sens ici (toujours 3).
+  const spectrogramHeaderItems = buildSpectrogramHeaderItems({
+    mode: spectrogramMode,
+    dbScale: spectrogramDbScale,
+    peakHold: spectrogramPeakHold,
+    onToggleMode: toggleSpectroMode,
+    onToggleDbScale: toggleSpectroDbScale,
+    onTogglePeakHold: toggleSpectroPeakHold,
+  })
 
   return (
     <div className="app">
@@ -2244,7 +2260,7 @@ function App() {
         onSetAdsrView={(v) => dispatch({ type: 'SET_ADSR_VIEW', payload: v })}
         modulationVisible={modulationVisible}
       >
-        {({ renderCanvasArea, renderHarmonicsArea, renderParamsArea, renderAdsrArea, renderModulationArea, renderActions, patchLabel, openPresetPicker, requestResetWaveform }) => (
+        {({ renderCanvasArea, renderHarmonicsArea, renderParamsArea, renderAdsrArea, renderModulationArea, renderActions, patchLabel, openPresetPicker, requestResetWaveform, moduleHeaderItems }) => (
           <>
             <main
               className={`designer-layout${isMobile ? ' designer-layout-mobile' : ''}`}
@@ -2403,6 +2419,11 @@ function App() {
                     mobileModuleIds={DESIGNER_MOBILE_ORDER}
                     activeMobileModule={designerMobileModule}
                     onSelectMobileModule={handleSelectMobileModule}
+                    mobileModuleControls={
+                      designerMobileModule === 'spectrogram'
+                        ? spectrogramHeaderItems
+                        : (moduleHeaderItems[designerMobileModule] ?? [])
+                    }
                   />
                   <div className="designer-mobile-stack">
                     {[

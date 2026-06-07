@@ -1,12 +1,10 @@
 import { useRef, useEffect, useCallback } from 'react'
-import { Radio } from 'lucide-react'
 import { pointsToHarmonics } from '../audio'
 import { themeColor } from '../lib/themeColor'
 import { withSavedCtx } from '../lib/canvas'
-import { STRINGS } from '../lib/strings'
-import { IconCrete } from './icons'
 import { MODULE_META } from '../lib/designerModules'
 import OverflowToolbar from './OverflowToolbar'
+import { buildSpectrogramHeaderItems } from './spectrogramControls'
 import './Spectrogram.css'
 
 const FREQ_MIN = 16
@@ -124,6 +122,7 @@ function Spectrogram({
   analyserRef, activeVoicesCountRef,
   dbScale, peakHold, mode,
   onToggleDbScale, onTogglePeakHold, onToggleMode,
+  isMobile,
 }) {
   const canvasRef = useRef(null)
   const containerRef = useRef(null)
@@ -456,45 +455,10 @@ function Spectrogram({
     return () => ro.disconnect()
   }, [])
 
-  // iter-O phase-6.2 : les 3 toggles (live / dB / peak) deviennent des items d'un
-  // OverflowToolbar — c'est le header de module le plus susceptible de déborder
-  // (3 contrôles). is-active/aria-pressed conservés dans bar ET tray.
-  const trayLabel = (txt) => <span className="overflow-toolbar-tray-label">{txt}</span>
-  const liveBtn = (
-    <button
-      type="button"
-      onClick={onToggleMode}
-      className={`spectrogram-toggle spectrogram-toggle-icon${mode === 'live' ? ' is-active' : ''}`}
-      title="Mode Direct (analyse temps réel)"
-      aria-label={STRINGS.spectro.live}
-      aria-pressed={mode === 'live'}
-    ><Radio size={16} /></button>
-  )
-  const dbBtn = (
-    <button
-      type="button"
-      onClick={onToggleDbScale}
-      className={`spectrogram-toggle${dbScale ? ' is-active' : ''}`}
-      title="Échelle décibels"
-      aria-pressed={dbScale}
-    >dB</button>
-  )
-  const peakBtn = (
-    <button
-      type="button"
-      onClick={onTogglePeakHold}
-      className={`spectrogram-toggle spectrogram-toggle-icon${peakHold ? ' is-active' : ''}`}
-      title="Maintenir les crêtes (mode Direct)"
-      aria-label={STRINGS.spectro.peak}
-      aria-pressed={peakHold}
-    ><IconCrete size={16} /></button>
-  )
-  const spectroItems = [
-    { id: 'live', bar: liveBtn, tray: <>{liveBtn}{trayLabel(STRINGS.spectro.live)}</> },
-    { id: 'db', bar: dbBtn, tray: <>{dbBtn}{trayLabel('Échelle décibels')}</> },
-    { id: 'peak', bar: peakBtn, tray: <>{peakBtn}{trayLabel(STRINGS.spectro.peak)}</> },
-  ]
-
+  // iter-R phase-1.3a : les 3 items de header sont construits par un helper partagé
+  // (exporté) → in-body desktop ET toolbar mobile (App) tirent du même endroit.
+  // En mobile, on n'en rend aucun in-body (relogés dans la toolbar — éviter le
+  // double rendu / l'OverflowToolbar mesurant 0 dans un header display:none).
   return (
     <div className="spectrogram" data-anchor="designer-spectrogram">
       <header className="spectrogram-header">
@@ -503,7 +467,7 @@ function Spectrogram({
           <h3>Spectrogramme</h3>
         </div>
         <OverflowToolbar
-          items={spectroItems}
+          items={isMobile ? [] : buildSpectrogramHeaderItems({ mode, dbScale, peakHold, onToggleMode, onToggleDbScale, onTogglePeakHold })}
           ariaLabel="Contrôles spectrogramme"
           menuLabel="Contrôles spectrogramme"
         />

@@ -24,7 +24,7 @@ const EVEN_WIDTHS = [1 / 3, 1 / 3, 1 / 3]
 // Les proportions custom restent accessibles via le drag des séparateurs (haut
 // + bas). État actif DÉRIVÉ (aucun nouvel état persisté) : vrai quand les DEUX
 // rangées sont déjà à ⅓⅓⅓.
-function DesignerToolbar({ patchLabel, onPresets, onReset, onEqualizeWidths, columnWidths, bottomRowWidths, autoCollapse, onToggleAutoCollapse, autoCollapseForced, mobileModuleIds, activeMobileModule, onSelectMobileModule }) {
+function DesignerToolbar({ patchLabel, onPresets, onReset, onEqualizeWidths, columnWidths, bottomRowWidths, autoCollapse, onToggleAutoCollapse, autoCollapseForced, mobileModuleIds, activeMobileModule, onSelectMobileModule, mobileModuleControls }) {
   // Les contrôles de disposition n'ont de sens qu'en layout 3-colonnes : on
   // ne les affiche que si le parent fournit le handler d'égalisation (desktop).
   const showColumnControls = typeof onEqualizeWidths === 'function'
@@ -33,6 +33,10 @@ function DesignerToolbar({ patchLabel, onPresets, onReset, onEqualizeWidths, col
   // Designer mobile, toujours visible — un groupe flex simple (PAS d'OverflowToolbar :
   // 6 petites icônes tiennent), qui flowera row/column lors de la réorientation R.4.
   const showMobileSwitcher = Array.isArray(mobileModuleIds) && mobileModuleIds.length > 0
+  // iter-R phase-1.3b : contrôles de header du module actif, relogés ici (mobile).
+  // Si le module actif n'a aucun contrôle (Modulation, ou Instrument/AHDSR quand
+  // leurs conditions sont fausses) : rien (pas de séparateur orphelin ni de « … »).
+  const showMobileControls = Array.isArray(mobileModuleControls) && mobileModuleControls.length > 0
 
   // iter-Q : 2 items (Égaliser + Auto-réduction) dans un OverflowToolbar
   // (priority-plus) — le tiroir reste utile en header étroit. bar = bouton ;
@@ -136,6 +140,14 @@ function DesignerToolbar({ patchLabel, onPresets, onReset, onEqualizeWidths, col
             )
           })}
         </div>
+      )}
+      {showMobileControls && (
+        <OverflowToolbar
+          items={mobileModuleControls}
+          ariaLabel="Contrôles du module"
+          menuLabel="Contrôles du module"
+          prefix={<span className="designer-toolbar-divider" aria-hidden="true" />}
+        />
       )}
       {showColumnControls && renderColumnControls()}
     </div>

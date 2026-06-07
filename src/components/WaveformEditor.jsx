@@ -2332,7 +2332,10 @@ function WaveformEditor({
   // d'ancres (remonté ici depuis l'intérieur de SplineEditor). Pas de chemin
   // vers 'bars' : l'édition de barres se fait directement dans la zone
   // Harmoniques (toujours éditable).
-  const renderWaveformHeaderControls = () => {
+  // iter-R phase-1.3a : les items du header sont construits par un `build*` dédié
+  // (donnée), utilisé à la fois pour le header in-body desktop ET exposé à App via
+  // la children-API (`moduleHeaderItems`) pour le relogement dans la toolbar mobile.
+  const buildCanvasHeaderItems = () => {
     const anchorCount = anchors.length
     // iter-M phase-r.2.5.2 : les contrôles spécifiques au mode Ancres sont
     // TOUJOURS rendus (plus de gating `currentLens === 'spline'` qui faisait
@@ -2449,14 +2452,19 @@ function WaveformEditor({
       { id: 'smooth-sp', bar: tendBtn, tray: <>{tendBtn}{trayLabel('Tendre vers la spline')}</> },
     ]
 
-    return (
-      <OverflowToolbar
-        items={items}
-        ariaLabel="Contrôles forme d'onde"
-        menuLabel="Contrôles forme d'onde"
-      />
-    )
+    return items
   }
+
+  // En mobile (R.1.3), les contrôles de header sont relogés dans la toolbar par
+  // App → on ne rend rien in-body (un OverflowToolbar dans un header display:none
+  // mesurerait 0 et provoquerait un double rendu des mêmes nodes).
+  const renderWaveformHeaderControls = () => (
+    <OverflowToolbar
+      items={isMobile ? [] : buildCanvasHeaderItems()}
+      ariaLabel="Contrôles forme d'onde"
+      menuLabel="Contrôles forme d'onde"
+    />
+  )
 
   // iter-M phase-r.2.4 : la colonne Forme d'onde a deux modes d'édition
   // exclusifs pilotés par le switch Libre/Ancres du header. Le header (switch +
@@ -2513,19 +2521,9 @@ function WaveformEditor({
   // la lentille active — il n'y a plus de chemin vers 'bars'. Le header porte le
   // contrôle unique du `cap` (slider + readout « Harmoniques : N / 256 ») qui
   // remplace l'ancien NumberInput N + le slider Définition de la sidebar.
-  const renderHarmonicsArea = () => {
-    // Modèle unifié : les barres sont les magnitudes DFT de la canonical
-    // tronquées au cap (déjà dérivées dans `amplitudes`).
-    const bars = amplitudes
-    // M.r.5.2 — étiquettes de l'axe X (`kf`). En dessous de 8 harmoniques on les
-    // étiquette toutes ; au-delà on ne garde que les puissances de 2 (sinon
-    // illisible). La première (1f) est toujours présente par construction.
-    const cap = bars.length
-    const xLabels = cap < 8
-      ? Array.from({ length: cap }, (_, i) => i + 1)
-      : [1, 2, 4, 8, 16, 32, 64, 128, 256].filter((k) => k <= cap)
-    // iter-O phase-6.2 : le contrôle du cap (icône + stepper) devient l'unique item
-    // d'un OverflowToolbar (uniformité ; le « … » n'apparaît qu'au débordement réel).
+  // iter-O phase-6.2 : le contrôle du cap (icône + stepper) est l'unique item d'un
+  // OverflowToolbar. iter-R phase-1.3a : extrait en `build*` (exposé à App).
+  const buildHarmonicsHeaderItems = () => {
     const trayLabel = (txt) => <span className="overflow-toolbar-tray-label">{txt}</span>
     const capControl = (
       <label className="we-cap-control" title={STRINGS.editor.harmonicCountTitle}>
@@ -2552,9 +2550,22 @@ function WaveformEditor({
         <AlignEndHorizontal size={16} />
       </span>
     )
-    const harmonicsItems = [
+    return [
       { id: 'cap', bar: <>{capIcon}{capControl}</>, tray: <>{trayLabel('Harmoniques :')}{capControl}</> },
     ]
+  }
+
+  const renderHarmonicsArea = () => {
+    // Modèle unifié : les barres sont les magnitudes DFT de la canonical
+    // tronquées au cap (déjà dérivées dans `amplitudes`).
+    const bars = amplitudes
+    // M.r.5.2 — étiquettes de l'axe X (`kf`). En dessous de 8 harmoniques on les
+    // étiquette toutes ; au-delà on ne garde que les puissances de 2 (sinon
+    // illisible). La première (1f) est toujours présente par construction.
+    const cap = bars.length
+    const xLabels = cap < 8
+      ? Array.from({ length: cap }, (_, i) => i + 1)
+      : [1, 2, 4, 8, 16, 32, 64, 128, 256].filter((k) => k <= cap)
     return (
       <div className="we-harmonics-area" data-anchor="designer-harmonics">
         <header className="we-area-header">
@@ -2563,7 +2574,7 @@ function WaveformEditor({
             <h3 className="we-area-title">{STRINGS.editor.harmonicsTitle}</h3>
           </div>
           <OverflowToolbar
-            items={harmonicsItems}
+            items={isMobile ? [] : buildHarmonicsHeaderItems()}
             ariaLabel="Contrôles harmoniques"
             menuLabel="Contrôles harmoniques"
           />
@@ -2703,11 +2714,13 @@ function WaveformEditor({
     </div>
   )
 
-  const renderParamsArea = () => {
-    // iter-O phase-6.2 : les contrôles compacts du header Instrument (O.3 : stepper
-    // octave + icône [⚙] système, conditionnels) deviennent des items d'un
-    // OverflowToolbar (nombre variable selon l'état ; le « … » n'apparaît qu'au
-    // débordement réel, quasi jamais ici).
+  // iter-O phase-6.2 : les contrôles compacts du header Instrument (O.3 : stepper
+  // octave + icône [⚙] système, conditionnels) deviennent des items d'un
+  // OverflowToolbar (nombre variable selon l'état ; le « … » n'apparaît qu'au
+  // débordement réel, quasi jamais ici). iter-R phase-1.3a : extrait en `build*`.
+  // En mobile, `octaveInHeader`/`instrumentCollapsed` sont faux (dégradation O.3
+  // desktop-only) → liste vide ; les contrôles système/octave vivent dans le corps.
+  const buildParamsHeaderItems = () => {
     const trayLabel = (txt) => <span className="overflow-toolbar-tray-label">{txt}</span>
     const paramsItems = []
     if (octaveInHeader && !freeMode) {
@@ -2742,6 +2755,10 @@ function WaveformEditor({
       )
       paramsItems.push({ id: 'system', bar: systemBtn, tray: <>{systemBtn}{trayLabel('Paramètres du système musical')}</> })
     }
+    return paramsItems
+  }
+
+  const renderParamsArea = () => {
     return (
     <div className="we-params-area">
       <header className="we-area-header">
@@ -2752,7 +2769,7 @@ function WaveformEditor({
         {/* iter-O phase-3/6.2 : stepper octave (étage 2) + icône [⚙] (étage 1),
             conditionnels, rendus via OverflowToolbar (returns null si vide). */}
         <OverflowToolbar
-          items={paramsItems}
+          items={isMobile ? [] : buildParamsHeaderItems()}
           ariaLabel="Contrôles instrument"
           menuLabel="Contrôles instrument"
         />
@@ -3058,6 +3075,37 @@ function WaveformEditor({
     )
   }
 
+  // iter-O phase-4/6.2 : switch Graphe/Sliders (mode compact uniquement) rendu
+  // comme item d'OverflowToolbar. is-active/aria-pressed conservés. iter-R
+  // phase-1.3a : extrait en `build*` (exposé à App). En plein cadre mobile,
+  // `adsrCompact` est mesuré sur la zone active → le switch apparaît si la zone
+  // est compacte, et est alors relogé dans la toolbar.
+  const buildAdsrHeaderItems = () => {
+    if (!adsrCompact) return []
+    const trayLabel = (txt) => <span className="overflow-toolbar-tray-label">{txt}</span>
+    const viewToggle = (
+      <div className="spline-interp-toggle" role="group" aria-label="Vue de l'enveloppe">
+        <button
+          type="button"
+          className={`icon-btn${adsrView === 'graph' ? ' is-active' : ''}`}
+          onClick={() => onSetAdsrView('graph')}
+          title="Vue graphe (courbe d'enveloppe)"
+          aria-label="Vue graphe"
+          aria-pressed={adsrView === 'graph'}
+        ><Activity size={18} /></button>
+        <button
+          type="button"
+          className={`icon-btn${adsrView === 'sliders' ? ' is-active' : ''}`}
+          onClick={() => onSetAdsrView('sliders')}
+          title="Vue sliders (6 réglages)"
+          aria-label="Vue sliders"
+          aria-pressed={adsrView === 'sliders'}
+        ><SlidersHorizontal size={18} /></button>
+      </div>
+    )
+    return [{ id: 'view', bar: viewToggle, tray: <>{trayLabel('Vue :')}{viewToggle}</> }]
+  }
+
   const renderAdsrArea = () => {
     // Commit depuis l'input ADSR : applique la valeur, et nettoie cette clé
     // dans draftAdsr si un drag de slider était en cours (sinon le slider
@@ -3176,34 +3224,6 @@ function WaveformEditor({
       </div>
     )
 
-    // iter-O phase-4/6.2 : switch Graphe/Sliders (mode compact uniquement) rendu
-    // comme item d'OverflowToolbar. is-active/aria-pressed conservés.
-    const trayLabel = (txt) => <span className="overflow-toolbar-tray-label">{txt}</span>
-    const adsrItems = []
-    if (adsrCompact) {
-      const viewToggle = (
-        <div className="spline-interp-toggle" role="group" aria-label="Vue de l'enveloppe">
-          <button
-            type="button"
-            className={`icon-btn${adsrView === 'graph' ? ' is-active' : ''}`}
-            onClick={() => onSetAdsrView('graph')}
-            title="Vue graphe (courbe d'enveloppe)"
-            aria-label="Vue graphe"
-            aria-pressed={adsrView === 'graph'}
-          ><Activity size={18} /></button>
-          <button
-            type="button"
-            className={`icon-btn${adsrView === 'sliders' ? ' is-active' : ''}`}
-            onClick={() => onSetAdsrView('sliders')}
-            title="Vue sliders (6 réglages)"
-            aria-label="Vue sliders"
-            aria-pressed={adsrView === 'sliders'}
-          ><SlidersHorizontal size={18} /></button>
-        </div>
-      )
-      adsrItems.push({ id: 'view', bar: viewToggle, tray: <>{trayLabel('Vue :')}{viewToggle}</> })
-    }
-
     return (
       <div
         className={`we-adsr-area${adsrCompact ? ' is-compact' : ''} view-${adsrView === 'sliders' ? 'sliders' : 'graph'}`}
@@ -3216,7 +3236,7 @@ function WaveformEditor({
             <h3 className="we-area-title">Enveloppe AHDSR</h3>
           </div>
           <OverflowToolbar
-            items={adsrItems}
+            items={isMobile ? [] : buildAdsrHeaderItems()}
             ariaLabel="Vue de l'enveloppe"
             menuLabel="Vue de l'enveloppe"
           />
@@ -3484,7 +3504,21 @@ function WaveformEditor({
 
   return (
     <>
-      {children({ renderCanvasArea, renderHarmonicsArea, renderParamsArea, renderAdsrArea, renderModulationArea, renderActions, patchLabel, openPresetPicker, requestResetWaveform })}
+      {children({
+        renderCanvasArea, renderHarmonicsArea, renderParamsArea, renderAdsrArea, renderModulationArea, renderActions,
+        patchLabel, openPresetPicker, requestResetWaveform,
+        // iter-R phase-1.3a : items de header de chaque module WaveformEditor,
+        // exposés comme DONNÉE (mêmes tableaux que les headers in-body desktop) →
+        // App les reloge dans la toolbar mobile pour le module actif. Modulation
+        // n'a pas de contrôle de header ; le Spectrogramme est exposé à part
+        // (composant séparé, cf. buildSpectrogramHeaderItems).
+        moduleHeaderItems: {
+          canvas: buildCanvasHeaderItems(),
+          harmonics: buildHarmonicsHeaderItems(),
+          params: buildParamsHeaderItems(),
+          adsr: buildAdsrHeaderItems(),
+        },
+      })}
       <ConfirmDialog
         open={confirmNewOpen}
         title="Nouveau patch ?"
