@@ -719,16 +719,18 @@ function WaveformEditor({
   const saveMsgTimerRef = useRef(null)
 
   // v1.1.0 : largeur de fenêtre → bascule responsive de la zone Instrument.
-  // iter-O phase-3 : dégradation à 2 étages, DESKTOP ONLY (le mode accordéon
-  // mobile a sa propre stratégie petit-écran, inchangée ici). `instrumentCollapsed`
-  // passe de width-only à (width OU height), gardé `!isMobile`.
+  // iter-O phase-3 : dégradation à 2 étages (système → [⚙] header, octaves →
+  // stepper ▴▾ header). R.3.rectif.3 : le gate `!isMobile` saute — mobile est la
+  // plus petite taille, en deçà de tous les seuils intermédiaires O.3, donc il
+  // entre désormais dans les deux étages (mêmes contrôles relogés dans le header
+  // qu'en intermédiaire desktop, via moduleHeaderItems → toolbar mobile R.1.3).
   const { w: windowWidth, h: windowHeight } = useWindowSize()
-  const instrumentCollapsed = !isMobile
-    && (windowWidth < INSTRUMENT_COLLAPSE_WIDTH || windowHeight < INSTRUMENT_COLLAPSE_HEIGHT)
+  const instrumentCollapsed = isMobile
+    || windowWidth < INSTRUMENT_COLLAPSE_WIDTH || windowHeight < INSTRUMENT_COLLAPSE_HEIGHT
   // Étage 2 : octaves → stepper ▴▾ dans le header (surtout déclenché par la
   // hauteur ; W₂ n'est qu'un filet ~accordéon).
-  const octaveInHeader = !isMobile
-    && (windowWidth < INSTRUMENT_OCTAVE_WIDTH || windowHeight < INSTRUMENT_OCTAVE_HEIGHT)
+  const octaveInHeader = isMobile
+    || windowWidth < INSTRUMENT_OCTAVE_WIDTH || windowHeight < INSTRUMENT_OCTAVE_HEIGHT
   // La modale système est hébergée en mobile (bouton full-width) ET en desktop
   // collapsé (icône [⚙] du header). Ailleurs (desktop large), pas de modale.
   const systemInModal = isMobile || instrumentCollapsed
@@ -2718,8 +2720,10 @@ function WaveformEditor({
   // octave + icône [⚙] système, conditionnels) deviennent des items d'un
   // OverflowToolbar (nombre variable selon l'état ; le « … » n'apparaît qu'au
   // débordement réel, quasi jamais ici). iter-R phase-1.3a : extrait en `build*`.
-  // En mobile, `octaveInHeader`/`instrumentCollapsed` sont faux (dégradation O.3
-  // desktop-only) → liste vide ; les contrôles système/octave vivent dans le corps.
+  // R.3.rectif.3 : en mobile, `octaveInHeader` ET `instrumentCollapsed` sont
+  // désormais vrais (mobile entre dans les deux étages O.3) → cette fonction
+  // renvoie octave stepper + [⚙], relogés dans la toolbar mobile via
+  // moduleHeaderItems.params (le header in-body, lui, reçoit `[]` — cf. ci-dessous).
   const buildParamsHeaderItems = () => {
     const trayLabel = (txt) => <span className="overflow-toolbar-tray-label">{txt}</span>
     const paramsItems = []
@@ -2776,24 +2780,12 @@ function WaveformEditor({
       </header>
 
       <div className="we-params-fields">
-        {/* Slot système (corps) — 3 cas : mobile = bouton full-width + modale
-            (inchangé) ; desktop collapsé = rien (contrôles dans la modale, ouverte
-            par l'icône [⚙] du header) ; desktop large = row inline.
+        {/* Slot système (corps) — 2 cas depuis R.3.rectif.3 : collapsé (mobile OU
+            intermédiaire desktop) = rien (contrôles dans la modale, ouverte par
+            l'icône [⚙] relogée dans le header) ; desktop large = row inline.
             La modale est dans le même arbre React (pas de portal) — son backdrop
             fixed couvre toute la fenêtre via z-index élevé. */}
-        {isMobile ? (
-          <button
-            type="button"
-            className="instrument-collapse-trigger"
-            onClick={() => setSystemModalOpen(true)}
-            title="Ouvrir les paramètres du système musical"
-          >
-            <Sliders size={16} strokeWidth={2} />
-            <span>Paramètres du système musical</span>
-          </button>
-        ) : instrumentCollapsed ? null : (
-          renderInstrumentControls()
-        )}
+        {instrumentCollapsed ? null : renderInstrumentControls()}
         {systemInModal && systemModalOpen && (
           <div
             className="instrument-modal-backdrop"

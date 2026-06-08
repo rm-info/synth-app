@@ -773,32 +773,6 @@
   display: inline;
 }
 
-/* Bouton qui remplace la row de contrôles quand la fenêtre est trop
-   étroite (< 950 px). Style cohérent avec les autres boutons d'action
-   (cyan accent, hover plus prononcé). Pleine largeur pour signaler
-   son rôle de raccourci vers un panneau de paramètres. */
-.instrument-collapse-trigger {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  width: 100%;
-  padding: 10px 14px;
-  border: 1px solid var(--surface-border-strong);
-  border-radius: 6px;
-  background: rgba(0, 212, 255, 0.05);
-  color: var(--text-muted);
-  font-size: 0.85rem;
-  font-weight: 500;
-  cursor: pointer;
-  transition: background 0.15s, border-color 0.15s, color 0.15s;
-}
-.instrument-collapse-trigger:hover {
-  background: var(--accent-bg-medium);
-  border-color: var(--accent);
-  color: var(--accent);
-}
-
 /* Modale centrée des paramètres du système musical. Backdrop fixed
    plein écran avec blur léger (cohérent avec ResolutionGate). La
    modale elle-même est plafonnée en taille pour rester confortable
