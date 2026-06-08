@@ -45,8 +45,10 @@ la suite de Q, release v1.9.1) — but : rendre le Designer utilisable sous le
 plancher accordéon (< 924×668), où l'on manque de largeur ET de hauteur. Phases :
 **R.1** (switcher de modules / hauteur — **livrée**, + correctif **R.1.3** :
 contrôles de header relogés) → R.2 (hamburger d'en-tête / largeur) → R.3
-(densification) → R.4 (orientation adaptative). **Pas de bump en R.1** ; bump
-mineur (**v1.10.0**) à la clôture de R.
+(densification) → **R.3.rectif** (correctifs petit écran — **livrée**). **R.4
+(orientation adaptative) ANNULÉE** : trop de casse pour un résultat médiocre —
+le concept « écrans minuscules » sera **repensé** plus tard. **Pas de bump en
+R.1/R.3.rectif** ; bump mineur (**v1.10.0**) à la clôture de R.
 
 **R.1 livrée** : le petit écran abandonne l'**accordéon** (barres repliées qui
 mangeaient la hauteur) au profit d'un **switcher** : une rangée d'icônes de module
@@ -100,6 +102,23 @@ toolbar, header, corps de module), textes/onglets resserrés, modale capée au v
 700×500**. Limitation **assumée** : sous ~700 px, l'interaction **tactile fine**
 (dessin au doigt, poignées) reste inadaptée sur smartphone — à la souris (fenêtre
 desktop rétrécie) c'est le cas d'usage visé ; pointer-events = backlog actif.
+
+**R.3.rectif livrée** : passe de correctifs ciblés sur le layout mobile (strictement
+`< 924×668`, desktop inchangé). (1) **Header compact aminci** — le padding vertical
+du titre/onglets (10→5px) et la taille des boutons aux (32→26px), vrais coupables de
+la hauteur via `align-items:stretch`, sont ramassés (cible ~28px ; source unique de
+hauteur sur `.tabs-compact`) ; la **version d'app** devient un item de l'OverflowToolbar
+en dernière position → **toujours visible** (inline tant qu'il y a la place, sinon dans
+le tiroir `☰` ; remplace l'ancien `trayFooter` invisible quand rien ne débordait).
+(2) **Marge gauche du layout Designer → 0** en mobile (largeur rendue, rail collé au
+bord). (3) **Module Instrument mobile aligné sur l'intermédiaire desktop** : gate
+`!isMobile` levé sur `instrumentCollapsed`/`octaveInHeader` (mobile entre dans les deux
+étages O.3) → système via `[⚙]` du header (ouvre la modale) + octave via stepper `▴▾`,
+relogés dans la toolbar mobile (moduleHeaderItems.params, R.1.3) ; le corps ne rend plus
+le bouton système full-width ni la rangée des 11 octaves (CSS `.instrument-collapse-trigger`
+retirée). (4) **DesignerToolbar mobile en `flex-wrap: wrap`** : patch + Presets/Effacer +
+switcher passent à la ligne plutôt que d'être clippés/masqués ; nom du patch en ellipsis
+(`min-width:0`) ; le 2ᵉ OverflowToolbar (contrôles du module) garde son `…`.
 
 Hygiène restante (hors itération) : purge des prompt-fichiers `archi/O*`,
 `archi/P*`, `archi/Q*`, `archi/N*`, `archi/Mr*`, `archi/M5b*` consommés.

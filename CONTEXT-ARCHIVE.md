@@ -887,8 +887,10 @@ Phases listées ci-dessous dans l'ordre chronologique d'implémentation.
   Cadrée à la suite de Q. But : rendre le Designer utilisable **sous le plancher
   accordéon** (< 924×668), où l'on manque de largeur ET de hauteur. Phases : **R.1**
   (switcher de modules / hauteur) → R.2 (hamburger d'en-tête / largeur) → R.3
-  (densification) → R.4 (orientation adaptative gauche/haut selon le ratio). **Pas
-  de bump en R.1** ; bump mineur (**v1.10.0**) à la clôture de R.
+  (densification) → R.3.rectif (correctifs petit écran). **R.4 (orientation
+  adaptative gauche/haut selon le ratio) ANNULÉE** (trop de casse — concept à
+  repenser). **Pas de bump en R.1/R.3.rectif** ; bump mineur (**v1.10.0**) à la
+  clôture de R.
   - **R.1 — Switcher de modules en petit écran (libération de la hauteur)**
     (`feat(iter-R/phase-1)`). Remplace l'**accordéon** (6 modules empilés, un déplié,
     les autres en barres repliées qui mangeaient la hauteur — ex-état volatile
@@ -1069,6 +1071,50 @@ Phases listées ci-dessous dans l'ordre chronologique d'implémentation.
       seul `max-width` peut le brider → media `<700px` `max-width` passé de `480` à
       `calc(100vw - 30px)`. (Modulation/Instrument en 500×300 gardent un scroll
       vertical — repoussé à R.4, récupération de hauteur par réorientation.)
+  - **R.3.rectif — Correctifs petit écran (< 924×668)** (`fix(iter-R/phase-3.rectif.1)`
+    → `.rectif.4`, 4 sous-commits). Passe ciblée sur le layout mobile après l'annulation
+    de R.4 ; périmètre strict `< 924×668`, **desktop inchangé**, pas de bump.
+    - **rectif.1 — header compact réellement aminci + version toujours visible**
+      (`Tabs.jsx`/`.css`). Diagnostic : la densification R.3.2 réduisait police/padding
+      des onglets mais la hauteur de barre était dictée par le padding vertical du titre
+      (`10px`) et la taille des boutons aux (`32px`), jamais réduits (`align-items:stretch`).
+      → padding vertical titre/onglets `10→5px`, boutons aux `32→26px`, **scopés
+      `.tabs-compact`** (toute la plage mobile) ; le bloc média `<700` ne touche plus le
+      vertical (source unique de hauteur). **Version d'app** : passe de `trayFooter`
+      (invisible si rien ne débordait) à **item de l'OverflowToolbar en dernière position**
+      (index le plus élevé = premier à déborder) → inline tant qu'il y a la place, sinon
+      dans le tiroir `☰`. `.tabs-version` (forme bar) padding neutralisé en compact ;
+      `.tabs-version-tray` réutilisée. Prop `trayFooter` conservée dans `OverflowToolbar`
+      (non utilisée ici).
+    - **rectif.2 — marge gauche du layout Designer → 0** (`App.css`). Sélecteur double
+      classe `.designer-layout.designer-layout-mobile { padding-left: 0 }` (spécificité
+      0,0,2,0) pour battre le `padding` shorthand du bloc densification `<700` quel que
+      soit l'ordre source. Gap interne et autres côtés intacts.
+    - **rectif.3 — Instrument mobile aligné sur l'intermédiaire desktop**
+      (`WaveformEditor.jsx`/`.css`). Gate `!isMobile` levé sur `instrumentCollapsed` et
+      `octaveInHeader` (`isMobile || width<seuil || height<seuil`) : mobile étant la plus
+      petite taille, il entre dans les deux étages O.3. `buildParamsHeaderItems()` produit
+      désormais en mobile l'octave stepper `▴▾` (`octaveInHeader && !freeMode`) + le `[⚙]`
+      (`instrumentCollapsed`), relogés dans la toolbar mobile via `moduleHeaderItems.params`
+      (mécanique R.1.3). Header in-body gardé à `items={isMobile ? [] : …}` (pas de double
+      rendu). Corps simplifié à `{instrumentCollapsed ? null : renderInstrumentControls()}`
+      (suppression de la branche `isMobile ? <bouton full-width> :`) ; `we-octave-row` déjà
+      gardée par `!octaveInHeader` → masquée d'office. CSS `.instrument-collapse-trigger`
+      retirée (plus aucune référence). Modale système : tient à 300×500 / 500×300 (capée
+      par le backdrop `padding:20px` + `width:100%; max-width:480px`).
+    - **rectif.4 — DesignerToolbar mobile : wrap** (`DesignerToolbar.css`).
+      `.designer-main-mobile .designer-toolbar` passe en `flex-wrap: wrap` (wrap vertical,
+      sans conflit avec `overflow-x: clip` des ghost rows des OT relogés) : le lot
+      patch/Presets/Effacer et le switcher passent à la ligne plutôt que d'être
+      clippés/poussés hors champ. Nom du patch (`.we-sound-tag`) : `min-width:0` scopé
+      mobile pour autoriser l'ellipsis (overflow/nowrap déjà en base). Le 2ᵉ OverflowToolbar
+      (contrôles du module relogés) garde son `…`.
+    - **Vérif** : `npm run lint` (0 erreurs, 4 warnings `exhaustive-deps` préexistants) +
+      `npx tsc --noEmit` propres.
+  - **R.4 — orientation adaptative : ANNULÉE.** Tentée puis **annulée en bloc** (trop de
+    casse pour un résultat médiocre). Le concept « écrans minuscules » (réorientation
+    gauche/haut selon le ratio pour récupérer de la hauteur) sera **repensé** plus tard.
+    R.3.rectif a stabilisé l'existant R.3 en attendant.
 
 - **2026-06-07 — Iteration Q « Désencombrement du Designer » — CLOSE. Release
   v1.9.1.** Petite itération de suite après P.6 : P.6.2 ayant ajouté des
