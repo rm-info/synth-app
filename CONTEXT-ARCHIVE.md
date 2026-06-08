@@ -1109,6 +1109,14 @@ Phases listées ci-dessous dans l'ordre chronologique d'implémentation.
       clippés/poussés hors champ. Nom du patch (`.we-sound-tag`) : `min-width:0` scopé
       mobile pour autoriser l'ellipsis (overflow/nowrap déjà en base). Le 2ᵉ OverflowToolbar
       (contrôles du module relogés) garde son `…`.
+    - **rectif.5 — module Modulation : débordement de qq px à hauteur rare**
+      (`fix(iter-R/phase-3.rectif.5)`, retour de test). À 500×300, ascenseur vertical
+      interne (~4px) : contrairement aux autres modules (canvas `flex:1`, compressible),
+      Modulation empile **deux graphes LFO à hauteur fixe** (92px, incompressibles).
+      `@media (max-height: 499px) { .designer-mobile-panel .we-lfo-canvas { height: 80px } }`
+      — rabotage ciblé sur la hauteur (pas en portrait 300×500 où la hauteur abonde).
+      Le canvas redimensionne son backing store sur `clientHeight` (DPR) → pas de
+      déformation, le tracé s'adapte.
     - **Vérif** : `npm run lint` (0 erreurs, 4 warnings `exhaustive-deps` préexistants) +
       `npx tsc --noEmit` propres.
   - **R.4 — orientation adaptative : ANNULÉE.** Tentée puis **annulée en bloc** (trop de
