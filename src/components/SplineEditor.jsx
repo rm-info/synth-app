@@ -325,12 +325,15 @@ function SplineEditor({
     return picked
   }
 
-  // --- Interactions souris ---
-  const handleMouseDown = (e) => {
-    if (e.button !== 0) return // clic gauche seulement (le droit ouvre le menu)
+  // --- Interactions pointeur (souris + tactile + stylet, S.2.2) ---
+  const handlePointerDown = (e) => {
+    if (e.button !== 0) return // clic gauche / doigt seulement (le droit ouvre le menu)
     setMenu(null)
     const idx = hitTest(e)
     if (idx !== null) {
+      // Capture : le drag d'ancre suit le pointeur même hors cadre (apport clé
+      // au doigt) et `pointerup` revient à cet élément → fin de geste fiable.
+      e.currentTarget.setPointerCapture?.(e.pointerId)
       setSelectedIdx(idx)
       draggingIdxRef.current = idx
       setDraftAnchors(anchors.slice())
@@ -342,7 +345,7 @@ function SplineEditor({
     onAddAnchor(x, y)
   }
 
-  const handleMouseMove = (e) => {
+  const handlePointerMove = (e) => {
     if (draggingIdxRef.current === null) {
       const idx = hitTest(e)
       if (idx !== hoverIdx) setHoverIdx(idx)
@@ -370,10 +373,15 @@ function SplineEditor({
     setDraftAnchors(null)
   }
 
-  const handleMouseUp = () => commitDrag()
-  const handleMouseLeave = () => {
-    setHoverIdx(null)
-    commitDrag()
+  const handlePointerUp = () => commitDrag()
+  // Survol seul : la capture empêche `leave` de se déclencher pendant le drag,
+  // donc on ne ferme PLUS le geste ici (sinon tracé hors-cadre cassé) — reset hover.
+  const handlePointerLeave = () => setHoverIdx(null)
+  // Interruption système (pointercancel) : abandon du draft d'ancre, rien n'est
+  // dispatché (discipline d'undo : un seul cran au vrai commit, rien si annulé).
+  const handlePointerCancel = () => {
+    draggingIdxRef.current = null
+    setDraftAnchors(null)
   }
 
   const handleContextMenu = (e) => {
@@ -440,10 +448,11 @@ function SplineEditor({
         <canvas
           ref={canvasRef}
           style={{ cursor }}
-          onMouseDown={handleMouseDown}
-          onMouseMove={handleMouseMove}
-          onMouseUp={handleMouseUp}
-          onMouseLeave={handleMouseLeave}
+          onPointerDown={handlePointerDown}
+          onPointerMove={handlePointerMove}
+          onPointerUp={handlePointerUp}
+          onPointerCancel={handlePointerCancel}
+          onPointerLeave={handlePointerLeave}
           onContextMenu={handleContextMenu}
         />
         {/* M.r.5.bis.1 — bornes ±1 portées par le marqueur canvas (suit l'auto-fit

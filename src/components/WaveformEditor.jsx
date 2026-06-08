@@ -1040,7 +1040,10 @@ function WaveformEditor({
 
   const lastPointRef = useRef(null)
 
-  const handleMouseDown = (e) => {
+  const handlePointerDown = (e) => {
+    // Capture : le tracé survit à la sortie de l'élément (remplace la mitigation
+    // DRAW_MARGIN ; plus de perte de geste au bord, y compris à la souris).
+    e.currentTarget.setPointerCapture?.(e.pointerId)
     setIsDrawing(true)
     const pt = getCanvasPoint(e)
     lastPointRef.current = pt
@@ -1049,7 +1052,7 @@ function WaveformEditor({
     setDraftPoints(next)
   }
 
-  const handleMouseMove = (e) => {
+  const handlePointerMove = (e) => {
     if (!isDrawing) return
     const pt = getCanvasPoint(e)
     const last = lastPointRef.current
@@ -1077,25 +1080,21 @@ function WaveformEditor({
     }
   }
 
-  const handleMouseUp = () => {
+  // up ET cancel (interruption système) : même fin de geste = commit du draft en
+  // cours (sémantique du up préservée), ce qui libère le draft (pas d'état collé).
+  // Plus de handleMouseLeave : la capture empêche `leave` pendant le tracé, et le
+  // canvas Libre n'a pas d'indicateur de survol à reset.
+  const handlePointerUp = () => {
     setIsDrawing(false)
     lastPointRef.current = null
     commitDraftPoints()
   }
 
-  const handleMouseLeave = () => {
-    if (isDrawing) {
-      setIsDrawing(false)
-      lastPointRef.current = null
-      commitDraftPoints()
-    }
-  }
-
   // --- iter-M phase-2.3 : édition des barres d'harmoniques (mode harmonic) ---
-  // Une barre à la fois : le mousedown verrouille l'index (depuis x), le drag
-  // n'ajuste plus que sa hauteur (depuis y). Commit unique au mouseup → un
+  // Une barre à la fois : le pointerdown verrouille l'index (depuis x), le drag
+  // n'ajuste plus que sa hauteur (depuis y). Commit unique au pointerup → un
   // seul cran undo par geste. (Le sweep horizontal multi-barres est différé,
-  // cf. BACKLOG.)
+  // cf. BACKLOG.) S.2.3 : Pointer Events + capture (drag tient hors de la barre).
   const harmonicsContainerRef = useRef(null)
   const dragBarRef = useRef(null)
   // Valeur de la barre AVANT le drag (lue sur canonical), capturée au mousedown.
@@ -1122,11 +1121,11 @@ function WaveformEditor({
     return Math.min(count - 1, Math.floor(xPct * count))
   }
 
-  const handleHarmonicMouseDown = (e) => {
+  const handleHarmonicPointerDown = (e) => {
     const index = harmonicIndexFromEvent(e, amplitudes.length)
     // M.r.5.bis.3 — clic droit = raccourci « éteindre cette harmonique » (mise à
     // zéro). Aucun draft/drag initié (sinon un draft resterait coincé à attendre
-    // un mouseup gauche qui ne viendra pas). La garde de phase edit-bars
+    // un pointerup gauche qui ne viendra pas). La garde de phase edit-bars
     // s'applique comme au clic gauche : si la canonical n'est pas normalisée, le
     // dialog (value:0) précède l'opération — pas de raccourci silencieux qui
     // contournerait la convention de phase. Le menu contextuel natif est bloqué
@@ -1150,13 +1149,14 @@ function WaveformEditor({
       setPendingBarEdit({ index, value })
       return
     }
+    e.currentTarget.setPointerCapture?.(e.pointerId)
     dragBarRef.current = index
     dragBarInitialRef.current = amplitudes[index]
     const next = Array.from(draftAmplitudes ?? amplitudes)
     next[index] = value
     setDraftAmplitudes(next)
   }
-  const handleHarmonicMouseMove = (e) => {
+  const handleHarmonicPointerMove = (e) => {
     if (dragBarRef.current === null) return
     const index = dragBarRef.current
     const next = Array.from(draftAmplitudes ?? amplitudes)
@@ -1173,9 +1173,12 @@ function WaveformEditor({
     }
     setDraftAmplitudes(null)
   }
-  const handleHarmonicMouseUp = () => commitHarmonicDraft()
-  const handleHarmonicMouseLeave = () => {
-    if (dragBarRef.current !== null) commitHarmonicDraft()
+  const handleHarmonicPointerUp = () => commitHarmonicDraft()
+  // pointercancel (interruption système) : abandon du draft sans dispatch.
+  const handleHarmonicPointerCancel = () => {
+    dragBarRef.current = null
+    dragBarInitialRef.current = null
+    setDraftAmplitudes(null)
   }
 
   // --- Instrument live (E.3) : play at mousedown, release at mouseup ---
@@ -2501,10 +2504,10 @@ function WaveformEditor({
         <div className="canvas-container" ref={attachCanvasContainer}>
           <canvas
             ref={canvasRef}
-            onMouseDown={handleMouseDown}
-            onMouseMove={handleMouseMove}
-            onMouseUp={handleMouseUp}
-            onMouseLeave={handleMouseLeave}
+            onPointerDown={handlePointerDown}
+            onPointerMove={handlePointerMove}
+            onPointerUp={handlePointerUp}
+            onPointerCancel={handlePointerUp}
           />
           {/* M.r.5.1 — les bornes ±1 sont désormais portées par le marqueur
               pointillé dessiné dans le canvas (il suit l'auto-fit Y) ; seul le
@@ -2594,10 +2597,10 @@ function WaveformEditor({
           <div
             className={`we-harmonics-bars${isNormalized ? '' : ' is-unnormalized'}`}
             ref={harmonicsContainerRef}
-            onMouseDown={handleHarmonicMouseDown}
-            onMouseMove={handleHarmonicMouseMove}
-            onMouseUp={handleHarmonicMouseUp}
-            onMouseLeave={handleHarmonicMouseLeave}
+            onPointerDown={handleHarmonicPointerDown}
+            onPointerMove={handleHarmonicPointerMove}
+            onPointerUp={handleHarmonicPointerUp}
+            onPointerCancel={handleHarmonicPointerCancel}
             onContextMenu={(e) => e.preventDefault()}
           >
             {/* Repères horizontaux 0 / 0.5 / 1, sous les barres (overlay). */}
@@ -2839,16 +2842,17 @@ function WaveformEditor({
                 {...sliderCommitter(commitDraftFreq)}
               />
               {/* iter G phase 1.3 : bouton Test (mode Libre uniquement).
-                  Calé sur testFrequency, raccourci 's'. mouseUp + mouseLeave
-                  garantissent le release même si la souris quitte le bouton
-                  avant le relâchement. onContextMenu désactivé pour éviter
-                  un menu contextuel qui mange le mouseup. */}
+                  Calé sur testFrequency, raccourci 's'. S.2.5 : Pointer Events
+                  + capture → release fiable (pointerup) ; pointercancel et
+                  pointerleave relâchent aussi si actif (pas de note collée).
+                  onContextMenu désactivé pour éviter un menu qui mange le up. */}
               <button
                 type="button"
                 className={`free-test-btn${freeNoteActive ? ' is-active' : ''}`}
-                onMouseDown={(e) => { e.preventDefault(); playFreeNote() }}
-                onMouseUp={releaseFreeNote}
-                onMouseLeave={() => { if (freeNoteActive) releaseFreeNote() }}
+                onPointerDown={(e) => { e.preventDefault(); e.currentTarget.setPointerCapture?.(e.pointerId); playFreeNote() }}
+                onPointerUp={releaseFreeNote}
+                onPointerCancel={() => { if (freeNoteActive) releaseFreeNote() }}
+                onPointerLeave={() => { if (freeNoteActive) releaseFreeNote() }}
                 onContextMenu={(e) => e.preventDefault()}
                 title="Tester le son à la fréquence courante (touche s)"
                 aria-pressed={freeNoteActive}

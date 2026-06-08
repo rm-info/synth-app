@@ -274,6 +274,11 @@
   background: var(--canvas-bg, var(--surface-bg));
   cursor: ns-resize;
   overflow: hidden;
+  /* S.2.3 — barres en Pointer Events : pas de scroll/zoom ni sélection au geste. */
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
 }
 .we-harmonics-bars.is-readonly {
   cursor: default;
@@ -465,6 +470,12 @@
   cursor: crosshair;
   background: var(--surface-bg);
   box-sizing: border-box;
+  /* S.2 — surface de jeu (Forme d'onde Libre + SplineEditor) en Pointer Events :
+     neutralise scroll/zoom du navigateur sur le geste + sélection/callout iOS. */
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
 }
 /* iter-M phase-2.4 : Forme d'onde read-only (mode harmonique) — pas de
    curseur d'édition (la courbe est dérivée des barres). */
@@ -887,6 +898,10 @@
   font-weight: 600;
   cursor: pointer;
   user-select: none;
+  -webkit-user-select: none;
+  /* S.2.5 — « appui = son » en Pointer Events : pas de scroll/zoom ni callout iOS. */
+  touch-action: none;
+  -webkit-touch-callout: none;
   transition: background 0.15s, transform 0.05s;
 }
 .free-test-btn:hover {
