@@ -883,6 +883,38 @@ Phases listées ci-dessous dans l'ordre chronologique d'implémentation.
 
 ## Historique (chronologie inverse)
 
+- **2026-06-08 — Iteration S « Support tactile au doigt (web pur) » — OUVERTE.**
+  (Suite de R.) But : confort tactile + PWA, sans lib audio ni dépendance npm
+  ajoutée. **S.1 — Shell viewport, gestes globaux & PWA légère** (`feat(iter-S/
+  phase-1)`, 2 sous-commits + doc) :
+  - **S.1.1 — Shell non-scrollable** : `src/index.css` — `html, body { height:100% }`,
+    `body { overflow:hidden; overscroll-behavior:none }` (tue pull-to-refresh +
+    scroll-chaining Chrome/Android ; sur iOS le body non-scrollable + hauteur fixe
+    empêche le rubber-band), `#root` passe de `min-height:100svh` à `height:100%`.
+    `.app { height:100dvh; overflow:hidden }` laissé tel quel : comme la page ne
+    scrolle plus, la barre d'URL ne bascule plus → `dvh` stable → plus de reflow de
+    canvas. **Verrou = scroll de page seul** ; les conteneurs internes scrollables
+    sont préservés.
+  - **S.1.2 — Viewport meta & safe-area** : `index.html` viewport
+    `+ viewport-fit=cover` (zoom utilisateur conservé, pas de `user-scalable=no`) ;
+    `.tabs` (Tabs.css) `+ padding-top: env(safe-area-inset-top, 0px)` pour que
+    l'en-tête ne passe pas sous l'encoche en standalone (inerte hors encoche).
+    Insets latéraux jugés non nécessaires (minimal).
+  - **S.1.3 — Manifest PWA + métas** : `public/manifest.webmanifest` (name
+    On_Synth_App, standalone, scope/start `/`, theme/bg `#0f0f1a`). `index.html` :
+    `<link rel="manifest">`, deux `theme-color` (dark `#0f0f1a` / light `#f4f5f7`),
+    métas iOS `apple-mobile-web-app-capable/status-bar-style(black-translucent)/title`.
+  - **S.1.4 — Icônes : BLOQUÉ → décision archi**. Aucun rasteriseur SVG système
+    (ImageMagick/rsvg-convert/Inkscape/resvg/cairosvg/Chromium headless) sur la
+    machine ; contrainte = pas de dépendance npm (sharp/resvg interdits). Décision
+    archi : **manifest SVG-only temporaire** — `icons` = seule entrée
+    `favicon.svg` (`sizes:any`), `apple-touch-icon` omis du `<head>`. **Dette**
+    (apple-touch-icon 180×180 + icon-maskable 512×512) suivie au BACKLOG côté archi.
+  - **S.1.5 — Service worker** : NON posé (surface minimale). Conditionnel à un
+    test d'install Android non réalisable ici ; le standalone iOS et l'install
+    Chrome récente n'exigent pas de SW. À ajouter (`public/sw.js` passthrough strict
+    sans cache, enregistré depuis `main.jsx` après `load`) **uniquement si** un test
+    sur appareil réel montre que l'install Android ne se déclenche pas.
 - **2026-06-08 — Iteration R « Refonte petit écran du Designer » — CLOSE. Release
   v1.10.0.** (Ouverte 2026-06-07 à la suite de Q.) But : rendre le Designer utilisable
   **sous le plancher accordéon** (< 924×668), où l'on manque de largeur ET de hauteur.

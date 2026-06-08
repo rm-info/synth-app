@@ -41,10 +41,12 @@ framework UI (CSS manuscrit), pas de routing, pas de backend.
 | Q | Désencombrement Designer : retrait auto-sizing + bouton « Égaliser » deux rangées + fix taille boutons spectro — v1.9.1 | 2026-06-07 |
 | R | Refonte petit écran Designer : switcher de modules (un module plein cadre), top header priority-plus + hamburger, gate orientation-aware 300/500 + densification < 700×500, correctifs mobile (R.3.rectif) ; R.4 (orientation) annulée — v1.10.0 | 2026-06-08 |
 
-**État courant** : **Iteration R close** (release **v1.10.0**, 2026-06-08) —
-refonte petit écran du Designer. **Entre deux itérations** : prochaine pressentie
-= **itération S (support tactile)**. Détail par-phase de R dans `CONTEXT-ARCHIVE.md`
-(Historique + Roadmaps des itérations closes + « Itération terminée : R »).
+**État courant** : **Iteration S ouverte** (support tactile au doigt, web pur ;
+pas encore de bump — dernière release v1.10.0). **S.1 livré** : shell
+non-scrollable (fin du pull-to-refresh / bascule barre d'URL) + safe-area + PWA
+légère standalone (manifest SVG-only, dette icônes PNG au BACKLOG). Suite : S.2
+= Pointer Events / `touch-action` sur les surfaces. Détail par-phase de R (close,
+v1.10.0) dans `CONTEXT-ARCHIVE.md`.
 
 > **Structure des fichiers de contexte.** Ce `CONTEXT.md` est le **brief
 > vivant** : état présent, modèle de données, composants, architecture,
@@ -1001,6 +1003,18 @@ Seuls les **placements timeline** s'appellent "clips".
 Choix non évidents pris pour de bonnes raisons. À ne pas remettre en question
 à la légère — relire ici avant de refactorer.
 
+- **Shell non-scrollable + PWA standalone sans dépendance (iter-S S.1)** : le
+  scroll **de page** est verrouillé au niveau `html`/`body`/`#root`
+  (`overflow:hidden`, `height:100%`, `overscroll-behavior:none`) — **jamais** sur
+  les conteneurs internes (panneau module mobile, Documentation, Bibliothèque,
+  tiroirs, modales), qui gardent leur `overflow-y:auto`. But : tuer le
+  pull-to-refresh + la bascule de la barre d'URL mobile (qui faisait varier `dvh`
+  et reflowait les canvas). La PWA est **légère** : manifest standalone + métas,
+  **sans service worker à cache** (offline réel écarté) et **sans aucune
+  dépendance npm**. Contrainte dure : la rasterisation d'icônes passe par un
+  **outil système** ou rien — jamais sharp/resvg/… en douce. Tant qu'aucun
+  rasteriseur n'est dispo, le manifest reste **SVG-only** (PNG iOS/maskable en
+  dette BACKLOG, icône iOS générique assumée).
 - **Modulations par patch via helper partagé sur les 4 chemins (iter-P)** : le
   vibrato et le trémolo sont des **LFO par patch** (pas par clip — pas de champ de
   modulation sur `Clip`). Un **helper unique** `lib/modulation.js` (`applyModulation`)
@@ -2071,6 +2085,32 @@ Conventions tacites. Les enfreindre sans raison crée des bugs subtils.
   stocké dans le type Clip. Ne pas ajouter de champ `lane` au modèle.
 
 ## État actuel
+
+🚧 **En cours — Iteration S « Support tactile au doigt (web pur) »** (ouverte
+2026-06-08 ; pas de bump avant clôture de S). Pose l'assise tactile/PWA.
+**Aucune migration d'entrée encore** (Pointer Events + `touch-action` = S.2).
+- **S.1 — Shell viewport + gestes globaux + PWA légère (livré)** :
+  - **Shell non-scrollable** : `html/body { height:100% }`, `body { overflow:hidden;
+    overscroll-behavior:none }`, `#root { height:100% }` (ex `min-height:100svh`).
+    → plus de pull-to-refresh ni de scroll-chaining ; la barre d'URL mobile ne
+    bascule plus → `100dvh` stable → plus de reflow parasite des canvas. Le verrou
+    porte sur le **scroll de page seul** : panneau module mobile, Documentation,
+    listes Bibliothèque, tiroirs et modales gardent leur `overflow-y:auto`.
+  - **Safe-area** : `viewport-fit=cover` (index.html) + `padding-top:
+    env(safe-area-inset-top)` sur `.tabs` (l'en-tête ne passe plus sous l'encoche
+    en standalone ; inerte hors encoche). Zoom utilisateur conservé (a11y).
+  - **PWA légère** : `public/manifest.webmanifest` (standalone, installable) +
+    `index.html` (lien manifest, deux `theme-color` dark/light, métas iOS
+    capable/status-bar/title). **Manifest SVG-only** : icône `favicon.svg`
+    (`sizes:any`) seule ; `apple-touch-icon` 180 + `icon-maskable` 512 en **dette**
+    (aucun rasteriseur système dispo, aucune dépendance npm ajoutée — décision
+    archi, suivi BACKLOG). `apple-touch-icon` omis du `<head>` (iOS ne rasterise
+    pas le SVG → icône générique temporaire).
+  - **Service worker NON posé** (surface minimale) : conditionnel à un test
+    d'install Android non réalisable dans l'environnement. À ajouter
+    (`public/sw.js` passthrough strict, **sans cache**, enregistré depuis
+    `main.jsx`) **seulement si** l'install Android ne se déclenche pas avec
+    manifest + icône — à vérifier sur appareil réel.
 
 ✅ **Terminé**
 - **Iteration R — « Refonte petit écran du Designer » (close, v1.10.0)**. État
