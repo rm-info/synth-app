@@ -711,6 +711,7 @@ function WaveformEditor({
 
   const [isDrawing, setIsDrawing] = useState(false)
   const [draggingHandle, setDraggingHandle] = useState(null)
+  const adsrOwnerRef = useRef(null) // S.3.1 : garde mono-pointeur (un seul drag de poignée)
   // F.3.13.2 : handle survolé + position px du centre (pour le tooltip).
   // Calcul à event-time (la lecture du ref pendant le render serait refusée
   // par ESLint react-hooks/refs). Re-render au plus 4 fois par geste de la
@@ -780,6 +781,7 @@ function WaveformEditor({
   // à échelle gelée tant que le drag dure (sinon la fenêtre se redimensionnerait
   // sous la poignée). Recalculée au prochain drag.
   const modDragGeomRef = useRef(null)
+  const modOwnerRef = useRef(null) // S.3.2 : garde mono-pointeur (un seul drag de poignée LFO)
   const dragging = draftMod != null
   useEffect(() => {
     const subs = [
@@ -2207,7 +2209,8 @@ function WaveformEditor({
     })
   }
 
-  const handleAdsrMouseDown = (e) => {
+  const handleAdsrPointerDown = (e) => {
+    if (adsrOwnerRef.current !== null) return // un pointeur possède déjà un drag
     const pos = getAdsrPos(e)
     // F.3.13.4 : à hold=0, P1 et P1h se superposent ; minDist tie-break
     // au PREMIER candidat testé. On teste P1h en premier → drag depuis
@@ -2232,6 +2235,8 @@ function WaveformEditor({
       }
     }
     if (picked !== null) {
+      adsrOwnerRef.current = e.pointerId
+      e.currentTarget.setPointerCapture?.(e.pointerId)
       setDraggingHandle(picked)
       applyHandleDrag(picked, pos)
     }
@@ -2263,9 +2268,10 @@ function WaveformEditor({
     return picked
   }
 
-  const handleAdsrMouseMove = (e) => {
+  const handleAdsrPointerMove = (e) => {
     const pos = getAdsrPos(e)
     if (draggingHandle) {
+      if (e.pointerId !== adsrOwnerRef.current) return // ignore les non-propriétaires
       applyHandleDrag(draggingHandle, pos)
       return
     }
@@ -2291,9 +2297,10 @@ function WaveformEditor({
     }
   }
 
-  const handleAdsrMouseLeave = () => {
+  // Survol seul (la capture empêche `leave` pendant le drag → on n'y termine plus
+  // le geste, sinon drag hors-cadre cassé) : reset du tooltip.
+  const handleAdsrPointerLeave = () => {
     setHover(null)
-    endAdsrDrag()
   }
 
   // Filtre no-op partagé : ne garde que les clés du patch dont la valeur
@@ -2335,6 +2342,21 @@ function WaveformEditor({
     } else if (ampChanged) {
       editorActions.setAmplitude(draftAmp)
     }
+    setDraftAdsr(null)
+    setDraftAmp(null)
+  }
+
+  // S.3.1 — fin de geste pointeur : commit (up, sémantique inchangée) ; le
+  // pointercancel (interruption système) abandonne le draft sans dispatch.
+  const handleAdsrPointerUp = (e) => {
+    if (e.pointerId !== adsrOwnerRef.current) return
+    adsrOwnerRef.current = null
+    endAdsrDrag()
+  }
+  const handleAdsrPointerCancel = (e) => {
+    if (e.pointerId !== adsrOwnerRef.current) return
+    adsrOwnerRef.current = null
+    setDraggingHandle(null)
     setDraftAdsr(null)
     setDraftAmp(null)
   }
@@ -3278,10 +3300,11 @@ function WaveformEditor({
               style={{
                 cursor: draggingHandle ? 'grabbing' : (hover ? 'grab' : 'default'),
               }}
-              onMouseDown={handleAdsrMouseDown}
-              onMouseMove={handleAdsrMouseMove}
-              onMouseUp={endAdsrDrag}
-              onMouseLeave={handleAdsrMouseLeave}
+              onPointerDown={handleAdsrPointerDown}
+              onPointerMove={handleAdsrPointerMove}
+              onPointerUp={handleAdsrPointerUp}
+              onPointerCancel={handleAdsrPointerCancel}
+              onPointerLeave={handleAdsrPointerLeave}
             />
             <AdsrTooltip
               handleIdx={draggingHandle ? null : hover?.idx}
@@ -3350,11 +3373,14 @@ function WaveformEditor({
     setDraftMod({ effect: fg.effect, key: fg.key, value })
   }
 
-  const handleModMouseDown = (effect, lfo, e) => {
+  const handleModPointerDown = (effect, lfo, e) => {
     if (!lfo.enabled) return
+    if (modOwnerRef.current !== null) return // un pointeur possède déjà un drag LFO
     const hit = modHitTest(effect, lfo, e)
     if (!hit.key) return
     e.preventDefault()
+    modOwnerRef.current = e.pointerId
+    e.currentTarget.setPointerCapture?.(e.pointerId)
     modDragGeomRef.current = {
       effect, key: hit.key, canvas: modCanvasFor(effect), depthMax: modDepthMax(effect),
       marginL: hit.g.marginL, usableW: hit.g.usableW, midY: hit.g.midY,
@@ -3364,8 +3390,11 @@ function WaveformEditor({
     setDraftMod({ effect, key: hit.key, value: lfo[hit.key] })
   }
 
-  const handleModMouseMove = (effect, lfo, e) => {
-    if (modDragGeomRef.current) { applyModDrag(e); return }
+  const handleModPointerMove = (effect, lfo, e) => {
+    if (modDragGeomRef.current) {
+      if (e.pointerId !== modOwnerRef.current) return // ignore les non-propriétaires
+      applyModDrag(e); return
+    }
     if (!lfo.enabled) { if (modHover) setModHover(null); return }
     const hit = modHitTest(effect, lfo, e)
     if (!hit.key) { if (modHover) setModHover(null); return }
@@ -3387,9 +3416,22 @@ function WaveformEditor({
     setDraftMod(null)
   }
 
-  const handleModMouseLeave = () => {
+  // Survol seul (capture → pas de `leave` pendant le drag) : reset du tooltip.
+  const handleModPointerLeave = () => {
     setModHover(null)
-    if (modDragGeomRef.current) endModDrag()
+  }
+  // S.3.2 — fin de geste : up = commit (endModDrag, discipline d'undo inchangée) ;
+  // pointercancel = abandon du draftMod sans dispatch.
+  const handleModPointerUp = (e) => {
+    if (e.pointerId !== modOwnerRef.current) return
+    modOwnerRef.current = null
+    endModDrag()
+  }
+  const handleModPointerCancel = (e) => {
+    if (e.pointerId !== modOwnerRef.current) return
+    modOwnerRef.current = null
+    modDragGeomRef.current = null
+    setDraftMod(null)
   }
 
   // itération P — 6ᵉ module « Modulation ». Deux sous-blocs symétriques
@@ -3447,10 +3489,11 @@ function WaveformEditor({
                 cursor: (draftMod && draftMod.effect === effect) ? 'grabbing'
                   : (modHover && modHover.effect === effect ? 'grab' : 'default'),
               }}
-              onMouseDown={(e) => handleModMouseDown(effect, lfo, e)}
-              onMouseMove={(e) => handleModMouseMove(effect, lfo, e)}
-              onMouseUp={endModDrag}
-              onMouseLeave={handleModMouseLeave}
+              onPointerDown={(e) => handleModPointerDown(effect, lfo, e)}
+              onPointerMove={(e) => handleModPointerMove(effect, lfo, e)}
+              onPointerUp={handleModPointerUp}
+              onPointerCancel={handleModPointerCancel}
+              onPointerLeave={handleModPointerLeave}
             />
             <LfoTooltip
               handle={(draftMod && draftMod.effect === effect) ? null
