@@ -16,7 +16,7 @@ persistance localStorage (clé `synth-app-state`). **TypeScript incrémental**
 lib audio, pas de state manager (un `useReducer` global dans `App.jsx`), pas de
 framework UI (CSS manuscrit), pas de routing, pas de backend.
 
-**Version courante : v1.9.1** (2026-06-07).
+**Version courante : v1.10.0** (2026-06-08).
 
 **Itérations livrées** (détail complet dans `CONTEXT-ARCHIVE.md`) :
 
@@ -39,89 +39,12 @@ framework UI (CSS manuscrit), pas de routing, pas de backend.
 | O | Ergonomie & responsive Designer : steppers, OverflowToolbar généralisé, responsive Instrument/AHDSR, gestionnaire de modules (collapse/maximize/auto-collapse), titres ellipsis — v1.7.0 | 2026-06-06 |
 | P | Effets & modulations : vibrato & trémolo (LFO par patch) — helper audio partagé sur les 4 chemins, 6ᵉ module Designer, .osa v3 ; + édition visuelle LFO & polish responsive (P.5/P.6) — v1.9.0 | 2026-06-07 |
 | Q | Désencombrement Designer : retrait auto-sizing + bouton « Égaliser » deux rangées + fix taille boutons spectro — v1.9.1 | 2026-06-07 |
+| R | Refonte petit écran Designer : switcher de modules (un module plein cadre), top header priority-plus + hamburger, gate orientation-aware 300/500 + densification < 700×500, correctifs mobile (R.3.rectif) ; R.4 (orientation) annulée — v1.10.0 | 2026-06-08 |
 
-**État courant** : **Iteration R « Refonte petit écran du Designer »** ouverte (à
-la suite de Q, release v1.9.1) — but : rendre le Designer utilisable sous le
-plancher accordéon (< 924×668), où l'on manque de largeur ET de hauteur. Phases :
-**R.1** (switcher de modules / hauteur — **livrée**, + correctif **R.1.3** :
-contrôles de header relogés) → R.2 (hamburger d'en-tête / largeur) → R.3
-(densification) → **R.3.rectif** (correctifs petit écran — **livrée**). **R.4
-(orientation adaptative) ANNULÉE** : trop de casse pour un résultat médiocre —
-le concept « écrans minuscules » sera **repensé** plus tard. **Pas de bump en
-R.1/R.3.rectif** ; bump mineur (**v1.10.0**) à la clôture de R.
-
-**R.1 livrée** : le petit écran abandonne l'**accordéon** (barres repliées qui
-mangeaient la hauteur) au profit d'un **switcher** : une rangée d'icônes de module
-dans la `DesignerToolbar` (`.designer-module-switcher`, mobile only) sélectionne
-**un seul module affiché plein cadre** dans la zone centrale ; toute la hauteur va
-au module ouvert. Les 6 corps restent **montés en permanence** (contrainte canvas /
-RO — masqués en `display:none`, l'actif en `display:flex`). Nouveau champ persisté
-**`designerMobileModule`** (∈ les 6 ids, défaut `'canvas'`, validé à l'hydratation)
-— remplace l'ex-état volatile/nullable `mobileExpandedZone` ; **toujours exactement
-un module actif** (clic sur l'actif = no-op). Gating rAF de la mini-courbe LFO
-rebranché sur `designerMobileModule === 'modulation'`. **Desktop ≥ 924×668
-inchangé.**
-
-**R.1.3 livrée** (correctif) : R.1 masquait les **headers internes** des modules en
-petit écran → leurs contrôles (toggle Libre/Ancres, cap, live/dB/peak, etc.)
-disparaissaient. Désormais les **contrôles de header du module actif** sont
-**relogés dans la `DesignerToolbar`**, après le switcher, dans un **2ᵉ
-`OverflowToolbar`** (séparateur en `prefix`, libellé « Contrôles du module ») — le
-trop-plein file dans un `…` ; aucun groupe rendu si le module actif n'a pas de
-contrôle (Modulation, ou Instrument/AHDSR selon conditions). Disposition (R.1.3c) :
-`[patch · Presets · Reset] ┊ [switcher 6 icônes] … [contrôles module actif]` — le
-**switcher est ancré à gauche** (immobile : toolbar mobile en `flex-start`, switcher
-`flex:0`), les contrôles à droite ; absents, le switcher **ne drifte pas**. Les
-items de header
-sont exposés comme **donnée** (pas de double rendu) : `WaveformEditor` les remonte
-via la children-API (`moduleHeaderItems` = { canvas, harmonics, params, adsr }) ; le
-Spectrogramme via le helper partagé `buildSpectrogramHeaderItems`
-(`components/spectrogramControls.jsx`). En mobile, les headers in-body ne rendent
-**rien** (items `[]`).
-
-**R.2 livrée** : le **top header** (`Tabs`) passe en **priority-plus** sous 924×668
-— titre à gauche (tronquable), puis un `OverflowToolbar` qui reloge onglets +
-auxiliaires, le trop-plein filant dans un **hamburger** (`Menu`) à droite. Ordre de
-priorité (gardé le plus longtemps → premier à déborder) : **Création · Composition ·
-Bibliothèque · Documentation · thème · raccourcis · visite** — donc en compact
-l'ordre visuel mène par Création/Composition (≠ desktop, où Bibliothèque est en
-tête). Aucun item épinglé. `OverflowToolbar` gagne une prop `triggerIcon` (défaut
-`⋯`). Ancre Tour `header-tabs-zone` préservée (sur le conteneur compact,
-`visibility:hidden` pendant la visite). **Desktop ≥ 924×668 inchangé.** Limite
-connue : en compact, la *ghost row* de l'OT duplique les `data-anchor` des boutons
-aux → l'overlay Ctrl+K peut mal s'ancrer (dégrade proprement, non bloquant).
-
-**R.3 livrée** : **réouverture basse résolution + densification.** Le gate
-(`TooSmallGate`) passe d'un plancher fixe 700×500 à un plancher **orientation-aware
-300/500** (utilisable si côté court ≥ 300 ET côté long ≥ 500 → 300×500 portrait ET
-500×300 paysage passent ; constantes `MIN_USABLE_SHORT`/`MIN_USABLE_LONG`). Passe de
-**densification CSS** bornée stricte à `width < 700 OU height < 500` (`@media
-(max-width:699px),(max-height:499px)`) — paddings/gaps réduits (layout Designer,
-toolbar, header, corps de module), textes/onglets resserrés, modale capée au viewport
-(`box-sizing:border-box` + `max-width:calc(100vw - 24px)`) ; **rien ne change ≥
-700×500**. Limitation **assumée** : sous ~700 px, l'interaction **tactile fine**
-(dessin au doigt, poignées) reste inadaptée sur smartphone — à la souris (fenêtre
-desktop rétrécie) c'est le cas d'usage visé ; pointer-events = backlog actif.
-
-**R.3.rectif livrée** : passe de correctifs ciblés sur le layout mobile (strictement
-`< 924×668`, desktop inchangé). (1) **Header compact aminci** — le padding vertical
-du titre/onglets (10→5px) et la taille des boutons aux (32→26px), vrais coupables de
-la hauteur via `align-items:stretch`, sont ramassés (cible ~28px ; source unique de
-hauteur sur `.tabs-compact`) ; la **version d'app** devient un item de l'OverflowToolbar
-en dernière position → **toujours visible** (inline tant qu'il y a la place, sinon dans
-le tiroir `☰` ; remplace l'ancien `trayFooter` invisible quand rien ne débordait).
-(2) **Marge gauche du layout Designer → 0** en mobile (largeur rendue, rail collé au
-bord). (3) **Module Instrument mobile aligné sur l'intermédiaire desktop** : gate
-`!isMobile` levé sur `instrumentCollapsed`/`octaveInHeader` (mobile entre dans les deux
-étages O.3) → système via `[⚙]` du header (ouvre la modale) + octave via stepper `▴▾`,
-relogés dans la toolbar mobile (moduleHeaderItems.params, R.1.3) ; le corps ne rend plus
-le bouton système full-width ni la rangée des 11 octaves (CSS `.instrument-collapse-trigger`
-retirée). (4) **DesignerToolbar mobile en `flex-wrap: wrap`** : patch + Presets/Effacer +
-switcher passent à la ligne plutôt que d'être clippés/masqués ; nom du patch en ellipsis
-(`min-width:0`) ; le 2ᵉ OverflowToolbar (contrôles du module) garde son `…`.
-
-Hygiène restante (hors itération) : purge des prompt-fichiers `archi/O*`,
-`archi/P*`, `archi/Q*`, `archi/N*`, `archi/Mr*`, `archi/M5b*` consommés.
+**État courant** : **Iteration R close** (release **v1.10.0**, 2026-06-08) —
+refonte petit écran du Designer. **Entre deux itérations** : prochaine pressentie
+= **itération S (support tactile)**. Détail par-phase de R dans `CONTEXT-ARCHIVE.md`
+(Historique + Roadmaps des itérations closes + « Itération terminée : R »).
 
 > **Structure des fichiers de contexte.** Ce `CONTEXT.md` est le **brief
 > vivant** : état présent, modèle de données, composants, architecture,
@@ -225,7 +148,7 @@ synth-app/
         ├── Toolbar.jsx + .css                 # toolbar (Composer)
         ├── Timeline.jsx + .css                # grille + clips + curseur (Composer)
         ├── PropertiesPanel.jsx + .css         # édition du clip sélectionné (Composer)
-        ├── ResolutionGate.jsx + .css          # gate résolution mount + resize (G.1.4 + G.2.6)
+        ├── TooSmallGate.jsx + .css            # gate résolution (ex-ResolutionGate, renommé iter-R R.3) ; plancher orientation-aware 300/500 (G.1.4 + G.2.6 ; R.3.1)
         ├── Modal.jsx + .css                   # primitive modale partagé (H.1.8)
         ├── ExportModal.jsx                    # modale "Export as..." (H.1.9)
         ├── ImportModal.jsx                    # modale post-validation (H.1.13)
@@ -1177,7 +1100,8 @@ Choix non évidents pris pour de bonnes raisons. À ne pas remettre en question
   Spectro + mini-courbe Modulation) et laisserait des RO orphelins. Le redraw au
   changement de module est porté par le **passage `display:none` → `flex`** (les RO
   détectent le retour à des dimensions non-nulles) — pas de redraw explicite. Le
-  switcher vit dans la `DesignerToolbar` (groupe flex simple, réorienté en R.4).
+  switcher vit dans la `DesignerToolbar` (groupe flex simple ; la réorientation
+  row/column était envisagée pour R.4 — **annulée**, cf. décision dédiée plus bas).
   **R.1.3** : les headers in-body étant masqués en petit écran, les **contrôles de
   header du module actif** sont **relogés dans la toolbar** (2ᵉ `OverflowToolbar`
   après le switcher). Principe **anti-double-rendu** : les items sont exposés comme
@@ -1193,8 +1117,8 @@ Choix non évidents pris pour de bonnes raisons. À ne pas remettre en question
   épinglé** (à l'extrême tout file au hamburger). Conséquence assumée : l'ordre
   visuel compact (Création d'abord) diffère du desktop (Bibliothèque d'abord) — prix
   du priority-plus positionnel. **Desktop ≥ 924×668 strictement inchangé** (chemin de
-  rendu séparé, gardé par `isMobile`). Le top header **reste en haut** (R.4 ne le
-  déplacera pas). L'ancre Tour `header-tabs-zone` est préservée sur le conteneur
+  rendu séparé, gardé par `isMobile`). Le top header **reste en haut**,
+  point. L'ancre Tour `header-tabs-zone` est préservée sur le conteneur
   compact (`visibility:hidden` pendant la visite, rect conservé). Limite connue : la
   *ghost row* de l'OT duplique les `data-anchor` des boutons aux → l'overlay Ctrl+K
   dégrade son ancrage en compact (non bloquant).
@@ -1207,6 +1131,11 @@ Choix non évidents pris pour de bonnes raisons. À ne pas remettre en question
   connue assumée**, PAS un blocage : le cas d'usage visé est la souris (fenêtre
   desktop rétrécie). Le travail pointer-events / surfaces tactiles est backlog.
   (Remplace l'ancien plancher fixe 700×500 « anti-UX-tactile-cassée ».)
+- **R.4 (orientation adaptative des toolbars) annulée (iter-R)** : la réorientation
+  row/column des toolbars selon le ratio (récupérer de la hauteur en paysage) a été
+  **tentée puis abandonnée** (trop de casse pour un résultat médiocre). La refonte
+  conceptuelle des « écrans minuscules » est **repoussée au backlog**. R.3.rectif a
+  stabilisé l'existant R.3 à la place.
 - **Modale Presets = point d'entrée unique + modèle 2-vues (iter-N N.5c)** : tous
   les sons pré-fabriqués passent par la modale `PresetPicker` (plus de barre de
   presets géométriques en mode Libre). Les 4 formes de base (`BASE_WAVEFORMS`,
@@ -2144,6 +2073,34 @@ Conventions tacites. Les enfreindre sans raison crée des bugs subtils.
 ## État actuel
 
 ✅ **Terminé**
+- **Iteration R — « Refonte petit écran du Designer » (close, v1.10.0)**. État
+  présent du Designer **sous le plancher accordéon** après l'itération (détail
+  par-phase R.1→R.3.rectif dans `CONTEXT-ARCHIVE.md`). Composants impactés :
+  `TooSmallGate`, `Tabs` (variante compacte) ; champ persisté nouveau
+  **`designerMobileModule`** ; nouvelle prop **`closeOnSelect`** sur `OverflowToolbar`.
+  - **Plancher de résolution** = `TooSmallGate`, **orientation-aware 300/500**
+    (`min(w,h) ≥ 300` ET `max(w,h) ≥ 500` → 300×500 portrait ET 500×300 paysage
+    passent). Sous ~700, l'**UX tactile fine** (dessin au doigt, poignées) reste une
+    **limitation assumée** — à la souris (fenêtre desktop rétrécie) c'est le cas
+    d'usage visé ; le confort tactile est renvoyé à l'**itération S**.
+  - **Designer < 924×668** = **switcher de modules** : un seul module **plein cadre**
+    (`designerMobileModule` persisté, ∈ les 6 ids, défaut `'canvas'` ; les 6 corps
+    restent **montés en permanence** — contrainte canvas/RO, masqués en `display:none`).
+    Les **contrôles de header du module actif** sont **relogés** dans la
+    `DesignerToolbar` (2ᵉ `OverflowToolbar`, trop-plein → `…`). Toolbar **wrappable**
+    (`flex-wrap`) : patch / Presets / Effacer / switcher **jamais masqués** (passent à
+    la ligne), nom du patch en ellipsis.
+  - **Top header < 924×668** = **priority-plus + hamburger** (`Menu`) : titre
+    tronquable à gauche, onglets + auxiliaires dans un `OverflowToolbar`, trop-plein
+    dans le tiroir ; version d'app **inline → tiroir** (jamais perdue) ; barre
+    **amincie** (~28px) ; **`closeOnSelect`** = le tiroir se ferme à la sélection.
+  - **Densification CSS < 700×500** (paddings/textes resserrés, modales capées au
+    viewport) ; **marge gauche du layout mobile = 0** ; module **Instrument mobile
+    aligné sur l'intermédiaire desktop** (système `[⚙]` + octave stepper `▴▾` dans le
+    header, corps sans bouton full-width ni rangée d'octaves) ; **« Égaliser » masqué**
+    en intermédiaire 924–1100 (inutile sous auto-réduction forcée) ; fix débordement
+    du module **Modulation** à hauteur de viewport rare (graphes LFO rabotés).
+  - **Desktop ≥ 924×668 strictement inchangé.**
 - **Iteration P — « Effets & modulations : vibrato & trémolo (LFO par patch) »
   (close, v1.8.0)**. Première itération de la section « Effets et modulations ».
   Détail par phase P.1→P.4 dans `CONTEXT-ARCHIVE.md`.
@@ -2469,9 +2426,10 @@ Conventions tacites. Les enfreindre sans raison crée des bugs subtils.
 - Zone clavier : OctaveSelector au-dessus avec libellé "Octaves",
   clavier en `flex:1` qui s'étire verticalement selon espace, ligne
   Note ancrée tout en bas (G.2.5)
-- `ResolutionGate` réactif au resize : placeholder pleine page (overlay,
-  app reste montée) &lt; 924×668, modale soft dismissible &lt; 1740×900
-  (G.1.4 + G.2.6)
+- `TooSmallGate` (ex-`ResolutionGate`, renommé R.3) réactif au resize :
+  placeholder pleine page (overlay, app reste montée) si **côté court < 300 OU
+  côté long < 500** (plancher orientation-aware R.3.1, ex-924×668), modale soft
+  dismissible &lt; 1740×900 (G.1.4 + G.2.6 + R.3.1)
 - Export WAV PCM 16-bit stéréo
 - Persistance localStorage (pas de migration vers nouveau format en E.1 :
   reset si ancien format détecté)
@@ -2977,15 +2935,19 @@ Conventions tacites. Les enfreindre sans raison crée des bugs subtils.
 > Détail des roadmaps des itérations livrées (A→M) → `CONTEXT-ARCHIVE.md`.
 > Ci-dessous : l'itération en cours, puis le backlog général (non planifié).
 
-### Entre deux itérations (depuis la clôture de Q, 2026-06-07)
+### Entre deux itérations (depuis la clôture de R, 2026-06-08)
 
-Iteration Q « Désencombrement du Designer » **close** (release v1.9.1) — petite
-itération de suite (retrait auto-sizing + bouton « Égaliser » deux rangées + fix
-boutons spectro), détail dans `CONTEXT-ARCHIVE.md`. Avant elle, Iteration P
-« Effets & modulations » (v1.9.0). Suite de la section « Effets et modulations »
-du backlog (pitch envelope, filtre + enveloppe de filtre, distorsion, effets
-temporels par piste, mixage/pan…) **non cadrée** ; « Monde B » inharmonique +
-morph toujours pressenti (cf. `archi/BACKLOG.md`).
+Iteration R « Refonte petit écran du Designer » **close** (release **v1.10.0**) —
+switcher de modules, hamburger d'en-tête, gate 300/500 + densification, correctifs
+rectif ; **R.4 (orientation adaptative) annulée**, détail dans `CONTEXT-ARCHIVE.md`.
+**Prochaine itération pressentie = itération S (support tactile)** : Pointer Events
++ surfaces tactiles confortables sous ~700 px, PWA. La **refonte petit-écran /
+orientation (ex-R.4)** est **au backlog** (« repenser le concept écrans minuscules »).
+Avant R : Q « Désencombrement du Designer » (v1.9.1) puis P « Effets & modulations »
+(v1.9.0). Suite de la section « Effets et modulations » du backlog (pitch envelope,
+filtre + enveloppe de filtre, distorsion, effets temporels par piste, mixage/pan…)
+**non cadrée** ; « Monde B » inharmonique + morph toujours pressenti (cf.
+`archi/BACKLOG.md`).
 
 **Reste lié à P (différé, future itération)** :
 - **Surfaçage en Composer / PropertiesPanel** d'un indicateur read-only « ce patch
@@ -2995,10 +2957,10 @@ morph toujours pressenti (cf. `archi/BACKLOG.md`).
   et en Hz.
 
 **Reste lié à O (différé, future itération)** :
-- **Épuration responsive sous 924×668 (accordéon mobile)** : le Designer desktop est
-  traité jusqu'au plancher accordéon ; en dessous, l'accordéon n'a pas été
-  retravaillé → passe d'épuration dédiée. Lié à « Adaptation UI résolutions
-  intermédiaires » ci-dessous.
+- *(traité par R)* Le Designer sous 924×668 (ex-accordéon) a été refondu en
+  **switcher de modules** + densification (iter-R). Reste le **confort tactile**
+  sous ~700 px (Pointer Events / surfaces) → **itération S** ; et la **refonte
+  orientation (ex-R.4)** au backlog.
 - Switch Graphe/Sliders AHDSR exposé **aussi en résolution normale** (replier une
   vue par choix).
 - Seuils de calibration en variables (`INSTRUMENT_*`, `ADSR_COMPACT_*`,
@@ -3035,7 +2997,7 @@ morph toujours pressenti (cf. `archi/BACKLOG.md`).
   collapse, popovers) pourront aussi enrichir les résolutions
   supérieures (mode "expanded canvas" en plein écran, etc.).
   Cohérence avec les constantes `MIN_USABLE_*` / `RECOMMENDED_*`
-  de `ResolutionGate.jsx`.
+  de `TooSmallGate.jsx`.
 - Catégorisation optgroup ou cat+système split pour les dropdowns
   Composer (Toolbar + PropertiesPanel) — alignement sur G.1.3
   côté Designer. Hérité de l'ancien backlog F "B.dropdown-tuning".
