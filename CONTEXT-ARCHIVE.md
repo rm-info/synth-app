@@ -938,6 +938,24 @@ Phases listées ci-dessous dans l'ordre chronologique d'implémentation.
     bump.** Hors scope (→ S.3) : AHDSR, LFO, sliders range, `SidebarResizer`,
     `PopupResizer`, séparateurs `DesignerColumns`, Timeline Composer. Glissando
     clavier (la capture l'exclut) + confort du tracé fin = backlog (volet B).
+  - **S.2.fix (correctifs post-validation tactile, 2 sous-commits)** :
+    - **fix.1 — garde mono-pointeur sur les surfaces mono-valeur** : deux doigts
+      sur le canvas Libre / les barres / les ancres dessinaient deux tracés
+      (`setPointerCapture` ne redirige que le pointeur capturé ; un 2ᵉ doigt
+      déclenche quand même `pointerdown`/`move` sur l'élément). Garde « premier
+      pointeur gagne » via un ref propriétaire par surface (`drawOwnerRef` /
+      `harmonicOwnerRef` / `ownerPointerRef`) : down ignoré si déjà possédé,
+      move/up/cancel ne traitent que le propriétaire, reset au relâchement.
+      Harmoniques = garde sur la seule voie drag ; Spline = garde au sommet du
+      down (bloque aussi l'ajout d'ancre parasite mid-drag), move gardé **après**
+      la branche survol (sinon hover desktop cassé). **Clavier non touché** (reste
+      polyphonique). Desktop inchangé (un seul pointeur souris).
+    - **fix.2 — ghost-click `ConfirmDialog`** : toucher une barre non normalisée
+      ouvrait le dialog au `pointerdown` ; le click synthétique du même tap
+      retombait sur le backdrop fraîchement monté (qui fermait sur `onClick`) →
+      fermeture fantôme. Backdrop migré sur **`onPointerDown`** (`ConfirmDialog.jsx`,
+      changement global au composant générique — voulu) : plus de fermeture
+      fantôme, un tap neuf ferme toujours. Boutons internes inchangés (`onClick`).
 - **2026-06-08 — Iteration S « Support tactile au doigt (web pur) » — OUVERTE.**
   (Suite de R.) But : confort tactile + PWA, sans lib audio ni dépendance npm
   ajoutée. **S.1 — Shell viewport, gestes globaux & PWA légère** (`feat(iter-S/
