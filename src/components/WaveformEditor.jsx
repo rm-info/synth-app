@@ -1039,8 +1039,14 @@ function WaveformEditor({
   }
 
   const lastPointRef = useRef(null)
+  // S.2.fix.1 — surface mono-valeur : « premier pointeur gagne ». Un 2ᵉ doigt qui
+  // se pose pendant un tracé déclenche quand même onPointerDown/Move (la capture
+  // ne filtre que le pointeur capturé) → sans cette garde, 2 tracés simultanés.
+  const drawOwnerRef = useRef(null)
 
   const handlePointerDown = (e) => {
+    if (drawOwnerRef.current !== null) return // un doigt possède déjà le tracé
+    drawOwnerRef.current = e.pointerId
     // Capture : le tracé survit à la sortie de l'élément (remplace la mitigation
     // DRAW_MARGIN ; plus de perte de geste au bord, y compris à la souris).
     e.currentTarget.setPointerCapture?.(e.pointerId)
@@ -1054,6 +1060,7 @@ function WaveformEditor({
 
   const handlePointerMove = (e) => {
     if (!isDrawing) return
+    if (e.pointerId !== drawOwnerRef.current) return // ignore les pointeurs non propriétaires
     const pt = getCanvasPoint(e)
     const last = lastPointRef.current
     if (last) {
@@ -1084,7 +1091,9 @@ function WaveformEditor({
   // cours (sémantique du up préservée), ce qui libère le draft (pas d'état collé).
   // Plus de handleMouseLeave : la capture empêche `leave` pendant le tracé, et le
   // canvas Libre n'a pas d'indicateur de survol à reset.
-  const handlePointerUp = () => {
+  const handlePointerUp = (e) => {
+    if (e.pointerId !== drawOwnerRef.current) return
+    drawOwnerRef.current = null
     setIsDrawing(false)
     lastPointRef.current = null
     commitDraftPoints()
@@ -1097,6 +1106,9 @@ function WaveformEditor({
   // cf. BACKLOG.) S.2.3 : Pointer Events + capture (drag tient hors de la barre).
   const harmonicsContainerRef = useRef(null)
   const dragBarRef = useRef(null)
+  // S.2.fix.1 — garde mono-pointeur (cf. drawOwnerRef) : un 2ᵉ doigt sur les
+  // barres ne parasite pas le draft en cours.
+  const harmonicOwnerRef = useRef(null)
   // Valeur de la barre AVANT le drag (lue sur canonical), capturée au mousedown.
   // Sert de référence pour décider si le drag a effectivement modifié la barre :
   // pendant le drag, `amplitudes` pointe sur `draftAmplitudes`, donc on ne peut
@@ -1149,6 +1161,10 @@ function WaveformEditor({
       setPendingBarEdit({ index, value })
       return
     }
+    // S.2.fix.1 — la garde mono-pointeur ne couvre que la voie drag : les branches
+    // ci-dessus (clic droit, dialog non normalisé) returnent sans geste continu.
+    if (harmonicOwnerRef.current !== null) return
+    harmonicOwnerRef.current = e.pointerId
     e.currentTarget.setPointerCapture?.(e.pointerId)
     dragBarRef.current = index
     dragBarInitialRef.current = amplitudes[index]
@@ -1158,6 +1174,7 @@ function WaveformEditor({
   }
   const handleHarmonicPointerMove = (e) => {
     if (dragBarRef.current === null) return
+    if (e.pointerId !== harmonicOwnerRef.current) return
     const index = dragBarRef.current
     const next = Array.from(draftAmplitudes ?? amplitudes)
     next[index] = harmonicAmplitudeFromEvent(e)
@@ -1173,9 +1190,15 @@ function WaveformEditor({
     }
     setDraftAmplitudes(null)
   }
-  const handleHarmonicPointerUp = () => commitHarmonicDraft()
+  const handleHarmonicPointerUp = (e) => {
+    if (e.pointerId !== harmonicOwnerRef.current) return
+    harmonicOwnerRef.current = null
+    commitHarmonicDraft()
+  }
   // pointercancel (interruption système) : abandon du draft sans dispatch.
-  const handleHarmonicPointerCancel = () => {
+  const handleHarmonicPointerCancel = (e) => {
+    if (e.pointerId !== harmonicOwnerRef.current) return
+    harmonicOwnerRef.current = null
     dragBarRef.current = null
     dragBarInitialRef.current = null
     setDraftAmplitudes(null)

@@ -46,6 +46,10 @@ function SplineEditor({
 
   const [draftAnchors, setDraftAnchors] = useState(null)
   const draggingIdxRef = useRef(null)
+  // S.2.fix.1 — surface mono-valeur : « premier pointeur gagne ». Pendant un drag
+  // d'ancre, un 2ᵉ doigt ne doit ni saisir une autre ancre ni ajouter d'ancre
+  // (la capture ne filtre que le pointeur capturé).
+  const ownerPointerRef = useRef(null)
   const [selectedIdx, setSelectedIdx] = useState(null)
   const [hoverIdx, setHoverIdx] = useState(null)
   const [menu, setMenu] = useState(null) // { index, px, py } | null
@@ -328,9 +332,13 @@ function SplineEditor({
   // --- Interactions pointeur (souris + tactile + stylet, S.2.2) ---
   const handlePointerDown = (e) => {
     if (e.button !== 0) return // clic gauche / doigt seulement (le droit ouvre le menu)
+    // Premier pointeur gagne : pendant un drag possédé, tout 2ᵉ pointeur est ignoré
+    // (ni 2ᵉ ancre saisie, ni ajout d'ancre parasite qui casserait le draft courant).
+    if (ownerPointerRef.current !== null) return
     setMenu(null)
     const idx = hitTest(e)
     if (idx !== null) {
+      ownerPointerRef.current = e.pointerId
       // Capture : le drag d'ancre suit le pointeur même hors cadre (apport clé
       // au doigt) et `pointerup` revient à cet élément → fin de geste fiable.
       e.currentTarget.setPointerCapture?.(e.pointerId)
@@ -351,6 +359,9 @@ function SplineEditor({
       if (idx !== hoverIdx) setHoverIdx(idx)
       return
     }
+    // Garde mono-pointeur placée APRÈS la branche survol : la mettre en tête
+    // tuerait le hover desktop (owner === null hors drag → tout pointeur filtré).
+    if (e.pointerId !== ownerPointerRef.current) return
     const idx = draggingIdxRef.current
     const base = draftAnchors ?? anchors
     const { x, y } = eventToData(e)
@@ -373,13 +384,19 @@ function SplineEditor({
     setDraftAnchors(null)
   }
 
-  const handlePointerUp = () => commitDrag()
+  const handlePointerUp = (e) => {
+    if (e.pointerId !== ownerPointerRef.current) return
+    ownerPointerRef.current = null
+    commitDrag()
+  }
   // Survol seul : la capture empêche `leave` de se déclencher pendant le drag,
   // donc on ne ferme PLUS le geste ici (sinon tracé hors-cadre cassé) — reset hover.
   const handlePointerLeave = () => setHoverIdx(null)
   // Interruption système (pointercancel) : abandon du draft d'ancre, rien n'est
   // dispatché (discipline d'undo : un seul cran au vrai commit, rien si annulé).
-  const handlePointerCancel = () => {
+  const handlePointerCancel = (e) => {
+    if (e.pointerId !== ownerPointerRef.current) return
+    ownerPointerRef.current = null
     draggingIdxRef.current = null
     setDraftAnchors(null)
   }
