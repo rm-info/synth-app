@@ -14,27 +14,40 @@ export { NOTE_NAMES }
 const OCTAVES = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
 const REFERENCE_OCTAVE = 4
 
-// Hook partagé : un mousedown commence l'attaque (onKeyPress), un mouseup
-// window-level finit le release (option B du brief E.3 — la note tient même
-// si la souris quitte la touche). `pressedRef` empêche d'enregistrer deux
-// listeners pour le même mousedown répété.
-function useMouseDownHandler({ onSelectNote, onKeyPress, onKeyRelease }) {
-  const pressedRef = useRef(new Set())
-  return (idx) => (e) => {
+// Hook partagé (S.2.4) : entrée pointeur multi-voix pour le clavier (souris +
+// tactile + stylet, chemin unique). La capture de pointeur livre le `pointerup`
+// à la touche d'origine même hors cadre → plus de listener `window`. Suivi par
+// `Map<pointerId, idx>` + ref-count par idx : deux doigts = accord (polyphonie),
+// deux pointeurs sur la même touche n'attaquent/relâchent qu'une fois (pas de
+// double-déclenchement ni de note collée). Le moteur audio est DÉJÀ polyphonique
+// (`playInstrumentNote`/`releaseInstrumentNote` par idx) — la polyphonie est
+// purement une affaire de couche d'entrée.
+function usePointerKeyHandler({ onSelectNote, onKeyPress, onKeyRelease }) {
+  const activeRef = useRef(new Map()) // pointerId -> idx
+  const countFor = (idx) => {
+    let n = 0
+    for (const v of activeRef.current.values()) if (v === idx) n++
+    return n
+  }
+  const down = (idx) => (e) => {
     if (e.button !== 0) return
     e.preventDefault()
+    e.currentTarget.setPointerCapture?.(e.pointerId)
     onSelectNote?.(idx)
-    onKeyPress?.(idx)
-    if (!onKeyRelease) return
-    if (pressedRef.current.has(idx)) return
-    pressedRef.current.add(idx)
-    const release = () => {
-      window.removeEventListener('mouseup', release)
-      pressedRef.current.delete(idx)
-      onKeyRelease(idx)
-    }
-    window.addEventListener('mouseup', release)
+    if (activeRef.current.has(e.pointerId)) return
+    const wasSilent = countFor(idx) === 0
+    activeRef.current.set(e.pointerId, idx)
+    if (wasSilent) onKeyPress?.(idx)        // n'attaque qu'à la 1re voix sur cet idx
   }
+  // pointerup ET pointercancel : retire la voix de ce pointeur, ne relâche la
+  // note qu'à la dernière voix (évite la note collée sur interruption tactile).
+  const up = (e) => {
+    const idx = activeRef.current.get(e.pointerId)
+    if (idx == null) return
+    activeRef.current.delete(e.pointerId)
+    if (countFor(idx) === 0) onKeyRelease?.(idx)
+  }
+  return { down, onPointerUp: up, onPointerCancel: up }
 }
 
 // Clavier piano 12 notes : 7 touches blanches (diatoniques), 5 touches noires
@@ -50,7 +63,7 @@ const BLACK_KEYS = [
   { note: 10, afterWhite: 5 }, // A♯ entre A et B
 ]
 
-function PianoLayout12({ noteIndex, active, cued, compact, names, handleMouseDown }) {
+function PianoLayout12({ noteIndex, active, cued, compact, names, keys }) {
   return (
     <div className={`piano-keyboard piano-keyboard-12${compact ? ' piano-keyboard-compact' : ''}`} role="group" aria-label="Clavier piano">
       <div className="piano-whites">
@@ -64,7 +77,9 @@ function PianoLayout12({ noteIndex, active, cued, compact, names, handleMouseDow
               key={idx}
               type="button"
               className={classes.join(' ')}
-              onMouseDown={handleMouseDown(idx)}
+              onPointerDown={keys.down(idx)}
+              onPointerUp={keys.onPointerUp}
+              onPointerCancel={keys.onPointerCancel}
               aria-label={names[idx]}
               aria-pressed={noteIndex === idx}
               title={compact ? names[idx] : undefined}
@@ -87,7 +102,9 @@ function PianoLayout12({ noteIndex, active, cued, compact, names, handleMouseDow
               type="button"
               className={classes.join(' ')}
               style={{ left: `${((afterWhite + 1) / WHITE_KEYS.length) * 100}%` }}
-              onMouseDown={handleMouseDown(note)}
+              onPointerDown={keys.down(note)}
+              onPointerUp={keys.onPointerUp}
+              onPointerCancel={keys.onPointerCancel}
               title={names[note]}
               aria-label={names[note]}
               aria-pressed={noteIndex === note}
@@ -155,7 +172,7 @@ const GRID_24_CELLS = [
 // pédagogique.
 const HUE_PER_NATURAL = [0, 38, 76, 145, 200, 256, 310]
 
-function Grid24Layout({ noteIndex, active, cued, compact, names, handleMouseDown }) {
+function Grid24Layout({ noteIndex, active, cued, compact, names, keys }) {
   return (
     <div className={`piano-keyboard piano-keyboard-grid24${compact ? ' piano-keyboard-compact' : ''}`} role="group" aria-label="Clavier 24-TET">
       {GRID_24_CELLS.map(([idx, row, colStart, colEnd, kind, parent]) => {
@@ -174,7 +191,9 @@ function Grid24Layout({ noteIndex, active, cued, compact, names, handleMouseDown
               gridColumn: `${colStart} / ${colEnd}`,
               '--hue': HUE_PER_NATURAL[parent],
             }}
-            onMouseDown={handleMouseDown(idx)}
+            onPointerDown={keys.down(idx)}
+            onPointerUp={keys.onPointerUp}
+            onPointerCancel={keys.onPointerCancel}
             aria-label={label}
             aria-pressed={noteIndex === idx}
             title={compact ? label : undefined}
@@ -246,7 +265,7 @@ const GRID_22_BHATKHANDE_CELLS = [
   [21, 7, 3], // VIId
 ]
 
-function Grid22BhatkhandeLayout({ noteIndex, active, cued, compact, names, handleMouseDown }) {
+function Grid22BhatkhandeLayout({ noteIndex, active, cued, compact, names, keys }) {
   return (
     <div className={`piano-keyboard piano-keyboard-grid22${compact ? ' piano-keyboard-compact' : ''}`} role="group" aria-label="Clavier 22 shrutis (Bhatkhande)">
       {GRID_22_BHATKHANDE_CELLS.map(([idx, svaraCol, rangeIndex]) => {
@@ -268,7 +287,9 @@ function Grid22BhatkhandeLayout({ noteIndex, active, cued, compact, names, handl
               gridColumn: `${startSubCol} / ${endSubCol}`,
               '--hue': HUE_PER_SHRUTI_SVARA[svaraCol - 1],
             }}
-            onMouseDown={handleMouseDown(idx)}
+            onPointerDown={keys.down(idx)}
+            onPointerUp={keys.onPointerUp}
+            onPointerCancel={keys.onPointerCancel}
             aria-label={label}
             aria-pressed={noteIndex === idx}
             title={compact ? label : undefined}
@@ -329,7 +350,7 @@ const GRID_22_SARNGADEVA_CELLS = [
   [16, 5, 3], // Vd
 ]
 
-function Grid22SarngadevaLayout({ noteIndex, active, cued, compact, names, handleMouseDown }) {
+function Grid22SarngadevaLayout({ noteIndex, active, cued, compact, names, keys }) {
   return (
     <div className={`piano-keyboard piano-keyboard-grid22${compact ? ' piano-keyboard-compact' : ''}`} role="group" aria-label="Clavier 22 shrutis (Sarngadeva)">
       {GRID_22_SARNGADEVA_CELLS.map(([idx, svaraCol, rangeIndex]) => {
@@ -351,7 +372,9 @@ function Grid22SarngadevaLayout({ noteIndex, active, cued, compact, names, handl
               gridColumn: `${startSubCol} / ${endSubCol}`,
               '--hue': HUE_PER_SHRUTI_SVARA[svaraCol - 1],
             }}
-            onMouseDown={handleMouseDown(idx)}
+            onPointerDown={keys.down(idx)}
+            onPointerUp={keys.onPointerUp}
+            onPointerCancel={keys.onPointerCancel}
             aria-label={label}
             aria-pressed={noteIndex === idx}
             title={compact ? label : undefined}
@@ -386,7 +409,8 @@ const LAYOUT_COMPONENTS = {
 //     pas de release. Utilisé pour mettre à jour une valeur dans le state.
 //
 //  2. **Instrument** (Designer E.3) : onKeyPress(idx) + onKeyRelease(idx).
-//     onKeyPress au mousedown, onKeyRelease au mouseup window-level.
+//     onKeyPress au pointerdown (1re voix), onKeyRelease au pointerup/cancel
+//     (dernière voix) — multi-pointeurs, cf. usePointerKeyHandler (S.2.4).
 //
 // `activeNotes` (Set<number>) colore en permanence les touches dont la note
 // est actuellement jouée (feedback visuel pendant un sustain).
@@ -412,7 +436,7 @@ export function PianoKeyboard({
 }) {
   const sys = getTuningSystem(tuningSystem)
   const Layout = LAYOUT_COMPONENTS[sys.layout]
-  const handleMouseDown = useMouseDownHandler({ onSelectNote, onKeyPress, onKeyRelease })
+  const keys = usePointerKeyHandler({ onSelectNote, onKeyPress, onKeyRelease })
   if (!Layout) return null
   const active = activeNotes ?? new Set()
   const cued = cuedNotes ?? new Set()
@@ -429,7 +453,7 @@ export function PianoKeyboard({
       cued={cued}
       compact={compact}
       names={names}
-      handleMouseDown={handleMouseDown}
+      keys={keys}
       gridSize={gridSize}
     />
   )

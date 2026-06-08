@@ -46,7 +46,7 @@ function GridXEdoLayout({
   cued,
   compact,
   names,
-  handleMouseDown,
+  keys,
   gridSize,
 }) {
   const layout = useMemo(() => xEdoLayoutForN(gridSize), [gridSize])
@@ -115,7 +115,9 @@ function GridXEdoLayout({
                   key={half.degree}
                   type="button"
                   className={classes.join(' ')}
-                  onMouseDown={handleMouseDown(half.degree)}
+                  onPointerDown={keys.down(half.degree)}
+                  onPointerUp={keys.onPointerUp}
+                  onPointerCancel={keys.onPointerCancel}
                   aria-label={label}
                   aria-pressed={noteIndex === half.degree}
                   title={compact ? label : undefined}

@@ -5,7 +5,13 @@
   min-width: 210px; /* 7 × 30px minimum pour rester cliquable */
   height: 90px;
   user-select: none;
+  -webkit-user-select: none;
   flex-shrink: 0;
+  /* S.2.4 — clavier polyphonique en Pointer Events : neutralise scroll/zoom du
+     navigateur + sélection/callout iOS au long-press. Racine commune à tous les
+     layouts (piano-12, grid-24, grid-22, grid-x-edo). */
+  touch-action: none;
+  -webkit-touch-callout: none;
 }
 
 .piano-whites {
