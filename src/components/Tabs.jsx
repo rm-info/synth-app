@@ -100,6 +100,15 @@ function Tabs({ activeTab, onChange, theme, onToggleTheme, shortcutsOverlayOpen,
       { id: 'theme', bar: themeBtn, tray: <>{themeBtn}{trayLabel(themeLabel)}</> },
       { id: 'shortcuts', bar: shortcutsBtn, tray: <>{shortcutsBtn}{trayLabel('Raccourcis')}</> },
       { id: 'tour', bar: tourBtn, tray: <>{tourBtn}{trayLabel('Visite guidée')}</> },
+      // R.3.rectif.1b : la version est un item en dernière position (index le plus
+      // élevé = premier à déborder) — inline tant qu'il y a la place, sinon elle
+      // file dans le tiroir ☰. Remplace l'ancien trayFooter (invisible quand rien
+      // ne débordait).
+      {
+        id: 'version',
+        bar: <div className="tabs-version" title={`Version ${APP_VERSION}`}>v{APP_VERSION}</div>,
+        tray: <div className="tabs-version-tray" title={`Version ${APP_VERSION}`}>v{APP_VERSION}</div>,
+      },
     ]
     return (
       <nav className="tabs tabs-compact" role="tablist">
@@ -116,11 +125,6 @@ function Tabs({ activeTab, onChange, theme, onToggleTheme, shortcutsOverlayOpen,
             ariaLabel="Navigation et options"
             menuLabel="Menu"
             triggerIcon={<Menu size={18} />}
-            trayFooter={
-              <div className="tabs-version-tray" title={`Version ${APP_VERSION}`}>
-                v{APP_VERSION}
-              </div>
-            }
           />
         </div>
       </nav>

@@ -169,11 +169,32 @@
 }
 /* Boutons auxiliaires en compact : neutraliser leurs marges propres (theme=8px,
    raccourcis/visite=4px) — c'est le gap de l'OverflowToolbar (8px) qui cadence
-   l'espacement, sinon le bouton thème se désaligne du reste. */
+   l'espacement, sinon le bouton thème se désaligne du reste.
+   R.3.rectif.1a : et les rétrécir à 26×26 (icônes 16-18px tiennent largement) —
+   ils dictaient la hauteur de la barre via align-items:stretch. */
 .tabs-compact-nav .theme-toggle,
 .tabs-compact-nav .shortcuts-toggle,
 .tabs-compact-nav .tour-toggle {
   margin: 0;
+  width: 26px;
+  height: 26px;
+}
+/* R.3.rectif.1a : amincir réellement la barre compacte sur TOUTE la plage mobile
+   (< 924×668). Les vrais coupables de la hauteur sont le padding vertical du titre
+   et celui des onglets (10px chacun) — on les ramasse pour viser ~28px de barre. */
+.tabs-compact .tabs-title {
+  padding-top: 5px;
+  padding-bottom: 5px;
+}
+.tabs-compact .tab {
+  padding-top: 5px;
+  padding-bottom: 5px;
+}
+/* R.3.rectif.1b : la version est désormais un item de l'OT (forme bar). Neutraliser
+   son padding vertical hérité du desktop (10px) pour qu'elle ne regonfle pas la
+   barre — même esprit que la neutralisation des marges des boutons aux. */
+.tabs-compact-nav .tabs-version {
+  padding: 0;
 }
 /* Version dans le tiroir hamburger : ligne non interactive en bas, séparée des
    items par un filet horizontal (le tiroir est une colonne). */
@@ -225,7 +246,11 @@
 }
 
 /* iter-R phase-3.2 : densification du header compact < 700×500 (placé après le
-   bloc 600px pour gagner en source-order sur la plage 600-700). */
+   bloc 600px pour gagner en source-order sur la plage 600-700).
+   R.3.rectif.1a : le padding VERTICAL (hauteur de barre) vient désormais
+   uniquement de `.tabs-compact` (source unique). Ce bloc ne garde que la
+   réduction de police et le resserrement horizontal pour les très petites
+   largeurs — il ne touche plus au vertical (sinon il regonflerait la barre). */
 @media (max-width: 699px), (max-height: 499px) {
   .tabs-compact {
     padding: 0 4px 0 8px;
@@ -234,7 +259,8 @@
     font-size: 0.8rem;
   }
   .tabs-compact .tab {
-    padding: 8px 10px;
+    padding-left: 10px;
+    padding-right: 10px;
     font-size: 0.82rem;
   }
 }
