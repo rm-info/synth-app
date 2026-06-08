@@ -647,11 +647,22 @@ function Timeline({
       setInteractionVisual(null)
     }
 
-    window.addEventListener('mousemove', handleMove)
-    window.addEventListener('mouseup', handleUp)
+    // S.3.6 — pointercancel (interruption tactile/système) : abandon de la
+    // session SANS commit (le clip retombe à sa position d'origine, aucun
+    // dispatch). Le détachement des listeners est piloté par l'effet (deps =
+    // activeClipId/Mode) quand setInteractionVisual(null) repasse l'état à idle.
+    const handleCancel = () => {
+      interactionRef.current = null
+      setInteractionVisual(null)
+    }
+
+    window.addEventListener('pointermove', handleMove)
+    window.addEventListener('pointerup', handleUp)
+    window.addEventListener('pointercancel', handleCancel)
     return () => {
-      window.removeEventListener('mousemove', handleMove)
-      window.removeEventListener('mouseup', handleUp)
+      window.removeEventListener('pointermove', handleMove)
+      window.removeEventListener('pointerup', handleUp)
+      window.removeEventListener('pointercancel', handleCancel)
     }
   }, [activeClipId, activeMode, onUpdateClip, onMoveClips, onResizeClips, onDuplicateClips, onSetSelection, onSelectTrack])
 
@@ -1229,6 +1240,16 @@ function Timeline({
                     step="0.01"
                     value={volumeDraft?.trackId === track.id ? volumeDraft.value : track.volume}
                     onChange={(e) => setVolumeDraft({ trackId: track.id, value: parseFloat(e.target.value) })}
+                    // S.3.5 — slider natif (pas de touch-action:none) ; commit du
+                    // draft à la fois sur pointerup (tactile/stylet) ET mouseup
+                    // (idempotent : le 2e voit volumeDraft déjà vidé). Sans
+                    // pointerup, le relâchement tactile ne committait pas le volume.
+                    onPointerUp={() => {
+                      if (volumeDraft?.trackId === track.id) {
+                        onUpdateTrack?.(track.id, { volume: volumeDraft.value })
+                        setVolumeDraft(null)
+                      }
+                    }}
                     onMouseUp={() => {
                       if (volumeDraft?.trackId === track.id) {
                         onUpdateTrack?.(track.id, { volume: volumeDraft.value })
@@ -1318,9 +1339,11 @@ function Timeline({
             onDragOver={handleDragOver}
             onDragLeave={handleDragLeave}
             onDrop={handleDrop}
-            onMouseDown={(e) => {
-              // Les clips appellent stopPropagation sur mousedown, donc ce handler
-              // ne se déclenche que pour un clic dans une zone vide.
+            onPointerDown={(e) => {
+              // Les clips appellent stopPropagation sur pointerdown, donc ce
+              // handler ne se déclenche que pour un appui dans une zone vide.
+              // (cells-wrapper en onPointerDown, comme les clips : la propagation
+              // stoppée évite le double-déclenchement sur souris.)
               if (e.button !== 0) return
               closeContextMenu()
               if (e.altKey) {
@@ -1331,6 +1354,11 @@ function Timeline({
                 startCtrlScroll(e)
                 return
               }
+              // S.3.6 — lasso souris-seule (conflit direct avec le scroll
+              // horizontal tactile : les deux démarrent sur zone vide). Sur
+              // tactile, la zone vide scrolle (touch-action:pan-x du conteneur) —
+              // limitation connue assumée.
+              if (e.pointerType !== 'mouse') return
               startRectSelection(e)
             }}
             onMouseMove={(e) => {
@@ -1481,11 +1509,11 @@ function Timeline({
                       borderColor: patch.color,
                     }}
                     title={`${formatClipNote(clip, xEdoN)} — ${patch.name} — mesure ${clip.measure}, beat ${clip.beat}`}
-                    onMouseDown={(e) => {
+                    onPointerDown={(e) => {
                       if (e.button !== 0) return
-                      // Ctrl/Cmd+mousedown démarre une session : devient
+                      // Ctrl/Cmd+pointerdown démarre une session : devient
                       // duplication si l'utilisateur drag au-delà du seuil,
-                      // sinon toggle de sélection au mouseup.
+                      // sinon toggle de sélection au pointerup.
                       startInteraction(e, clip, 'drag', allLaidOut, {
                         ctrlAtStart: e.ctrlKey || e.metaKey,
                       })
@@ -1502,7 +1530,7 @@ function Timeline({
                   >
                     <div
                       className="resize-handle resize-handle-left"
-                      onMouseDown={(e) => startInteraction(e, clip, 'resize-left', allLaidOut)}
+                      onPointerDown={(e) => startInteraction(e, clip, 'resize-left', allLaidOut)}
                     />
                     <span className="placed-dot" style={{ backgroundColor: patch.color }} />
                     <span className="placed-name">
@@ -1511,7 +1539,7 @@ function Timeline({
                     </span>
                     <div
                       className="resize-handle resize-handle-right"
-                      onMouseDown={(e) => startInteraction(e, clip, 'resize-right', allLaidOut)}
+                      onPointerDown={(e) => startInteraction(e, clip, 'resize-right', allLaidOut)}
                     />
                   </div>
                 )

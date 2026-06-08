@@ -18,6 +18,12 @@
   min-height: 0;
   display: flex;
   align-items: stretch;
+  /* S.3.6 — conteneur scrollable : scroll tactile préservé sur les zones vides /
+     en-têtes (les clips/poignées en touch-action:none restent draggables). Les
+     deux axes (overflow-x ET overflow-y : jusqu'à 16 pistes empilées) → pan-x
+     pan-y plutôt que pan-x seul, sinon le scroll vertical tactile serait perdu.
+     Désactive le pinch-zoom et le lasso tactile (lasso = souris-seule, assumé). */
+  touch-action: pan-x pan-y;
 }
 
 /* Grid */
@@ -426,6 +432,11 @@ html[style*="cursor"] * {
   box-sizing: border-box;
   pointer-events: auto;
   user-select: none;
+  -webkit-user-select: none;
+  /* S.3.6 — toucher un clip le manipule (drag/resize), pas de scroll/zoom. Le
+     conteneur scrollable (.timeline-grid-wrapper) garde son pan tactile. */
+  touch-action: none;
+  -webkit-touch-callout: none;
 
   /* Container query : permet d'adapter le contenu selon la largeur du clip */
   container-type: inline-size;
@@ -469,6 +480,8 @@ html[style*="cursor"] * {
   width: 7px;
   cursor: ew-resize;
   z-index: 2;
+  /* S.3.6 — poignée de resize manipulée au doigt (pas de scroll). */
+  touch-action: none;
 }
 .resize-handle-left { left: 0; }
 .resize-handle-right { right: 0; }
