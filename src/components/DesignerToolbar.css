@@ -82,12 +82,27 @@
    Desktop garde space-between (intact). */
 .designer-main-mobile .designer-toolbar {
   justify-content: flex-start;
+  /* R.3.rectif.4 : wrap vertical — le lot patch/Presets/Effacer et le switcher
+     ne doivent JAMAIS être clippés ni poussés hors champ. S'ils ne tiennent pas
+     sur une ligne, ils passent à la ligne (le 2ᵉ OverflowToolbar des contrôles
+     du module relogés continue, lui, de filer dans son `…`). Le wrap étant
+     vertical, il ne rentre pas en conflit avec `overflow-x: clip` ci-dessous. */
+  flex-wrap: wrap;
   /* iter-R phase-1.3d : la « ghost row » de mesure des OverflowToolbar relogés
      (position:absolute, white-space:nowrap) déborde à droite avec la largeur
      naturelle des contrôles (6 sur Forme d'onde → large bande vide défilable ;
      invisible car visibility:hidden). On la clippe ici. `clip` sur X laisse Y
      `visible` → le tiroir `…` (qui s'ouvre vers le bas) reste affiché. */
   overflow-x: clip;
+}
+
+/* R.3.rectif.4 : en mobile, le nom du patch peut être long. On lui autorise
+   l'ellipsis dans la ligne (l'overflow/text-overflow/nowrap viennent déjà de la
+   base `.we-sound-tag`) en ajoutant `min-width:0` — sans quoi un item flex ne
+   rétrécit pas sous la taille de son contenu et pousserait le reste hors ligne.
+   Scopé mobile pour ne rien changer ≥ 924×668. */
+.designer-main-mobile .we-sound-tag {
+  min-width: 0;
 }
 
 /* Séparateur visuel entre le groupe d'actions et les proportions. */
