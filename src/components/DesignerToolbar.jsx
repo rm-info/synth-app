@@ -77,14 +77,21 @@ function DesignerToolbar({ patchLabel, onPresets, onReset, onEqualizeWidths, col
         onClick={onToggleAutoCollapse}
       ><FoldHorizontal size={18} /></button>
     )
-    const items = [
-      { id: 'equalize', bar: equalizeBtn, tray: <>{equalizeBtn}{trayLabel(equalizeLabel)}</> },
-      {
-        id: 'auto-collapse',
-        bar: <><span className="designer-toolbar-divider" aria-hidden="true" />{acBtn}</>,
-        tray: <>{acBtn}{trayLabel('Auto-réduction des modules')}</>,
-      },
-    ]
+    // R.3.rectif.7 : en intermédiaire 924–1100, `autoCollapseForced` est vrai →
+    // au plus un module ouvert par rangée, les autres sont des bandes repliées :
+    // égaliser des largeurs de colonnes repliées ne produit rien → on masque
+    // Égaliser. Auto-réduction reste visible (forcé/désactivé, informatif).
+    const items = []
+    if (!autoCollapseForced) {
+      items.push({ id: 'equalize', bar: equalizeBtn, tray: <>{equalizeBtn}{trayLabel(equalizeLabel)}</> })
+    }
+    items.push({
+      id: 'auto-collapse',
+      // Le séparateur interne ne sert qu'à isoler Égaliser à sa gauche ; absent,
+      // le `prefix` de l'OT suffit (sinon on aurait un double filet).
+      bar: <>{!autoCollapseForced && <span className="designer-toolbar-divider" aria-hidden="true" />}{acBtn}</>,
+      tray: <>{acBtn}{trayLabel('Auto-réduction des modules')}</>,
+    })
     return (
       <OverflowToolbar
         items={items}
