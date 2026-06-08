@@ -42,11 +42,13 @@ framework UI (CSS manuscrit), pas de routing, pas de backend.
 | R | Refonte petit écran Designer : switcher de modules (un module plein cadre), top header priority-plus + hamburger, gate orientation-aware 300/500 + densification < 700×500, correctifs mobile (R.3.rectif) ; R.4 (orientation) annulée — v1.10.0 | 2026-06-08 |
 
 **État courant** : **Iteration S ouverte** (support tactile au doigt, web pur ;
-pas encore de bump — dernière release v1.10.0). **S.1 livré** : shell
+pas encore de bump — dernière release v1.10.0). **S.1 + S.2 livrés** : S.1 = shell
 non-scrollable (fin du pull-to-refresh / bascule barre d'URL) + safe-area + PWA
-légère standalone (manifest SVG-only, dette icônes PNG au BACKLOG). Suite : S.2
-= Pointer Events / `touch-action` sur les surfaces. Détail par-phase de R (close,
-v1.10.0) dans `CONTEXT-ARCHIVE.md`.
+légère standalone (manifest SVG-only, dette icônes PNG au BACKLOG) ; S.2 = surfaces
+de jeu primaires (canvas Libre, ancres, harmoniques, clavier **polyphonique**,
+Test) en **Pointer Events** + capture + `touch-action:none`. Suite : S.3 =
+surfaces secondaires (AHDSR/LFO/sliders/resizers/Timeline). Détail par-phase de R
+(close, v1.10.0) dans `CONTEXT-ARCHIVE.md`.
 
 > **Structure des fichiers de contexte.** Ce `CONTEXT.md` est le **brief
 > vivant** : état présent, modèle de données, composants, architecture,
@@ -1003,6 +1005,22 @@ Seuls les **placements timeline** s'appellent "clips".
 Choix non évidents pris pour de bonnes raisons. À ne pas remettre en question
 à la légère — relire ici avant de refactorer.
 
+- **Entrée unifiée Pointer Events + `touch-action:none` chirurgical (iter-S S.2)** :
+  les surfaces de manipulation directe utilisent **Pointer Events** (chemin unique
+  souris + tactile + stylet) — pas de cohabitation `onMouse*`/`onPointer*` (sinon
+  double dispatch). Chaque **drag** prend `setPointerCapture` au down (le geste
+  survit hors cadre — remplace la mitigation `DRAW_MARGIN` au bord) ; **`leave`
+  n'est plus** une fin de geste (la capture le supprime pendant le drag — il ne
+  sert qu'au survol) ; **`pointercancel`** est obligatoire (interruption système →
+  pas de draft/voix collé). Le **clic droit** reste en `onContextMenu`/`button===2`
+  (mise à zéro de barre, menu spline — pas d'équivalent tactile, assumé), d'où la
+  garde `e.button !== 0` (le tactile envoie `button === 0`). `touch-action:none`
+  est posé **uniquement** sur les surfaces migrées (jamais sur un conteneur
+  scrollable). **Clavier polyphonique** par `Map<pointerId,idx>` + **ref-count par
+  idx** : `onKeyPress` à la 1re voix sur un idx, `onKeyRelease` à la dernière —
+  le **moteur audio est déjà polyphonique**, la polyphonie est purement une
+  affaire de couche d'entrée. Périmètre S.2 = surfaces **primaires** (canvas Libre,
+  ancres, harmoniques, clavier, Test) ; AHDSR/LFO/sliders/resizers/Timeline = S.3.
 - **Shell non-scrollable + PWA standalone sans dépendance (iter-S S.1)** : le
   scroll **de page** est verrouillé au niveau `html`/`body`/`#root`
   (`overflow:hidden`, `height:100%`, `overscroll-behavior:none`) — **jamais** sur
@@ -2087,8 +2105,9 @@ Conventions tacites. Les enfreindre sans raison crée des bugs subtils.
 ## État actuel
 
 🚧 **En cours — Iteration S « Support tactile au doigt (web pur) »** (ouverte
-2026-06-08 ; pas de bump avant clôture de S). Pose l'assise tactile/PWA.
-**Aucune migration d'entrée encore** (Pointer Events + `touch-action` = S.2).
+2026-06-08 ; pas de bump avant clôture de S). Pose l'assise tactile/PWA, puis
+migre les surfaces de jeu en Pointer Events. **S.1 + S.2 livrés** ; surfaces
+secondaires (AHDSR/LFO/sliders/resizers/Timeline) = **S.3**.
 - **S.1 — Shell viewport + gestes globaux + PWA légère (livré)** :
   - **Shell non-scrollable** : `html/body { height:100% }`, `body { overflow:hidden;
     overscroll-behavior:none }`, `#root { height:100% }` (ex `min-height:100svh`).
@@ -2111,6 +2130,27 @@ Conventions tacites. Les enfreindre sans raison crée des bugs subtils.
     (`public/sw.js` passthrough strict, **sans cache**, enregistré depuis
     `main.jsx`) **seulement si** l'install Android ne se déclenche pas avec
     manifest + icône — à vérifier sur appareil réel.
+- **S.2 — Pointer Events sur les surfaces de jeu primaires (livré)** : cœur de
+  valeur — on **dessine** et on **joue au doigt**. Migration `MouseEvent` →
+  **Pointer Events** (chemin unique souris + tactile + stylet) sur : canvas
+  **Forme d'onde Libre**, **SplineEditor** (ancres), barres **Harmoniques**,
+  **clavier virtuel** (polyphonie), bouton **Test**.
+  - **Capture de pointeur** (`setPointerCapture` au down) → le geste survit à la
+    sortie de l'élément (remplace la mitigation `DRAW_MARGIN`) ; `pointerup`
+    fiable hors cadre. **`onPointerCancel`** partout (interruption système → fin
+    propre, pas de draft/note collé). **`onPointerLeave` réduit au survol** (la
+    capture supprime `leave` pendant le geste — on n'y termine plus le drag).
+  - **Clavier polyphonique** : `usePointerKeyHandler` (`Map<pointerId,idx>` +
+    ref-count par idx) remplace l'ancien hook mono-pointeur + listener `window`.
+    Plusieurs doigts = accord ; 2 pointeurs sur la même touche n'attaquent/
+    relâchent qu'une fois. Le **moteur audio était déjà polyphonique** → migration
+    purement couche d'entrée. Les 5 layouts (piano-12, grid-24, grid-22 ×2,
+    grid-x-edo) bindent `onPointerDown/Up/Cancel`.
+  - **`touch-action:none`** + `user-select/touch-callout` sur les **seules**
+    surfaces migrées (canvas free+spline, `.we-harmonics-bars`, `.free-test-btn`,
+    `.piano-keyboard`) — pas sur les conteneurs scrollables.
+  - **Clic droit conservé** (mise à zéro de barre, menu spline) + garde
+    `e.button !== 0` (le tactile envoie `button === 0`). Desktop inchangé.
 
 ✅ **Terminé**
 - **Iteration R — « Refonte petit écran du Designer » (close, v1.10.0)**. État

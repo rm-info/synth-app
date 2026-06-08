@@ -883,6 +883,61 @@ Phases listées ci-dessous dans l'ordre chronologique d'implémentation.
 
 ## Historique (chronologie inverse)
 
+- **2026-06-08 — Iteration S — S.2 : Pointer Events sur les surfaces de jeu
+  primaires** (`feat(iter-S/phase-2)`, 2 sous-commits + doc). Cœur de valeur de
+  l'itération : après S.2, on **dessine** et on **joue au doigt**. Migration
+  `MouseEvent` → **Pointer Events** (chemin unique souris + tactile + stylet) ;
+  les Pointer Events couvrant aussi la souris, on **remplace** les `onMouse*`
+  (pas de cohabitation → sinon double dispatch).
+  - **Principe appliqué partout** : `setPointerCapture(pointerId)` au down d'un
+    drag → le geste survit à la sortie de l'élément (remplace la mitigation
+    `DRAW_MARGIN`, plus de perte au bord y compris à la souris) ; `pointerup`
+    livré à l'élément même hors cadre → fin fiable. **`onPointerCancel`** (NOUVEAU,
+    obligatoire) = même fin que up OU abandon du draft selon la sémantique
+    existante (libère tout draft/voix → pas d'état collé sur interruption).
+    **`onPointerLeave` réduit au survol** : avec la capture, `leave` ne se
+    déclenche pas pendant le geste → on n'y termine plus le drag (sinon tracé
+    hors-cadre cassé). Garde **`e.button !== 0`** conservée (tactile = 0) ;
+    `onContextMenu`/clic droit (button 2) inchangés (mise à zéro de barre, menu
+    spline — pas d'équivalent tactile, assumé).
+  - **S.2.1 — Canvas Forme d'onde (Libre)** (`WaveformEditor.jsx`) :
+    `handlePointerDown/Move/Up`, capture au down, `onPointerCancel` = commit (même
+    fin que up). `handleMouseLeave` **supprimé** (pas d'indicateur de survol sur
+    ce canvas). `getCanvasPoint(e)` inchangé (PointerEvent porte clientX/Y).
+  - **S.2.2 — SplineEditor (ancres)** : `handlePointerDown/Move/Up` +
+    `handleContextMenu` conservé. Capture au down d'une **poignée d'ancre**
+    (drag d'ancre qui suivait mal au doigt = apport clé). `onPointerCancel` →
+    relâche le draft (un seul dispatch au vrai commit, rien si cancel) ;
+    `handlePointerLeave` = reset hover seul.
+  - **S.2.3 — Harmoniques (barres)** : 1 barre verrouillée à l'index au down,
+    commit unique → 1 undo (inchangé). Capture pour que le drag vertical tienne
+    hors de la barre ; `onPointerCancel` = abandon du draft. Clic droit = mise à
+    zéro conservé.
+  - **S.2.4 — Clavier virtuel polyphonique** (`PianoKeyboard.jsx` +
+    `GridXEdoLayout.jsx`) : `useMouseDownHandler` (mono-pointeur + listener
+    `window mouseup`) refondu en **`usePointerKeyHandler`** — `Map<pointerId,idx>`
+    + **ref-count par idx**. La capture livre le `pointerup` à la touche d'origine
+    (plus de listener window). Polyphonie tactile : plusieurs doigts = accord ;
+    2 pointeurs sur la même touche n'attaquent (`onKeyPress` à la 1re voix) /
+    relâchent (`onKeyRelease` à la dernière, sur `pointerup` OU `pointercancel`)
+    qu'une fois. **Moteur audio déjà polyphonique** (`playInstrumentNote(idx)` /
+    `releaseInstrumentNote(idx)`, `activeNotesMapRef`) → migration purement couche
+    d'entrée. Bindings `onPointerDown/Up/Cancel` sur les **5 layouts** (piano-12,
+    grid-24, grid-22 ×2, grid-x-edo) ; prop layout `handleMouseDown` → `keys`.
+  - **S.2.5 — Bouton Test (Libre)** : `onPointerDown` (`playFreeNote`) +
+    `setPointerCapture`, `onPointerUp`/`onPointerCancel`/`onPointerLeave` =
+    release si actif (release fiable, pas de note collée). `onContextMenu`
+    désactivé conservé.
+  - **CSS** : `touch-action:none` + `user-select:none`/`-webkit-touch-callout:none`
+    sur les **seules** surfaces migrées — `.canvas-container canvas` (free +
+    spline), `.we-harmonics-bars`, `.free-test-btn`, `.piano-keyboard` (racine
+    commune aux 5 layouts). Pas sur les conteneurs scrollables.
+  - **Décision** ajoutée au `CONTEXT.md` (« entrée unifiée Pointer Events +
+    `touch-action:none` chirurgical »). `npm run lint` + `npx tsc --noEmit` +
+    `npm run build` propres (4 warnings exhaustive-deps préexistants). **Pas de
+    bump.** Hors scope (→ S.3) : AHDSR, LFO, sliders range, `SidebarResizer`,
+    `PopupResizer`, séparateurs `DesignerColumns`, Timeline Composer. Glissando
+    clavier (la capture l'exclut) + confort du tracé fin = backlog (volet B).
 - **2026-06-08 — Iteration S « Support tactile au doigt (web pur) » — OUVERTE.**
   (Suite de R.) But : confort tactile + PWA, sans lib audio ni dépendance npm
   ajoutée. **S.1 — Shell viewport, gestes globaux & PWA légère** (`feat(iter-S/
