@@ -1015,6 +1015,16 @@ Seuls les **placements timeline** s'appellent "clips".
   Le plateau hold est rendu par deux `linearRampToValueAtTime` au même
   niveau (peak), formulation idiomatique sans discontinuité
   (pas de `setValueAtTime` au milieu).
+- **Planchers anti-clic attaque/release** : `MIN_ATTACK = 0.003` et
+  `MIN_RELEASE = 0.005` (`audio.js`), appliqués via `Math.max` partout où
+  l'attaque/le release deviennent une rampe (`performRelease`/`releaseFreeNote`
+  Designer, `scheduleOneClip`/export `usePlayback`). Sans plancher, un release
+  utilisateur à 0 fait chuter le gain instantanément → clic (énorme sur carré
+  band-limité). Le plancher release garantit aussi `releaseStart < stopTime`
+  (rampes de fin non coïncidentes) sur la timeline/export (S.audio.2). Le **stop
+  brutal** (`stopAllInstrumentNotes` : changement de patch / démontage) applique
+  un **fade `RETRIGGER_FADE`** avant `osc.stop` (même esprit que le retrigger),
+  disconnect différé au `onended`.
 
 ## Décisions architecturales
 

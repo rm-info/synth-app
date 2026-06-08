@@ -968,6 +968,24 @@ Phases listées ci-dessous dans l'ordre chronologique d'implémentation.
     (master fixe), normalisation par nombre de voix (pompage). **Pas de bump.**
     `lint`/`tsc`/`build` propres ; export WAV à re-tester sur un cas multi-clips
     forts (clippait avant).
+  - **S.audio.2 — Plancher MIN_RELEASE anti-clic (+ fade stopAll)**
+    (`fix(iter-S/phase-audio.2)`). Asymétrie attaque/release = clic certain au
+    note-off : l'attaque était plancherée (`MIN_ATTACK`), pas le release → un
+    release à 0 faisait chuter le gain instantanément (clic énorme sur carré
+    band-limité, discret sur sine qui passe par zéro). **`MIN_RELEASE = 0.005`**
+    (`audio.js`, symétrique de `MIN_ATTACK`) appliqué via `Math.max` partout où le
+    release devient une rampe de fin : `performRelease` + `releaseFreeNote`
+    (Designer ; le `r` planché nourrit aussi `releaseModNodes`), `scheduleOneClip`
+    + scheduler d'export (`usePlayback` — garantit `releaseStart < stopTime`, plus
+    de rampes coïncidentes). **S.audio.2.2** : `stopAllInstrumentNotes` fade les
+    voix sur `RETRIGGER_FADE` avant `osc.stop` (au lieu d'une coupe immédiate à
+    plein niveau → clic au changement de patch/démontage), disconnect différé au
+    `onended` avec décrément du compteur de voix préservé. **Non traité ici**
+    (au jugement, retour archi si audible) : le stop de la **lecture timeline**
+    (`usePlayback` `stop`/cleanup — `osc.stop()` immédiat). **Sonde** : si des
+    craquements persistent uniquement quand des notes se chevauchent, suspect =
+    limiteur (attaque 3 ms ne rattrape pas les fronts d'un carré) → retest à
+    l'oreille avant tout tuning. **Pas de bump.**
 - **2026-06-08 — Iteration S — S.2 : Pointer Events sur les surfaces de jeu
   primaires** (`feat(iter-S/phase-2)`, 2 sous-commits + doc). Cœur de valeur de
   l'itération : après S.2, on **dessine** et on **joue au doigt**. Migration
