@@ -253,7 +253,10 @@ export function usePlayback({ clips, patches, tracks, bpm, a4Ref, xEdoN, totalDu
   const play = useCallback(() => {
     if (clips.length === 0) return
 
-    const ctx = audioCtxRef.current || new AudioContext()
+    // S.audio.3 (sonde underruns mobile) : latencyHint 'playback' = tampon audio
+    // max → réduit les glitchs de tenue sur mobile. Fixé à la création, contexte
+    // réutilisé ensuite. (L'OfflineAudioContext de l'export n'est pas concerné.)
+    const ctx = audioCtxRef.current || new AudioContext({ latencyHint: 'playback' })
     audioCtxRef.current = ctx
     if (ctx.state === 'suspended') ctx.resume()
 
