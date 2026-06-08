@@ -1,0 +1,14 @@
+{
+  "name": "On_Synth_App",
+  "short_name": "OnSynth",
+  "description": "Synthétiseur web : dessine des formes d'onde, compose, exporte en WAV.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#0f0f1a",
+  "theme_color": "#0f0f1a",
+  "icons": [
+    { "src": "/favicon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }
+  ]
+}
