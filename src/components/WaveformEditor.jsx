@@ -1,7 +1,7 @@
 import { useRef, useState, useCallback, useEffect, useImperativeHandle, useMemo } from 'react'
 import { Plus, Save, SaveAll, Undo2, Redo2, Sliders, X, Lock, Spline, AlignEndHorizontal, Sigma, Waves, ChartSpline, Activity, SlidersHorizontal } from 'lucide-react'
 import { IconDoux, IconAnguleux, IconSine, IconTriangleWave, IconSquareWave } from './icons'
-import { pointsToPeriodicWave, MIN_ATTACK, HARMONIC_COUNT, harmonicsToPoints, canonicalToBars, createMasterBus } from '../audio'
+import { pointsToPeriodicWave, MIN_ATTACK, MIN_RELEASE, HARMONIC_COUNT, harmonicsToPoints, canonicalToBars, createMasterBus } from '../audio'
 import { applyModulation } from '../lib/modulation'
 import { splineToPoints } from '../lib/spline'
 import {
@@ -1379,7 +1379,7 @@ function WaveformEditor({
     if (!ctx) return
     const params = instrumentParamsRef.current
     const now = ctx.currentTime
-    const r = params.release / 1000
+    const r = Math.max(params.release / 1000, MIN_RELEASE) // S.audio.2 : plancher anti-clic
     // Capture la valeur courante AVANT cancelScheduledValues : l'annulation
     // fait retomber le param sur le dernier setValueAtTime antérieur à now
     // (ici 0, posé au start), donc lire .value après le cancel renverrait 0.
@@ -1459,10 +1459,27 @@ function WaveformEditor({
 
   // Stop toutes les voix (changement de patch, unmount, etc.) sans fade.
   const stopAllInstrumentNotes = () => {
+    // S.audio.2.2 — fade court avant la coupe (anti-clic) : un osc.stop()
+    // immédiat couperait le signal à plein niveau → discontinuité audible
+    // (changement de patch, démontage). Même esprit que RETRIGGER_FADE.
+    const ctx = audioCtxRef.current
+    const now = ctx ? ctx.currentTime : 0
     for (const node of activeNotesMapRef.current.values()) {
-      try { node.osc.stop() } catch { /* already stopped */ }
-      try { node.osc.disconnect() } catch { /* already */ }
-      try { node.gain.disconnect() } catch { /* already */ }
+      try {
+        node.gain.gain.cancelScheduledValues(now)
+        node.gain.gain.setValueAtTime(node.gain.gain.value, now)
+        node.gain.gain.linearRampToValueAtTime(0, now + RETRIGGER_FADE)
+        node.osc.stop(now + RETRIGGER_FADE + 0.02)
+        // Disconnect différé au onended (ne pas couper le fade) ; on y intègre le
+        // décrément du compteur de voix (le onended d'origine est écrasé).
+        node.osc.onended = () => {
+          try { node.osc.disconnect() } catch { /* already */ }
+          try { node.gain.disconnect() } catch { /* already */ }
+          if (activeVoicesCountRef) {
+            activeVoicesCountRef.current = Math.max(0, activeVoicesCountRef.current - 1)
+          }
+        }
+      } catch { /* already stopped */ }
       stopModImmediate(node)
     }
     activeNotesMapRef.current.clear()
@@ -1580,7 +1597,7 @@ function WaveformEditor({
     if (!ctx) return
     const params = instrumentParamsRef.current
     const now = ctx.currentTime
-    const r = params.release / 1000
+    const r = Math.max(params.release / 1000, MIN_RELEASE) // S.audio.2 : plancher anti-clic
     const currentGain = node.gain.gain.value
     node.gain.gain.cancelScheduledValues(now)
     node.gain.gain.setValueAtTime(currentGain, now)

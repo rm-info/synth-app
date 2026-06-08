@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { pointsToPeriodicWave, audioBufferToWav, downloadWav, MIN_ATTACK, createMasterBus } from '../audio'
+import { pointsToPeriodicWave, audioBufferToWav, downloadWav, MIN_ATTACK, MIN_RELEASE, createMasterBus } from '../audio'
 import { clipFrequency } from '../reducer'
 import { applyModulation } from '../lib/modulation'
 
@@ -58,7 +58,7 @@ function scheduleOneClip(ctx, clip, patch, startTime, trackGainNodes, defaultDes
   const a = Math.max((patch.attack ?? 10) / 1000, MIN_ATTACK)
   const h = (patch.hold ?? 0) / 1000
   const d = (patch.decay ?? 100) / 1000
-  const r = (patch.release ?? 100) / 1000
+  const r = Math.max((patch.release ?? 100) / 1000, MIN_RELEASE) // S.audio.2 : plancher anti-clic (releaseStart < stopTime)
   const sus = patch.sustain ?? 0.7
   const amp = patch.amplitude
   const sustainLevel = sus * amp
@@ -115,7 +115,7 @@ function scheduleAllClips(ctx, clips, patches, startTime, trackGainNodes, defaul
     const a = Math.max((patch.attack ?? 10) / 1000, MIN_ATTACK)
     const h = (patch.hold ?? 0) / 1000
     const d = (patch.decay ?? 100) / 1000
-    const r = (patch.release ?? 100) / 1000
+    const r = Math.max((patch.release ?? 100) / 1000, MIN_RELEASE) // S.audio.2 : plancher anti-clic (releaseStart < stopTime)
     const sus = patch.sustain ?? 0.7
     const amp = patch.amplitude
     const sustainLevel = sus * amp

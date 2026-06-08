@@ -26,6 +26,14 @@ const HARMONIC_EPSILON = 1e-4
 // comme délai, mais suffit à supprimer le tick.
 export const MIN_ATTACK = 0.003
 
+// Symétrique de MIN_ATTACK côté note-off (S.audio.2) : durée minimale de la
+// rampe de release. Sans plancher, un release utilisateur à 0 fait chuter le
+// gain de son niveau courant à 0 instantanément → discontinuité, clic (énorme
+// sur un carré band-limité, en permanence à ±plein niveau ; discret sur une
+// sine qui passe par zéro). 5 ms = inaudible comme durée, suffit à supprimer le
+// clic. Garantit aussi `releaseStart < stopTime` (rampes de fin non coïncidentes).
+export const MIN_RELEASE = 0.005
+
 // Master bus (S.audio) : headroom + limiteur quasi-brickwall transparent.
 // La polyphonie somme des voix qui culminent chacune à ~amplitude (≤ 1,
 // PeriodicWave normalisée) → la somme dépasse 1 et clippe dur. On insère ce bus
