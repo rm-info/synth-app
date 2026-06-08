@@ -1129,10 +1129,10 @@ Phases listées ci-dessous dans l'ordre chronologique d'implémentation.
       (`fix(iter-R/phase-3.rectif.7)`). Dans cette bande, `autoCollapseForced` est vrai
       → au plus un module ouvert par rangée (les autres repliés) : égaliser des largeurs
       de colonnes repliées ne fait rien. `renderColumnControls` n'inclut l'item `equalize`
-      que si `!autoCollapseForced` ; le séparateur interne de l'item `auto-collapse` n'est
-      rendu que quand Égaliser est présent (sinon le `prefix` de l'OT suffit — pas de
-      double filet). Auto-réduction reste affiché (forcé/désactivé, informatif). ≥ 1100
-      inchangé.
+      que si `!autoCollapseForced`. Le séparateur interne entre Égaliser et Auto-réduction
+      a été **retiré** (le `prefix` de l'OT isole déjà le groupe ; filet entre deux boutons
+      apparentés inutile). Auto-réduction reste affiché (forcé/désactivé, informatif).
+      ≥ 1100 inchangé.
     - **Vérif** : `npm run lint` (0 erreurs, 4 warnings `exhaustive-deps` préexistants) +
       `npx tsc --noEmit` propres.
   - **R.4 — orientation adaptative : ANNULÉE.** Tentée puis **annulée en bloc** (trop de
