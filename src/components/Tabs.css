@@ -5,6 +5,9 @@
   background: var(--surface-bg);
   border-bottom: 1px solid var(--surface-border);
   padding: 0 16px;
+  /* S.1.2 — éviter que l'en-tête passe sous l'encoche en standalone
+     (viewport-fit=cover). Inerte hors safe-area : env = 0px. */
+  padding-top: env(safe-area-inset-top, 0px);
   flex-shrink: 0;
 }
 

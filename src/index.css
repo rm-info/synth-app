@@ -166,14 +166,28 @@
   }
 }
 
+html,
+body {
+  height: 100%;
+}
+
 body {
   margin: 0;
+  /* S.1.1 — shell non-scrollable. `overscroll-behavior:none` tue le
+     pull-to-refresh et le scroll-chaining (Chrome/Android) ; sur iOS, c'est le
+     body non-scrollable (`overflow:hidden` + hauteur fixe) qui empêche le
+     rubber-band/pull-to-refresh. Effet de bord voulu : la barre d'URL ne
+     bascule plus au glissé → `100dvh` reste stable → plus de reflow de canvas. */
+  overflow: hidden;
+  overscroll-behavior: none;
 }
 
 #root {
   max-width: 100%;
   margin: 0 auto;
-  min-height: 100svh;
+  /* S.1.1 — ne plus pouvoir croître au-delà du viewport (ex-`min-height:100svh`,
+     qui laissait passer un scroll de page). */
+  height: 100%;
   display: flex;
   flex-direction: column;
   box-sizing: border-box;
