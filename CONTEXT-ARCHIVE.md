@@ -1117,6 +1117,14 @@ Phases listées ci-dessous dans l'ordre chronologique d'implémentation.
       — rabotage ciblé sur la hauteur (pas en portrait 300×500 où la hauteur abonde).
       Le canvas redimensionne son backing store sur `clientHeight` (DPR) → pas de
       déformation, le tracé s'adapte.
+    - **rectif.6 — fermeture du tiroir hamburger sur sélection**
+      (`fix(iter-R/phase-3.rectif.6)`, bug pré-existant depuis R.2). Le hamburger
+      d'en-tête restait ouvert après sélection (ne se fermait que via backdrop/Escape).
+      Nouvelle prop **opt-in** `closeOnSelect` (défaut `false`) sur `OverflowToolbar` :
+      un clic sur une `tray-row` bubble vers `closeMenu` (le `onClick` de l'item se
+      déclenche d'abord). `Tabs.jsx` (header compact) la passe ; le `…` des contrôles
+      de module mobile (R.1.3) ne la passe **pas** — il garde le tiroir ouvert pour
+      ajuster steppers/toggles en rafale.
     - **Vérif** : `npm run lint` (0 erreurs, 4 warnings `exhaustive-deps` préexistants) +
       `npx tsc --noEmit` propres.
   - **R.4 — orientation adaptative : ANNULÉE.** Tentée puis **annulée en bloc** (trop de
