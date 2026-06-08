@@ -52,13 +52,15 @@ function DesignerColumns({ widths, onWidths, columns, collapsed = [false, false,
       onWidths(next)
     }
     const onUp = () => {
-      window.removeEventListener('mousemove', onMove)
-      window.removeEventListener('mouseup', onUp)
+      window.removeEventListener('pointermove', onMove)
+      window.removeEventListener('pointerup', onUp)
+      window.removeEventListener('pointercancel', onUp)
       document.body.style.cursor = ''
     }
     document.body.style.cursor = 'col-resize'
-    window.addEventListener('mousemove', onMove)
-    window.addEventListener('mouseup', onUp)
+    window.addEventListener('pointermove', onMove)
+    window.addEventListener('pointerup', onUp)
+    window.addEventListener('pointercancel', onUp)
   }
 
   // iter-O phase-5a : une colonne repliée sort du flexGrow (largeur fixe de
@@ -86,7 +88,7 @@ function DesignerColumns({ widths, onWidths, columns, collapsed = [false, false,
           role="separator"
           aria-orientation="vertical"
           aria-label={sepLabels[0]}
-          onMouseDown={startDrag(0)}
+          onPointerDown={startDrag(0)}
         ><span className="designer-columns-sep-grip" aria-hidden="true" /></div>
         <div className="designer-column" style={colStyle(1)}>{columns[1]}</div>
         <div
@@ -94,7 +96,7 @@ function DesignerColumns({ widths, onWidths, columns, collapsed = [false, false,
           role="separator"
           aria-orientation="vertical"
           aria-label={sepLabels[1]}
-          onMouseDown={startDrag(1)}
+          onPointerDown={startDrag(1)}
         ><span className="designer-columns-sep-grip" aria-hidden="true" /></div>
         <div className="designer-column" style={colStyle(2)}>{columns[2]}</div>
       </div>

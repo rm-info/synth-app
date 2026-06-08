@@ -8,7 +8,8 @@ export default function PopupResizer({ currentWidth, onResize }) {
   const startXRef = useRef(0)
   const startWidthRef = useRef(currentWidth)
 
-  const onMouseDown = (e) => {
+  // S.3.3 — Pointer Events (listeners document) ; pointercancel = fin propre.
+  const onPointerDown = (e) => {
     e.preventDefault()
     draggingRef.current = true
     startXRef.current = e.clientX
@@ -18,7 +19,7 @@ export default function PopupResizer({ currentWidth, onResize }) {
   }
 
   useEffect(() => {
-    const onMouseMove = (e) => {
+    const onPointerMove = (e) => {
       if (!draggingRef.current) return
       const delta = e.clientX - startXRef.current
       const newW = startWidthRef.current + delta
@@ -26,25 +27,27 @@ export default function PopupResizer({ currentWidth, onResize }) {
       const clamped = Math.max(MIN_WIDTH, Math.min(newW, max))
       onResize(clamped)
     }
-    const onMouseUp = () => {
+    const onPointerUp = () => {
       if (draggingRef.current) {
         draggingRef.current = false
         document.body.style.cursor = ''
         document.body.style.userSelect = ''
       }
     }
-    document.addEventListener('mousemove', onMouseMove)
-    document.addEventListener('mouseup', onMouseUp)
+    document.addEventListener('pointermove', onPointerMove)
+    document.addEventListener('pointerup', onPointerUp)
+    document.addEventListener('pointercancel', onPointerUp)
     return () => {
-      document.removeEventListener('mousemove', onMouseMove)
-      document.removeEventListener('mouseup', onMouseUp)
+      document.removeEventListener('pointermove', onPointerMove)
+      document.removeEventListener('pointerup', onPointerUp)
+      document.removeEventListener('pointercancel', onPointerUp)
     }
   }, [onResize])
 
   return (
     <div
       className="popup-resizer"
-      onMouseDown={onMouseDown}
+      onPointerDown={onPointerDown}
       title="Redimensionner"
     />
   )

@@ -10,7 +10,10 @@ import './SidebarResizer.css'
 export default function SidebarResizer({ side, width, minWidth, onChange, ariaLabel }) {
   const startRef = useRef(null)
 
-  const handleMouseDown = useCallback((e) => {
+  // S.3.3 — Pointer Events (souris + tactile + stylet). Pattern à listeners
+  // window : pas de setPointerCapture (les listeners window captent tout) ;
+  // pointercancel ajouté → fin de drag propre sur interruption tactile.
+  const handlePointerDown = useCallback((e) => {
     if (e.button !== 0) return
     e.preventDefault()
     startRef.current = { x: e.clientX, w: width }
@@ -24,19 +27,21 @@ export default function SidebarResizer({ side, width, minWidth, onChange, ariaLa
       onChange(next)
     }
     const onUp = () => {
-      window.removeEventListener('mousemove', onMove)
-      window.removeEventListener('mouseup', onUp)
+      window.removeEventListener('pointermove', onMove)
+      window.removeEventListener('pointerup', onUp)
+      window.removeEventListener('pointercancel', onUp)
       document.body.style.cursor = ''
       document.body.style.userSelect = ''
     }
-    window.addEventListener('mousemove', onMove)
-    window.addEventListener('mouseup', onUp)
+    window.addEventListener('pointermove', onMove)
+    window.addEventListener('pointerup', onUp)
+    window.addEventListener('pointercancel', onUp)
   }, [side, width, minWidth, onChange])
 
   return (
     <div
       className={`sidebar-resizer sidebar-resizer-${side}`}
-      onMouseDown={handleMouseDown}
+      onPointerDown={handlePointerDown}
       role="separator"
       aria-orientation="vertical"
       aria-label={ariaLabel}

@@ -7,6 +7,9 @@
   z-index: 5;
   background: transparent;
   transition: background 0.15s;
+  /* S.3.3 — toucher la poignée la redimensionne (pas de scroll de page). */
+  touch-action: none;
+  -webkit-touch-callout: none;
 }
 
 .sidebar-resizer-right { right: -5px; }

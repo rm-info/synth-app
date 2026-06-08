@@ -6,6 +6,9 @@
   width: 4px;
   cursor: ew-resize;
   z-index: 100;
+  /* S.3.3 — toucher la poignée la redimensionne (pas de scroll de page). */
+  touch-action: none;
+  -webkit-touch-callout: none;
 }
 .popup-resizer:hover {
   background: var(--accent-bg-soft);
