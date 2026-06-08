@@ -25,11 +25,15 @@ import './OverflowToolbar.css'
 // - triggerIcon?: node de l'icône du bouton d'overflow (défaut `⋯` Ellipsis).
 //   iter-R phase-2.1 : le header compact passe un hamburger `Menu`. La même icône
 //   sert au clone ghost (mesure) et au trigger visible → largeurs cohérentes.
+// - closeOnSelect?: boolean (défaut false). Si true, un clic sur une ligne du tiroir
+//   ferme le menu (opt-in : le hamburger d'en-tête veut fermer sur sélection ; le
+//   `…` des contrôles de module garde le tiroir ouvert pour ajuster des steppers/
+//   toggles en rafale — R.3.rectif.6).
 // - className?, ariaLabel?, menuLabel?
 
 const GAP = 8 // px — doit coller au gap CSS de .overflow-toolbar-row
 
-export default function OverflowToolbar({ items, prefix, trayFooter, className, ariaLabel, menuLabel, triggerIcon }) {
+export default function OverflowToolbar({ items, prefix, trayFooter, className, ariaLabel, menuLabel, triggerIcon, closeOnSelect = false }) {
   const renderTriggerIcon = () => triggerIcon ?? <Ellipsis size={18} />
   const rootRef = useRef(null)
   const ghostRef = useRef(null)
@@ -171,7 +175,14 @@ export default function OverflowToolbar({ items, prefix, trayFooter, className, 
             tabIndex={-1}
           >
             {overflow.map((it) => (
-              <div className="overflow-toolbar-tray-row" key={it.id}>{it.tray}</div>
+              // closeOnSelect : le clic sur l'item interne (onglet/toggle) se
+              // déclenche d'abord, puis bubble vers la ligne → closeMenu (qui rend
+              // le focus au trigger). trayFooter (non interactif) n'est pas une row.
+              <div
+                className="overflow-toolbar-tray-row"
+                key={it.id}
+                onClick={closeOnSelect ? closeMenu : undefined}
+              >{it.tray}</div>
             ))}
             {trayFooter}
           </div>

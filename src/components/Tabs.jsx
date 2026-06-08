@@ -125,6 +125,7 @@ function Tabs({ activeTab, onChange, theme, onToggleTheme, shortcutsOverlayOpen,
             ariaLabel="Navigation et options"
             menuLabel="Menu"
             triggerIcon={<Menu size={18} />}
+            closeOnSelect
           />
         </div>
       </nav>
