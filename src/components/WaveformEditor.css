@@ -1517,3 +1517,15 @@
 .we-lfo-block:not(.is-enabled) .we-lfo-canvas {
   opacity: 0.5;
 }
+
+/* R.3.rectif.5 : à hauteur de viewport rare (ex. 500×300), le module Modulation
+   déborde de quelques px → ascenseur interne. Contrairement aux autres modules
+   (canvas flex:1, compressible), il empile deux graphes LFO à HAUTEUR FIXE
+   (incompressibles). On rabote le graphe quand la hauteur manque (max-height
+   uniquement — pas en portrait 300×500 où la hauteur abonde), scopé au panneau
+   plein cadre mobile. Le graphe reste parfaitement lisible. */
+@media (max-height: 499px) {
+  .designer-mobile-panel .we-lfo-canvas {
+    height: 80px;
+  }
+}
