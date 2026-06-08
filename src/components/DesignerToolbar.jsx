@@ -58,8 +58,7 @@ function DesignerToolbar({ patchLabel, onPresets, onReset, onEqualizeWidths, col
         onClick={onEqualizeWidths}
       ><Table size={18} style={{ transform: 'rotate(90deg)' }} /></button>
     )
-    // iter-O phase-5d : toggle Auto-réduction — item INDÉPENDANT, précédé d'un
-    // séparateur. Actif si activé OU
+    // iter-O phase-5d : toggle Auto-réduction — item indépendant. Actif si activé OU
     // forcé en écran étroit (auquel cas il est aussi désactivé : on ne peut pas
     // le couper, l'espace l'impose).
     const acActive = autoCollapse || autoCollapseForced
@@ -81,15 +80,15 @@ function DesignerToolbar({ patchLabel, onPresets, onReset, onEqualizeWidths, col
     // au plus un module ouvert par rangée, les autres sont des bandes repliées :
     // égaliser des largeurs de colonnes repliées ne produit rien → on masque
     // Égaliser. Auto-réduction reste visible (forcé/désactivé, informatif).
+    // Le `prefix` de l'OT isole déjà le groupe ; pas de séparateur entre les deux
+    // boutons de disposition (apparentés).
     const items = []
     if (!autoCollapseForced) {
       items.push({ id: 'equalize', bar: equalizeBtn, tray: <>{equalizeBtn}{trayLabel(equalizeLabel)}</> })
     }
     items.push({
       id: 'auto-collapse',
-      // Le séparateur interne ne sert qu'à isoler Égaliser à sa gauche ; absent,
-      // le `prefix` de l'OT suffit (sinon on aurait un double filet).
-      bar: <>{!autoCollapseForced && <span className="designer-toolbar-divider" aria-hidden="true" />}{acBtn}</>,
+      bar: acBtn,
       tray: <>{acBtn}{trayLabel('Auto-réduction des modules')}</>,
     })
     return (
