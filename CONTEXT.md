@@ -46,9 +46,11 @@ pas encore de bump — dernière release v1.10.0). **S.1 + S.2 livrés** : S.1 =
 non-scrollable (fin du pull-to-refresh / bascule barre d'URL) + safe-area + PWA
 légère standalone (manifest SVG-only, dette icônes PNG au BACKLOG) ; S.2 = surfaces
 de jeu primaires (canvas Libre, ancres, harmoniques, clavier **polyphonique**,
-Test) en **Pointer Events** + capture + `touch-action:none`. Suite : S.3 =
-surfaces secondaires (AHDSR/LFO/sliders/resizers/Timeline). Détail par-phase de R
-(close, v1.10.0) dans `CONTEXT-ARCHIVE.md`.
+Test) en **Pointer Events** + capture + `touch-action:none` (+ S.2.fix : garde
+mono-pointeur, anti ghost-click). **S.audio** = master bus **headroom + limiteur**
+sur les 3 chaînes (anti-saturation polyphonie, live == export ; spectro honnête).
+Suite : S.3 = surfaces secondaires (AHDSR/LFO/sliders/resizers/Timeline). Détail
+par-phase de R (close, v1.10.0) dans `CONTEXT-ARCHIVE.md`.
 
 > **Structure des fichiers de contexte.** Ce `CONTEXT.md` est le **brief
 > vivant** : état présent, modèle de données, composants, architecture,
@@ -965,10 +967,20 @@ Seuls les **placements timeline** s'appellent "clips".
 
 ## Architecture audio
 
+- **Master bus (S.audio)** : helper partagé `createMasterBus(ctx)` (`audio.js`) =
+  `GainNode` headroom (`MASTER_HEADROOM` 0.6, ~-4.4 dB) → `DynamicsCompressor`
+  limiteur quasi-brickwall (seuil -3 dBFS, knee 0, ratio 20, attack 3ms, release
+  120ms). Inséré **entre le point de sommation** (`analyserGain` / pistes) **et
+  `destination`** sur les **3 chaînes** (preview Designer, lecture Composer, export
+  WAV). Garde-fou anti-saturation : la polyphonie somme des voix ≤ amplitude → la
+  somme dépassait 1 et clippait ; une voix seule reste sous le seuil → intacte.
+  L'**analyser reste EN AMONT** du bus → le spectrogramme montre la vraie somme
+  synthétisée, pas le signal limité. **Live == export** (même helper). Master
+  **fixe** (pas d'UI, pas de compression par piste — hors scope).
 - **Live (look-ahead)** : scheduler à fenêtre glissante (25ms tick,
   100ms look-ahead). Chaque clip → `OscillatorNode` (PeriodicWave) →
   `GainNode` (AHDSR) → `trackGainNode` → `analyserGain` →
-  `AnalyserNode` + `destination`. Un `GainNode` par piste ;
+  `AnalyserNode` (tap) **+ master bus → `destination`**. Un `GainNode` par piste ;
   gain = `track.volume` si audible, 0 si muté/solo-exclu.
   Changements de clips détectés par comparaison de signatures ;
   clips modifiés invalidés et reprogrammés. Depuis F.3.12.1, la
@@ -992,7 +1004,9 @@ Seuls les **placements timeline** s'appellent "clips".
   constant jusqu'au bout (wobble naturel sur l'extinction). Cleanup symétrique :
   chaque nœud LFO est stoppé/déconnecté partout où l'`osc` l'est.
 - **Export WAV** : `OfflineAudioContext(2, sampleRate * totalDurationSec, 44100)`,
-  même routage per-track GainNode, mono up-mixé en stéréo, encodage RIFF/PCM16
+  même routage per-track GainNode **+ même master bus** (pistes → `bus.input` →
+  `bus.output` → `offlineCtx.destination`), mono up-mixé en stéréo, encodage
+  RIFF/PCM16. L'export est donc protégé à l'identique du live (jamais écrêté).
 - **AHDSR par note** : rampes linéaires
   attack→peak→hold(plateau)→decay→sustain→release→0 avec
   `clipDuration = max(noteDurationSec, attack + hold + decay + release)`.
@@ -1005,6 +1019,17 @@ Seuls les **placements timeline** s'appellent "clips".
 Choix non évidents pris pour de bonnes raisons. À ne pas remettre en question
 à la légère — relire ici avant de refactorer.
 
+- **Master bus headroom+limiteur partagé, analyser pré-limiteur, live == export
+  (iter-S S.audio)** : un **seul** garde-fou anti-saturation au master —
+  `createMasterBus(ctx)` (`audio.js`, headroom 0.6 + `DynamicsCompressor`
+  brickwall) — inséré entre le point de sommation et `destination` sur les **3**
+  chaînes (preview, lecture, export offline). Helper **partagé** délibérément : il
+  garantit que **live et export sonnent pareil** (l'export ne doit jamais clipper
+  ce que le live a protégé). L'**analyser est branché EN AMONT** du bus → le
+  spectrogramme reste honnête (vraie somme synthétisée). Écartés (hors scope) :
+  compression/limiteur **par piste**, mixage/pan/gain master réglable en UI
+  (master **fixe**), et **normalisation par nombre de voix** (pompage). Réglages
+  (headroom, seuil, ratio…) ajustables à l'oreille, pas gravés.
 - **Entrée unifiée Pointer Events + `touch-action:none` chirurgical (iter-S S.2)** :
   les surfaces de manipulation directe utilisent **Pointer Events** (chemin unique
   souris + tactile + stylet) — pas de cohabitation `onMouse*`/`onPointer*` (sinon
@@ -2151,6 +2176,19 @@ secondaires (AHDSR/LFO/sliders/resizers/Timeline) = **S.3**.
     `.piano-keyboard`) — pas sur les conteneurs scrollables.
   - **Clic droit conservé** (mise à zéro de barre, menu spline) + garde
     `e.button !== 0` (le tactile envoie `button === 0`). Desktop inchangé.
+  - **S.2.fix (post-validation tactile)** : garde **mono-pointeur** « premier
+    pointeur gagne » sur les surfaces mono-valeur (canvas Libre, barres, ancres —
+    deux doigts ne tracent plus deux fois ; clavier intact, reste polyphonique) ;
+    `ConfirmDialog` backdrop fermé sur `pointerdown` (anti **ghost-click** à
+    l'ouverture au doigt sur barre non normalisée).
+- **S.audio — Headroom + limiteur master (anti-saturation polyphonie, livré)** :
+  la polyphonie sommait des voix droit vers `destination` → **clipping** des
+  accords / notes martelées. **Master bus partagé** `createMasterBus` (headroom
+  0.6 + limiteur brickwall) inséré sur les **3 chaînes** (preview Designer,
+  lecture Composer, **export WAV**) entre la sommation et `destination` ;
+  **analyser en amont** → spectrogramme honnête ; **live == export**. Note seule
+  intacte (sous le seuil), seuls les pics de sommation écrêtés. Master fixe
+  (pas d'UI). Réglages ajustables à l'oreille.
 
 ✅ **Terminé**
 - **Iteration R — « Refonte petit écran du Designer » (close, v1.10.0)**. État

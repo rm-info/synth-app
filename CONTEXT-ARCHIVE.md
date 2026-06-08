@@ -883,6 +883,39 @@ Phases listées ci-dessous dans l'ordre chronologique d'implémentation.
 
 ## Historique (chronologie inverse)
 
+- **2026-06-08 — Iteration S — S.audio : Headroom + limiteur master**
+  (`fix(iter-S/phase-audio)` + doc). La polyphonie (S.2.4) a révélé une
+  **saturation** : deux notes, un accord ou une note martelée faisaient **clipper**
+  la sortie (HP smartphone surtout). Cause : aucun headroom ni limiteur au master,
+  les voix (≤ amplitude, `PeriodicWave` normalisée) se sommaient (> 1) et filaient
+  droit vers `destination` sur les 3 chaînes. (Pas un clic de retrigger — déjà
+  déclické par `RETRIGGER_FADE` — bien du clipping de sommation.)
+  - **Helper partagé** `createMasterBus(ctx)` + `MASTER_HEADROOM` (`audio.js`) :
+    `GainNode` à 0.6 (~-4.4 dB de garde) → `DynamicsCompressor` quasi-brickwall
+    (threshold -3 dBFS, knee 0, ratio 20, attack 3ms, release 120ms). Renvoie
+    `{ input, output }` ; l'appelant fait `output.connect(dest)`. Une voix seule
+    (peak ≈ -4.4 dB) reste **sous le seuil** → intacte ; seuls les pics de
+    sommation sont écrêtés en douceur. Réglages ajustables à l'oreille.
+  - **3 points d'insertion identiques** (l'argument fort du helper : live ==
+    export) — toujours **entre le point de sommation et `destination`**, l'analyser
+    restant **EN AMONT** (spectro honnête) :
+    - **Preview Designer** (`WaveformEditor.jsx`) : `analyserGain → analyser`
+      (inchangé) **et** `analyserGain → bus.input → bus.output → ctx.destination` ;
+      bus stocké en ref, disconnecté dans le cleanup d'unmount.
+    - **Lecture Composer** (`usePlayback.js play()`) : idem ; bus disconnecté dans
+      `stop()` (avec `analyserGain`/`analyser`).
+    - **Export WAV offline** (`usePlayback.js exportWav()`) : bus créé dans
+      l'`offlineCtx` (mêmes réglages) ; pistes `gn → bus.input`, `scheduleAllClips`
+      reçoit `bus.input` comme `defaultDest` (clips orphelins inclus),
+      `bus.output → offlineCtx.destination` une fois avant `startRendering()`.
+      Vérifié : **aucune** connexion directe résiduelle à `destination` (sinon une
+      voie non limitée recliperait l'export).
+  - **Décision** actée au `CONTEXT.md` (« master bus headroom+limiteur partagé,
+    analyser pré-limiteur, live == export ») + étage master ajouté à
+    `## Architecture audio`. Écartés : compression par piste, mixage/pan/gain UI
+    (master fixe), normalisation par nombre de voix (pompage). **Pas de bump.**
+    `lint`/`tsc`/`build` propres ; export WAV à re-tester sur un cas multi-clips
+    forts (clippait avant).
 - **2026-06-08 — Iteration S — S.2 : Pointer Events sur les surfaces de jeu
   primaires** (`feat(iter-S/phase-2)`, 2 sous-commits + doc). Cœur de valeur de
   l'itération : après S.2, on **dessine** et on **joue au doigt**. Migration
