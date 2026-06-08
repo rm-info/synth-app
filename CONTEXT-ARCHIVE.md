@@ -883,6 +883,58 @@ Phases listées ci-dessous dans l'ordre chronologique d'implémentation.
 
 ## Historique (chronologie inverse)
 
+- **2026-06-08 — Iteration S — S.3 : Pointer Events, reste des poignées**
+  (`feat(iter-S/phase-3.*)`, 3 sous-commits + doc). Dernière phase de migration
+  tactile : même pattern qu'en S.2 appliqué au reste des surfaces de manipulation
+  directe → **couverture tactile complète**. Deux styles de handlers traités.
+  - **Element-local** (comme S.2) — **S.3.1 AHDSR** + **S.3.2 LFO/Modulation**
+    (`WaveformEditor.jsx`) : `onMouse*` → Pointer + `setPointerCapture` au down,
+    **garde mono-pointeur** par ref (`adsrOwnerRef` / `modOwnerRef` : un seul drag
+    actif, `move` filtré par `pointerId`), `onPointerCancel` = **abandon du draft
+    sans dispatch** (discipline d'undo inchangée — un seul dispatch au relâchement ;
+    `draftMod` + géométrie x gelée `modDragGeomRef` préservés), `onPointerLeave`
+    réduit au survol. CSS `touch-action:none` + `user-select`/callout sur
+    `.adsr-canvas` (webkit ajoutés) et `.we-lfo-canvas`.
+  - **Listeners window/document** — **S.3.3 resizers** (`SidebarResizer` window /
+    `PopupResizer` document) + **S.3.4 séparateurs** (`DesignerColumns` window) :
+    initiateur `onMouseDown` → `onPointerDown`, `mousemove`/`mouseup` →
+    `pointermove`/`pointerup` + **`pointercancel`** (fin propre ; anciens listeners
+    mouse retirés). Pas de `setPointerCapture` (les listeners window captent tout)
+    ni de garde mono-pointeur (un resize = un geste). `touch-action:none` sur les
+    poignées (`.sidebar-resizer`, `.popup-resizer` ; `.designer-columns-sep`
+    l'avait déjà).
+  - **S.3.5 Sliders** : `<input type=range>` natifs **non migrés** / **jamais** en
+    `touch-action:none` (casserait le drag natif du thumb). Seul ajustement : le
+    **volume de piste** (Timeline) committait sur `onMouseUp` seul (ne se
+    déclenchait pas au relâchement tactile) → `onPointerUp` ajouté en miroir
+    (idempotent). `sliderCommitter` était déjà pointer-aware.
+  - **S.3.6 Timeline** (`Timeline.jsx`) — surface la plus délicate (scroll
+    horizontal tactile coexiste avec le drag de clip / le lasso) :
+    - **Clip drag + resize** : la session d'interaction (effet à listeners window,
+      partagée drag/resize) passe en `pointermove`/`pointerup`/`pointercancel`
+      (cancel = **abandon sans commit**, le clip retombe à l'origine) ; initiateurs
+      `onPointerDown` sur le clip (`startInteraction 'drag'`) et les poignées
+      `resize-left`/`right`.
+    - **cells-wrapper** (zone vide) migré en `onPointerDown` **aussi** : nécessaire
+      car `startInteraction` fait `stopPropagation` sur le **pointerevent** — si le
+      wrapper restait `onMouseDown`, le **synthetic mousedown** d'un clic sur clip
+      y aurait re-déclenché le lasso (double dispatch). Le **lasso** y est gardé
+      **souris-seule** (`e.pointerType === 'mouse'`) ; ctrl-scroll / alt-zoom
+      (modificateurs clavier) restent souris de fait.
+    - **CSS** : `touch-action:none` sur `.placed-sound` (clips) + `.resize-handle` ;
+      `.timeline-grid-wrapper` en **`touch-action: pan-x pan-y`**. ⚠️ **Écart assumé
+      vs le prompt** (qui disait `pan-x`) : le wrapper a `overflow-y:auto` et
+      empile jusqu'à 16 pistes → `pan-x` seul **tuerait le scroll vertical
+      tactile** ; `pan-x pan-y` préserve les deux axes et désactive juste le
+      pinch-zoom.
+    - **Menus contextuels** clip (`onContextMenu` stopPropagation) + mesure :
+      inchangés (souris-seule, cohérent avec « clic droit = souris » de S.2).
+    - **Limitations connues** (volet B / backlog) : **lasso tactile** (zone vide
+      scrolle au doigt, pas de sélection) et **reorder de piste au doigt**
+      (`startTrackReorder` laissé souris ; le tap sélectionne toujours la piste).
+  - **Décision** Pointer Events de S.2 complétée au `CONTEXT.md` (Timeline =
+    `pan-x pan-y` conteneur / `none` clips ; sliders natifs intouchés). **Pas de
+    bump** (bump à la clôture de S). `lint`/`tsc`/`build` propres.
 - **2026-06-08 — Iteration S — S.audio : Headroom + limiteur master**
   (`fix(iter-S/phase-audio)` + doc). La polyphonie (S.2.4) a révélé une
   **saturation** : deux notes, un accord ou une note martelée faisaient **clipper**

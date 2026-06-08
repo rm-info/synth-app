@@ -49,8 +49,10 @@ de jeu primaires (canvas Libre, ancres, harmoniques, clavier **polyphonique**,
 Test) en **Pointer Events** + capture + `touch-action:none` (+ S.2.fix : garde
 mono-pointeur, anti ghost-click). **S.audio** = master bus **headroom + limiteur**
 sur les 3 chaînes (anti-saturation polyphonie, live == export ; spectro honnête).
-Suite : S.3 = surfaces secondaires (AHDSR/LFO/sliders/resizers/Timeline). Détail
-par-phase de R (close, v1.10.0) dans `CONTEXT-ARCHIVE.md`.
+**S.3** = reste des poignées (AHDSR/LFO/resizers/séparateurs/**Timeline**) en
+Pointer Events → **couverture tactile complète** (lasso + reorder de piste restent
+souris-seuls, assumés). Reste : **clôture de S** (bump + doc). Détail par-phase de
+R (close, v1.10.0) dans `CONTEXT-ARCHIVE.md`.
 
 > **Structure des fichiers de contexte.** Ce `CONTEXT.md` est le **brief
 > vivant** : état présent, modèle de données, composants, architecture,
@@ -1046,6 +1048,18 @@ Choix non évidents pris pour de bonnes raisons. À ne pas remettre en question
   le **moteur audio est déjà polyphonique**, la polyphonie est purement une
   affaire de couche d'entrée. Périmètre S.2 = surfaces **primaires** (canvas Libre,
   ancres, harmoniques, clavier, Test) ; AHDSR/LFO/sliders/resizers/Timeline = S.3.
+  **S.3 (couverture complète)** : même pattern étendu aux poignées AHDSR/LFO
+  (element-local + capture + garde mono-pointeur) et aux drags à **listeners
+  window/document** (resizers, séparateurs `DesignerColumns`, Timeline →
+  `onPointerDown` initiateur + `pointermove`/`pointerup`/**`pointercancel`**, pas
+  de capture). **Timeline** : `touch-action:none` sur les **clips** + poignées de
+  resize (manipulation directe) et **`pan-x pan-y`** sur le **conteneur
+  scrollable** (scroll tactile des deux axes préservé — le prompt disait `pan-x`,
+  élargi car le wrapper scrolle aussi en vertical jusqu'à 16 pistes). Le **lasso**
+  (drag sur zone vide) reste **souris-seule** — conflit direct avec le scroll
+  tactile, désambiguïsation reportée (backlog). Les **`<input type=range>`** ne
+  sont **jamais** mis en `touch-action:none` (casserait le drag natif du thumb) ;
+  on leur ajoute juste un commit `pointerup` là où il manquait (volume de piste).
 - **Shell non-scrollable + PWA standalone sans dépendance (iter-S S.1)** : le
   scroll **de page** est verrouillé au niveau `html`/`body`/`#root`
   (`overflow:hidden`, `height:100%`, `overscroll-behavior:none`) — **jamais** sur
@@ -2189,6 +2203,23 @@ secondaires (AHDSR/LFO/sliders/resizers/Timeline) = **S.3**.
   **analyser en amont** → spectrogramme honnête ; **live == export**. Note seule
   intacte (sous le seuil), seuls les pics de sommation écrêtés. Master fixe
   (pas d'UI). Réglages ajustables à l'oreille.
+- **S.3 — Pointer Events : reste des poignées (livré)** : **couverture tactile
+  complète**. Même pattern qu'en S.2 appliqué à AHDSR, LFO, resizers,
+  séparateurs et Timeline.
+  - **Element-local** (AHDSR S.3.1, LFO S.3.2) : `setPointerCapture` + garde
+    mono-pointeur + `onPointerCancel` (abandon du draft). `touch-action:none` sur
+    `.adsr-canvas` / `.we-lfo-canvas`.
+  - **Listeners window/document** (resizers S.3.3 `SidebarResizer`/`PopupResizer`,
+    séparateurs S.3.4 `DesignerColumns`) : initiateur `onPointerDown` + listeners
+    `pointermove`/`pointerup`/`pointercancel`. `touch-action:none` sur les poignées.
+  - **Timeline S.3.6** : clip drag + resize au doigt (session à listeners window →
+    pointer + cancel) ; clips/poignées `touch-action:none`, **conteneur scrollable
+    `touch-action: pan-x pan-y`** (scroll horizontal ET vertical préservés — jusqu'à
+    16 pistes). **Lasso souris-seule** (conflit avec le scroll tactile sur zone vide
+    — limitation assumée, backlog) ; reorder de piste au doigt aussi reporté.
+  - **Sliders S.3.5** : `<input type=range>` natifs intouchés (pas de
+    `touch-action:none`) ; volume de piste committé aussi sur `pointerup`.
+  - **Clic droit / menus contextuels** (clip, mesure) inchangés (souris).
 
 ✅ **Terminé**
 - **Iteration R — « Refonte petit écran du Designer » (close, v1.10.0)**. État
