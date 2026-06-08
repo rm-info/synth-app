@@ -25,7 +25,11 @@ export default function ConfirmDialog({
 
   return (
     <>
-      <div className="confirm-dialog-backdrop" onClick={onCancel} />
+      {/* S.2.fix.2 — fermeture sur `onPointerDown` (pas `onClick`) : un dialog
+          ouvert depuis un pointerdown (barre harmonique non normalisée au doigt)
+          ne se referme plus par le click synthétique du même tap qui retombe sur
+          le backdrop fraîchement monté. Un tap neuf sur le fond le ferme toujours. */}
+      <div className="confirm-dialog-backdrop" onPointerDown={onCancel} />
       <div className="confirm-dialog">
         <h4>{title}</h4>
         <p className="confirm-dialog-message">{message}</p>
