@@ -362,6 +362,14 @@
      la hauteur dispo. */
   grid-template-rows: 1fr;
 }
+/* R.3.rectif.2 : en mobile (toute la plage < 924×668), supprimer la marge gauche
+   du layout (12px, ou 6px sous 700) pour rendre de la largeur — le rail collapsed
+   se cale contre le bord. Sélecteur à double classe (spécificité 0,0,2,0) pour
+   battre le `padding` shorthand du bloc densification < 700 quel que soit l'ordre
+   source. On ne touche ni le gap interne ni les autres côtés. */
+.designer-layout.designer-layout-mobile {
+  padding-left: 0;
+}
 .designer-main-mobile {
   display: flex;
   flex-direction: column;
