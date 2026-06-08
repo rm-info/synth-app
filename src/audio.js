@@ -26,6 +26,28 @@ const HARMONIC_EPSILON = 1e-4
 // comme délai, mais suffit à supprimer le tick.
 export const MIN_ATTACK = 0.003
 
+// Master bus (S.audio) : headroom + limiteur quasi-brickwall transparent.
+// La polyphonie somme des voix qui culminent chacune à ~amplitude (≤ 1,
+// PeriodicWave normalisée) → la somme dépasse 1 et clippe dur. On insère ce bus
+// ENTRE le point de sommation (analyserGain / pistes) et `destination`. L'analyser
+// reste branché EN AMONT (sur le point de sommation) → le spectrogramme montre le
+// spectre réel synthétisé, pas le signal limité. Helper partagé par les 3 chaînes
+// (preview Designer, lecture Composer, export WAV offline) → live == export.
+export const MASTER_HEADROOM = 0.6 // ~ -4.4 dB de garde ; ajustable
+
+export function createMasterBus(ctx) {
+  const gain = ctx.createGain()
+  gain.gain.value = MASTER_HEADROOM
+  const limiter = ctx.createDynamicsCompressor()
+  limiter.threshold.value = -3 // dBFS ; une voix seule (peak 0.6 ≈ -4.4 dB) reste sous le seuil → intacte
+  limiter.knee.value = 0       // coude dur = brickwall
+  limiter.ratio.value = 20     // ~limiteur
+  limiter.attack.value = 0.003
+  limiter.release.value = 0.12
+  gain.connect(limiter)
+  return { input: gain, output: limiter } // appelant : output.connect(dest)
+}
+
 // FFT in-place via Cooley-Tukey radix-2. N doit être une puissance de 2.
 // Modifie real[] et imag[] en place. Convention forward (exp(-iθ)) —
 // matche bit-pour-bit la convention de la DFT naïve historique (cf. spec).

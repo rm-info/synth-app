@@ -1,7 +1,7 @@
 import { useRef, useState, useCallback, useEffect, useImperativeHandle, useMemo } from 'react'
 import { Plus, Save, SaveAll, Undo2, Redo2, Sliders, X, Lock, Spline, AlignEndHorizontal, Sigma, Waves, ChartSpline, Activity, SlidersHorizontal } from 'lucide-react'
 import { IconDoux, IconAnguleux, IconSine, IconTriangleWave, IconSquareWave } from './icons'
-import { pointsToPeriodicWave, MIN_ATTACK, HARMONIC_COUNT, harmonicsToPoints, canonicalToBars } from '../audio'
+import { pointsToPeriodicWave, MIN_ATTACK, HARMONIC_COUNT, harmonicsToPoints, canonicalToBars, createMasterBus } from '../audio'
 import { applyModulation } from '../lib/modulation'
 import { splineToPoints } from '../lib/spline'
 import {
@@ -687,6 +687,7 @@ function WaveformEditor({
   const [adsrCompact, setAdsrCompact] = useState(false)
   const audioCtxRef = useRef(null)
   const analyserGainRef = useRef(null)
+  const masterBusRef = useRef(null) // S.audio : headroom + limiteur master (préview)
 
   // Instrument (E.3) : une voix par note jouée, indexée par noteIndex. Un
   // second appui sur la même touche (retrigger) coupe la voix existante
@@ -1217,8 +1218,9 @@ function WaveformEditor({
 
     // Tap analyser pour le Spectrogram Designer (live FFT mode, iter I).
     // Les voix se connectent à analyserGain au lieu de ctx.destination ;
-    // analyserGain → analyser (lecture passive) et analyserGain → ctx.destination
-    // (sortie audible inchangée).
+    // analyserGain → analyser (lecture passive, EN AMONT du master → spectro
+    // honnête) et analyserGain → master bus → ctx.destination (S.audio :
+    // headroom + limiteur anti-saturation polyphonie).
     const analyserGain = ctx.createGain()
     const analyser = ctx.createAnalyser()
     analyser.fftSize = 2048
@@ -1226,9 +1228,12 @@ function WaveformEditor({
     analyser.minDecibels = -90
     analyser.maxDecibels = -10
     analyserGain.connect(analyser)
-    analyserGain.connect(ctx.destination)
+    const bus = createMasterBus(ctx)
+    analyserGain.connect(bus.input)
+    bus.output.connect(ctx.destination)
 
     analyserGainRef.current = analyserGain
+    masterBusRef.current = bus
     if (analyserRef) analyserRef.current = analyser
 
     // Reset compteur de voix à la création d'un nouveau context.
@@ -1604,6 +1609,11 @@ function WaveformEditor({
       if (activeVoicesCountRef) activeVoicesCountRef.current = 0
       if (analyserRef) analyserRef.current = null
       analyserGainRef.current = null
+      if (masterBusRef.current) {
+        try { masterBusRef.current.input.disconnect() } catch { /* déjà déconnecté */ }
+        try { masterBusRef.current.output.disconnect() } catch { /* déjà déconnecté */ }
+        masterBusRef.current = null
+      }
     }
   }, [])
 

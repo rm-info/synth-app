@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { pointsToPeriodicWave, audioBufferToWav, downloadWav, MIN_ATTACK } from '../audio'
+import { pointsToPeriodicWave, audioBufferToWav, downloadWav, MIN_ATTACK, createMasterBus } from '../audio'
 import { clipFrequency } from '../reducer'
 import { applyModulation } from '../lib/modulation'
 
@@ -166,6 +166,7 @@ export function usePlayback({ clips, patches, tracks, bpm, a4Ref, xEdoN, totalDu
   const animFrameRef = useRef(null)
   const analyserRef = useRef(null)
   const analyserGainRef = useRef(null)
+  const masterBusRef = useRef(null) // S.audio : headroom + limiteur master (lecture)
   const trackGainNodesRef = useRef({})
 
   // Scheduler state (refs for access inside setInterval)
@@ -239,6 +240,11 @@ export function usePlayback({ clips, patches, tracks, bpm, a4Ref, xEdoN, totalDu
       try { analyserRef.current.disconnect() } catch { /* idem */ }
       analyserRef.current = null
     }
+    if (masterBusRef.current) {
+      try { masterBusRef.current.input.disconnect() } catch { /* idem */ }
+      try { masterBusRef.current.output.disconnect() } catch { /* idem */ }
+      masterBusRef.current = null
+    }
     setIsPlaying(false)
     setCursorPos(0)
     setCurrentTime(0)
@@ -254,10 +260,14 @@ export function usePlayback({ clips, patches, tracks, bpm, a4Ref, xEdoN, totalDu
     const analyserGain = ctx.createGain()
     const analyser = ctx.createAnalyser()
     analyser.fftSize = 2048
-    analyserGain.connect(analyser)
-    analyserGain.connect(ctx.destination)
+    analyserGain.connect(analyser) // analyser EN AMONT du master → spectro honnête
+    // S.audio : master bus (headroom + limiteur) entre la somme des pistes et la sortie.
+    const bus = createMasterBus(ctx)
+    analyserGain.connect(bus.input)
+    bus.output.connect(ctx.destination)
     analyserRef.current = analyser
     analyserGainRef.current = analyserGain
+    masterBusRef.current = bus
 
     const anySolo = tracks.some(t => t.solo)
     const tgNodes = {}
@@ -413,16 +423,22 @@ export function usePlayback({ clips, patches, tracks, bpm, a4Ref, xEdoN, totalDu
         sampleRate,
       )
 
+      // S.audio : même master bus que le live (headroom + limiteur) → export ==
+      // ce qu'on entend. TOUT ce qui visait offlineCtx.destination passe par bus.input.
+      const bus = createMasterBus(offlineCtx)
+
       const anySolo = tracks.some(t => t.solo)
       const tgNodes = {}
       for (const track of tracks) {
         const gn = offlineCtx.createGain()
         gn.gain.value = trackPlays(track, anySolo) ? track.volume : 0
-        gn.connect(offlineCtx.destination)
+        gn.connect(bus.input)
         tgNodes[track.id] = gn
       }
 
-      scheduleAllClips(offlineCtx, clips, patches, 0, tgNodes, offlineCtx.destination, bpm, tracks, a4Ref, xEdoN)
+      // defaultDest = bus.input (clips orphelins sans piste passent aussi par le master).
+      scheduleAllClips(offlineCtx, clips, patches, 0, tgNodes, bus.input, bpm, tracks, a4Ref, xEdoN)
+      bus.output.connect(offlineCtx.destination)
       const renderedBuffer = await offlineCtx.startRendering()
       const wav = audioBufferToWav(renderedBuffer)
       downloadWav(wav, 'composition.wav')
