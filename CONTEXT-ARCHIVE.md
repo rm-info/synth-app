@@ -986,6 +986,55 @@ Phases listées ci-dessous dans l'ordre chronologique d'implémentation.
     craquements persistent uniquement quand des notes se chevauchent, suspect =
     limiteur (attaque 3 ms ne rattrape pas les fronts d'un carré) → retest à
     l'oreille avant tout tuning. **Pas de bump.**
+  - **S.audio.3 — Buffer audio élargi (`fix(iter-S/phase-audio.3)`)**. Sonde des
+    underruns mobiles : `latencyHint` posé pour élargir le buffer du contexte audio
+    (réduit les coupures/craquements quand le thread audio est sous pression sur
+    smartphone). Phase **code-only** (pas de doc consignée à l'époque).
+  - **S.audio.4 — Soft-clip master sans mémoire (`fix(iter-S/phase-audio.4)`,
+    2 commits)**. Le `DynamicsCompressor` de S.audio.1 a une **mémoire**
+    (attaque/release) → sur un accord dense qui bat, sa réduction de gain suivait le
+    battement = **pompage rythmique** (« crr crr crr », net dès 4 voix sine).
+    Remplacé par un `WaveShaper` **soft-clip sans mémoire** (`makeSoftClipCurve` :
+    identité sous `knee`, approche douce de ±1 au-dessus via `tanh`, `oversample 4x`
+    contre l'aliasing de saturation) : plafond instantané, zéro pompage, transparent
+    sous le genou. Réglage final `MASTER_HEADROOM 0.3`, `knee 0.9`, latence ajustée.
+    `createMasterBus` renvoie toujours `{ input, output }` (appelants inchangés),
+    l'analyser reste en amont (spectro honnête). Phase **code-only** (doc consignée
+    rétroactivement ici en S.audio.5).
+  - **S.audio.5 — Headroom bas (12 notes propres) + normalisation de l'export**
+    (`feat(iter-S/phase-audio.5)` + doc). Constat empirique (OnePlus **et** desktop) :
+    en gardant le **niveau numérique bas** (amplitude patch ~35 %) et en montant le
+    **volume de l'appareil**, le son est **propre même à 12 notes tenues** (pédale)
+    **et** aussi fort. Le clipping est un **problème numérique** (la sommation
+    polyphonique), la loudness se récupère au **dernier étage analogique** (volume
+    appareil, qui ne clippe pas). On **bake** ce comportement au lieu de le faire
+    patch-par-patch :
+    - **`MASTER_HEADROOM` abaissé** `0.3 → 0.1` (`audio.js`) : tout reste propre par
+      défaut jusqu'à ~12 notes ; la loudness live vient du volume appareil. Le
+      soft-clip (knee 0.9 inchangé) ne devient qu'un **filet lointain** qui ne mord
+      quasi jamais. À caler à l'oreille (0.1–0.13). Reste du `createMasterBus`
+      intact (WaveShaper, `oversample 4x`, analyser en amont).
+    - **Export normalisé en crête** : un fichier n'a pas d'étage « volume appareil »
+      → rendu bas niveau = WAV faible. Helper `normalizePeak(buffer, target)`
+      (`audio.js`, `EXPORT_PEAK_TARGET 0.891` ≈ -1 dBFS, marge anti inter-sample
+      peak) : trouve la crête absolue (tous canaux), met à l'échelle vers la cible
+      (`scale = target / peak`, garde anti-division-par-0 sur silence). **Pur facteur
+      d'échelle float → aucune distorsion** (≠ soft-clip). Appelé dans
+      `usePlayback.js exportWav()` **entre** `startRendering()` et `audioBufferToWav`
+      → la quantification PCM16 se fait **une seule fois, au niveau cible** (pas de
+      plancher de bruit relevé). Au niveau bas du master le soft-clip ne mord pas →
+      buffer linéaire → normalisation propre.
+    - **Conséquence assumée** : **live ≠ export sur le NIVEAU**, volontairement (le
+      live délègue la loudness au volume appareil, l'export la bake). Le reste de la
+      chaîne reste identique. **Hors scope** : master fader UI (backlog éventuel),
+      toute autre modif du graphe.
+    - **Note d'usage** : avec le headroom bas global, plus besoin de baisser
+      l'amplitude AHDSR patch par patch — on peut remettre les amplitudes à leur
+      valeur naturelle ; master + volume appareil gèrent. **Doc** : `CONTEXT.md`
+      `## Architecture audio` (Master bus + Export WAV) et `## Décisions` réécrits
+      sur place à l'état courant (soft-clip + headroom bas + export normalisé,
+      absorbant le retard .3/.4). `lint`/`tsc`/`build` propres ; export à tester sur
+      une compo dense (→ WAV fort, propre, non écrêté). **Pas de bump (clôture S).**
 - **2026-06-08 — Iteration S — S.2 : Pointer Events sur les surfaces de jeu
   primaires** (`feat(iter-S/phase-2)`, 2 sous-commits + doc). Cœur de valeur de
   l'itération : après S.2, on **dessine** et on **joue au doigt**. Migration

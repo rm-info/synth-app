@@ -47,8 +47,10 @@ non-scrollable (fin du pull-to-refresh / bascule barre d'URL) + safe-area + PWA
 légère standalone (manifest SVG-only, dette icônes PNG au BACKLOG) ; S.2 = surfaces
 de jeu primaires (canvas Libre, ancres, harmoniques, clavier **polyphonique**,
 Test) en **Pointer Events** + capture + `touch-action:none` (+ S.2.fix : garde
-mono-pointeur, anti ghost-click). **S.audio** = master bus **headroom + limiteur**
-sur les 3 chaînes (anti-saturation polyphonie, live == export ; spectro honnête).
+mono-pointeur, anti ghost-click). **S.audio** = master bus **headroom bas +
+soft-clip filet** sur les 3 chaînes (~12 notes propres ; loudness = volume
+appareil ; soft-clip sans pompage remplace l'ex-limiteur ; export **normalisé** en
+crête ~-1 dBFS ; spectro honnête).
 **S.3** = reste des poignées (AHDSR/LFO/resizers/séparateurs/**Timeline**) en
 Pointer Events → **couverture tactile complète** (lasso + reorder de piste restent
 souris-seuls, assumés). Reste : **clôture de S** (bump + doc). Détail par-phase de
@@ -969,16 +971,22 @@ Seuls les **placements timeline** s'appellent "clips".
 
 ## Architecture audio
 
-- **Master bus (S.audio)** : helper partagé `createMasterBus(ctx)` (`audio.js`) =
-  `GainNode` headroom (`MASTER_HEADROOM` 0.6, ~-4.4 dB) → `DynamicsCompressor`
-  limiteur quasi-brickwall (seuil -3 dBFS, knee 0, ratio 20, attack 3ms, release
-  120ms). Inséré **entre le point de sommation** (`analyserGain` / pistes) **et
-  `destination`** sur les **3 chaînes** (preview Designer, lecture Composer, export
-  WAV). Garde-fou anti-saturation : la polyphonie somme des voix ≤ amplitude → la
-  somme dépassait 1 et clippait ; une voix seule reste sous le seuil → intacte.
-  L'**analyser reste EN AMONT** du bus → le spectrogramme montre la vraie somme
-  synthétisée, pas le signal limité. **Live == export** (même helper). Master
-  **fixe** (pas d'UI, pas de compression par piste — hors scope).
+- **Master bus (S.audio, niveau bas + soft-clip filet)** : helper partagé
+  `createMasterBus(ctx)` (`audio.js`) = `GainNode` headroom **bas**
+  (`MASTER_HEADROOM` 0.1, S.audio.5) → `WaveShaper` soft-clip **sans mémoire**
+  (`makeSoftClipCurve`, knee 0.9, `oversample 4x`). Inséré **entre le point de
+  sommation** (`analyserGain` / pistes) **et `destination`** sur les **3 chaînes**
+  (preview Designer, lecture Composer, export WAV). **Modèle de niveau (S.audio.5)** :
+  on garde le **niveau numérique bas** pour que la sommation polyphonique reste
+  propre **par défaut** (~12 notes tenues, sine ET carré, sans saturation) ; la
+  **loudness se récupère au dernier étage analogique** = le **volume de l'appareil**
+  (qui ne clippe pas). Le soft-clip devient un **filet lointain** qui ne mord quasi
+  jamais en usage normal — il a remplacé l'ancien `DynamicsCompressor` (S.audio.4)
+  dont la mémoire attaque/release suivait les battements d'accord = pompage (« crr
+  crr crr ») ; un WaveShaper plafonne instantanément, zéro pompage, transparent sous
+  le genou. L'**analyser reste EN AMONT** du bus → le spectrogramme montre la vraie
+  somme synthétisée, pas le signal écrêté. Master **fixe** (pas d'UI, pas de
+  compression par piste — hors scope ; un master fader UI = backlog éventuel).
 - **Live (look-ahead)** : scheduler à fenêtre glissante (25ms tick,
   100ms look-ahead). Chaque clip → `OscillatorNode` (PeriodicWave) →
   `GainNode` (AHDSR) → `trackGainNode` → `analyserGain` →
@@ -1005,10 +1013,20 @@ Seuls les **placements timeline** s'appellent "clips".
   décroissance erronée sur toute la note. Le vibrato, lui, garde un `depth`
   constant jusqu'au bout (wobble naturel sur l'extinction). Cleanup symétrique :
   chaque nœud LFO est stoppé/déconnecté partout où l'`osc` l'est.
-- **Export WAV** : `OfflineAudioContext(2, sampleRate * totalDurationSec, 44100)`,
-  même routage per-track GainNode **+ même master bus** (pistes → `bus.input` →
-  `bus.output` → `offlineCtx.destination`), mono up-mixé en stéréo, encodage
-  RIFF/PCM16. L'export est donc protégé à l'identique du live (jamais écrêté).
+- **Export WAV (normalisé en crête, S.audio.5)** : `OfflineAudioContext(2,
+  sampleRate * totalDurationSec, 44100)`, même routage per-track GainNode **+ même
+  master bus** (pistes → `bus.input` → `bus.output` → `offlineCtx.destination`),
+  mono up-mixé en stéréo, encodage RIFF/PCM16. Un **fichier** n'a pas d'étage
+  « volume appareil » : rendu au niveau bas du master = WAV faible. On **normalise**
+  donc le buffer rendu avant l'encodage — `normalizePeak(buffer)` (`audio.js`,
+  cible `EXPORT_PEAK_TARGET` 0.891 ≈ -1 dBFS, marge anti inter-sample peak) monte
+  linéairement la crête vers la cible. Ordre **crucial** : rendu (bas niveau,
+  propre) → `normalizePeak` (montée float) → `audioBufferToWav` ; la quantification
+  PCM16 se fait **une seule fois, au niveau cible** (pas de plancher de bruit
+  relevé). Au niveau bas le soft-clip ne mord pas → le buffer est **linéaire** et la
+  normalisation est un **pur facteur d'échelle, sans distorsion** (≠ soft-clip).
+  Conséquence assumée : **live ≠ export sur le NIVEAU** (le live délègue la loudness
+  au volume appareil, l'export la bake), volontairement.
 - **AHDSR par note** : rampes linéaires
   attack→peak→hold(plateau)→decay→sustain→release→0 avec
   `clipDuration = max(noteDurationSec, attack + hold + decay + release)`.
@@ -1031,17 +1049,27 @@ Seuls les **placements timeline** s'appellent "clips".
 Choix non évidents pris pour de bonnes raisons. À ne pas remettre en question
 à la légère — relire ici avant de refactorer.
 
-- **Master bus headroom+limiteur partagé, analyser pré-limiteur, live == export
-  (iter-S S.audio)** : un **seul** garde-fou anti-saturation au master —
-  `createMasterBus(ctx)` (`audio.js`, headroom 0.6 + `DynamicsCompressor`
-  brickwall) — inséré entre le point de sommation et `destination` sur les **3**
-  chaînes (preview, lecture, export offline). Helper **partagé** délibérément : il
-  garantit que **live et export sonnent pareil** (l'export ne doit jamais clipper
-  ce que le live a protégé). L'**analyser est branché EN AMONT** du bus → le
-  spectrogramme reste honnête (vraie somme synthétisée). Écartés (hors scope) :
-  compression/limiteur **par piste**, mixage/pan/gain master réglable en UI
-  (master **fixe**), et **normalisation par nombre de voix** (pompage). Réglages
-  (headroom, seuil, ratio…) ajustables à l'oreille, pas gravés.
+- **Master = headroom bas + soft-clip filet ; loudness déléguée à la sortie ;
+  export normalisé (iter-S S.audio)** : un **seul** garde-fou au master —
+  `createMasterBus(ctx)` (`audio.js`, `MASTER_HEADROOM` **bas** 0.1 + `WaveShaper`
+  soft-clip **sans mémoire** knee 0.9) — inséré entre le point de sommation et
+  `destination` sur les **3** chaînes (preview, lecture, export offline). **Modèle
+  de niveau (S.audio.5)** : le clipping est un **problème numérique** (la sommation
+  polyphonique), la loudness se récupère au **dernier étage analogique** = volume
+  de l'appareil (qui ne clippe pas). On garde donc le niveau numérique **bas** (tout
+  reste propre par défaut jusqu'à ~12 notes tenues) et la loudness live vient du
+  volume appareil. Le soft-clip n'est plus qu'un **filet lointain** — il a remplacé
+  l'ancien `DynamicsCompressor` (S.audio.4) qui pompait sur les accords battants
+  (sa mémoire attaque/release suivait le battement). **Live ≠ export sur le NIVEAU,
+  volontairement** : un fichier n'a pas d'étage volume appareil → l'export est
+  **normalisé en crête** (`normalizePeak`, `EXPORT_PEAK_TARGET` 0.891 ≈ -1 dBFS,
+  pur facteur d'échelle float avant quantification PCM16 = aucune distorsion). Le
+  reste de la chaîne (graphe, AHDSR, modulations) reste identique live/export.
+  L'**analyser est branché EN AMONT** du bus → le spectrogramme reste honnête (vraie
+  somme synthétisée). Écartés (hors scope) : compression/limiteur **par piste**,
+  gain master réglable en UI (master **fixe** ; fader UI = backlog éventuel), et
+  **normalisation par nombre de voix** (pompage). Headroom calé à l'oreille
+  (0.1–0.13), pas gravé.
 - **Entrée unifiée Pointer Events + `touch-action:none` chirurgical (iter-S S.2)** :
   les surfaces de manipulation directe utilisent **Pointer Events** (chemin unique
   souris + tactile + stylet) — pas de cohabitation `onMouse*`/`onPointer*` (sinon
