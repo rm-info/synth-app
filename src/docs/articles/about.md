@@ -30,7 +30,7 @@ court pour rester compréhensible et modifiable.
 
 ## Version
 
-Version courante : **1.10.0**. Le numéro est tenu à jour à chaque
+Version courante : **1.11.0**. Le numéro est tenu à jour à chaque
 release.
 
 ## Repo et contributions
