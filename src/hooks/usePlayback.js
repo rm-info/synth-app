@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { pointsToPeriodicWave, audioBufferToWav, downloadWav, MIN_ATTACK, MIN_RELEASE, createMasterBus } from '../audio'
+import { pointsToPeriodicWave, audioBufferToWav, normalizePeak, downloadWav, MIN_ATTACK, MIN_RELEASE, createMasterBus } from '../audio'
 import { clipFrequency } from '../reducer'
 import { applyModulation } from '../lib/modulation'
 
@@ -443,6 +443,7 @@ export function usePlayback({ clips, patches, tracks, bpm, a4Ref, xEdoN, totalDu
       scheduleAllClips(offlineCtx, clips, patches, 0, tgNodes, bus.input, bpm, tracks, a4Ref, xEdoN)
       bus.output.connect(offlineCtx.destination)
       const renderedBuffer = await offlineCtx.startRendering()
+      normalizePeak(renderedBuffer)            // <-- AVANT l'encodage : rend propre & fort
       const wav = audioBufferToWav(renderedBuffer)
       downloadWav(wav, 'composition.wav')
     } finally {

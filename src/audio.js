@@ -47,7 +47,8 @@ export const MIN_RELEASE = 0.005
 // battement = pompage rythmique (« crr crr crr », net dès 4 voix sine). Remplacé
 // par un WaveShaper soft-clip SANS mémoire : plafond instantané, zéro pompage,
 // transparent sous le genou.
-export const MASTER_HEADROOM = 0.3 // ajustable (0.6 → 0.5 → 0.3) — feed le soft-clip sous le genou
+export const MASTER_HEADROOM = 0.1 // bas : ~12 notes tenues restent propres. Loudness = volume appareil.
+                                   // À caler à l'oreille (0.1–0.13). Soft-clip = filet lointain (knee inchangé 0.9).
 
 // Courbe soft-clip : identité (transparente) sous `knee`, approche douce de ±1 au-dessus.
 // Mémoire-less → aucun pompage, contrairement au compresseur.
@@ -320,6 +321,28 @@ export const SOUND_COLORS = [
   '#fb923c', '#f472b6', '#22d3ee', '#a78bfa',
   '#34d399', '#fbbf24', '#f87171', '#60a5fa',
 ]
+
+export const EXPORT_PEAK_TARGET = 0.891 // ~ -1 dBFS (marge anti inter-sample peak)
+
+// Montée linéaire pour que la crête atteigne la cible. Pur facteur d'échelle →
+// AUCUNE distorsion (≠ soft-clip). Appelé sur le buffer rendu AVANT l'encodage WAV,
+// donc la quantification finale se fait au bon niveau (pas de plancher de bruit relevé).
+export function normalizePeak(buffer, target = EXPORT_PEAK_TARGET) {
+  let peak = 0
+  for (let c = 0; c < buffer.numberOfChannels; c++) {
+    const data = buffer.getChannelData(c)
+    for (let i = 0; i < data.length; i++) {
+      const a = Math.abs(data[i])
+      if (a > peak) peak = a
+    }
+  }
+  if (peak === 0) return            // silence : rien à normaliser (pas de division par 0)
+  const scale = target / peak
+  for (let c = 0; c < buffer.numberOfChannels; c++) {
+    const data = buffer.getChannelData(c)
+    for (let i = 0; i < data.length; i++) data[i] *= scale
+  }
+}
 
 // Encodes an AudioBuffer as a PCM 16-bit stereo WAV ArrayBuffer.
 // Mono buffers are duplicated into L+R.
