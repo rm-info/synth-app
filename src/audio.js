@@ -47,11 +47,11 @@ export const MIN_RELEASE = 0.005
 // battement = pompage rythmique (« crr crr crr », net dès 4 voix sine). Remplacé
 // par un WaveShaper soft-clip SANS mémoire : plafond instantané, zéro pompage,
 // transparent sous le genou.
-export const MASTER_HEADROOM = 0.5 // ajustable (était 0.6) — feed le soft-clip sous le genou
+export const MASTER_HEADROOM = 0.3 // ajustable (0.6 → 0.5 → 0.3) — feed le soft-clip sous le genou
 
 // Courbe soft-clip : identité (transparente) sous `knee`, approche douce de ±1 au-dessus.
 // Mémoire-less → aucun pompage, contrairement au compresseur.
-function makeSoftClipCurve(knee = 0.6, n = 4096) {
+function makeSoftClipCurve(knee = 0.9, n = 4096) {
   const curve = new Float32Array(n)
   for (let i = 0; i < n; i++) {
     const x = (i / (n - 1)) * 2 - 1
