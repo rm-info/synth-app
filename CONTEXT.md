@@ -16,7 +16,7 @@ persistance localStorage (clé `synth-app-state`). **TypeScript incrémental**
 lib audio, pas de state manager (un `useReducer` global dans `App.jsx`), pas de
 framework UI (CSS manuscrit), pas de routing, pas de backend.
 
-**Version courante : v1.10.0** (2026-06-08).
+**Version courante : v1.11.0** (2026-06-09).
 
 **Itérations livrées** (détail complet dans `CONTEXT-ARCHIVE.md`) :
 
@@ -40,21 +40,16 @@ framework UI (CSS manuscrit), pas de routing, pas de backend.
 | P | Effets & modulations : vibrato & trémolo (LFO par patch) — helper audio partagé sur les 4 chemins, 6ᵉ module Designer, .osa v3 ; + édition visuelle LFO & polish responsive (P.5/P.6) — v1.9.0 | 2026-06-07 |
 | Q | Désencombrement Designer : retrait auto-sizing + bouton « Égaliser » deux rangées + fix taille boutons spectro — v1.9.1 | 2026-06-07 |
 | R | Refonte petit écran Designer : switcher de modules (un module plein cadre), top header priority-plus + hamburger, gate orientation-aware 300/500 + densification < 700×500, correctifs mobile (R.3.rectif) ; R.4 (orientation) annulée — v1.10.0 | 2026-06-08 |
+| S | Support tactile : Pointer Events app-wide (tracé · clavier polyphonique · poignées · Timeline), touch-action chirurgical, shell non-scrollable + PWA légère standalone ; durcissement audio (master headroom-bas + soft-clip filet, déclic MIN_RELEASE/ATTACK, buffer mobile, export normalisé) — v1.11.0 | 2026-06-09 |
 
-**État courant** : **Iteration S ouverte** (support tactile au doigt, web pur ;
-pas encore de bump — dernière release v1.10.0). **S.1 + S.2 livrés** : S.1 = shell
-non-scrollable (fin du pull-to-refresh / bascule barre d'URL) + safe-area + PWA
-légère standalone (manifest SVG-only, dette icônes PNG au BACKLOG) ; S.2 = surfaces
-de jeu primaires (canvas Libre, ancres, harmoniques, clavier **polyphonique**,
-Test) en **Pointer Events** + capture + `touch-action:none` (+ S.2.fix : garde
-mono-pointeur, anti ghost-click). **S.audio** = master bus **headroom bas +
-soft-clip filet** sur les 3 chaînes (~12 notes propres ; loudness = volume
-appareil ; soft-clip sans pompage remplace l'ex-limiteur ; export **normalisé** en
-crête ~-1 dBFS ; spectro honnête).
-**S.3** = reste des poignées (AHDSR/LFO/resizers/séparateurs/**Timeline**) en
-Pointer Events → **couverture tactile complète** (lasso + reorder de piste restent
-souris-seuls, assumés). Reste : **clôture de S** (bump + doc). Détail par-phase de
-R (close, v1.10.0) dans `CONTEXT-ARCHIVE.md`.
+**État courant** : **Iteration S close (release v1.11.0)** — **entre deux
+itérations**. S a livré l'**entrée Pointer Events app-wide** (souris+tactile+stylet,
+pas de branche mobile) sur toutes les surfaces de manipulation directe (tracé,
+clavier **polyphonique**, poignées AHDSR/LFO, resizers/séparateurs, Timeline), un
+**shell non-scrollable** + **PWA légère** standalone, et un **durcissement audio**
+(master **headroom bas + soft-clip filet**, déclic `MIN_RELEASE`/`MIN_ATTACK`,
+buffer mobile `latencyHint`, export normalisé en crête). Détail par-phase
+S.1→S.audio.5 et arc audio complet dans `CONTEXT-ARCHIVE.md`.
 
 > **Structure des fichiers de contexte.** Ce `CONTEXT.md` est le **brief
 > vivant** : état présent, modèle de données, composants, architecture,
@@ -913,7 +908,12 @@ Seuls les **placements timeline** s'appellent "clips".
 - Une instance dans App. Singleton de fait pour le moteur audio timeline.
 - Retourne `{ isPlaying, cursorPos, currentTime, isExporting, analyserRef,
   play, stop, exportWav, updateTrackGains }`.
-- AudioContext créé paresseusement. Cleanup à l'unmount d'App.
+- AudioContext créé paresseusement. Cleanup à l'unmount d'App. **`latencyHint`
+  numérique** `0.02` s (S.audio.3, calé en .4 — `usePlayback.js` ET `WaveformEditor.jsx`) :
+  élargit le tampon de sortie pour absorber les **underruns mobiles** (coupures/
+  craquements quand le thread audio est sous pression sur smartphone) — le plus
+  petit tampon qui garde le live propre. Latence desktop assumée ; passage
+  conditionnel mobile = backlog si elle gêne.
 - **Scheduler look-ahead** : `setInterval` 25ms programme les clips dans
   une fenêtre de 100ms d'avance. Refs (`clipsRef`, `tracksRef`,
   `patchesRef`, `bpmRef`) pour lire le state frais à chaque tick.
@@ -2181,85 +2181,44 @@ Conventions tacites. Les enfreindre sans raison crée des bugs subtils.
 
 ## État actuel
 
-🚧 **En cours — Iteration S « Support tactile au doigt (web pur) »** (ouverte
-2026-06-08 ; pas de bump avant clôture de S). Pose l'assise tactile/PWA, puis
-migre les surfaces de jeu en Pointer Events. **S.1 + S.2 livrés** ; surfaces
-secondaires (AHDSR/LFO/sliders/resizers/Timeline) = **S.3**.
-- **S.1 — Shell viewport + gestes globaux + PWA légère (livré)** :
-  - **Shell non-scrollable** : `html/body { height:100% }`, `body { overflow:hidden;
-    overscroll-behavior:none }`, `#root { height:100% }` (ex `min-height:100svh`).
-    → plus de pull-to-refresh ni de scroll-chaining ; la barre d'URL mobile ne
-    bascule plus → `100dvh` stable → plus de reflow parasite des canvas. Le verrou
-    porte sur le **scroll de page seul** : panneau module mobile, Documentation,
-    listes Bibliothèque, tiroirs et modales gardent leur `overflow-y:auto`.
-  - **Safe-area** : `viewport-fit=cover` (index.html) + `padding-top:
-    env(safe-area-inset-top)` sur `.tabs` (l'en-tête ne passe plus sous l'encoche
-    en standalone ; inerte hors encoche). Zoom utilisateur conservé (a11y).
-  - **PWA légère** : `public/manifest.webmanifest` (standalone, installable) +
-    `index.html` (lien manifest, deux `theme-color` dark/light, métas iOS
-    capable/status-bar/title). **Manifest SVG-only** : icône `favicon.svg`
-    (`sizes:any`) seule ; `apple-touch-icon` 180 + `icon-maskable` 512 en **dette**
-    (aucun rasteriseur système dispo, aucune dépendance npm ajoutée — décision
-    archi, suivi BACKLOG). `apple-touch-icon` omis du `<head>` (iOS ne rasterise
-    pas le SVG → icône générique temporaire).
-  - **Service worker NON posé** (surface minimale) : conditionnel à un test
-    d'install Android non réalisable dans l'environnement. À ajouter
-    (`public/sw.js` passthrough strict, **sans cache**, enregistré depuis
-    `main.jsx`) **seulement si** l'install Android ne se déclenche pas avec
-    manifest + icône — à vérifier sur appareil réel.
-- **S.2 — Pointer Events sur les surfaces de jeu primaires (livré)** : cœur de
-  valeur — on **dessine** et on **joue au doigt**. Migration `MouseEvent` →
-  **Pointer Events** (chemin unique souris + tactile + stylet) sur : canvas
-  **Forme d'onde Libre**, **SplineEditor** (ancres), barres **Harmoniques**,
-  **clavier virtuel** (polyphonie), bouton **Test**.
-  - **Capture de pointeur** (`setPointerCapture` au down) → le geste survit à la
-    sortie de l'élément (remplace la mitigation `DRAW_MARGIN`) ; `pointerup`
-    fiable hors cadre. **`onPointerCancel`** partout (interruption système → fin
-    propre, pas de draft/note collé). **`onPointerLeave` réduit au survol** (la
-    capture supprime `leave` pendant le geste — on n'y termine plus le drag).
-  - **Clavier polyphonique** : `usePointerKeyHandler` (`Map<pointerId,idx>` +
-    ref-count par idx) remplace l'ancien hook mono-pointeur + listener `window`.
-    Plusieurs doigts = accord ; 2 pointeurs sur la même touche n'attaquent/
-    relâchent qu'une fois. Le **moteur audio était déjà polyphonique** → migration
-    purement couche d'entrée. Les 5 layouts (piano-12, grid-24, grid-22 ×2,
-    grid-x-edo) bindent `onPointerDown/Up/Cancel`.
-  - **`touch-action:none`** + `user-select/touch-callout` sur les **seules**
-    surfaces migrées (canvas free+spline, `.we-harmonics-bars`, `.free-test-btn`,
-    `.piano-keyboard`) — pas sur les conteneurs scrollables.
-  - **Clic droit conservé** (mise à zéro de barre, menu spline) + garde
-    `e.button !== 0` (le tactile envoie `button === 0`). Desktop inchangé.
-  - **S.2.fix (post-validation tactile)** : garde **mono-pointeur** « premier
-    pointeur gagne » sur les surfaces mono-valeur (canvas Libre, barres, ancres —
-    deux doigts ne tracent plus deux fois ; clavier intact, reste polyphonique) ;
-    `ConfirmDialog` backdrop fermé sur `pointerdown` (anti **ghost-click** à
-    l'ouverture au doigt sur barre non normalisée).
-- **S.audio — Headroom + limiteur master (anti-saturation polyphonie, livré)** :
-  la polyphonie sommait des voix droit vers `destination` → **clipping** des
-  accords / notes martelées. **Master bus partagé** `createMasterBus` (headroom
-  0.6 + limiteur brickwall) inséré sur les **3 chaînes** (preview Designer,
-  lecture Composer, **export WAV**) entre la sommation et `destination` ;
-  **analyser en amont** → spectrogramme honnête ; **live == export**. Note seule
-  intacte (sous le seuil), seuls les pics de sommation écrêtés. Master fixe
-  (pas d'UI). Réglages ajustables à l'oreille.
-- **S.3 — Pointer Events : reste des poignées (livré)** : **couverture tactile
-  complète**. Même pattern qu'en S.2 appliqué à AHDSR, LFO, resizers,
-  séparateurs et Timeline.
-  - **Element-local** (AHDSR S.3.1, LFO S.3.2) : `setPointerCapture` + garde
-    mono-pointeur + `onPointerCancel` (abandon du draft). `touch-action:none` sur
-    `.adsr-canvas` / `.we-lfo-canvas`.
-  - **Listeners window/document** (resizers S.3.3 `SidebarResizer`/`PopupResizer`,
-    séparateurs S.3.4 `DesignerColumns`) : initiateur `onPointerDown` + listeners
-    `pointermove`/`pointerup`/`pointercancel`. `touch-action:none` sur les poignées.
-  - **Timeline S.3.6** : clip drag + resize au doigt (session à listeners window →
-    pointer + cancel) ; clips/poignées `touch-action:none`, **conteneur scrollable
-    `touch-action: pan-x pan-y`** (scroll horizontal ET vertical préservés — jusqu'à
-    16 pistes). **Lasso souris-seule** (conflit avec le scroll tactile sur zone vide
-    — limitation assumée, backlog) ; reorder de piste au doigt aussi reporté.
-  - **Sliders S.3.5** : `<input type=range>` natifs intouchés (pas de
-    `touch-action:none`) ; volume de piste committé aussi sur `pointerup`.
-  - **Clic droit / menus contextuels** (clip, mesure) inchangés (souris).
-
 ✅ **Terminé**
+- **Iteration S — « Support tactile au doigt (web pur) » (close, v1.11.0)**. L'app
+  se **dessine et se joue au doigt** ; un **durcissement audio** a émergé en cours de
+  route. Détail par-phase S.1→S.audio.5 + arc audio dans `CONTEXT-ARCHIVE.md`.
+  Symboles nouveaux : `createMasterBus`, `normalizePeak`, `MASTER_HEADROOM`,
+  `MIN_RELEASE`, `EXPORT_PEAK_TARGET`, `public/manifest.webmanifest`.
+  - **Entrée Pointer Events unique** (souris+tactile+stylet, **pas de détection
+    mobile**) sur **toutes** les surfaces de manipulation directe : canvas Forme
+    d'onde Libre, `SplineEditor` (ancres), barres Harmoniques, poignées AHDSR/LFO,
+    bouton Test, resizers (`SidebarResizer`/`PopupResizer`), séparateurs
+    `DesignerColumns`, **Timeline** (clips drag/resize/scrub). `setPointerCapture`
+    au down (le geste survit à la sortie de l'élément) + `onPointerCancel` partout.
+    `touch-action:none` **ciblé** sur les surfaces migrées, **pas** sur les
+    conteneurs scrollables ; **Timeline** en `pan-x pan-y` (scroll préservé).
+  - **Clavier polyphonique** (`usePointerKeyHandler` : `Map<pointerId,idx>` +
+    ref-count) sur les 5 layouts — plusieurs doigts = accord ; moteur audio déjà
+    polyphonique, migration couche d'entrée pure. **Garde mono-pointeur** « premier
+    pointeur gagne » sur les surfaces **mono-valeur** (canvas/barres/ancres : deux
+    doigts ne tracent plus deux fois). **Lasso = souris-seule** (conflit scroll/
+    sélection sur zone vide, assumé) ; reorder de piste idem.
+  - **Shell non-scrollable** : `html/body{overflow:hidden;overscroll-behavior:none}`,
+    `#root` hauteur fixe, `100dvh` stable → fin du pull-to-refresh / bascule barre
+    d'URL / reflow canvas ; verrou sur le **scroll de page seul** (modales, listes,
+    Documentation gardent leur `overflow-y`). Safe-area `viewport-fit=cover` +
+    `env(safe-area-inset-top)`. **PWA légère** standalone : `manifest.webmanifest`
+    SVG-only + métas iOS/theme-color. **Dette** : icônes PNG apple-touch/maskable
+    (pas de rasteriseur, zéro dépendance — décision archi, backlog) ; service worker
+    non posé (surface minimale).
+  - **Audio (arc S.audio.2→5)** : `MASTER_HEADROOM` **bas** (~0.1) → la polyphonie
+    dense (~12 notes) reste **propre par défaut**, la **loudness se récupère au
+    volume appareil** en live ; **soft-clip `WaveShaper`** memory-less en **filet**
+    (knee 0.9, `oversample 4x`) — remplace l'ex-`DynamicsCompressor` qui **pompait**
+    sur les accords battants ; **analyser en amont** du bus → spectrogramme honnête.
+    Déclic : planchers `MIN_RELEASE`/`MIN_ATTACK` (+ fade au stop). Anti-underrun
+    mobile : `latencyHint` numérique (buffer élargi). **Export `normalizePeak`**
+    (~ -1 dBFS, `EXPORT_PEAK_TARGET`) avant l'encodage WAV → fichier fort & propre
+    sans distorsion. `createMasterBus` **partagé** preview/lecture/export ; master
+    **fixe** (pas d'UI). **Live ≠ export sur le NIVEAU, volontairement.**
 - **Iteration R — « Refonte petit écran du Designer » (close, v1.10.0)**. État
   présent du Designer **sous le plancher accordéon** après l'itération (détail
   par-phase R.1→R.3.rectif dans `CONTEXT-ARCHIVE.md`). Composants impactés :
@@ -3122,19 +3081,31 @@ secondaires (AHDSR/LFO/sliders/resizers/Timeline) = **S.3**.
 > Détail des roadmaps des itérations livrées (A→M) → `CONTEXT-ARCHIVE.md`.
 > Ci-dessous : l'itération en cours, puis le backlog général (non planifié).
 
-### Entre deux itérations (depuis la clôture de R, 2026-06-08)
+### Entre deux itérations (depuis la clôture de S, 2026-06-09)
 
-Iteration R « Refonte petit écran du Designer » **close** (release **v1.10.0**) —
-switcher de modules, hamburger d'en-tête, gate 300/500 + densification, correctifs
-rectif ; **R.4 (orientation adaptative) annulée**, détail dans `CONTEXT-ARCHIVE.md`.
-**Prochaine itération pressentie = itération S (support tactile)** : Pointer Events
-+ surfaces tactiles confortables sous ~700 px, PWA. La **refonte petit-écran /
-orientation (ex-R.4)** est **au backlog** (« repenser le concept écrans minuscules »).
-Avant R : Q « Désencombrement du Designer » (v1.9.1) puis P « Effets & modulations »
-(v1.9.0). Suite de la section « Effets et modulations » du backlog (pitch envelope,
-filtre + enveloppe de filtre, distorsion, effets temporels par piste, mixage/pan…)
-**non cadrée** ; « Monde B » inharmonique + morph toujours pressenti (cf.
-`archi/BACKLOG.md`).
+Iteration S « Support tactile au doigt (web pur) » **close** (release **v1.11.0**) —
+Pointer Events app-wide (tracé · clavier polyphonique · poignées · Timeline),
+`touch-action` chirurgical, shell non-scrollable + PWA légère standalone, et un
+**durcissement audio** (master headroom-bas + soft-clip filet, déclic MIN_RELEASE/
+ATTACK, buffer mobile, export normalisé) ; détail dans `CONTEXT-ARCHIVE.md`.
+**Prochaine itération non cadrée.**
+
+**Dettes & limitations ouvertes par S** :
+- **Icônes PWA PNG** (apple-touch 180 / maskable 512) — manifest SVG-only en
+  attendant un rasteriseur **système** (zéro dépendance npm, décision archi).
+- **Lasso tactile** (sélection au doigt sur zone vide Timeline) + **reorder de piste
+  au doigt** — souris-seuls, désambiguïsation scroll/sélection reportée.
+- **`MASTER_HEADROOM` (~0.1) et `latencyHint` (0.02 s) à affiner** à l'oreille / sur
+  appareils ; **`latencyHint` conditionnel mobile** si la latence desktop gêne.
+- **Confort du tracé fin au doigt** (volet B : précision sur petites surfaces) —
+  backlog.
+
+Avant S : R « Refonte petit écran du Designer » (v1.10.0), Q « Désencombrement »
+(v1.9.1), P « Effets & modulations » (v1.9.0). Suite de la section « Effets et
+modulations » du backlog (pitch envelope, filtre + enveloppe de filtre, distorsion,
+effets temporels par piste, mixage/pan…) **non cadrée** ; « Monde B » inharmonique
++ morph toujours pressenti (cf. `archi/BACKLOG.md`). La **refonte orientation
+(ex-R.4)** reste au backlog.
 
 **Reste lié à P (différé, future itération)** :
 - **Surfaçage en Composer / PropertiesPanel** d'un indicateur read-only « ce patch

@@ -883,6 +883,18 @@ Phases listées ci-dessous dans l'ordre chronologique d'implémentation.
 
 ## Historique (chronologie inverse)
 
+- **2026-06-09 — Iteration S — CLÔTURE (release v1.11.0)** (`feat(v1.11.0)` +
+  `docs`). Itération S « Support tactile au doigt (web pur) » **close** : features
+  additives, zéro breaking change → **minor bump v1.10.0 → v1.11.0** (`package.json`
+  + `about.md`, header via `__APP_VERSION__`). Livré sur l'itération : **Pointer
+  Events app-wide** (souris+tactile+stylet, pas de branche mobile) sur toutes les
+  surfaces de manipulation directe, **clavier polyphonique**, **shell non-scrollable
+  + PWA légère** standalone, et un **durcissement audio** émergent (arc
+  limiteur → underrun/`latencyHint` → pompage → soft-clip → headroom bas + export
+  normalisé). `CONTEXT.md` consolidé (TL;DR, État actuel, Décisions, Architecture
+  audio, Roadmap) ; détail par-phase déposé dans cet archive (Historique +
+  « Itération terminée : S »). Dettes restantes : icônes PWA PNG, lasso/reorder
+  tactile, valeurs `MASTER_HEADROOM`/`latencyHint` à affiner, confort tracé fin.
 - **2026-06-08 — Iteration S — S.3 : Pointer Events, reste des poignées**
   (`feat(iter-S/phase-3.*)`, 3 sous-commits + doc). Dernière phase de migration
   tactile : même pattern qu'en S.2 appliqué au reste des surfaces de manipulation
@@ -3596,7 +3608,7 @@ Phases listées ci-dessous dans l'ordre chronologique d'implémentation.
 8. **Timeline initiale** : grille + drag-drop + lecture polyphonique + curseur
 9. **WaveformEditor initial** : canvas + PeriodicWave + Play/Stop
 
-## Roadmaps des itérations closes (B→R)
+## Roadmaps des itérations closes (B→S)
 
 ### Itération B (édition avancée) — clôturée 2026-04-17
 
@@ -5377,6 +5389,29 @@ paragraphes de synthèse (ex-TL;DR du brief).
 row/column selon le ratio, tentée puis abandonnée (trop de casse) → backlog « repenser
 écrans minuscules ». **Reste** : confort tactile (Pointer Events + PWA) → itération S.
 
+### Itération S (support tactile au doigt, web pur) — clôturée 2026-06-09 (v1.11.0)
+
+- ✅ **S.1 — Shell + PWA légère** : shell non-scrollable (`html/body` overflow:hidden
+  + `overscroll-behavior`, `#root` hauteur fixe, `100dvh`) → fin pull-to-refresh /
+  bascule barre d'URL ; safe-area `viewport-fit=cover` ; manifest **SVG-only**
+  standalone + métas iOS/theme-color. Icônes PNG + service worker = dette/différé.
+- ✅ **S.2 — Pointer Events, surfaces primaires** : canvas Libre, `SplineEditor`,
+  Harmoniques, **clavier polyphonique** (`Map<pointerId,idx>` + ref-count), bouton
+  Test ; capture + `onPointerCancel` ; `touch-action:none` chirurgical.
+- ✅ **S.2.fix** : garde **mono-pointeur** (surfaces mono-valeur) + `ConfirmDialog`
+  backdrop sur `pointerdown` (anti ghost-click).
+- ✅ **S.3 — Pointer Events, reste des poignées** : AHDSR, LFO, resizers
+  (`SidebarResizer`/`PopupResizer`), séparateurs `DesignerColumns`, **Timeline**
+  (clips drag/resize/scrub ; conteneur `pan-x pan-y`). Sliders natifs intouchés.
+  **Lasso + reorder de piste = souris-seuls** (assumé).
+- ✅ **S.audio.2→5 — durcissement audio** : déclic planchers `MIN_RELEASE`/`MIN_ATTACK`
+  (+ fade stop) ; buffer mobile `latencyHint` (anti-underrun) ; master **headroom bas
+  + soft-clip `WaveShaper`** memory-less (remplace l'ex-`DynamicsCompressor` qui
+  pompait) ; loudness déléguée au **volume appareil** en live ; **export normalisé en
+  crête** (`normalizePeak`, ~ -1 dBFS). Analyser pré-master (spectro honnête).
+- 🔁 **Reportés (backlog)** : confort tracé fin au doigt (volet B), icônes PWA PNG,
+  lasso/reorder tactile, `latencyHint` conditionnel mobile, master volume UI.
+
 ## Itération terminée : R — Refonte petit écran du Designer
 
 **Déclencheur** : sous le plancher accordéon (< 924×668), le Designer était
@@ -5408,3 +5443,55 @@ assumée de R (cas d'usage visé = souris, fenêtre desktop rétrécie). Cap pre
 **Release** : v1.10.0 (2026-06-08). Champ persisté nouveau `designerMobileModule` ;
 prop nouvelle `closeOnSelect` sur `OverflowToolbar` ; composant `ResolutionGate` renommé
 `TooSmallGate`.
+
+## Itération terminée : S — Support tactile au doigt (web pur)
+
+**Déclencheur** : l'app était **inutilisable au doigt**. Le tracé et le clavier
+étaient muets en tactile (tout le moteur d'entrée était en `MouseEvent`) ; et même
+avant de toucher une surface, le **shell** trahissait — la barre d'adresse mobile
+dansait (faisant varier `dvh` et reflowant les canvas), un **pull-to-refresh**
+involontaire rechargeait la page au moindre swipe vers le bas. Web pur, sans appli
+native ni dépendance : il fallait que ça se **dessine et se joue au doigt** comme
+au desktop.
+
+**Livré** : une **entrée Pointer Events unique** (souris + tactile + stylet, pas de
+détection mobile) sur **toutes** les surfaces de manipulation directe — canvas
+Forme d'onde, ancres (`SplineEditor`), barres Harmoniques, poignées AHDSR/LFO,
+resizers, séparateurs, **Timeline** — avec capture de pointeur (le geste survit hors
+cadre) et `pointercancel` propre partout. Le **clavier devient polyphonique** au
+doigt (`Map<pointerId,idx>` + ref-count : plusieurs doigts = accord ; le moteur
+audio l'était déjà). `touch-action:none` posé **chirurgicalement** sur les seules
+surfaces migrées, jamais sur un conteneur scrollable (Timeline en `pan-x pan-y`). Le
+**shell** est verrouillé non-scrollable (`overflow:hidden` + `overscroll-behavior`
+sur `html/body/#root`, `100dvh` stable) et l'app devient une **PWA légère**
+standalone (manifest SVG-only + métas iOS). **Lasso et reorder de piste restent
+souris-seuls** (conflit avec le scroll tactile, assumé).
+
+**Arc audio** (le fil rouge inattendu, S.audio.2→5) : la polyphonie nouvellement
+jouable au doigt a **révélé une saturation** — plusieurs voix se sommaient au-delà
+de 1 et clippaient (net sur HP de smartphone). Premier réflexe : un **limiteur**
+`DynamicsCompressor` brickwall au master (S.audio.1). Mais sa **mémoire**
+attaque/release suivait les battements d'accord → **pompage** rythmique (« crr crr
+crr »). En parallèle, des **underrun** mobiles (buffer trop court) craquaient :
+réglés par un `latencyHint` numérique (S.audio.3). Le pompage a fait **remplacer le
+compresseur par un soft-clip `WaveShaper` sans mémoire** (S.audio.4) — plafond
+instantané, zéro pompage. Enfin (S.audio.5), constat empirique : garder le **niveau
+numérique bas** (`MASTER_HEADROOM` 0.1) et **monter le volume de l'appareil** donne
+un son propre **même à 12 notes tenues** — le clipping est numérique, la loudness se
+récupère au dernier étage analogique. Corollaire : l'**export** (pas d'étage volume
+appareil) est **normalisé en crête** (`normalizePeak`, ~ -1 dBFS, pur facteur
+d'échelle avant quantification). Bilan : déclic réglé (`MIN_RELEASE`/`MIN_ATTACK`),
+master = headroom bas + soft-clip filet, **live ≠ export sur le niveau,
+volontairement**, analyser toujours en amont (spectro honnête).
+
+**Reste / dettes** : **confort du tracé fin au doigt** (volet B — précision sous le
+doigt sur petites surfaces) ; **icônes PWA PNG** (apple-touch/maskable — manifest
+SVG-only faute de rasteriseur système, zéro dépendance) ; **lasso & reorder de piste
+tactiles** ; valeurs `MASTER_HEADROOM`/`latencyHint` **à affiner sur appareils** et
+`latencyHint` conditionnel mobile si la latence desktop gêne ; **master volume UI**
+(loudness gérée au volume appareil pour l'instant).
+
+**Release** : v1.11.0 (2026-06-09). Symboles nouveaux : `createMasterBus`,
+`normalizePeak`, `MASTER_HEADROOM`, `MIN_RELEASE`, `EXPORT_PEAK_TARGET`,
+`public/manifest.webmanifest`. Aucun champ de state ni format `.osa` modifié
+(itération purement comportementale + shell).
