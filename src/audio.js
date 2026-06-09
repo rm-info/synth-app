@@ -34,26 +34,42 @@ export const MIN_ATTACK = 0.003
 // clic. Garantit aussi `releaseStart < stopTime` (rampes de fin non coïncidentes).
 export const MIN_RELEASE = 0.005
 
-// Master bus (S.audio) : headroom + limiteur quasi-brickwall transparent.
+// Master bus (S.audio) : headroom + soft-clip anti-saturation.
 // La polyphonie somme des voix qui culminent chacune à ~amplitude (≤ 1,
 // PeriodicWave normalisée) → la somme dépasse 1 et clippe dur. On insère ce bus
 // ENTRE le point de sommation (analyserGain / pistes) et `destination`. L'analyser
 // reste branché EN AMONT (sur le point de sommation) → le spectrogramme montre le
 // spectre réel synthétisé, pas le signal limité. Helper partagé par les 3 chaînes
 // (preview Designer, lecture Composer, export WAV offline) → live == export.
-export const MASTER_HEADROOM = 0.6 // ~ -4.4 dB de garde ; ajustable
+//
+// S.audio.4 : l'ancien DynamicsCompressorNode (limiteur) a une MÉMOIRE
+// (attaque/release) → sur un accord dense qui bat, sa réduction de gain suivait le
+// battement = pompage rythmique (« crr crr crr », net dès 4 voix sine). Remplacé
+// par un WaveShaper soft-clip SANS mémoire : plafond instantané, zéro pompage,
+// transparent sous le genou.
+export const MASTER_HEADROOM = 0.5 // ajustable (était 0.6) — feed le soft-clip sous le genou
+
+// Courbe soft-clip : identité (transparente) sous `knee`, approche douce de ±1 au-dessus.
+// Mémoire-less → aucun pompage, contrairement au compresseur.
+function makeSoftClipCurve(knee = 0.6, n = 4096) {
+  const curve = new Float32Array(n)
+  for (let i = 0; i < n; i++) {
+    const x = (i / (n - 1)) * 2 - 1
+    const a = Math.abs(x)
+    const y = a <= knee ? a : knee + (1 - knee) * Math.tanh((a - knee) / (1 - knee))
+    curve[i] = Math.sign(x) * y
+  }
+  return curve
+}
 
 export function createMasterBus(ctx) {
   const gain = ctx.createGain()
   gain.gain.value = MASTER_HEADROOM
-  const limiter = ctx.createDynamicsCompressor()
-  limiter.threshold.value = -3 // dBFS ; une voix seule (peak 0.6 ≈ -4.4 dB) reste sous le seuil → intacte
-  limiter.knee.value = 0       // coude dur = brickwall
-  limiter.ratio.value = 20     // ~limiteur
-  limiter.attack.value = 0.003
-  limiter.release.value = 0.12
-  gain.connect(limiter)
-  return { input: gain, output: limiter } // appelant : output.connect(dest)
+  const shaper = ctx.createWaveShaper()
+  shaper.curve = makeSoftClipCurve()      // knee ajustable
+  shaper.oversample = '4x'                // limite l'aliasing de la saturation (carré = riche)
+  gain.connect(shaper)
+  return { input: gain, output: shaper }  // appelant inchangé : output.connect(dest)
 }
 
 // FFT in-place via Cooley-Tukey radix-2. N doit être une puissance de 2.

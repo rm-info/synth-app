@@ -1215,10 +1215,11 @@ function WaveformEditor({
       if (ctx.state === 'suspended') ctx.resume()
       return ctx
     }
-    // S.audio.3 (sonde underruns mobile) : latencyHint 'playback' = tampon audio
-    // max → réduit les glitchs de tenue sur mobile (buffer mobile par défaut trop
-    // court). Ne change pas le son, juste la latence. Fixé à la création.
-    const ctx = new AudioContext({ latencyHint: 'playback' })
+    // S.audio.4.2 — latencyHint numérique (s) : le plus petit tampon qui garde
+    // l'underrun de tenue mort sur mobile, sans la latence excessive de 'playback'.
+    // Valeur de départ 0.02, à monter par paliers (0.03/0.05) si l'underrun revient.
+    // Fixé à la création (contexte réutilisé). Conditionnement mobile = 2e temps.
+    const ctx = new AudioContext({ latencyHint: 0.02 })
     audioCtxRef.current = ctx
 
     // Tap analyser pour le Spectrogram Designer (live FFT mode, iter I).
