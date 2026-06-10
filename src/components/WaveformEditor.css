@@ -1415,10 +1415,12 @@
 
 .we-modulation-body {
   display: flex;
-  flex-wrap: wrap;
+  /* iter-T phase-1.1 : un seul effet visible → empilement vertical (direction
+     column) ; la hauteur devient l'axe PRINCIPAL → `flex:1` la rend définie tout
+     du long (corps → bloc → wrap), condition pour que le graphe puisse remplir
+     sans retomber sur sa taille intrinsèque (buffer) ni boucler avec le RO. */
+  flex-direction: column;
   gap: 12px;
-  /* iter-T phase-1.1 : un effet à la fois → le corps remplit toute la hauteur
-     offerte sous le header (flex:1), le sous-bloc visible s'y étire. */
   flex: 1;
   min-height: 0;
   overflow: auto;
@@ -1463,9 +1465,10 @@
 }
 
 /* Un seul sous-bloc Vibrato / Trémolo affiché à la fois (iter-T) — il occupe
-   tout le corps du module. */
+   tout le corps du module (flex:1 sur l'axe vertical du corps en colonne). */
 .we-lfo-block {
-  flex: 1 1 190px;
+  flex: 1;
+  min-height: 0;
   display: flex;
   flex-direction: column;
   gap: 8px;
@@ -1549,9 +1552,13 @@
   flex: 1 1 auto;
   min-height: 80px;
 }
+/* Canvas en position:absolute (inset:0) : il remplit le wrap MAIS ne contribue pas
+   à sa hauteur de contenu → le buffer (canvas.height posé par drawLfoGraph) ne peut
+   plus pousser la boîte ni reboucler avec le ResizeObserver. */
 .we-lfo-canvas {
-  width: 100%;
-  height: 100%;
+  position: absolute;
+  inset: 0;
+  box-sizing: border-box;
   display: block;
   border-radius: 5px;
   background: var(--surface-elevated);
