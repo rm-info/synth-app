@@ -1421,7 +1421,14 @@
   overflow: auto;
 }
 
-/* Deux sous-blocs Vibrato / Trémolo : côte à côte si large, empilés si étroit. */
+/* iter-T phase-1.1 : un effet à la fois — le sous-bloc non sélectionné reste
+   monté (contrainte canvas) mais masqué ; le visible prend toute la largeur. */
+.we-lfo-block.is-hidden {
+  display: none;
+}
+
+/* Un seul sous-bloc Vibrato / Trémolo affiché à la fois (iter-T) — il occupe
+   tout le corps du module. */
 .we-lfo-block {
   flex: 1 1 190px;
   display: flex;

@@ -524,6 +524,12 @@ function WaveformEditor({
   // itération P : le module Modulation est-il visible (gate de la boucle rAF
   // de la mini-courbe LFO) ? Source unique App.jsx (collapse/maximize/tab/mobile).
   modulationVisible,
+  // iter-T phase-1.1 : module « Effets » à un effet à la fois. `effectsSelected`
+  // ∈ {'vibrato','tremolo'} = effet en cours d'édition (panneau affiché) ;
+  // l'autre reste monté mais masqué (display:none, contrainte canvas). Persisté
+  // App.jsx, hors undo.
+  effectsSelected,
+  onSetEffectsSelected,
   ref,
   children,
 }) {
@@ -784,28 +790,33 @@ function WaveformEditor({
   const modOwnerRef = useRef(null) // S.3.2 : garde mono-pointeur (un seul drag de poignée LFO)
   const dragging = draftMod != null
   useEffect(() => {
-    const subs = [
-      { canvas: vibratoCanvasRef.current, lfo: vibrato, depthMax: VIBRATO_DEPTH_MAX, key: 'vibrato' },
-      { canvas: tremoloCanvasRef.current, lfo: tremolo, depthMax: TREMOLO_DEPTH_MAX, key: 'tremolo' },
-    ]
+    // iter-T phase-1.1 : un effet à la fois — la boucle ne dessine plus que le
+    // graphe de l'effet visible (`effectsSelected`). L'autre sous-bloc est en
+    // display:none (clientWidth=0) → le peindre produirait un canvas au format
+    // par défaut. On le laisse intact ; il sera repeint au prochain switch (cet
+    // effet re-tourne, `effectsSelected` étant dans ses deps, quand son canvas
+    // est de nouveau affiché et mesurable).
+    const visible = effectsSelected === 'tremolo'
+      ? { canvas: tremoloCanvasRef.current, lfo: tremolo, depthMax: TREMOLO_DEPTH_MAX, key: 'tremolo' }
+      : { canvas: vibratoCanvasRef.current, lfo: vibrato, depthMax: VIBRATO_DEPTH_MAX, key: 'vibrato' }
     const dots = lfoDotRef.current
     // Pendant un drag, le point de phase est figé (spec) → on passe null (pas de
     // point dessiné), la courbe reflète le draft, et l'effet draggé est dessiné à
     // l'échelle x gelée (modDragGeomRef) pour que la poignée suive le curseur.
     const frozen = modDragGeomRef.current
-    const overrideFor = (key) => (frozen && frozen.effect === key ? frozen.windowSec : undefined)
+    const override = (frozen && frozen.effect === visible.key) ? frozen.windowSec : undefined
     const paint = () => {
-      for (const s of subs) drawLfoGraph(s.canvas, s.lfo, s.depthMax, dragging ? null : dots[s.key], overrideFor(s.key))
+      drawLfoGraph(visible.canvas, visible.lfo, visible.depthMax, dragging ? null : dots[visible.key], override)
     }
     // Dessin statique immédiat (état courant, thème, depth/shape, poignées) — vaut
-    // aussi quand on ne lance pas la boucle (effets off, module caché, drag).
+    // aussi quand on ne lance pas la boucle (effet off, module caché, drag).
     paint()
     // Re-peint au changement de thème (le cache themeColor est vidé sur l'event).
     window.addEventListener('themechange', paint)
 
-    const anyEnabled = vibrato.enabled || tremolo.enabled
-    // Gating strict (audit perf N.1) + figée pendant un drag.
-    if (!modulationVisible || !anyEnabled || dragging) {
+    // Gating strict (audit perf N.1) : seul l'effet visible compte désormais pour
+    // décider de l'animation. + figée pendant un drag.
+    if (!modulationVisible || !visible.lfo.enabled || dragging) {
       return () => window.removeEventListener('themechange', paint)
     }
 
@@ -815,16 +826,10 @@ function WaveformEditor({
       if (last == null) last = ts
       const dt = Math.min(0.05, (ts - last) / 1000) // clamp anti-saut (onglet en arrière-plan)
       last = ts
-      for (const s of subs) {
-        if (s.lfo.enabled) {
-          const period = 1 / Math.max(s.lfo.rate ?? 1, 0.0001)
-          const windowSec = (s.lfo.onset ?? 0) / 1000 + LFO_CYCLES_VISIBLE * period
-          dots[s.key] = (dots[s.key] + dt) % windowSec
-          drawLfoGraph(s.canvas, s.lfo, s.depthMax, dots[s.key])
-        } else {
-          drawLfoGraph(s.canvas, s.lfo, s.depthMax, null)
-        }
-      }
+      const period = 1 / Math.max(visible.lfo.rate ?? 1, 0.0001)
+      const windowSec = (visible.lfo.onset ?? 0) / 1000 + LFO_CYCLES_VISIBLE * period
+      dots[visible.key] = (dots[visible.key] + dt) % windowSec
+      drawLfoGraph(visible.canvas, visible.lfo, visible.depthMax, dots[visible.key])
       raf = requestAnimationFrame(tick)
     }
     raf = requestAnimationFrame(tick)
@@ -832,7 +837,7 @@ function WaveformEditor({
       cancelAnimationFrame(raf)
       window.removeEventListener('themechange', paint)
     }
-  }, [vibrato, tremolo, modulationVisible, dragging])
+  }, [vibrato, tremolo, modulationVisible, dragging, effectsSelected])
 
   const referenceRef = useRef(snapshotPatchFields(editor))
   const referencedPatchIdRef = useRef(null)
@@ -3468,8 +3473,12 @@ function WaveformEditor({
       const title = isVibrato ? 'Vibrato' : 'Trémolo'
       const depthMax = isVibrato ? VIBRATO_DEPTH_MAX : TREMOLO_DEPTH_MAX
       const set = (key, value) => editorActions.setModulation(effect, key, value)
+      // iter-T phase-1.1 : un effet à la fois. Le sous-bloc non sélectionné reste
+      // MONTÉ mais masqué (display:none, contrainte canvas) — on ne démonte pas un
+      // canvas, on le repeint au switch (cf. boucle rAF gatée sur effectsSelected).
+      const hidden = effect !== effectsSelected
       return (
-        <div className={`we-lfo-block${enabled ? ' is-enabled' : ''}`} key={effect}>
+        <div className={`we-lfo-block${enabled ? ' is-enabled' : ''}${hidden ? ' is-hidden' : ''}`} key={effect}>
           <div className="we-lfo-head">
             <label className="we-lfo-switch">
               <input
@@ -3585,6 +3594,19 @@ function WaveformEditor({
           <div className="we-header-left">
             <MODULE_META.modulation.Icon className="we-area-icon" size={15} aria-hidden="true" />
             <h3 className="we-area-title" title="Modulation">Modulation</h3>
+          </div>
+          {/* iter-T phase-1.1 : switcher temporaire (remplacé par l'OverflowToolbar
+              à pastilles « activé » + badge tiroir en phase-1.2). */}
+          <div className="spline-interp-toggle" role="group" aria-label="Effet édité">
+            {['vibrato', 'tremolo'].map((eff) => (
+              <button
+                key={eff}
+                type="button"
+                className={`icon-btn${effectsSelected === eff ? ' is-active' : ''}`}
+                onClick={() => onSetEffectsSelected(eff)}
+                aria-pressed={effectsSelected === eff}
+              >{eff === 'vibrato' ? 'Vibrato' : 'Trémolo'}</button>
+            ))}
           </div>
         </header>
         <div className="we-modulation-body">

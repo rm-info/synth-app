@@ -119,7 +119,7 @@ function App() {
     durationMode, adsrView, selectedClipIds, selectedTrackId, composerFlash, lastAnchorClipId,
     composerBankWidth, composerAsideWidth, composerBankCollapsed, composerAsideCollapsed,
     designerSidebarWidth, designerSidebarCollapsed, designerColumnWidths, designerBottomRowWidths,
-    designerCollapsed, maximized, autoCollapse, designerMobileModule,
+    designerCollapsed, maximized, autoCollapse, designerMobileModule, designerEffectsSelected,
     doc, docSidebarWidth, docSidebarCollapsed,
     bibHierarchyMode, bibDisplayMode, bibCurrentFolderId, bibPopupWidth,
     bibSelectedIds, bibSelectionAnchor, bibCollapsedFolders,
@@ -720,6 +720,8 @@ function App() {
           autoCollapse,
           // iter-R phase-1.1 : module plein cadre en petit écran (switcher).
           designerMobileModule,
+          // iter-T phase-1.1 : effet en cours d'édition dans le module Effets.
+          designerEffectsSelected,
           // iter-L phase-2.1 : préférences sidebar Documentation (collapsed
           // + largeur). La position de lecture (article courant + scrolls)
           // est gérée séparément via sessionStorage.
@@ -756,7 +758,7 @@ function App() {
     durationMode, adsrView, activeTab, patchCounter, clipCounter, folderCounter, trackCounter,
     composerBankWidth, composerAsideWidth, composerBankCollapsed, composerAsideCollapsed,
     designerSidebarWidth, designerSidebarCollapsed, designerColumnWidths, designerBottomRowWidths,
-    designerCollapsed, maximized, autoCollapse, designerMobileModule,
+    designerCollapsed, maximized, autoCollapse, designerMobileModule, designerEffectsSelected,
     docSidebarWidth, docSidebarCollapsed,
     bibHierarchyMode, bibDisplayMode, bibCurrentFolderId, bibCollapsedFolders, bibPopupWidth,
     recentPatchIds, theme, selectedTrackId,
@@ -2260,6 +2262,8 @@ function App() {
         adsrView={adsrView}
         onSetAdsrView={(v) => dispatch({ type: 'SET_ADSR_VIEW', payload: v })}
         modulationVisible={modulationVisible}
+        effectsSelected={designerEffectsSelected}
+        onSetEffectsSelected={(v) => dispatch({ type: 'SET_DESIGNER_EFFECTS_SELECTED', payload: v })}
       >
         {({ renderCanvasArea, renderHarmonicsArea, renderParamsArea, renderAdsrArea, renderModulationArea, renderActions, patchLabel, openPresetPicker, requestResetWaveform, moduleHeaderItems }) => (
           <>

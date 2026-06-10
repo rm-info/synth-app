@@ -301,6 +301,9 @@ function sanitizeColumnWidths(raw) {
 // iter-O phase-5a : 5 clés booléennes (modules repliés), défaut `false`. Toute
 // entrée absente/invalide retombe à false. Renvoie toujours un objet complet.
 const DESIGNER_MODULE_IDS = ['canvas', 'harmonics', 'spectrogram', 'params', 'adsr', 'modulation']
+// iter-T phase-1.1 : effets éditables dans le module « Effets » (ex-Modulation).
+// Source unique de la validation d'hydratation de `designerEffectsSelected`.
+const DESIGNER_EFFECT_IDS = ['vibrato', 'tremolo']
 function sanitizeDesignerCollapsed(raw) {
   const out = { canvas: false, harmonics: false, spectrogram: false, params: false, adsr: false, modulation: false }
   if (raw && typeof raw === 'object') {
@@ -659,6 +662,12 @@ export function loadPersistedState() {
       designerMobileModule: DESIGNER_MODULE_IDS.includes(parsed.designerMobileModule)
         ? parsed.designerMobileModule
         : 'canvas',
+      // iter-T phase-1.1 : effet en cours d'édition dans le module « Effets »
+      // (préférence UX persistée, même esprit que designerMobileModule). Valeur
+      // inconnue → défaut 'vibrato'. Hors undo.
+      designerEffectsSelected: DESIGNER_EFFECT_IDS.includes(parsed.designerEffectsSelected)
+        ? parsed.designerEffectsSelected
+        : 'vibrato',
       // iter-L phase-2.1 : préférences sidebar Documentation. Persistées en
       // localStorage (cohérent avec les autres sidebars). La position de
       // lecture vit en sessionStorage (cf. loadDocSession).
@@ -894,6 +903,9 @@ export function buildInitialState() {
     // iter-R phase-1.1 : module plein cadre du Designer en petit écran. Défaut
     // 'canvas' (premier module). Persisté, non-undoable.
     designerMobileModule: persisted?.designerMobileModule ?? 'canvas',
+    // iter-T phase-1.1 : effet en cours d'édition dans le module « Effets ».
+    // Défaut 'vibrato'. Persisté, non-undoable.
+    designerEffectsSelected: persisted?.designerEffectsSelected ?? 'vibrato',
     // iter-O phase-5d : politique d'auto-réduction (off par défaut).
     autoCollapse: persisted?.autoCollapse ?? false,
     // iter-L phase-2.1 : sidebar TOC Documentation + position de lecture.
@@ -2587,6 +2599,15 @@ export function reducer(state, action) {
       if (!DESIGNER_MODULE_IDS.includes(action.payload)) return state
       if (state.designerMobileModule === action.payload) return state
       return { ...state, designerMobileModule: action.payload }
+    }
+    // iter-T phase-1.1 : effet en cours d'édition dans le module « Effets »
+    // (panneau affiché). Exclusif, toujours exactement un. Clic sur l'actif =
+    // no-op. Non-undoable (préférence UI, comme designerMobileModule). Payload
+    // invalide ignoré.
+    case 'SET_DESIGNER_EFFECTS_SELECTED': {
+      if (!DESIGNER_EFFECT_IDS.includes(action.payload)) return state
+      if (state.designerEffectsSelected === action.payload) return state
+      return { ...state, designerEffectsSelected: action.payload }
     }
     // iter-O phase-5d : bascule la politique d'auto-réduction. Non-undoable.
     case 'SET_DESIGNER_AUTO_COLLAPSE': {

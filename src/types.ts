@@ -306,6 +306,8 @@ export type TabId = 'library' | 'composer' | 'designer' | 'documentation'
 // iter-O phase-5a : identifiants des modules réductibles du Designer.
 // itération P : 6ᵉ module 'modulation'.
 export type DesignerModuleId = 'canvas' | 'harmonics' | 'spectrogram' | 'params' | 'adsr' | 'modulation'
+// iter-T phase-1.1 : effets éditables dans le module « Effets » (ex-Modulation).
+export type DesignerEffectId = 'vibrato' | 'tremolo'
 // iter-O phase-5a : état replié (bande) de chacun des modules. Préférence UI
 // persistée (localStorage), non-undoable — comme designerColumnWidths.
 export interface DesignerCollapsed {
@@ -401,6 +403,10 @@ export interface AppState {
   // Switcher d'icônes (remplace l'accordéon) ; toujours exactement un actif.
   // Persisté, non-undoable. Défaut 'canvas'.
   designerMobileModule: DesignerModuleId
+  // iter-T phase-1.1 : effet en cours d'édition dans le module « Effets »
+  // (ex-Modulation). Exclusif, toujours exactement un. Persisté, non-undoable.
+  // Défaut 'vibrato'.
+  designerEffectsSelected: DesignerEffectId
   docSidebarWidth: number
   docSidebarCollapsed: boolean
   doc: DocState
@@ -633,6 +639,8 @@ export type ActionBody =
   | { type: 'SET_DESIGNER_AUTO_COLLAPSE'; payload: boolean }
   // iter-R phase-1.1 : sélectionne le module plein cadre en petit écran (switcher).
   | { type: 'SET_DESIGNER_MOBILE_MODULE'; payload: DesignerModuleId }
+  // iter-T phase-1.1 : sélectionne l'effet édité dans le module « Effets ».
+  | { type: 'SET_DESIGNER_EFFECTS_SELECTED'; payload: DesignerEffectId }
   // iter-P phase-6.1 : remplace l'état replié des 6 modules en bloc (auto-collapse
   // essentiel < ESSENTIALS_WIDTH / réouverture totale au-dessus).
   | { type: 'SET_DESIGNER_COLLAPSED_BULK'; payload: DesignerCollapsed }
