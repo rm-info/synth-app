@@ -17,6 +17,12 @@
 // crée jamais le panner : il n'ajoute que la branche LFO sur `panner.pan` (base
 // 0, le LFO s'y somme dans [-depth, +depth]). `panner` absent → pas d'auto-pan
 // (appels existants sans stéréo restent valides).
+// Pitch envelope (itération T, T.3) → automation de la VALEUR DE BASE d'`osc.detune`
+// (aucun nœud). La hauteur part à `amount` cents et glisse vers 0 en `time` ms.
+// COEXISTENCE AVEC LE VIBRATO PAR CONSTRUCTION : le vibrato est une branche
+// ENTRANTE sur `osc.detune` (depthGain → osc.detune) ; Web Audio SOMME les entrées
+// connectées à la valeur de base automatisée. L'enveloppe pose la trajectoire, le
+// vibrato ondule autour — les deux composent sans s'écraser, sans coordination.
 //
 // 100 % Web Audio API native (OscillatorNode + GainNode + StereoPannerNode
 // existants), zéro dépendance.
@@ -38,7 +44,7 @@ function scheduleOnset(param, target, startTime, onsetMs) {
  * @param {{
  *   osc: OscillatorNode, gain: GainNode, panner?: StereoPannerNode|null,
  *   vibrato?: import('../types').Lfo, tremolo?: import('../types').Lfo,
- *   autoPan?: import('../types').Lfo,
+ *   autoPan?: import('../types').Lfo, pitchEnv?: import('../types').PitchEnv,
  *   startTime: number, stopTime?: number, releaseStart?: number,
  *   baseAmplitude: number,
  * }} opts
@@ -50,9 +56,20 @@ function scheduleOnset(param, target, startTime, onsetMs) {
  *   `nodes` = [] si aucun effet enabled. `tremoloDepthGain` exposé pour que les
  *   previews (sans stopTime) éteignent le trémolo au release.
  */
-export function applyModulation(ctx, { osc, gain, panner, vibrato, tremolo, autoPan, startTime, stopTime, releaseStart, baseAmplitude }) {
+export function applyModulation(ctx, { osc, gain, panner, vibrato, tremolo, autoPan, pitchEnv, startTime, stopTime, releaseStart, baseAmplitude }) {
   const nodes = []
   let tremoloDepthGain = null
+
+  // Pitch envelope (T.3) : automation de la valeur de base d'osc.detune. Posée
+  // avant la branche vibrato — l'ordre est indifférent (base automatisée + entrées
+  // connectées se somment), mais on la pose tôt pour la lisibilité. Guard `amount
+  // !== 0 && time > 0` : à 0/désactivé, AUCUNE automation (detune reste à 0, chaîne
+  // identique). Pas de cleanup (pas de nœud), pas de traitement au release : si la
+  // note est plus courte que `time`, la rampe continue pendant le release (assumé).
+  if (pitchEnv && pitchEnv.enabled && pitchEnv.amount !== 0 && (pitchEnv.time ?? 0) > 0) {
+    osc.detune.setValueAtTime(pitchEnv.amount, startTime)
+    osc.detune.linearRampToValueAtTime(0, startTime + pitchEnv.time / 1000)
+  }
 
   if (vibrato && vibrato.enabled) {
     const lfo = ctx.createOscillator()

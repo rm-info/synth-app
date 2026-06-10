@@ -94,7 +94,7 @@ function scheduleOneClip(ctx, clip, patch, startTime, trackGainNodes, defaultDes
   // l'enveloppe, avant osc.start(). stopTime fourni → extinction programmée.
   const { nodes: mod } = applyModulation(ctx, {
     osc, gain, panner,
-    vibrato: patch.vibrato, tremolo: patch.tremolo, autoPan: patch.autoPan,
+    vibrato: patch.vibrato, tremolo: patch.tremolo, autoPan: patch.autoPan, pitchEnv: patch.pitchEnv,
     startTime: clipStart, stopTime: clipStart + totalDuration, releaseStart, baseAmplitude: amp,
   })
   // Cleanup symétrique : le panner est déconnecté partout où l'osc l'est
@@ -168,7 +168,7 @@ function scheduleAllClips(ctx, clips, patches, startTime, trackGainNodes, defaul
     // rendu, seul lfo.start/stop programmé suffit.
     applyModulation(ctx, {
       osc, gain, panner,
-      vibrato: patch.vibrato, tremolo: patch.tremolo, autoPan: patch.autoPan,
+      vibrato: patch.vibrato, tremolo: patch.tremolo, autoPan: patch.autoPan, pitchEnv: patch.pitchEnv,
       startTime: clipStart, stopTime: clipStart + totalDuration, releaseStart, baseAmplitude: amp,
     })
 
@@ -338,10 +338,12 @@ export function usePlayback({ clips, patches, tracks, bpm, a4Ref, xEdoN, totalDu
         // release/amplitude OU le vibrato/trémolo/auto-pan d'un patch utilisé en
         // cours de lecture re-schedule les clips à venir (même mécanique que l'AHDSR).
         const sigOfLfo = (l) => l ? `${l.enabled ? 1 : 0}:${l.rate}:${l.depth}:${l.onset}:${l.shape}` : ''
+        // T.3 : pitch envelope (champs amount/time, pas un Lfo).
+        const sigOfPitchEnv = (pe) => pe ? `${pe.enabled ? 1 : 0}:${pe.amount}:${pe.time}` : ''
         const sigOf = (c, patchList) => {
           const p = patchList?.find(p => p.id === c.patchId)
           const env = p
-            ? `${p.attack}:${p.hold ?? 0}:${p.decay}:${p.sustain}:${p.release}:${p.amplitude}|${sigOfLfo(p.vibrato)}|${sigOfLfo(p.tremolo)}|${sigOfLfo(p.autoPan)}`
+            ? `${p.attack}:${p.hold ?? 0}:${p.decay}:${p.sustain}:${p.release}:${p.amplitude}|${sigOfLfo(p.vibrato)}|${sigOfLfo(p.tremolo)}|${sigOfLfo(p.autoPan)}|${sigOfPitchEnv(p.pitchEnv)}`
             : ''
           return `${c.measure}:${c.beat}:${c.duration}:${c.patchId}:${c.trackId}:${c.tuningSystem}:${c.noteIndex}:${c.octave}:${c.frequency}|${env}`
         }

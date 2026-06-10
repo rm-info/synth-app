@@ -6,7 +6,7 @@ import { applyModulation } from '../lib/modulation'
 import { splineToPoints } from '../lib/spline'
 import {
   CAP_MIN, CAP_MAX, SPLINE_ANCHOR_MIN, SPLINE_ANCHOR_MAX,
-  DEFAULT_VIBRATO, DEFAULT_TREMOLO, DEFAULT_AUTOPAN,
+  DEFAULT_VIBRATO, DEFAULT_TREMOLO, DEFAULT_AUTOPAN, DEFAULT_PITCHENV,
   LFO_RATE_MIN, LFO_RATE_MAX, VIBRATO_DEPTH_MAX, TREMOLO_DEPTH_MAX, AUTOPAN_DEPTH_MAX, LFO_ONSET_MAX, LFO_SHAPES,
 } from '../reducer'
 import useWindowSize from '../hooks/useWindowSize'
@@ -654,6 +654,8 @@ function WaveformEditor({
   const vibrato = applyModDraft('vibrato', vibratoBase)
   const tremolo = applyModDraft('tremolo', tremoloBase)
   const autoPan = applyModDraft('autoPan', autoPanBase)
+  const pitchEnvBase = editor.pitchEnv ?? DEFAULT_PITCHENV
+  const pitchEnv = applyModDraft('pitchEnv', pitchEnvBase)
 
   const {
     testTuningSystem, testNoteIndex, testOctave, preset: activePreset,
@@ -776,8 +778,8 @@ function WaveformEditor({
     attack, hold, decay, sustain, release, amplitude, definition: effectiveDefinition,
     testOctave, testTuningSystem, testFrequency, a4Ref, xEdoN,
     // itération P : modulations LFO lues par les previews clavier / note libre.
-    // itération T : += auto-pan.
-    vibrato, tremolo, autoPan,
+    // itération T : += auto-pan + pitch envelope.
+    vibrato, tremolo, autoPan, pitchEnv,
   }
 
   // itération P — mini-courbes LFO animées du module Modulation. UNE seule boucle
@@ -1389,6 +1391,7 @@ function WaveformEditor({
     // cleanup est manuel (release / retrigger / stopAll / onended).
     const { nodes: mod, tremoloDepthGain } = applyModulation(ctx, {
       osc, gain, panner, vibrato: params.vibrato, tremolo: params.tremolo, autoPan: params.autoPan,
+      pitchEnv: params.pitchEnv,
       startTime: now, baseAmplitude: params.amplitude,
     })
     // Cleanup symétrique : le panner suit les nœuds LFO (stopModImmediate /
@@ -1622,6 +1625,7 @@ function WaveformEditor({
     // itération P : modulations LFO (canal libre, sustain indéfini → cleanup manuel).
     const { nodes: mod, tremoloDepthGain } = applyModulation(ctx, {
       osc, gain, panner, vibrato: params.vibrato, tremolo: params.tremolo, autoPan: params.autoPan,
+      pitchEnv: params.pitchEnv,
       startTime: now, baseAmplitude: params.amplitude,
     })
     if (panner) mod.push(panner)
