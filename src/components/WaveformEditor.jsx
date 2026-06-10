@@ -395,9 +395,10 @@ function pitchEnvGeometry(env, cssW, cssH) {
   const invert = !!env.invert
   // T.3bis : la poignée Durée (horizontale) reste TOUJOURS sur la médiane au coude
   // (mapping time↔x inchangé). La poignée verticale (amount) se place au bout LIBRE
-  // de la rampe : normal = départ à gauche (marginL) ; inversé = cible au coude.
+  // de la rampe, FIXE horizontalement (ne suit pas la Durée) : normal = départ à
+  // gauche (marginL) ; inversé = cible à droite sur le plateau (marginL+usableW).
   const handles = {
-    amount: { x: invert ? xElbow : marginL, y: yLevel },
+    amount: { x: invert ? marginL + usableW : marginL, y: yLevel },
     time: { x: xElbow, y: midY },
   }
   return { marginL, usableW, midY, halfUsableH, amountFrac, xOf, yLevel, xElbow, invert, handles }

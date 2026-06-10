@@ -490,7 +490,8 @@ Seuls les **placements timeline** s'appellent "clips".
   = hauteur nominale, axe Y **signé**, axe x **racine carrée**, 2 poignées vertical/horizontal,
   **aucune animation** — branche statique de la boucle rAF). En mode **inversé** le graphe
   est en **miroir** (part de la médiane → s'éloigne vers `amount` → plateau) et la poignée
-  verticale se place au **coude** ; tooltips/label Cible/Durée. Réutilise les classes
+  verticale se place **à droite sur le plateau** (fixe horizontalement, miroir du départ à
+  gauche en normal) ; tooltips/label Cible/Durée. Réutilise les classes
   `.we-lfo-*` et la machinerie d'undo partagée. Les
   sous-blocs **LFO** (vibrato/trémolo/auto-pan) rendent : interrupteur on/off, switch de
   forme (icônes SVG IconSine/IconTriangleWave/IconSquareWave), 3 `NumberInput` à
@@ -2318,7 +2319,7 @@ par voix). Cadrage complet dans `archi/BACKLOG.md` (« Effets et modulations »)
   la note **reste** décalée de `amount` (l'`AudioParam` tient sa dernière valeur —
   sirène/bend, **assumé**). UI : toggle **« Inverser »** (`FlipVertical2`) dans le head ;
   **graphe miroir** (part de la médiane → s'éloigne vers `amount` → plateau) ; poignée
-  verticale au **coude** en inversé ; tooltips/label **Cible/Durée**. Signature scheduler
+  verticale **à droite sur le plateau** en inversé ; tooltips/label **Cible/Durée**. Signature scheduler
   += invert. Pas de bump (`invert` absent → false).
 
 ✅ **Terminé**
