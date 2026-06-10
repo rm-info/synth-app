@@ -87,6 +87,8 @@ function isPitchEnvValidOrAbsent(v) {
   if (typeof v.enabled !== 'boolean') return false
   if (!isNumberInRange(v.amount, -2400, 2400)) return false
   if (!isNumberInRange(v.time, 0, 2000)) return false
+  // T.3bis : `invert` optionnel (absent = patch T.3 → false à l'hydratation).
+  if (v.invert !== undefined && typeof v.invert !== 'boolean') return false
   return true
 }
 

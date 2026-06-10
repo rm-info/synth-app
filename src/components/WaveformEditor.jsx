@@ -1,5 +1,5 @@
 import { useRef, useState, useCallback, useEffect, useImperativeHandle, useMemo } from 'react'
-import { Plus, Save, SaveAll, Undo2, Redo2, Sliders, X, Lock, Spline, AlignEndHorizontal, Sigma, Waves, ChartSpline, Activity, SlidersHorizontal } from 'lucide-react'
+import { Plus, Save, SaveAll, Undo2, Redo2, Sliders, X, Lock, Spline, AlignEndHorizontal, Sigma, Waves, ChartSpline, Activity, SlidersHorizontal, FlipVertical2 } from 'lucide-react'
 import { IconDoux, IconAnguleux, IconSine, IconTriangleWave, IconSquareWave } from './icons'
 import { pointsToPeriodicWave, MIN_ATTACK, MIN_RELEASE, HARMONIC_COUNT, harmonicsToPoints, canonicalToBars, createMasterBus } from '../audio'
 import { applyModulation } from '../lib/modulation'
@@ -390,12 +390,17 @@ function pitchEnvGeometry(env, cssW, cssH) {
   const halfUsableH = Math.max(1, midY - LFO_MARGIN_Y)
   const amountFrac = Math.max(-1, Math.min(1, (env.amount ?? 0) / PITCHENV_AMOUNT_MAX))
   const xOf = (timeMs) => marginL + pitchEnvXFrac(timeMs) * usableW
-  const yStart = midY - amountFrac * halfUsableH
+  const yLevel = midY - amountFrac * halfUsableH // niveau de `amount` (départ OU cible)
+  const xElbow = xOf(env.time ?? 0)              // x du coude de la rampe
+  const invert = !!env.invert
+  // T.3bis : la poignée Durée (horizontale) reste TOUJOURS sur la médiane au coude
+  // (mapping time↔x inchangé). La poignée verticale (amount) se place au bout LIBRE
+  // de la rampe : normal = départ à gauche (marginL) ; inversé = cible au coude.
   const handles = {
-    amount: { x: marginL, y: yStart },        // départ de la courbe (t=0)
-    time: { x: xOf(env.time ?? 0), y: midY },  // arrivée sur la médiane
+    amount: { x: invert ? xElbow : marginL, y: yLevel },
+    time: { x: xElbow, y: midY },
   }
-  return { marginL, usableW, midY, halfUsableH, amountFrac, xOf, yStart, handles }
+  return { marginL, usableW, midY, halfUsableH, amountFrac, xOf, yLevel, xElbow, invert, handles }
 }
 
 // Dessine le graphe d'enveloppe figé (courbe + 2 poignées). Effet désactivé →
@@ -414,7 +419,7 @@ function drawPitchEnvGraph(canvas, env) {
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0) // coords CSS px (cercles isotropes)
   ctx.clearRect(0, 0, cssW, cssH)
   const g = pitchEnvGeometry(env, cssW, cssH)
-  const { midY, marginL, usableW } = g
+  const { midY, marginL, usableW, xElbow, yLevel, invert } = g
 
   // Médiane (hauteur nominale = 0 cent).
   ctx.strokeStyle = themeColor('canvas-grid-secondary')
@@ -426,14 +431,21 @@ function drawPitchEnvGraph(canvas, env) {
 
   if (!env.enabled) return // courbe plate grisée, poignées inertes
 
-  // Courbe : départ à amount → glissement vers la médiane à time → plateau.
+  // Courbe : normal = part à `amount` → rejoint la médiane à time → plateau médian.
+  //          inversé = part de la médiane → s'éloigne vers `amount` à time → plateau à `amount`.
   ctx.strokeStyle = themeColor('accent')
   ctx.lineWidth = 1.75
   ctx.lineJoin = 'round'
   ctx.beginPath()
-  ctx.moveTo(marginL, g.yStart)
-  ctx.lineTo(g.xOf(env.time ?? 0), midY)
-  ctx.lineTo(marginL + usableW, midY)
+  if (invert) {
+    ctx.moveTo(marginL, midY)
+    ctx.lineTo(xElbow, yLevel)
+    ctx.lineTo(marginL + usableW, yLevel)
+  } else {
+    ctx.moveTo(marginL, yLevel)
+    ctx.lineTo(xElbow, midY)
+    ctx.lineTo(marginL + usableW, midY)
+  }
   ctx.stroke()
 
   // Poignées : cercles isotropes (style AHDSR/LFO).
@@ -449,8 +461,9 @@ function drawPitchEnvGraph(canvas, env) {
   }
 }
 
-// Tooltip de rôle d'une poignée LFO (réutilise le style .adsr-tooltip).
-function LfoTooltip({ handle, px, py }) {
+// Tooltip de rôle d'une poignée LFO (réutilise le style .adsr-tooltip). `label`
+// override le libellé par défaut (T.3bis : « Cible »/« Durée » en pitch env inversé).
+function LfoTooltip({ handle, label, px, py }) {
   if (handle == null) return null
   const flip = py < 22
   return (
@@ -459,7 +472,7 @@ function LfoTooltip({ handle, px, py }) {
       style={{ left: `${px}px`, top: flip ? `${py + ADSR_TOOLTIP_OFFSET}px` : `${py - ADSR_TOOLTIP_OFFSET}px` }}
       role="tooltip"
     >
-      {LFO_HANDLE_LABELS[handle]}
+      {label ?? LFO_HANDLE_LABELS[handle]}
     </div>
   )
 }
@@ -508,6 +521,7 @@ function pitchEnvEqual(a, b) {
   return (da.enabled ?? false) === (db.enabled ?? false)
     && da.amount === db.amount
     && da.time === db.time
+    && (da.invert ?? false) === (db.invert ?? false)
 }
 
 function patchFieldsEqual(a, b) {
@@ -552,7 +566,7 @@ function cloneLfo(lfo, fallback) {
 // T.3 : clone défensif d'une enveloppe de hauteur (champs distincts du Lfo).
 function clonePitchEnv(env, fallback) {
   const src = env ?? fallback
-  return { enabled: src.enabled, amount: src.amount, time: src.time }
+  return { enabled: src.enabled, amount: src.amount, time: src.time, invert: src.invert ?? false }
 }
 
 function snapshotPatchFields(editor) {
@@ -3899,6 +3913,17 @@ function WaveformEditor({
               </span>
               <span className="we-lfo-switch-label">Enveloppe de hauteur</span>
             </label>
+            {/* T.3bis : toggle « Inverser ». Part de la note et s'en éloigne vers
+                `amount` (où elle reste) au lieu de partir décalé et y rejoindre. */}
+            <button
+              type="button"
+              className={`icon-btn we-lfo-invert${pitchEnv.invert ? ' is-active' : ''}`}
+              onClick={() => set('invert', !pitchEnv.invert)}
+              disabled={!enabled}
+              title="Inverser : part de la note et s'en éloigne vers la cible (où elle reste)"
+              aria-label="Inverser l'enveloppe de hauteur"
+              aria-pressed={pitchEnv.invert}
+            ><FlipVertical2 size={16} /></button>
           </div>
           <div className="we-lfo-canvas-wrap">
             <canvas
@@ -3918,13 +3943,16 @@ function WaveformEditor({
             <LfoTooltip
               handle={(draftMod && draftMod.effect === 'pitchEnv') ? null
                 : (modHover && modHover.effect === 'pitchEnv' ? modHover.handle : null)}
+              label={pitchEnv.invert && modHover?.effect === 'pitchEnv'
+                ? (modHover.handle === 'amount' ? 'Cible' : 'Durée')
+                : undefined}
               px={modHover?.px}
               py={modHover?.py}
             />
           </div>
           <div className="we-lfo-controls we-lfo-controls--two">
             <div className="we-lfo-control">
-              <span>Départ (cents)</span>
+              <span>{pitchEnv.invert ? 'Cible (cents)' : 'Départ (cents)'}</span>
               <NumberInput
                 value={pitchEnv.amount}
                 onChange={(v) => set('amount', v)}

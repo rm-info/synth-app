@@ -67,8 +67,18 @@ export function applyModulation(ctx, { osc, gain, panner, vibrato, tremolo, auto
   // identique). Pas de cleanup (pas de nœud), pas de traitement au release : si la
   // note est plus courte que `time`, la rampe continue pendant le release (assumé).
   if (pitchEnv && pitchEnv.enabled && pitchEnv.amount !== 0 && (pitchEnv.time ?? 0) > 0) {
-    osc.detune.setValueAtTime(pitchEnv.amount, startTime)
-    osc.detune.linearRampToValueAtTime(0, startTime + pitchEnv.time / 1000)
+    const end = startTime + pitchEnv.time / 1000
+    if (pitchEnv.invert) {
+      // T.3bis « Inverser » : part de la nominale (0) et s'éloigne vers `amount`,
+      // où la note RESTE (l'AudioParam tient sa dernière valeur de rampe). La
+      // nominale du clip n'est que le point de départ — comportement assumé.
+      osc.detune.setValueAtTime(0, startTime)
+      osc.detune.linearRampToValueAtTime(pitchEnv.amount, end)
+    } else {
+      // Normal : part décalé de `amount` et rejoint la nominale (0).
+      osc.detune.setValueAtTime(pitchEnv.amount, startTime)
+      osc.detune.linearRampToValueAtTime(0, end)
+    }
   }
 
   if (vibrato && vibrato.enabled) {

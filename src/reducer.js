@@ -104,7 +104,7 @@ export const DEFAULT_AUTOPAN = { enabled: false, rate: 1, depth: 0.5, onset: 0, 
 /** @type {import('./types').PitchEnv} */
 // iter-T phase-3.1 : désactivé mais musical (+1 octave qui retombe en 150 ms =
 // pluck/tom immédiatement parlant).
-export const DEFAULT_PITCHENV = { enabled: false, amount: 1200, time: 150 }
+export const DEFAULT_PITCHENV = { enabled: false, amount: 1200, time: 150, invert: false }
 
 const clampToRange = (v, lo, hi, fallback) => {
   const n = Number(v)
@@ -136,6 +136,8 @@ export function sanitizePitchEnv(raw) {
     enabled: raw.enabled === true,
     amount: clampToRange(raw.amount, -PITCHENV_AMOUNT_MAX, PITCHENV_AMOUNT_MAX, DEFAULT_PITCHENV.amount),
     time: clampToRange(raw.time, PITCHENV_TIME_MIN, PITCHENV_TIME_MAX, DEFAULT_PITCHENV.time),
+    // T.3bis : patch T.3 sans `invert` → false.
+    invert: raw.invert === true,
   }
 }
 
@@ -156,6 +158,7 @@ function clampModulationValue(effect, key, value) {
   // iter-T phase-3.1 : pitch envelope = type frère (clés amount/time, pas Lfo).
   if (effect === 'pitchEnv') {
     if (key === 'enabled') return value === true
+    if (key === 'invert') return value === true
     if (key === 'amount') return clampToRange(value, -PITCHENV_AMOUNT_MAX, PITCHENV_AMOUNT_MAX, DEFAULT_PITCHENV.amount)
     if (key === 'time') return clampToRange(value, PITCHENV_TIME_MIN, PITCHENV_TIME_MAX, DEFAULT_PITCHENV.time)
     return value

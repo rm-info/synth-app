@@ -104,7 +104,10 @@ export interface Lfo {
 export interface PitchEnv {
   enabled: boolean
   amount: number   // cents signés, borné [-PITCHENV_AMOUNT_MAX, PITCHENV_AMOUNT_MAX] (±2 oct.)
-  time: number     // ms, borné [0, PITCHENV_TIME_MAX] — durée du glissement vers 0
+  time: number     // ms, borné [PITCHENV_TIME_MIN, PITCHENV_TIME_MAX] — durée du glissement
+  // T.3bis : false = part décalé de `amount` et rejoint la nominale (0) ; true = part
+  // de la nominale et s'éloigne vers `amount`, où la note RESTE (sirène/bend assumé).
+  invert: boolean
 }
 
 // === Modèle métier ===
