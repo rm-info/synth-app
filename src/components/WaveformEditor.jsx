@@ -8,7 +8,7 @@ import {
   CAP_MIN, CAP_MAX, SPLINE_ANCHOR_MIN, SPLINE_ANCHOR_MAX,
   DEFAULT_VIBRATO, DEFAULT_TREMOLO, DEFAULT_AUTOPAN, DEFAULT_PITCHENV,
   LFO_RATE_MIN, LFO_RATE_MAX, VIBRATO_DEPTH_MAX, TREMOLO_DEPTH_MAX, AUTOPAN_DEPTH_MAX, LFO_ONSET_MAX, LFO_SHAPES,
-  PITCHENV_AMOUNT_MAX, PITCHENV_TIME_MAX,
+  PITCHENV_AMOUNT_MAX, PITCHENV_TIME_MAX, PITCHENV_TIME_MIN,
 } from '../reducer'
 import useWindowSize from '../hooks/useWindowSize'
 import FreqInput from './FreqInput'
@@ -376,22 +376,26 @@ function drawLfoGraph(canvas, lfo, depthMax, dotT, windowSecOverride) {
 // (axe Y SIGNÉ — la médiane se franchit pour changer de signe). 2 poignées :
 // Départ (drag vertical → `amount`, au début de la courbe) et Arrivée (drag
 // horizontal → `time`, sur la médiane). Pas d'animation (rien ne boucle).
-const PITCHENV_WINDOW_FACTOR = 1.5 // fenêtre x = max(time, plancher) × facteur → marge à droite de l'Arrivée
-function pitchEnvGeometry(env, cssW, cssH, windowSecOverride) {
-  const timeSec = (env.time ?? 0) / 1000
-  const windowSec = windowSecOverride ?? Math.max(0.08, timeSec) * PITCHENV_WINDOW_FACTOR
+//
+// Axe x = fraction RACINE de `time / TIME_MAX` (fenêtre fixe, pas proportionnelle
+// au temps — sinon la poignée serait scale-invariante et resterait figée). La
+// racine donne plus de place aux durées courtes (le cas courant 40–400 ms) tout
+// en laissant la poignée atteindre le bord à TIME_MAX, et la poignée reflète
+// toujours la valeur (monotone). Inversé dans applyModDrag ('time' → frac²·max).
+const pitchEnvXFrac = (timeMs) => Math.sqrt(Math.max(0, timeMs) / PITCHENV_TIME_MAX)
+function pitchEnvGeometry(env, cssW, cssH) {
   const marginL = LFO_MARGIN_X
   const usableW = Math.max(1, cssW - 2 * LFO_MARGIN_X)
   const midY = cssH / 2
   const halfUsableH = Math.max(1, midY - LFO_MARGIN_Y)
   const amountFrac = Math.max(-1, Math.min(1, (env.amount ?? 0) / PITCHENV_AMOUNT_MAX))
-  const xOf = (t) => marginL + (t / windowSec) * usableW
+  const xOf = (timeMs) => marginL + pitchEnvXFrac(timeMs) * usableW
   const yStart = midY - amountFrac * halfUsableH
   const handles = {
-    amount: { x: marginL, y: yStart }, // départ de la courbe (t=0)
-    time: { x: xOf(timeSec), y: midY }, // arrivée sur la médiane
+    amount: { x: marginL, y: yStart },        // départ de la courbe (t=0)
+    time: { x: xOf(env.time ?? 0), y: midY },  // arrivée sur la médiane
   }
-  return { timeSec, windowSec, marginL, usableW, midY, halfUsableH, amountFrac, xOf, yStart, handles }
+  return { marginL, usableW, midY, halfUsableH, amountFrac, xOf, yStart, handles }
 }
 
 // Dessine le graphe d'enveloppe figé (courbe + 2 poignées). Effet désactivé →
@@ -410,7 +414,7 @@ function drawPitchEnvGraph(canvas, env) {
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0) // coords CSS px (cercles isotropes)
   ctx.clearRect(0, 0, cssW, cssH)
   const g = pitchEnvGeometry(env, cssW, cssH)
-  const { midY, marginL, usableW, timeSec } = g
+  const { midY, marginL, usableW } = g
 
   // Médiane (hauteur nominale = 0 cent).
   ctx.strokeStyle = themeColor('canvas-grid-secondary')
@@ -422,13 +426,13 @@ function drawPitchEnvGraph(canvas, env) {
 
   if (!env.enabled) return // courbe plate grisée, poignées inertes
 
-  // Courbe : départ à amount → glissement linéaire vers la médiane à time → plateau.
+  // Courbe : départ à amount → glissement vers la médiane à time → plateau.
   ctx.strokeStyle = themeColor('accent')
   ctx.lineWidth = 1.75
   ctx.lineJoin = 'round'
   ctx.beginPath()
   ctx.moveTo(marginL, g.yStart)
-  ctx.lineTo(g.xOf(timeSec), midY)
+  ctx.lineTo(g.xOf(env.time ?? 0), midY)
   ctx.lineTo(marginL + usableW, midY)
   ctx.stroke()
 
@@ -3578,9 +3582,10 @@ function WaveformEditor({
     } else if (fg.key === 'amount') { // T.3 : drag vertical SIGNÉ (franchit la médiane → change de signe)
       const frac = Math.max(-1, Math.min(1, (fg.midY - y) / fg.halfUsableH))
       value = Math.round(frac * PITCHENV_AMOUNT_MAX)
-    } else { // T.3 'time' : drag horizontal → durée du glissement
-      const t = ((x - fg.marginL) / fg.usableW) * fg.windowSec
-      value = Math.round(Math.max(0, Math.min(PITCHENV_TIME_MAX / 1000, t)) * 1000)
+    } else { // T.3 'time' : drag horizontal → durée. Inverse du mapping racine (frac²·max).
+      const frac = Math.max(0, Math.min(1, (x - fg.marginL) / fg.usableW))
+      const ms = frac * frac * PITCHENV_TIME_MAX
+      value = Math.round(Math.max(PITCHENV_TIME_MIN, Math.min(PITCHENV_TIME_MAX, ms)))
     }
     setDraftMod({ effect: fg.effect, key: fg.key, value })
   }
@@ -3680,7 +3685,7 @@ function WaveformEditor({
     modDragGeomRef.current = {
       effect: 'pitchEnv', key: hit.key, canvas: pitchEnvCanvasRef.current,
       marginL: hit.g.marginL, usableW: hit.g.usableW, midY: hit.g.midY,
-      halfUsableH: hit.g.halfUsableH, windowSec: hit.g.windowSec,
+      halfUsableH: hit.g.halfUsableH,
     }
     setDraftMod({ effect: 'pitchEnv', key: hit.key, value: pitchEnv[hit.key] })
   }
@@ -3817,7 +3822,7 @@ function WaveformEditor({
             />
           </div>
           <div className="we-lfo-controls">
-            <label className="we-lfo-control">
+            <div className="we-lfo-control">
               <span>Vitesse (Hz)</span>
               <NumberInput
                 value={lfo.rate}
@@ -3833,8 +3838,8 @@ function WaveformEditor({
                 disabled={!enabled}
                 ariaLabel={`Vitesse du ${title} en Hz`}
               />
-            </label>
-            <label className="we-lfo-control">
+            </div>
+            <div className="we-lfo-control">
               <span>{isVibrato ? 'Profondeur (cents)' : 'Profondeur'}</span>
               <NumberInput
                 value={lfo.depth}
@@ -3850,8 +3855,8 @@ function WaveformEditor({
                 disabled={!enabled}
                 ariaLabel={`Profondeur du ${title}`}
               />
-            </label>
-            <label className="we-lfo-control">
+            </div>
+            <div className="we-lfo-control">
               <span>Installation (ms)</span>
               <NumberInput
                 value={lfo.onset}
@@ -3867,7 +3872,7 @@ function WaveformEditor({
                 disabled={!enabled}
                 ariaLabel={`Temps d'installation du ${title} en millisecondes`}
               />
-            </label>
+            </div>
           </div>
         </div>
       )
@@ -3918,7 +3923,7 @@ function WaveformEditor({
             />
           </div>
           <div className="we-lfo-controls we-lfo-controls--two">
-            <label className="we-lfo-control">
+            <div className="we-lfo-control">
               <span>Départ (cents)</span>
               <NumberInput
                 value={pitchEnv.amount}
@@ -3934,13 +3939,13 @@ function WaveformEditor({
                 disabled={!enabled}
                 ariaLabel="Départ de l'enveloppe de hauteur en cents (signé)"
               />
-            </label>
-            <label className="we-lfo-control">
+            </div>
+            <div className="we-lfo-control">
               <span>Durée (ms)</span>
               <NumberInput
                 value={pitchEnv.time}
                 onChange={(v) => set('time', v)}
-                min={0}
+                min={PITCHENV_TIME_MIN}
                 max={PITCHENV_TIME_MAX}
                 parse={parseLfoNum}
                 format={(v) => String(Math.round(v))}
@@ -3951,7 +3956,7 @@ function WaveformEditor({
                 disabled={!enabled}
                 ariaLabel="Durée du glissement vers la hauteur nominale en millisecondes"
               />
-            </label>
+            </div>
           </div>
         </div>
       )

@@ -87,6 +87,8 @@ export const AUTOPAN_DEPTH_MAX = 1
 // iter-T phase-3.1 : pitch envelope (enveloppe de hauteur, PAS un Lfo).
 export const PITCHENV_AMOUNT_MAX = 2400 // cents (±2 octaves), signé
 export const PITCHENV_TIME_MAX = 2000   // ms — durée du glissement vers 0
+// Plancher : en dessous de ~40 ms le glissement est inaudible (transitoire pur).
+export const PITCHENV_TIME_MIN = 40     // ms
 export const LFO_ONSET_MAX = 2000 // ms
 /** @type {import('./types').LfoShape[]} */
 export const LFO_SHAPES = ['sine', 'triangle', 'square']
@@ -133,7 +135,7 @@ export function sanitizePitchEnv(raw) {
   return {
     enabled: raw.enabled === true,
     amount: clampToRange(raw.amount, -PITCHENV_AMOUNT_MAX, PITCHENV_AMOUNT_MAX, DEFAULT_PITCHENV.amount),
-    time: clampToRange(raw.time, 0, PITCHENV_TIME_MAX, DEFAULT_PITCHENV.time),
+    time: clampToRange(raw.time, PITCHENV_TIME_MIN, PITCHENV_TIME_MAX, DEFAULT_PITCHENV.time),
   }
 }
 
@@ -155,7 +157,7 @@ function clampModulationValue(effect, key, value) {
   if (effect === 'pitchEnv') {
     if (key === 'enabled') return value === true
     if (key === 'amount') return clampToRange(value, -PITCHENV_AMOUNT_MAX, PITCHENV_AMOUNT_MAX, DEFAULT_PITCHENV.amount)
-    if (key === 'time') return clampToRange(value, 0, PITCHENV_TIME_MAX, DEFAULT_PITCHENV.time)
+    if (key === 'time') return clampToRange(value, PITCHENV_TIME_MIN, PITCHENV_TIME_MAX, DEFAULT_PITCHENV.time)
     return value
   }
   const fallback = effectDefault(effect)
