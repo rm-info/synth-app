@@ -2,13 +2,69 @@
 
 > Suivi des idées, pistes et dettes techniques reportées.
 > Tenu par l'archi. Source de vérité pour ce qui n'est pas encore planifié.
-> Dernière mise à jour : 2026-06-07.
+> Dernière mise à jour : 2026-06-08.
 
 > Note : itérations G-O closes (O = Ergonomie & responsive du Designer, release
 > v1.7.0 ; cf. CONTEXT.md). **Entre deux itérations** : prochaine non cadrée
 > (« Monde B » pressenti). Voir « Backlog général » plus bas.
 
 ---
+
+## Repenser le concept « écrans minuscules » (ex-R.4) — ACTIF
+
+**R.4 (orientation adaptative des toolbars) a été annulée en bloc** : trop de casse
+pour un résultat médiocre. Le confort réel en très petit écran — surtout en
+**paysage `500×300`** où la hauteur manque — reste **à reconcevoir from scratch**
+(l'approche « toolbars qui pivotent gauche/haut selon le ratio » est abandonnée).
+R.3 rend l'app *utilisable* à ces tailles ; ce qui manque, c'est de la rendre
+*agréable*. À cadrer comme un sujet de design à part entière (pas un simple patch
+CSS). En attendant, passe de correctifs **R.3.rectif** livrée (header compacte
+amincie, marge gauche mobile → 0, Instrument mobile aligné sur l'intermédiaire,
+toolbar Designer mobile en wrap) — voir `archi/R3-rectif-prompt.md`.
+
+Note (spectro live/peak en petit écran) : les toggles **live/peak** du Spectrogramme
+restent **utiles tant qu'un clavier matériel joue** (le chemin clavier est un listener
+`window` global, ungated → desktop ET tablette+clavier BT, quel que soit le module
+affiché par le switcher). Décision : **on les garde** (inoffensifs ; « clavier matériel
+présent ? » est indétectable proprement). Le seul cas impossible — clavier **à l'écran**
++ spectro **simultanés** — découle du switcher « un module plein cadre » et ne changerait
+qu'avec un **layout petit-écran à deux zones** (objet de ce re-concept).
+
+Lié : le **support tactile** part en **itération S dédiée** (cadrage en cours). Le
+volet **(A) « rendre le tactile fonctionnel »** (Pointer Events + `touch-action` +
+verrouillage viewport/overscroll + **PWA standalone**) y est traité, web pur. Le
+volet **(B) « confort du tracé fin au doigt »** (cibles ≥ 44px, édition par poignées
+plutôt que main-levée, loupe/offset) **reste ici en backlog** — ouverture conditionnée
+à un usage tactile confirmé.
+
+## Dette (iter S.1) : icônes PWA raster — apple-touch-icon + maskable
+
+S.1 a livré le manifest en **SVG-only** (`favicon.svg`, `sizes:"any"`) faute de
+rasteriseur système sur la machine du dev (ni ImageMagick, rsvg-convert, Inkscape,
+resvg, cairosvg, ni Chromium headless), et `favicon.svg` exploite des filtres
+gaussian-blur + `color(display-p3)` → un fallback raster fait main rendrait mal.
+
+Conséquence acceptée temporairement : **installabilité Android dégradée** (pas
+d'icône **maskable** adaptative) + **icône iOS générique** (pas d'`apple-touch-icon`).
+Le standalone (barre d'adresse réglée) fonctionne quand même sur les deux.
+
+À compléter quand un vrai rasteriseur est dispo : produire **apple-touch-icon.png
+180×180** + **icon-maskable.png 512×512** (marge de sécurité ~10 %) depuis
+`favicon.svg`, puis recâbler `manifest.webmanifest` (entrées `icons`) + la méta
+`<link rel="apple-touch-icon">`. Mise à niveau triviale (pas de refonte). **Sans
+ajouter de dépendance npm** : outil système ou PNG fournis à la main.
+
+## Idée : mode « clavier déporté » smartphone — priorité FAIBLE (gros chantier)
+
+Sur smartphone uniquement : on ouvre l'app sur un **ordi** (usage normal), on ouvre
+**en parallèle** l'app sur son **smartphone**, on bascule celui-ci en **mode
+clavier**, il **rejoint la session de l'ordi** et **pilote l'app desktop** (le
+smartphone devient une surface de jeu / contrôleur déporté).
+
+Implique une **liaison temps réel entre deux appareils** (appairage de session +
+transport WebRTC/WebSocket + relais) — donc, pour la première fois, **une brique
+serveur / signaling** (rupture du « pas de backend »). À ne lancer que si le besoin
+se confirme ; **priorité faible**, à cadrer comme un sujet à part entière.
 
 ## Iteration O (Ergonomie & responsive du Designer) — livrée 2026-06-06
 
@@ -1292,53 +1348,63 @@ Aujourd'hui un patch = forme d'onde + amplitude + AHDSR. Tout le reste
 gagner, tout en restant 100% Web Audio natif (nodes existants
 suffisent pour 80% du catalogue).
 
-**Modulations temporelles** (*par patch*) :
-- ✅ **Vibrato** (livré iter P, v1.8.0) : LFO sur `osc.detune` (cents). Params :
-  rate (Hz), depth (cents), onset (ms), forme. Détail = git + CONTEXT-ARCHIVE.
-- ✅ **Trémolo** (livré iter P, v1.8.0) : LFO sommé sur `gain.gain`. Params :
-  rate (Hz), depth (0..1), onset (ms), forme. Détail = git + CONTEXT-ARCHIVE.
-- ✅ **Édition visuelle des LFO** (livré P.5, v1.9.0 à la clôture) : chaque LFO est
-  éditable au geste sur un **graphe temporel à poignées** (depth / onset / rate),
-  en plus des steppers ; correctif trémolo plateau-puis-release au passage.
-- **Pitch envelope** : enveloppe dédiée sur la fréquence (attack →
-  settle), utile pour les attaques percussives (drums tonaux, bass
-  synth).
+✅ **Livré (iter P, v1.8.0→v1.9.0)** : vibrato (LFO → `osc.detune` cents),
+trémolo (LFO sommé sur `gain.gain`), édition visuelle des LFO (graphe
+temporel à poignées). Détail = git + CONTEXT-ARCHIVE.
 
-**Effets spectraux** (probablement *par patch*) :
-- **Filtre** : `BiquadFilterNode` (lowpass / highpass / bandpass /
-  notch). Params : cutoff, résonance (Q), type.
-- **Enveloppe de filtre** : ADSR dédié sur cutoff (au-delà de l'ADSR
-  d'amplitude). L'effet "waouw" classique des synthés soustractifs.
-- **Distorsion / saturation** : `WaveShaperNode` + courbe de clipping
-  (soft / hard / fold). Params : drive, mix.
+**Itération T cadrée (2026-06-10) — « tour complet des effets sans
+mémoire »** : tout ce qui s'intègre au cycle de vie actuel (chaîne
+jetable par note, zéro queue) avant le chantier des effets à mémoire.
+Décisions de cadrage :
+- **UI** : grille 3×2 conservée. Module Modulation renommé **« Effets »**
+  (label seul, id `'modulation'` et clés persistées inchangés). Barre de
+  titre = boutons toggle (un par effet) via `OverflowToolbar` ; **pastille
+  colorée** = effet activé (indicateur pur), **highlight** = en édition ;
+  **clic = édition seule** (l'on/off reste l'interrupteur du panneau,
+  tactile-safe) ; pastille agrégée sur le trigger `⋯` si un effet actif
+  déborde dans le tiroir. Corps = **un effet à la fois**, pleine largeur.
+- **Tout par patch**, persisté dans `Patch` + `.osa` v4 (bump unique en
+  T.2, défauts injectés pour les champs absents).
+- **Distorsion par voix** (waveshaping, pas d'intermodulation entre
+  notes) : c'est la variante compatible avec l'archi jetable ; la disto
+  « sur la somme » appartiendrait au chantier nœuds persistants.
+- Phases : **T.1** refonte module « Effets » + switcher header (UI pure)
+  → **T.2** auto-pan (LFO → `StereoPannerNode.pan`) → **T.3** pitch
+  envelope (enveloppe → `osc.detune`) → **T.4** filtre statique
+  (`BiquadFilterNode` par voix : type LP/HP/BP/notch, cutoff, Q) →
+  **T.5** enveloppe de filtre + wah (LFO → cutoff) → **T.6** distorsion
+  (`WaveShaperNode` : drive, courbe soft/hard/fold).
 
-**Effets temporels** (probablement *par piste* ou *global*) :
+**Gros chantier suivant — effets à mémoire** (delay-based, *par patch*
+via bus d'effet partagé persistant, et/ou *par piste*) :
 - **Delay / écho** : `DelayNode` + feedback loop. Params : time (ms
   ou synchro tempo), feedback, mix wet/dry.
 - **Reverb** : `ConvolverNode` + impulse response. IR synthétique
   générée (simple room / hall) ou lib d'IRs fournies.
-- **Chorus** : delays courts modulés par LFO.
+- **Chorus** : delays courts modulés par LFO (identité de timbre →
+  défendable par patch, cf. discussion 2026-06-09).
 - **Flanger** : delay très court modulé, fort feedback.
+- Prérequis architectural : **nœuds à durée de vie longue** (bus
+  d'effet par patch) + **gestion des queues** (durée d'export
+  prolongée, cleanup différé, invalidation scheduler). C'est le
+  chantier, pas les effets eux-mêmes.
+
+**Vague « inattendus » (après T, à brainstormer)** : ring mod / AM à
+taux audio, FM (pousser le `rate` des LFO existants dans le domaine
+audio en donne un avant-goût), LFO sur le cap d'harmoniques…
 
 **Effets de mixage** (par piste) :
-- **Pan stéréo** : `StereoPannerNode`. Aujourd'hui tout est centré.
+- **Pan stéréo statique** : `StereoPannerNode`. (L'auto-pan T.2 ouvre
+  la stéréo par patch ; le pan posé par piste reste à faire.)
 - **Compresseur par piste** : en complément du master bus déjà
   backloggé.
 
-**Questions de design à trancher** :
-- Niveau d'application (patch / piste / global) : sûrement un mix
-  des trois. Modulations et filtres → patch ; delay/reverb → piste ;
-  master → global.
-- UI : rack d'effets vertical dans le Designer (pour les modulations) ?
-  Rack par piste dans le Composer (pour delay/reverb/pan) ?
-- Persistance : extension du modèle `Patch` (modulations, filtre) et
-  ajout d'un champ `trackEffects` sur `Track`.
-- **Impact perf** : chaque effet = des nodes Web Audio en plus. À
-  corréler avec l'itération G perf (Designer souffre déjà).
-- Ordre d'implémentation probable : vibrato/trémolo (simples, gros
-  impact perçu) → filtre + env. filtre (changement radical de
-  palette) → delay/reverb (bonheur de mixage) → chorus/distorsion/
-  autres.
+**Questions restantes** (pour le chantier à mémoire) :
+- Niveau d'application delay/reverb : par patch (bus partagé), par
+  piste (`trackEffects` sur `Track`), ou les deux.
+- UI Composer : rack par piste pour delay/reverb/pan ?
+- **Impact perf** : chaque effet = des nodes Web Audio en plus par
+  voix (T) ou par patch/piste (chantier suivant).
 
 ### Notation / solfège
 
