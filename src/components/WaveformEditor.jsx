@@ -1,14 +1,15 @@
 import { useRef, useState, useCallback, useEffect, useImperativeHandle, useMemo } from 'react'
 import { Plus, Save, SaveAll, Undo2, Redo2, Sliders, X, Lock, Spline, AlignEndHorizontal, Sigma, Waves, ChartSpline, Activity, SlidersHorizontal, FlipVertical2 } from 'lucide-react'
-import { IconDoux, IconAnguleux, IconSine, IconTriangleWave, IconSquareWave } from './icons'
+import { IconDoux, IconAnguleux, IconSine, IconTriangleWave, IconSquareWave,
+  IconCurveLinear, IconCurveEaseOut, IconCurveExpo, IconCurveEaseIn } from './icons'
 import { pointsToPeriodicWave, MIN_ATTACK, MIN_RELEASE, HARMONIC_COUNT, harmonicsToPoints, canonicalToBars, createMasterBus } from '../audio'
-import { applyModulation } from '../lib/modulation'
+import { applyModulation, pitchProgression } from '../lib/modulation'
 import { splineToPoints } from '../lib/spline'
 import {
   CAP_MIN, CAP_MAX, SPLINE_ANCHOR_MIN, SPLINE_ANCHOR_MAX,
   DEFAULT_VIBRATO, DEFAULT_TREMOLO, DEFAULT_AUTOPAN, DEFAULT_PITCHENV,
   LFO_RATE_MIN, LFO_RATE_MAX, VIBRATO_DEPTH_MAX, TREMOLO_DEPTH_MAX, AUTOPAN_DEPTH_MAX, LFO_ONSET_MAX, LFO_SHAPES,
-  PITCHENV_AMOUNT_MAX, PITCHENV_TIME_MAX, PITCHENV_TIME_MIN,
+  PITCHENV_AMOUNT_MAX, PITCHENV_TIME_MAX, PITCHENV_TIME_MIN, PITCHENV_CURVES,
 } from '../reducer'
 import useWindowSize from '../hooks/useWindowSize'
 import FreqInput from './FreqInput'
@@ -215,6 +216,15 @@ const LFO_SHAPE_META = {
   sine: { Icon: IconSine, label: 'Sinus' },
   triangle: { Icon: IconTriangleWave, label: 'Triangle' },
   square: { Icon: IconSquareWave, label: 'Carré' },
+}
+
+// iter-T phase-3.5 : switch des formes de progression du pitch envelope (même idiome
+// que LFO_SHAPE_META — glyphe de trajectoire + libellé FR depuis strings.js).
+const PITCH_CURVE_META = {
+  linear: { Icon: IconCurveLinear, label: STRINGS.pitchCurves.linear },
+  easeOut: { Icon: IconCurveEaseOut, label: STRINGS.pitchCurves.easeOut },
+  expo: { Icon: IconCurveExpo, label: STRINGS.pitchCurves.expo },
+  easeIn: { Icon: IconCurveEaseIn, label: STRINGS.pitchCurves.easeIn },
 }
 
 // Parse permissif d'un nombre (virgule = point) pour les NumberInput de modulation.
@@ -434,21 +444,27 @@ function drawPitchEnvGraph(canvas, env) {
 
   if (!env.enabled) return // courbe plate grisée, poignées inertes
 
-  // Courbe : normal = part à `amount` → rejoint la médiane à time → plateau médian.
-  //          inversé = part de la médiane → s'éloigne vers `amount` à time → plateau à `amount`.
+  // Courbe : rampe suivant la forme p(t) (T.3ter) puis plateau. `from`/`to` sont les
+  //   niveaux y de départ/arrivée ; le mode Inverser ne fait que les échanger
+  //   (orthogonal à la forme — même valeur posée que l'audio, mêmes p(t) partagées).
+  //   normal = de `amount` (yLevel) → nominale (midY), plateau médian ;
+  //   inversé = de la nominale (midY) → `amount` (yLevel), plateau à `amount`.
   ctx.strokeStyle = themeColor('accent')
   ctx.lineWidth = 1.75
   ctx.lineJoin = 'round'
   ctx.beginPath()
-  if (invert) {
-    ctx.moveTo(marginL, midY)
-    ctx.lineTo(xElbow, yLevel)
-    ctx.lineTo(marginL + usableW, yLevel)
-  } else {
-    ctx.moveTo(marginL, yLevel)
-    ctx.lineTo(xElbow, midY)
-    ctx.lineTo(marginL + usableW, midY)
+  const curve = env.curve ?? 'linear'
+  const yFrom = invert ? midY : yLevel
+  const yTo = invert ? yLevel : midY
+  const STEPS = 48
+  for (let i = 0; i <= STEPS; i++) {
+    const t = i / STEPS
+    const x = marginL + t * (xElbow - marginL)
+    const y = yFrom + (yTo - yFrom) * pitchProgression(curve, t)
+    if (i === 0) ctx.moveTo(x, y)
+    else ctx.lineTo(x, y)
   }
+  ctx.lineTo(marginL + usableW, yTo) // plateau jusqu'au bord droit
   ctx.stroke()
 
   // Poignées : cercles isotropes (style AHDSR/LFO).
@@ -525,6 +541,7 @@ function pitchEnvEqual(a, b) {
     && da.amount === db.amount
     && da.time === db.time
     && (da.invert ?? false) === (db.invert ?? false)
+    && (da.curve ?? 'linear') === (db.curve ?? 'linear')
 }
 
 function patchFieldsEqual(a, b) {
@@ -569,7 +586,7 @@ function cloneLfo(lfo, fallback) {
 // T.3 : clone défensif d'une enveloppe de hauteur (champs distincts du Lfo).
 function clonePitchEnv(env, fallback) {
   const src = env ?? fallback
-  return { enabled: src.enabled, amount: src.amount, time: src.time, invert: src.invert ?? false }
+  return { enabled: src.enabled, amount: src.amount, time: src.time, invert: src.invert ?? false, curve: src.curve ?? 'linear' }
 }
 
 function snapshotPatchFields(editor) {
@@ -3916,17 +3933,39 @@ function WaveformEditor({
               </span>
               <span className="we-lfo-switch-label">Enveloppe de hauteur</span>
             </label>
-            {/* T.3bis : toggle « Inverser ». Part de la note et s'en éloigne vers
-                `amount` (où elle reste) au lieu de partir décalé et y rejoindre. */}
-            <button
-              type="button"
-              className={`icon-btn we-lfo-invert${pitchEnv.invert ? ' is-active' : ''}`}
-              onClick={() => set('invert', !pitchEnv.invert)}
-              disabled={!enabled}
-              title="Inverser : part de la note et s'en éloigne vers la cible (où elle reste)"
-              aria-label="Inverser l'enveloppe de hauteur"
-              aria-pressed={pitchEnv.invert}
-            ><FlipVertical2 size={16} /></button>
+            <div className="we-lfo-head-controls">
+              {/* T.3bis : toggle « Inverser ». Part de la note et s'en éloigne vers
+                  `amount` (où elle reste) au lieu de partir décalé et y rejoindre. */}
+              <button
+                type="button"
+                className={`icon-btn we-lfo-invert${pitchEnv.invert ? ' is-active' : ''}`}
+                onClick={() => set('invert', !pitchEnv.invert)}
+                disabled={!enabled}
+                title="Inverser : part de la note et s'en éloigne vers la cible (où elle reste)"
+                aria-label="Inverser l'enveloppe de hauteur"
+                aria-pressed={pitchEnv.invert}
+              ><FlipVertical2 size={16} /></button>
+              {/* T.3ter : switch segmenté des 4 formes de progression (même idiome que
+                  le switch de forme des LFO). Orthogonal à Inverser : il ne change que
+                  la trajectoire entre départ et arrivée. */}
+              <div className="spline-interp-toggle we-lfo-shape" role="group" aria-label="Forme de la progression">
+                {PITCHENV_CURVES.map((cv) => {
+                  const { Icon, label } = PITCH_CURVE_META[cv]
+                  return (
+                    <button
+                      key={cv}
+                      type="button"
+                      className={`icon-btn${pitchEnv.curve === cv ? ' is-active' : ''}`}
+                      onClick={() => set('curve', cv)}
+                      disabled={!enabled}
+                      title={label}
+                      aria-label={label}
+                      aria-pressed={pitchEnv.curve === cv}
+                    ><Icon size={16} /></button>
+                  )
+                })}
+              </div>
+            </div>
           </div>
           <div className="we-lfo-canvas-wrap">
             <canvas

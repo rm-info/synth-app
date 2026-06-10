@@ -99,6 +99,15 @@ const fr = {
     cancel: 'Annuler',
   },
 
+  // iter-T phase-3.5 : formes de progression du pitch envelope (switch segmenté
+  // du panneau Hauteur). Libellés des 4 trajectoires p(t).
+  pitchCurves: {
+    linear: 'Linéaire',
+    easeOut: 'Décélérée',
+    expo: 'Exponentielle',
+    easeIn: 'Accélérée',
+  },
+
   // Presets de formes d'onde (mode dessin).
   presets: {
     sine: 'Sinusoïde',

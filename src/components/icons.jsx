@@ -69,6 +69,43 @@ export function IconSquareWave(props) {
   )
 }
 
+// iter-T phase-3.5 — formes de progression du pitch envelope (switch segmenté du
+// panneau Hauteur). Chaque glyphe schématise la TRAJECTOIRE descendante (du décalage
+// vers la nominale, cas par défaut amount>0) : top-left → bottom-right. La courbure
+// distingue les 4 progressions p(t), exactement comme le graphe les dessine.
+export function IconCurveLinear(props) {
+  // Segment droit : p(t) = t.
+  return (
+    <svg {...lucideProps(props)}>
+      <path d="M3 4 L 21 20" />
+    </svg>
+  )
+}
+export function IconCurveEaseOut(props) {
+  // Coude décéléré : plonge vite puis se pose (point de contrôle bas-gauche).
+  return (
+    <svg {...lucideProps(props)}>
+      <path d="M3 4 Q 4 20 21 20" />
+    </svg>
+  )
+}
+export function IconCurveExpo(props) {
+  // Coude exponentiel : même direction, genou plus marqué (chute quasi verticale).
+  return (
+    <svg {...lucideProps(props)}>
+      <path d="M3 4 Q 3 20 21 20" />
+    </svg>
+  )
+}
+export function IconCurveEaseIn(props) {
+  // Coude accéléré : traîne en haut puis plonge à l'arrivée (point de contrôle haut-droite).
+  return (
+    <svg {...lucideProps(props)}>
+      <path d="M3 4 Q 20 4 21 20" />
+    </svg>
+  )
+}
+
 // Crête (peak hold du spectrogramme) : un mini-spectre de barres verticales de
 // hauteurs variées, chacune coiffée d'un court rectangle horizontal détaché — la
 // « crête maintenue » au-dessus de la barre courante. Visuellement une série de

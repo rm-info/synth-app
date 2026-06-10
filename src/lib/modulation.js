@@ -27,6 +27,19 @@
 // 100 % Web Audio API native (OscillatorNode + GainNode + StereoPannerNode
 // existants), zéro dépendance.
 
+// Progression normalisée p(t) ∈ [0,1] sur le temps normalisé t ∈ [0,1] (T.3ter).
+// ORTHOGONALE au mode Inverser (qui n'échange que départ/arrivée) : la valeur posée
+// est toujours `départ + (arrivée − départ) · p(t)`, donc tout compose sans cas
+// particulier. Source unique partagée par l'audio (setValueCurveAtTime) et le graphe.
+export function pitchProgression(curve, t) {
+  switch (curve) {
+    case 'easeOut': return 1 - (1 - t) * (1 - t)                      // plonge vite, se pose en douceur
+    case 'expo':    return (1 - Math.exp(-5 * t)) / (1 - Math.exp(-5)) // idem, brutale
+    case 'easeIn':  return t * t                                      // traîne au départ, plonge à l'arrivée
+    default:        return t                                          // 'linear' : p(t) = t
+  }
+}
+
 // Programme la rampe d'onset (fondu d'installation depuis le début de la note).
 // onset === 0 → pose directement la valeur cible à startTime.
 function scheduleOnset(param, target, startTime, onsetMs) {
@@ -67,17 +80,36 @@ export function applyModulation(ctx, { osc, gain, panner, vibrato, tremolo, auto
   // identique). Pas de cleanup (pas de nœud), pas de traitement au release : si la
   // note est plus courte que `time`, la rampe continue pendant le release (assumé).
   if (pitchEnv && pitchEnv.enabled && pitchEnv.amount !== 0 && (pitchEnv.time ?? 0) > 0) {
-    const end = startTime + pitchEnv.time / 1000
-    if (pitchEnv.invert) {
-      // T.3bis « Inverser » : part de la nominale (0) et s'éloigne vers `amount`,
-      // où la note RESTE (l'AudioParam tient sa dernière valeur de rampe). La
-      // nominale du clip n'est que le point de départ — comportement assumé.
-      osc.detune.setValueAtTime(0, startTime)
-      osc.detune.linearRampToValueAtTime(pitchEnv.amount, end)
+    const durSec = pitchEnv.time / 1000
+    // T.3bis « Inverser » ne fait qu'échanger départ/arrivée (orthogonal à la forme,
+    // T.3ter) : normal = part décalé de `amount` → rejoint la nominale (0) ; inversé =
+    // part de la nominale (0) → s'éloigne vers `amount`, où la note RESTE (l'AudioParam
+    // tient sa dernière valeur). La nominale du clip n'est que le point de départ.
+    const from = pitchEnv.invert ? 0 : pitchEnv.amount
+    const to = pitchEnv.invert ? pitchEnv.amount : 0
+    const curve = pitchEnv.curve ?? 'linear'
+    if (durSec <= 0) {
+      // Durée nulle interdite par l'API (setValueCurveAtTime) : on pose l'arrivée.
+      osc.detune.setValueAtTime(to, startTime)
+    } else if (curve === 'linear') {
+      // Chemin historique inchangé (T.3) : rampe linéaire.
+      osc.detune.setValueAtTime(from, startTime)
+      osc.detune.linearRampToValueAtTime(to, startTime + durSec)
     } else {
-      // Normal : part décalé de `amount` et rejoint la nominale (0).
-      osc.detune.setValueAtTime(pitchEnv.amount, startTime)
-      osc.detune.linearRampToValueAtTime(0, end)
+      // Formes non linéaires (T.3ter) : un SEUL chemin via setValueCurveAtTime —
+      // PAS exponentialRampToValueAtTime, qui ne peut ni atteindre ni traverser zéro
+      // (notre cible est 0 cent et `amount` est signé). On échantillonne p(t) sur 64
+      // points : values[i] = from + (to − from) · p(i/63). La dernière valeur tient
+      // ensuite (comportement natif d'un AudioParam) : 0 normal, `amount` inversé.
+      // Note : setValueCurveAtTime VERROUILLE le paramètre sur sa fenêtre — sans
+      // conséquence ici, le pitch env est la SEULE automation de base d'osc.detune
+      // (le vibrato est une branche entrante sommée, pas une automation).
+      const N = 64
+      const values = new Float32Array(N)
+      for (let i = 0; i < N; i++) {
+        values[i] = from + (to - from) * pitchProgression(curve, i / (N - 1))
+      }
+      osc.detune.setValueCurveAtTime(values, startTime, durSec)
     }
   }
 

@@ -92,6 +92,9 @@ export const PITCHENV_TIME_MIN = 40     // ms
 export const LFO_ONSET_MAX = 2000 // ms
 /** @type {import('./types').LfoShape[]} */
 export const LFO_SHAPES = ['sine', 'triangle', 'square']
+// iter-T phase-3.5 : formes de progression du pitch envelope (orthogonales à `invert`).
+/** @type {import('./types').PitchEnvCurve[]} */
+export const PITCHENV_CURVES = ['linear', 'easeOut', 'expo', 'easeIn']
 
 /** @type {import('./types').Lfo} */
 export const DEFAULT_VIBRATO = { enabled: false, rate: 5, depth: 20, onset: 0, shape: 'sine' }
@@ -104,7 +107,7 @@ export const DEFAULT_AUTOPAN = { enabled: false, rate: 1, depth: 0.5, onset: 0, 
 /** @type {import('./types').PitchEnv} */
 // iter-T phase-3.1 : désactivé mais musical (+1 octave qui retombe en 150 ms =
 // pluck/tom immédiatement parlant).
-export const DEFAULT_PITCHENV = { enabled: false, amount: 1200, time: 150, invert: false }
+export const DEFAULT_PITCHENV = { enabled: false, amount: 1200, time: 150, invert: false, curve: 'linear' }
 
 const clampToRange = (v, lo, hi, fallback) => {
   const n = Number(v)
@@ -138,6 +141,8 @@ export function sanitizePitchEnv(raw) {
     time: clampToRange(raw.time, PITCHENV_TIME_MIN, PITCHENV_TIME_MAX, DEFAULT_PITCHENV.time),
     // T.3bis : patch T.3 sans `invert` → false.
     invert: raw.invert === true,
+    // T.3ter : patch antérieur sans `curve` → 'linear' (règle v4 « champ absent → défaut »).
+    curve: PITCHENV_CURVES.includes(raw.curve) ? raw.curve : DEFAULT_PITCHENV.curve,
   }
 }
 
@@ -159,6 +164,7 @@ function clampModulationValue(effect, key, value) {
   if (effect === 'pitchEnv') {
     if (key === 'enabled') return value === true
     if (key === 'invert') return value === true
+    if (key === 'curve') return PITCHENV_CURVES.includes(value) ? value : DEFAULT_PITCHENV.curve
     if (key === 'amount') return clampToRange(value, -PITCHENV_AMOUNT_MAX, PITCHENV_AMOUNT_MAX, DEFAULT_PITCHENV.amount)
     if (key === 'time') return clampToRange(value, PITCHENV_TIME_MIN, PITCHENV_TIME_MAX, DEFAULT_PITCHENV.time)
     return value

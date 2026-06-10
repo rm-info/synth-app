@@ -101,6 +101,7 @@ export interface Lfo {
 // iter-T phase-3.1 : pitch envelope (enveloppe de hauteur par patch). PAS un Lfo :
 // la hauteur part décalée de `amount` cents et glisse vers la nominale (0) en
 // `time` ms (automation linéaire sur la valeur de base d'`osc.detune`).
+export type PitchEnvCurve = 'linear' | 'easeOut' | 'expo' | 'easeIn'
 export interface PitchEnv {
   enabled: boolean
   amount: number   // cents signés, borné [-PITCHENV_AMOUNT_MAX, PITCHENV_AMOUNT_MAX] (±2 oct.)
@@ -108,6 +109,10 @@ export interface PitchEnv {
   // T.3bis : false = part décalé de `amount` et rejoint la nominale (0) ; true = part
   // de la nominale et s'éloigne vers `amount`, où la note RESTE (sirène/bend assumé).
   invert: boolean
+  // T.3ter : forme de la progression p(t) ∈ [0,1] entre départ et arrivée (orthogonale
+  // à `invert`). 'linear' = p(t)=t ; 'easeOut'/'expo' plongent vite puis se posent ;
+  // 'easeIn' traîne puis plonge. Audio via setValueCurveAtTime (formes non linéaires).
+  curve: PitchEnvCurve
 }
 
 // === Modèle métier ===
@@ -593,7 +598,7 @@ export type ActionBody =
   | { type: 'SET_EDITOR_ADSR_AND_AMP'; payload: { adsr?: Partial<AdsrEnvelope>; amplitude?: number } }
   // itération P : édition d'un paramètre de modulation. Action générique unique
   // (10 champs × set) qui clampe selon effect+key dans le reducer.
-  | { type: 'SET_EDITOR_MODULATION'; payload: { effect: DesignerEffectId; key: keyof Lfo | keyof PitchEnv; value: boolean | number | LfoShape } }
+  | { type: 'SET_EDITOR_MODULATION'; payload: { effect: DesignerEffectId; key: keyof Lfo | keyof PitchEnv; value: boolean | number | LfoShape | PitchEnvCurve } }
   | { type: 'RESET_EDITOR' }
   // iter-M phase-r.2.2 : reset du timbre seul (canonical + cap + lentille
   // spline). Préserve ADSR / amplitude / test* / currentLens / currentPatchId.

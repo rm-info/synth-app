@@ -1543,6 +1543,15 @@
   cursor: not-allowed;
 }
 
+/* iter-T phase-3.5 : groupe de contrôles à droite du head du pitch envelope
+   (toggle Inverser + switch segmenté des 4 formes). Restent groupés à droite
+   sous le justify-content:space-between, wrappent ensemble si la place manque. */
+.we-lfo-head-controls {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
 /* Graphe LFO éditable à poignées (P.5). Wrapper position:relative pour ancrer
    le tooltip de rôle (.adsr-tooltip réutilisé). iter-T : grandit pour remplir
    l'espace vertical du bloc (le graphe = surface d'édition principale, plus de

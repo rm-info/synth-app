@@ -89,6 +89,9 @@ function isPitchEnvValidOrAbsent(v) {
   if (!isNumberInRange(v.time, 0, 2000)) return false
   // T.3bis : `invert` optionnel (absent = patch T.3 → false à l'hydratation).
   if (v.invert !== undefined && typeof v.invert !== 'boolean') return false
+  // T.3ter : `curve` optionnel (absent = patch antérieur → 'linear' à l'hydratation).
+  if (v.curve !== undefined && v.curve !== 'linear' && v.curve !== 'easeOut'
+    && v.curve !== 'expo' && v.curve !== 'easeIn') return false
   return true
 }
 

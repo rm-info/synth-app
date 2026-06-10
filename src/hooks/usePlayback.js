@@ -338,8 +338,8 @@ export function usePlayback({ clips, patches, tracks, bpm, a4Ref, xEdoN, totalDu
         // release/amplitude OU le vibrato/trémolo/auto-pan d'un patch utilisé en
         // cours de lecture re-schedule les clips à venir (même mécanique que l'AHDSR).
         const sigOfLfo = (l) => l ? `${l.enabled ? 1 : 0}:${l.rate}:${l.depth}:${l.onset}:${l.shape}` : ''
-        // T.3 : pitch envelope (champs amount/time, pas un Lfo).
-        const sigOfPitchEnv = (pe) => pe ? `${pe.enabled ? 1 : 0}:${pe.amount}:${pe.time}:${pe.invert ? 1 : 0}` : ''
+        // T.3 : pitch envelope (champs amount/time, pas un Lfo). T.3ter : += curve.
+        const sigOfPitchEnv = (pe) => pe ? `${pe.enabled ? 1 : 0}:${pe.amount}:${pe.time}:${pe.invert ? 1 : 0}:${pe.curve ?? 'linear'}` : ''
         const sigOf = (c, patchList) => {
           const p = patchList?.find(p => p.id === c.patchId)
           const env = p
