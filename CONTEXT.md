@@ -248,7 +248,7 @@ type Patch = {
   // itération T (T.2) : auto-pan stéréo (LFO → panner.pan).
   autoPan: Lfo                    // depth 0..1 = excursion symétrique G↔D autour du centre
   // itération T (T.3) : pitch envelope (enveloppe → osc.detune ; PAS un Lfo).
-  pitchEnv: PitchEnv              // { enabled, amount cents signé ±2400, time ms 0..2000 }
+  pitchEnv: PitchEnv              // { enabled, amount cents signé ±2400, time ms 40..2000 }
 }
 // type Lfo = { enabled:boolean, rate:number /*0.1-20 Hz*/, depth:number
 //   /*vibrato 0-200 cents ; trémolo/auto-pan 0-1*/, onset:number /*0-2000 ms*/,
@@ -256,7 +256,8 @@ type Patch = {
 //   (DEFAULT_VIBRATO rate:5 depth:20 ; DEFAULT_TREMOLO rate:5 depth:0.3 ;
 //   DEFAULT_AUTOPAN rate:1 depth:0.5).
 // type PitchEnv = { enabled:boolean, amount:number /*cents signés ±2400*/,
-//   time:number /*ms 0-2000*/ }. DEFAULT_PITCHENV { false, 1200, 150 } (T.3).
+//   time:number /*ms 40-2000, plancher 40 = inaudible en dessous*/ }.
+//   DEFAULT_PITCHENV { false, 1200, 150 } (T.3).
 // Editor : mêmes champs (dont vibrato/tremolo/autoPan/pitchEnv) + `currentLens: 'free'|'spline'`
 // (volatile, non persisté) = quelle lentille est active (M.r.3.2 : 'bars' retiré, vestigial).
 // Migration v1→v2 (M.r.1) : les anciens
@@ -2291,7 +2292,7 @@ par voix). Cadrage complet dans `archi/BACKLOG.md` (« Effets et modulations »)
   de l'itération T** (T.3→T.6 ajouteront leurs champs dans v4). `sanitizeAutoPan`,
   `AUTOPAN_DEPTH_MAX`, `autoPanCanvasRef`.
 - ✅ **T.3 (pitch envelope)** — 1ʳᵉ modulation **non-LFO**. `Patch`/`Editor` += **`pitchEnv`**
-  (type frère : `{enabled, amount cents signé ±2400, time ms 0..2000}` ; `DEFAULT_PITCHENV`
+  (type frère : `{enabled, amount cents signé ±2400, time ms 40..2000}` ; `DEFAULT_PITCHENV`
   false/1200/150). Audio : `applyModulation` += `pitchEnv` → **automation de la valeur de
   base d'`osc.detune`** (`setValueAtTime(amount)` → `linearRampToValueAtTime(0, time)`),
   **aucun nœud**, guard `amount≠0 && time>0` (sinon chaîne identique) ; **coexistence

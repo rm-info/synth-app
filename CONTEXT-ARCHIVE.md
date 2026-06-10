@@ -916,6 +916,18 @@ Phases listées ci-dessous dans l'ordre chronologique d'implémentation.
     **machinerie d'undo partagée** (`modOwnerRef`/`modDragGeomRef`/`draftMod`/`endModDrag` +
     `applyModDrag` branches amount/time). Dirty-check `pitchEnvEqual`/`clonePitchEnv` +
     `buildPayload`. `pitchEnvCanvasRef`, CSS `.we-lfo-controls--two`.
+  - **3.rectif (retour test)** : (a) poignée **Durée** bloquée >80 ms — la fenêtre x
+    était proportionnelle au temps (`max(0.08,time)×1.5`) → ratio `time/fenêtre`
+    constant au-dessus du plancher → poignée scale-invariante (figée, n'atteint jamais
+    le bord). Corrigé en **fenêtre x FIXE + axe en racine carrée** (`sqrt(time/MAX)`,
+    `pitchEnvXFrac`) : monotone (la poignée reflète la valeur sur tout le range),
+    atteint le bord à MAX, durées courtes (cas courant) mieux étalées ; inverse
+    `frac²·MAX` au drag. (b) **plancher `PITCHENV_TIME_MIN = 40 ms`** (inaudible en
+    dessous) sur sanitize/clamp/drag/NumberInput. (c) **focus volé** (bug commun à
+    TOUS les effets, pas que pitchEnv) : chaque contrôle était un `<label>` englobant
+    le `NumberInput` → cliquer dans la cellule (texte/espace) renvoyait le focus à
+    l'input et capturait les frappes clavier ; passage en `<div>` (l'`aria-label` du
+    NumberInput préserve l'accessibilité).
 
 - **2026-06-10 — Iteration T — T.2 : auto-pan (LFO → panoramique stéréo, `.osa` v4)**
   (`feat(iter-T/phase-2.1)` modèle + `feat(iter-T/phase-2.2)` audio +
