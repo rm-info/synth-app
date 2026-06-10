@@ -1604,6 +1604,10 @@
   grid-template-columns: repeat(3, 1fr);
   gap: 8px;
 }
+/* iter-T phase-3.3 : enveloppe de hauteur = 2 contrôles seulement (départ/durée). */
+.we-lfo-controls--two {
+  grid-template-columns: repeat(2, 1fr);
+}
 .we-lfo-control {
   display: flex;
   flex-direction: column;
