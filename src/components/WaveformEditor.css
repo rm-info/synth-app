@@ -1577,6 +1577,28 @@
   -webkit-touch-callout: none;
 }
 
+/* iter-T phase-2.3 : étiquettes d'axe Y de l'auto-pan (G/D) — discrètes, en bord
+   de gouttière gauche, par-dessus le canvas. Donnent le sens stéréo de l'axe (1ᵉʳ
+   graphe dont l'axe Y n'est pas une amplitude). Pointer-events:none → ne gênent
+   pas le drag des poignées. */
+.we-lfo-axis-label {
+  position: absolute;
+  left: 4px;
+  font-size: 10px;
+  font-weight: 600;
+  line-height: 1;
+  color: var(--text-secondary);
+  opacity: 0.6;
+  pointer-events: none;
+  z-index: 1;
+}
+.we-lfo-axis-top { top: 4px; }
+.we-lfo-axis-bottom { bottom: 4px; }
+/* Effet désactivé : on suit l'estompage du canvas. */
+.we-lfo-block:not(.is-enabled) .we-lfo-axis-label {
+  opacity: 0.3;
+}
+
 .we-lfo-controls {
   display: grid;
   grid-template-columns: repeat(3, 1fr);

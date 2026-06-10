@@ -7,7 +7,7 @@ import { splineToPoints } from '../lib/spline'
 import {
   CAP_MIN, CAP_MAX, SPLINE_ANCHOR_MIN, SPLINE_ANCHOR_MAX,
   DEFAULT_VIBRATO, DEFAULT_TREMOLO, DEFAULT_AUTOPAN,
-  LFO_RATE_MIN, LFO_RATE_MAX, VIBRATO_DEPTH_MAX, TREMOLO_DEPTH_MAX, LFO_ONSET_MAX, LFO_SHAPES,
+  LFO_RATE_MIN, LFO_RATE_MAX, VIBRATO_DEPTH_MAX, TREMOLO_DEPTH_MAX, AUTOPAN_DEPTH_MAX, LFO_ONSET_MAX, LFO_SHAPES,
 } from '../reducer'
 import useWindowSize from '../hooks/useWindowSize'
 import FreqInput from './FreqInput'
@@ -428,6 +428,8 @@ function patchFieldsEqual(a, b) {
   // itération P : modulations LFO (font partie de l'identité du patch).
   if (!lfoEqual(a.vibrato, b.vibrato)) return false
   if (!lfoEqual(a.tremolo, b.tremolo)) return false
+  // itération T : auto-pan.
+  if (!lfoEqual(a.autoPan, b.autoPan)) return false
   if ((a.cap ?? HARMONIC_COUNT) !== (b.cap ?? HARMONIC_COUNT)) return false
   if ((a.interpolation ?? 'soft') !== (b.interpolation ?? 'soft')) return false
   const aan = a.anchors ?? []
@@ -468,6 +470,7 @@ function snapshotPatchFields(editor) {
     release: editor.release,
     vibrato: cloneLfo(editor.vibrato, DEFAULT_VIBRATO),
     tremolo: cloneLfo(editor.tremolo, DEFAULT_TREMOLO),
+    autoPan: cloneLfo(editor.autoPan, DEFAULT_AUTOPAN),
   }
 }
 
@@ -486,6 +489,7 @@ function patchToReference(patch) {
     release: patch.release,
     vibrato: cloneLfo(patch.vibrato, DEFAULT_VIBRATO),
     tremolo: cloneLfo(patch.tremolo, DEFAULT_TREMOLO),
+    autoPan: cloneLfo(patch.autoPan, DEFAULT_AUTOPAN),
   }
 }
 
@@ -784,8 +788,9 @@ function WaveformEditor({
   // s'arrête (cancelAnimationFrame) dès que ces conditions tombent / au démontage.
   const vibratoCanvasRef = useRef(null)
   const tremoloCanvasRef = useRef(null)
+  const autoPanCanvasRef = useRef(null)
   // Position (en secondes depuis le début de note) du point de phase par effet.
-  const lfoDotRef = useRef({ vibrato: 0, tremolo: 0 })
+  const lfoDotRef = useRef({ vibrato: 0, tremolo: 0, autoPan: 0 })
   // Géométrie figée au mousedown d'un drag (cf. lfoGeometry) : map curseur→valeur
   // à échelle gelée tant que le drag dure (sinon la fenêtre se redimensionnerait
   // sous la poignée). Recalculée au prochain drag.
@@ -801,6 +806,8 @@ function WaveformEditor({
     // est de nouveau affiché et mesurable).
     const visible = effectsSelected === 'tremolo'
       ? { canvas: tremoloCanvasRef.current, lfo: tremolo, depthMax: TREMOLO_DEPTH_MAX, key: 'tremolo' }
+      : effectsSelected === 'autoPan'
+      ? { canvas: autoPanCanvasRef.current, lfo: autoPan, depthMax: AUTOPAN_DEPTH_MAX, key: 'autoPan' }
       : { canvas: vibratoCanvasRef.current, lfo: vibrato, depthMax: VIBRATO_DEPTH_MAX, key: 'vibrato' }
     const dots = lfoDotRef.current
     // Pendant un drag, le point de phase est figé (spec) → on passe null (pas de
@@ -853,7 +860,7 @@ function WaveformEditor({
       cancelAnimationFrame(raf)
       cleanupStatic()
     }
-  }, [vibrato, tremolo, modulationVisible, dragging, effectsSelected])
+  }, [vibrato, tremolo, autoPan, modulationVisible, dragging, effectsSelected])
 
   const referenceRef = useRef(snapshotPatchFields(editor))
   const referencedPatchIdRef = useRef(null)
@@ -1889,6 +1896,8 @@ function WaveformEditor({
     // itération P : modulations LFO du patch.
     vibrato: cloneLfo(vibrato, DEFAULT_VIBRATO),
     tremolo: cloneLfo(tremolo, DEFAULT_TREMOLO),
+    // itération T : auto-pan.
+    autoPan: cloneLfo(autoPan, DEFAULT_AUTOPAN),
     attack,
     hold,
     decay,
@@ -3395,8 +3404,14 @@ function WaveformEditor({
   // === P.5 — drag des poignées du graphe LFO ===
   // Discipline d'undo calquée sur l'AHDSR : draft local pendant le geste,
   // un seul dispatch SET_EDITOR_MODULATION au relâchement.
-  const modCanvasFor = (effect) => (effect === 'vibrato' ? vibratoCanvasRef.current : tremoloCanvasRef.current)
-  const modDepthMax = (effect) => (effect === 'vibrato' ? VIBRATO_DEPTH_MAX : TREMOLO_DEPTH_MAX)
+  const modCanvasFor = (effect) =>
+    effect === 'vibrato' ? vibratoCanvasRef.current
+    : effect === 'tremolo' ? tremoloCanvasRef.current
+    : autoPanCanvasRef.current
+  const modDepthMax = (effect) =>
+    effect === 'vibrato' ? VIBRATO_DEPTH_MAX
+    : effect === 'tremolo' ? TREMOLO_DEPTH_MAX
+    : AUTOPAN_DEPTH_MAX
 
   // Hit-test géométrique → clé de poignée la plus proche (ou null).
   const modHitTest = (effect, lfo, e) => {
@@ -3475,7 +3490,8 @@ function WaveformEditor({
     const fg = modDragGeomRef.current
     modDragGeomRef.current = null
     if (fg && draftMod) {
-      const base = fg.effect === 'vibrato' ? vibratoBase : tremoloBase
+      const base = fg.effect === 'vibrato' ? vibratoBase
+        : fg.effect === 'tremolo' ? tremoloBase : autoPanBase
       if (draftMod.value !== base[draftMod.key]) {
         editorActions.setModulation(draftMod.effect, draftMod.key, draftMod.value)
       }
@@ -3516,6 +3532,7 @@ function WaveformEditor({
     const effects = [
       { id: 'vibrato', label: 'Vibrato', enabled: vibrato.enabled },
       { id: 'tremolo', label: 'Trémolo', enabled: tremolo.enabled },
+      { id: 'autoPan', label: 'Auto-pan', enabled: autoPan.enabled },
     ]
     return effects.map((eff) => {
       const selected = effectsSelected === eff.id
@@ -3539,10 +3556,12 @@ function WaveformEditor({
   const renderModulationArea = () => {
     const renderLfoBlock = (effect) => {
       const isVibrato = effect === 'vibrato'
-      const lfo = isVibrato ? vibrato : tremolo
+      const isAutoPan = effect === 'autoPan'
+      const lfo = isVibrato ? vibrato : isAutoPan ? autoPan : tremolo
+      const canvasRef = isVibrato ? vibratoCanvasRef : isAutoPan ? autoPanCanvasRef : tremoloCanvasRef
       const enabled = lfo.enabled
-      const title = isVibrato ? 'Vibrato' : 'Trémolo'
-      const depthMax = isVibrato ? VIBRATO_DEPTH_MAX : TREMOLO_DEPTH_MAX
+      const title = isVibrato ? 'Vibrato' : isAutoPan ? 'Auto-pan' : 'Trémolo'
+      const depthMax = modDepthMax(effect)
       const set = (key, value) => editorActions.setModulation(effect, key, value)
       // iter-T phase-1.1 : un effet à la fois. Le sous-bloc non sélectionné reste
       // MONTÉ mais masqué (display:none, contrainte canvas) — on ne démonte pas un
@@ -3582,9 +3601,20 @@ function WaveformEditor({
             </div>
           </div>
           <div className="we-lfo-canvas-wrap">
+            {/* iter-T phase-2.3 : auto-pan = 1ᵉʳ graphe dont l'axe Y n'est pas une
+                amplitude mais une POSITION stéréo (médiane = centre). Étiquettes
+                cohérentes avec le signe de pan : le LFO se somme à panner.pan
+                (base 0), pan > 0 = Droite ; la courbe va vers le haut quand la
+                valeur est positive → D en haut, G en bas. */}
+            {isAutoPan && (
+              <>
+                <span className="we-lfo-axis-label we-lfo-axis-top" aria-hidden="true">D</span>
+                <span className="we-lfo-axis-label we-lfo-axis-bottom" aria-hidden="true">G</span>
+              </>
+            )}
             <canvas
               className="we-lfo-canvas"
-              ref={isVibrato ? vibratoCanvasRef : tremoloCanvasRef}
+              ref={canvasRef}
               aria-hidden="true"
               style={{
                 cursor: (draftMod && draftMod.effect === effect) ? 'grabbing'
@@ -3679,6 +3709,7 @@ function WaveformEditor({
         <div className="we-modulation-body">
           {renderLfoBlock('vibrato')}
           {renderLfoBlock('tremolo')}
+          {renderLfoBlock('autoPan')}
         </div>
       </div>
     )
