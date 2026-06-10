@@ -16,8 +16,10 @@ export const MODULE_META = {
   params:      { label: 'Instrument',                  Icon: Piano },
   adsr:        { label: 'Enveloppe AHDSR',             Icon: AudioLines },
   // itération P : 6ᵉ module. `Vibrate` (Lucide) — évocateur de la modulation,
-  // libre (pas d'autre usage), pas d'Unicode.
-  modulation:  { label: 'Modulation',                  Icon: Vibrate },
+  // libre (pas d'autre usage), pas d'Unicode. iter-T : libellé « Effets » (le
+  // module accueille désormais une famille d'effets, pas seulement les LFO ;
+  // l'id reste 'modulation' — clés persistées intactes, pas de migration).
+  modulation:  { label: 'Effets',                      Icon: Vibrate },
 }
 
 // iter-O phase-5d : rangées du layout Designer (haut = 3 colonnes, bas = N

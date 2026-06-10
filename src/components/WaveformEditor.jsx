@@ -3623,7 +3623,7 @@ function WaveformEditor({
         <header className="we-area-header">
           <div className="we-header-left">
             <MODULE_META.modulation.Icon className="we-area-icon" size={15} aria-hidden="true" />
-            <h3 className="we-area-title" title="Modulation">Modulation</h3>
+            <h3 className="we-area-title" title="Effets">Effets</h3>
           </div>
           {/* iter-T phase-1.2 : rangée de boutons d'effet (OverflowToolbar, même
               pattern que les autres headers de module). En mobile le header in-body
@@ -3650,14 +3650,17 @@ function WaveformEditor({
         patchLabel, openPresetPicker, requestResetWaveform,
         // iter-R phase-1.3a : items de header de chaque module WaveformEditor,
         // exposés comme DONNÉE (mêmes tableaux que les headers in-body desktop) →
-        // App les reloge dans la toolbar mobile pour le module actif. Modulation
-        // n'a pas de contrôle de header ; le Spectrogramme est exposé à part
-        // (composant séparé, cf. buildSpectrogramHeaderItems).
+        // App les reloge dans la toolbar mobile pour le module actif. iter-T
+        // phase-1.3 : le module Effets (ex-Modulation) expose désormais ses boutons
+        // d'effet (buildEffectsHeaderItems, le MÊME builder que le header in-body).
+        // Le Spectrogramme est exposé à part (composant séparé, cf.
+        // buildSpectrogramHeaderItems).
         moduleHeaderItems: {
           canvas: buildCanvasHeaderItems(),
           harmonics: buildHarmonicsHeaderItems(),
           params: buildParamsHeaderItems(),
           adsr: buildAdsrHeaderItems(),
+          modulation: buildEffectsHeaderItems(),
         },
       })}
       <ConfirmDialog

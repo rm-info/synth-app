@@ -2504,7 +2504,7 @@ function App() {
                     widths={designerBottomRowWidths}
                     onWidths={setDesignerBottomRowWidths}
                     collapsed={[designerCollapsed.params, designerCollapsed.adsr, designerCollapsed.modulation]}
-                    sepLabels={['Redimensionner Instrument / Enveloppe', 'Redimensionner Enveloppe / Modulation']}
+                    sepLabels={['Redimensionner Instrument / Enveloppe', 'Redimensionner Enveloppe / Effets']}
                     columns={[
                       <DesignerModule
                         key="params"

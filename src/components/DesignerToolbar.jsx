@@ -156,6 +156,9 @@ function DesignerToolbar({ patchLabel, onPresets, onReset, onEqualizeWidths, col
           ariaLabel="Contrôles du module"
           menuLabel="Contrôles du module"
           prefix={<span className="designer-toolbar-divider" aria-hidden="true" />}
+          // iter-T phase-1.3 : badge agrégé du tiroir pour le module Effets relogé.
+          // Inerte pour les autres modules (leurs items ne portent pas `badge`).
+          triggerBadge
         />
       )}
       {showColumnControls && renderColumnControls()}
