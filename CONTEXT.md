@@ -43,13 +43,14 @@ framework UI (CSS manuscrit), pas de routing, pas de backend.
 | S | Support tactile : Pointer Events app-wide (tracé · clavier polyphonique · poignées · Timeline), touch-action chirurgical, shell non-scrollable + PWA légère standalone ; durcissement audio (master headroom-bas + soft-clip filet, déclic MIN_RELEASE/ATTACK, buffer mobile, export normalisé) — v1.11.0 | 2026-06-09 |
 
 **État courant** : **Iteration T « Effets sans mémoire » en cours** (sur la base
-v1.11.0). **T.1 livrée** (socle UI pur) : le 6ᵉ module **Modulation → « Effets »**
-(label seul, id `'modulation'` inchangé), corps **un effet à la fois**, switcher de
-boutons en barre de titre (`OverflowToolbar` + pastille « activé » + badge tiroir),
-état UI `designerEffectsSelected` persisté hors undo — **aucun changement audio /
-modèle / `.osa`**. Reste T.2→T.6 (auto-pan `.osa` v4, pitch envelope, filtre,
-env+wah, distorsion). Dernière release : **v1.11.0** (Iteration S, support tactile +
-durcissement audio). Détail S.1→S.audio.5 et arc audio dans `CONTEXT-ARCHIVE.md`.
+v1.11.0). **T.1 livrée** (socle UI pur, module « Effets » + switcher header).
+**T.2 livrée** (auto-pan) : 1ᵉʳ effet **stéréo** — `Patch`/`Editor` += **`autoPan: Lfo`**
+(depth 0..1 = excursion stéréo symétrique), `StereoPannerNode` **conditionnel par voix**
+(inséré seulement si `enabled && depth>0` → chaîne mono bit-identique sinon) branché par
+`applyModulation` (LFO → `panner.pan`) sur les 4 chemins, 3ᵉ bouton « Auto-pan » + panneau
+(graphe LFO à étiquettes G/D). **`.osa` `OSA_VERSION = 4`** (seul bump de l'itération T).
+Reste T.3→T.6 (pitch envelope, filtre, env+wah, distorsion). Dernière release :
+**v1.11.0** (Iteration S). Détail S.1→S.audio.5 et arc audio dans `CONTEXT-ARCHIVE.md`.
 
 > **Structure des fichiers de contexte.** Ce `CONTEXT.md` est le **brief
 > vivant** : état présent, modèle de données, composants, architecture,
@@ -109,7 +110,7 @@ synth-app/
     │   ├── bibTransfer.js               # wouldCreateCycle + duplicateItemsToFolder (K.1.7)
     │   ├── shortcuts.js      # table déclarative + matchesShortcut / getAnchor (iter-L phase-1.1)
     │   ├── designerModules.js # (iter-O phase-5c/5d, iter-P) MODULE_META des 6 modules Designer { label, Icon Lucide } + DESIGNER_ROWS / rowSiblings (rangée haut 3 / bas 3) — source unique (headers, bande, auto-réduction)
-    │   ├── modulation.js     # (iter-P) applyModulation : branche les LFO vibrato/trémolo (osc.detune cents / gain.gain sommé) sur un couple (osc, gain) existant ; helper partagé des 4 chemins de synthèse
+    │   ├── modulation.js     # (iter-P/T) applyModulation : branche les LFO vibrato/trémolo/auto-pan (osc.detune cents / gain.gain sommé / panner.pan stéréo) sur un couple (osc, gain[, panner]) existant ; helper partagé des 4 chemins de synthèse
     │   ├── getAnchoredPosition.js # résolution viewport rect d'un [data-anchor] (iter-L phase-1.5)
     │   ├── highlightElement.js # halo temporaire ancré (DocLink), retry RAF (iter-L phase-3.1)
     │   ├── markdown.js       # parser Markdown maison + AST, délègue le math à mathParse (iter-L phase-2.2 / R.1)
@@ -243,18 +244,22 @@ type Patch = {
   // itération P : modulations LFO par patch (vibrato = hauteur, trémolo = volume).
   vibrato: Lfo                    // { enabled, rate Hz, depth cents, onset ms, shape }
   tremolo: Lfo                    // { enabled, rate Hz, depth 0..1, onset ms, shape }
+  // itération T (T.2) : auto-pan stéréo (LFO → panner.pan).
+  autoPan: Lfo                    // depth 0..1 = excursion symétrique G↔D autour du centre
 }
 // type Lfo = { enabled:boolean, rate:number /*0.1-20 Hz*/, depth:number
-//   /*vibrato 0-200 cents ; trémolo 0-1*/, onset:number /*0-2000 ms*/,
+//   /*vibrato 0-200 cents ; trémolo/auto-pan 0-1*/, onset:number /*0-2000 ms*/,
 //   shape:'sine'|'triangle'|'square' }. Défauts désactivés mais musicaux
-//   (DEFAULT_VIBRATO rate:5 depth:20 ; DEFAULT_TREMOLO rate:5 depth:0.3).
-// Editor : mêmes champs (dont vibrato/tremolo) + `currentLens: 'free'|'spline'` (volatile, non
-// persisté) = quelle lentille est active (M.r.3.2 : 'bars' retiré, vestigial).
+//   (DEFAULT_VIBRATO rate:5 depth:20 ; DEFAULT_TREMOLO rate:5 depth:0.3 ;
+//   DEFAULT_AUTOPAN rate:1 depth:0.5).
+// Editor : mêmes champs (dont vibrato/tremolo/autoPan) + `currentLens: 'free'|'spline'`
+// (volatile, non persisté) = quelle lentille est active (M.r.3.2 : 'bars' retiré, vestigial).
 // Migration v1→v2 (M.r.1) : les anciens
 // patches (draw/harmonic/spline) sont convertis à l'hydratation localStorage et
-// à l'import .osa v1 (reducer.migrateLegacyPatch, idempotent). OSA_VERSION = 3
-// (iter-P : += vibrato/tremolo) ; l'import accepte v1 (legacy), v2 ET v3 —
-// modulations absentes (v1/v2) → DEFAULT_VIBRATO/TREMOLO injectés à l'hydratation.
+// à l'import .osa v1 (reducer.migrateLegacyPatch, idempotent). OSA_VERSION = 4
+// (iter-T : += autoPan ; iter-P avait += vibrato/tremolo) ; l'import accepte
+// v1 (legacy), v2, v3 ET v4 — modulations absentes → DEFAULT_VIBRATO/TREMOLO/
+// AUTOPAN injectés à l'hydratation (règle « champ absent → défaut injecté »).
 
 type Track = {
   id: string                      // "track-N"
@@ -316,7 +321,7 @@ type Clip = {                     // placement timeline + hauteur
 //   designerMobileModule (iter-R phase-1.1 : module plein cadre en petit écran,
 //     ∈ les 6 ids, défaut 'canvas' ; remplace l'ex-volatile mobileExpandedZone),
 //   designerEffectsSelected (iter-T phase-1.1 : effet édité dans le module Effets,
-//     ∈ {'vibrato','tremolo'}, défaut 'vibrato' ; validé à l'hydratation, hors undo),
+//     ∈ {'vibrato','tremolo','autoPan'} (T.2), défaut 'vibrato' ; validé à l'hydratation, hors undo),
 //   editorTestTuningSystem, editorTestNoteIndex, editorTestOctave,
 //   editorTestFrequency, editorVisualCuePattern, editorVisualCueTonic,
 //   selectedTrackId (iter-L phase-1.4.b) }
@@ -460,8 +465,8 @@ Seuls les **placements timeline** s'appellent "clips".
   (`.we-lfo-block.is-hidden { display:none }`, contrainte canvas) ; on ne le
   démonte pas, on le **repeint au switch** (la boucle rAF re-tourne,
   `effectsSelected` dans ses deps → canvas remesuré). Sélection via la **barre de
-  titre** : une rangée de **boutons toggle** (un par effet : Vibrato, Trémolo),
-  items d'un `OverflowToolbar` (débordent dans le tiroir `⋯` à l'étroit), construits
+  titre** : une rangée de **boutons toggle** (un par effet : Vibrato, Trémolo,
+  Auto-pan dès T.2), items d'un `OverflowToolbar` (débordent dans le tiroir `⋯` à l'étroit), construits
   par `buildEffectsHeaderItems()` (**même builder** partagé desktop in-body /
   relogement toolbar mobile). Deux notions visuelles **indépendantes** par bouton :
   **en cours d'édition** (exclusif, highlight `is-active` + `aria-pressed`) et
@@ -469,12 +474,15 @@ Seuls les **placements timeline** s'appellent "clips".
   = **mise en édition seule** (l'on/off reste l'interrupteur dans le panneau).
   Badge agrégé sur le trigger `⋯` (prop opt-in `triggerBadge` de `OverflowToolbar`)
   si un effet activé déborde dans le tiroir. État UI **`designerEffectsSelected`**
-  ∈ {vibrato, tremolo} (défaut vibrato), persisté, validé à l'hydratation, **hors
+  ∈ {vibrato, tremolo, autoPan} (défaut vibrato), persisté, validé à l'hydratation, **hors
   undo** ; action `SET_DESIGNER_EFFECTS_SELECTED` (non-undoable). Chaque sous-bloc
   rend : interrupteur on/off, switch de
   forme (icônes SVG IconSine/IconTriangleWave/IconSquareWave), 3 `NumberInput` à
   steppers (vitesse Hz / profondeur cents|0..1 / installation ms) + un **graphe
-  LFO éditable à poignées** par sous-bloc (P.5). Le graphe est **temporel** (axe
+  LFO éditable à poignées** par sous-bloc (P.5). **Auto-pan (T.2)** : sous-bloc
+  identique (profondeur 0..1) + **étiquettes G/D** sur le graphe (médiane = centre
+  stéréo ; **D en haut / G en bas**, cohérent avec le signe de `pan` — 1ᵉʳ graphe
+  dont l'axe Y est une position, pas une amplitude). Le graphe est **temporel** (axe
   x = temps depuis l'attaque, axe y = valeur de modulation, médiane au centre) :
   oscillation `shape` à la fréquence `rate`, amplitude montant de 0 à `depth` sur
   `onset` puis stable (display **normalisé** à la demi-hauteur). **3 poignées**
@@ -1030,22 +1038,34 @@ Seuls les **placements timeline** s'appellent "clips".
   signature inclut l'enveloppe du patch référencé → modifier
   attack/hold/decay/sustain/release/amplitude pendant la lecture
   re-schedule les clips à venir. **iter-P** : la signature inclut aussi
-  vibrato + trémolo → éditer une modulation re-schedule de même.
-- **Modulations LFO par patch (iter-P)** : helper partagé `lib/modulation.js`
+  vibrato + trémolo → éditer une modulation re-schedule de même. **iter-T (T.2)** :
+  += auto-pan.
+- **Modulations LFO par patch (iter-P ; auto-pan T.2)** : helper partagé `lib/modulation.js`
   (`applyModulation`) branché sur les **4 chemins de synthèse** (lecture timeline
   `scheduleOneClip`, export WAV `scheduleAllClips`, preview clavier, preview note
   libre). Vibrato → `osc.detune` (cents, indépendant de la note, n'écrase pas
   `osc.frequency`). Trémolo → `gain.gain` (sommé à l'automation AHDSR, jamais
-  multiplié). `onset` = fondu d'installation depuis le début de la note. Le
+  multiplié). **Auto-pan (T.2) → `panner.pan`** d'un `StereoPannerNode` : 1ᵉʳ effet
+  stéréo. **Répartition des rôles** — l'**appelant** possède la chaîne principale et
+  insère le panner (`osc → gain → panner → suite`), `applyModulation` ne fait
+  qu'**ajouter la branche LFO** (param `panner` optionnel — absent = pas d'auto-pan,
+  appels existants valides). Insertion **conditionnelle** : panner créé **seulement
+  si `enabled && depth>0`** → effet off ⇒ chaîne **mono bit-identique** à avant
+  (zéro nœud, zéro coût, zéro régression). `depth` ∈ 0..1 = excursion symétrique
+  (pan ∈ [-depth, +depth]). Cleanup : le panner est poussé dans le tableau `mod`
+  (déconnecté partout où l'osc l'est ; `stopModNodes` tolère l'absence de `.stop()`).
+  `onset` = fondu d'installation depuis le début de la note. Le
   trémolo reste **constant pendant le sustain** et ne s'éteint **qu'au release**
   (P.5) : sur les chemins programmés (timeline/export), `applyModulation` reçoit
   `releaseStart` et pose `setValueAtTime(target, releaseStart)` (plateau implicite)
   puis `linearRampToValueAtTime(0, stopTime)` (extinction sur la seule durée du
   release) ; sur les previews (sans `stopTime`), l'appelant rampe le `depthGain`
   au release réel (`releaseModNodes`). Évite le souffle dans la traîne **et** la
-  décroissance erronée sur toute la note. Le vibrato, lui, garde un `depth`
-  constant jusqu'au bout (wobble naturel sur l'extinction). Cleanup symétrique :
-  chaque nœud LFO est stoppé/déconnecté partout où l'`osc` l'est.
+  décroissance erronée sur toute la note. Le vibrato **et l'auto-pan**, eux,
+  gardent un `depth` constant jusqu'au bout (auto-pan : `StereoPannerNode` est
+  equal-power, pas d'énergie ajoutée → pas de plateau/release spécial à la
+  trémolo). Cleanup symétrique : chaque nœud LFO **et le panner** sont
+  stoppés/déconnectés partout où l'`osc` l'est.
 - **Export WAV (normalisé en crête, S.audio.5)** : `OfflineAudioContext(2,
   sampleRate * totalDurationSec, 44100)`, même routage per-track GainNode **+ même
   master bus** (pistes → `bus.input` → `bus.output` → `offlineCtx.destination`),
@@ -1143,17 +1163,19 @@ Choix non évidents pris pour de bonnes raisons. À ne pas remettre en question
   **outil système** ou rien — jamais sharp/resvg/… en douce. Tant qu'aucun
   rasteriseur n'est dispo, le manifest reste **SVG-only** (PNG iOS/maskable en
   dette BACKLOG, icône iOS générique assumée).
-- **Modulations par patch via helper partagé sur les 4 chemins (iter-P)** : le
-  vibrato et le trémolo sont des **LFO par patch** (pas par clip — pas de champ de
-  modulation sur `Clip`). Un **helper unique** `lib/modulation.js` (`applyModulation`)
-  est câblé sur les **4 chemins de synthèse** (lecture timeline, export WAV, preview
-  clavier, preview note libre) — `scheduleOneClip` et `scheduleAllClips` étant du
-  code dupliqué, le helper partagé est la seule défense contre la divergence
-  one/all (régression classique documentée). Le helper **n'alloue jamais** osc/gain
-  et ne les connecte pas à `dest` : il ne fait qu'**ajouter des branches** ;
-  l'appelant possède la chaîne principale et stoppe/déconnecte les nœuds LFO
-  symétriquement à l'`osc` (cleanup programmé via `stopTime` pour timeline/export,
-  manuel au release pour les previews qui sustainent indéfiniment).
+- **Modulations par patch via helper partagé sur les 4 chemins (iter-P ; auto-pan
+  T.2)** : le vibrato, le trémolo **et l'auto-pan** sont des **LFO par patch** (pas
+  par clip — pas de champ de modulation sur `Clip`). Un **helper unique**
+  `lib/modulation.js` (`applyModulation`) est câblé sur les **4 chemins de synthèse**
+  (lecture timeline, export WAV, preview clavier, preview note libre) —
+  `scheduleOneClip` et `scheduleAllClips` étant du code dupliqué, le helper partagé
+  est la seule défense contre la divergence one/all (régression classique documentée).
+  Le helper **n'alloue jamais** osc/gain/panner et ne les connecte pas à `dest` :
+  il ne fait qu'**ajouter des branches** ; l'appelant possède la chaîne principale
+  (y compris le `StereoPannerNode` de l'auto-pan, qu'il **insère** conditionnellement)
+  et stoppe/déconnecte les nœuds LFO + le panner symétriquement à l'`osc` (cleanup
+  programmé via `stopTime` pour timeline/export, manuel au release pour les previews
+  qui sustainent indéfiniment).
 - **Detune (cents) pour le vibrato / addition sur `gain.gain` pour le trémolo
   (iter-P)** : le vibrato module `osc.detune` (en **cents**) et **non**
   `osc.frequency` — indépendant de la note (même intervalle de vibrato à toute
@@ -2132,10 +2154,17 @@ Conventions tacites. Les enfreindre sans raison crée des bugs subtils.
 - **Modèle unifié (M rattrapage)** : `cap` (1..256) remplace `definition` (tracé)
   ET `N` (barres) ; `editor.currentLens` (`'free'|'spline'`, M.r.3.2) est
   **volatile** (non persisté en localStorage, non écrit dans `.osa`) ; le résidu
-  (`residual`) vit sur l'editor ET le patch. `.osa` : `OSA_VERSION = 3` (iter-P :
-  += vibrato/tremolo), l'import accepte v1 (legacy, migré à l'hydratation), v2 et
-  v3. Migration idempotente `reducer.migrateLegacyPatch` — une implémentation,
-  deux call-sites (localStorage + import .osa).
+  (`residual`) vit sur l'editor ET le patch. `.osa` : `OSA_VERSION = 4` (iter-T :
+  += autoPan ; iter-P avait += vibrato/tremolo), l'import accepte v1 (legacy, migré
+  à l'hydratation), v2, v3 et v4. Migration idempotente `reducer.migrateLegacyPatch`
+  — une implémentation, deux call-sites (localStorage + import .osa).
+- **`.osa` v4 = seul bump de l'itération T (décision T.2)** : l'auto-pan (T.2)
+  porte le passage v3→v4. Les phases suivantes **T.3→T.6** (pitch envelope, filtre,
+  env+wah, distorsion) ajouteront leurs champs **DANS v4** — pas de v5/v6/… par
+  effet — en s'appuyant sur la règle générale « champ absent → défaut injecté à
+  l'hydratation » (`sanitize*` dans `patchMeta`/`migrateLegacyPatch`). Un patch
+  v4 exporté tôt dans l'itération, sans les champs des effets ultérieurs, reste
+  donc rechargeable : chaque champ manquant retombe sur son défaut.
 - **Reset vs Normaliser vs Nouveau patch (M.r.2, portée resserrée r.2.6.1)** :
   trois actions distinctes. `RESET_EDITOR_WAVEFORM` (bouton Reset) réinitialise
   **le timbre seul** (canonical = silence, ancres aplaties, interpolation =
@@ -2230,6 +2259,16 @@ par voix). Cadrage complet dans `archi/BACKLOG.md` (« Effets et modulations »)
   agrégé** sur le tiroir `⋯` (nouvelle prop opt-in `triggerBadge` d'`OverflowToolbar`).
   Nouvel état UI **`designerEffectsSelected`** (persisté, hors undo) +
   `SET_DESIGNER_EFFECTS_SELECTED`. **Aucun changement audio / modèle / `.osa`.**
+- ✅ **T.2 (auto-pan, `.osa` v4)** — 1ᵉʳ effet **stéréo**. `Patch`/`Editor` += **`autoPan:
+  Lfo`** (`DEFAULT_AUTOPAN` rate:1 depth:0.5 ; depth 0..1 = excursion symétrique G↔D).
+  Audio : `applyModulation` += params `panner`/`autoPan` → branche LFO sur `panner.pan` ;
+  l'**appelant** insère un `StereoPannerNode` **seulement si `enabled && depth>0`**
+  (sinon chaîne mono bit-identique) sur les **4 chemins** ; cleanup via le tableau `mod`,
+  signature scheduler += autoPan. UI : 3ᵉ bouton **« Auto-pan »** + panneau identique
+  (graphe LFO à **étiquettes G/D**, D haut / G bas = signe de `pan`). **`.osa`
+  `OSA_VERSION = 4`** (accepte v1→v4, `autoPan` absent → défaut injecté) — **seul bump
+  de l'itération T** (T.3→T.6 ajouteront leurs champs dans v4). `sanitizeAutoPan`,
+  `AUTOPAN_DEPTH_MAX`, `autoPanCanvasRef`.
 
 ✅ **Terminé**
 - **Iteration S — « Support tactile au doigt (web pur) » (close, v1.11.0)**. L'app
@@ -3147,7 +3186,11 @@ en T.2, défauts injectés pour les champs absents). Distorsion **par voix**
   pastille accent = activé, clic = édition seule, badge agrégé tiroir via
   `triggerBadge`) ; relogement mobile via `buildEffectsHeaderItems` ; état UI
   `designerEffectsSelected` persisté hors undo. **Aucun changement audio/modèle/`.osa`.**
-- ⏳ **T.2** auto-pan (LFO → `StereoPannerNode.pan`) — **apporte le bump `.osa` v4**.
+- ✅ **T.2 — auto-pan (LFO → `StereoPannerNode.pan`, `.osa` v4)** : 1ᵉʳ effet stéréo.
+  `Patch`/`Editor` += `autoPan: Lfo` (depth 0..1 = excursion symétrique) ; panner inséré
+  par l'appelant **uniquement si `enabled && depth>0`** (chaîne mono inchangée sinon) sur
+  les 4 chemins, `applyModulation` ne fait qu'ajouter la branche LFO ; 3ᵉ bouton + panneau
+  (graphe à étiquettes G/D). **`OSA_VERSION = 4`** (bump unique de l'itération, accepte v1→v4).
 - ⏳ **T.3** pitch envelope (enveloppe → `osc.detune`).
 - ⏳ **T.4** filtre statique (`BiquadFilterNode` par voix : LP/HP/BP/notch, cutoff, Q).
 - ⏳ **T.5** enveloppe de filtre + wah (LFO → cutoff).

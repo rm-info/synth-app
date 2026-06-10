@@ -883,6 +883,40 @@ Phases listées ci-dessous dans l'ordre chronologique d'implémentation.
 
 ## Historique (chronologie inverse)
 
+- **2026-06-10 — Iteration T — T.2 : auto-pan (LFO → panoramique stéréo, `.osa` v4)**
+  (`feat(iter-T/phase-2.1)` modèle + `feat(iter-T/phase-2.2)` audio +
+  `feat(iter-T/phase-2.3)` UI + doc). **1ᵉʳ effet stéréo** de l'app (tout était centré).
+  - **2.1 — modèle + `.osa` v4** : `Patch`/`Editor` += **`autoPan: Lfo`**
+    (`DEFAULT_AUTOPAN` enabled:false rate:1 depth:0.5 onset:0 sine ; `AUTOPAN_DEPTH_MAX
+    = 1`, depth 0..1 = excursion stéréo symétrique). `clampModulationValue` généralisé
+    (helpers `effectDefault`/`effectDepthMax`), `DESIGNER_EFFECT_IDS += 'autoPan'`,
+    `sanitizeAutoPan` exporté ; `patchMeta` + SAVE/UPDATE_PATCH + RESET(_WAVEFORM) +
+    HYDRATE_EDITOR_FROM_PATCH portent autoPan. `types.ts` (Patch/PatchData/Editor +
+    `DesignerEffectId` + action `SET_EDITOR_MODULATION`). **`OSA_VERSION = 4`** (osaFormat
+    accepte v1→v4, `isLfoValidOrAbsent(p.autoPan, 1)` ; absent → défaut injecté à
+    l'hydratation) ; libraryTransfer importe/exporte autoPan. **Décision** : v4 = seul
+    bump de l'itération T, T.3→T.6 ajouteront leurs champs dans v4 (règle « champ absent
+    → défaut injecté »).
+  - **2.2 — audio (4 chemins)** : `applyModulation` += params `panner`/`autoPan` →
+    branche LFO (shape/rate → `depthGain` montant 0→depth sur onset) → **`panner.pan`**
+    (base 0, le LFO s'y somme dans [-depth,+depth]) ; **depth constant jusqu'au bout**
+    (equal-power, pas de release spécial à la trémolo). L'**appelant** insère un
+    `StereoPannerNode` **uniquement si `enabled && depth>0`** (`osc → gain → panner →
+    suite`) — effet off ⇒ chaîne **mono bit-identique** (zéro nœud) — sur les 4 chemins
+    (timeline `scheduleOneClip`, export WAV `scheduleAllClips`, preview clavier, preview
+    note libre). **Cleanup** : le panner est poussé dans le tableau `mod` (déconnecté
+    partout où l'osc l'est ; `stopModNodes` tolère l'absence de `.stop()`). Signature
+    scheduler += `sigOfLfo(p.autoPan)` (édition pendant lecture → re-schedule). L'export
+    `OfflineAudioContext` étant déjà stéréo, le WAV porte la stéréo sans autre changement.
+  - **2.3 — UI** : 3ᵉ bouton **« Auto-pan »** (`buildEffectsHeaderItems`), panneau
+    identique (on/off, switch de forme, 3 steppers vitesse/profondeur/installation +
+    graphe LFO à poignées) ; `renderLfoBlock` généralisé à 3 effets, boucle rAF +
+    `modCanvasFor`/`modDepthMax`/`endModDrag` + dirty-check (`patchFieldsEqual`,
+    `snapshotPatchFields`, `patchToReference`) + `buildPayload` étendus à autoPan.
+    **Étiquettes G/D** sur le graphe (médiane = centre stéréo ; **D haut / G bas**,
+    cohérent avec le signe de `pan` — 1ᵉʳ graphe dont l'axe Y est une position, pas une
+    amplitude). `autoPanCanvasRef`, `AUTOPAN_DEPTH_MAX`, CSS `.we-lfo-axis-label`.
+
 - **2026-06-10 — Iteration T — T.1 : refonte module « Effets » + switcher header
   (UI pure)** (`refactor(iter-T/phase-1.1)` + `feat(iter-T/phase-1.2)` +
   `feat(iter-T/phase-1.3)` + doc). Ouverture de l'itération T « Effets sans mémoire ».
