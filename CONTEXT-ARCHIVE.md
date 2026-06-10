@@ -883,6 +883,37 @@ Phases listées ci-dessous dans l'ordre chronologique d'implémentation.
 
 ## Historique (chronologie inverse)
 
+- **2026-06-10 — Iteration T — T.1 : refonte module « Effets » + switcher header
+  (UI pure)** (`refactor(iter-T/phase-1.1)` + `feat(iter-T/phase-1.2)` +
+  `feat(iter-T/phase-1.3)` + doc). Ouverture de l'itération T « Effets sans mémoire ».
+  Socle UI **sans aucun changement audio / modèle / `.osa`** : le 6ᵉ module
+  **Modulation devient « Effets »** (label seul — `MODULE_META.modulation`, titre
+  in-body, sepLabel ; **id `'modulation'` et clés persistées inchangés**, aucune
+  migration) et passe d'un corps à 2 sous-blocs côte à côte à un **corps un effet à
+  la fois**, pleine largeur.
+  - **1.1 — corps + état** : nouvel état UI `designerEffectsSelected` ∈
+    {vibrato,tremolo} (défaut vibrato), persisté localStorage, validé à
+    l'hydratation, **hors undo** ; action `SET_DESIGNER_EFFECTS_SELECTED`
+    (non-undoable) ; types `DesignerEffectId` + champ `AppState` + entrée d'union
+    Action (`types.ts`, reducer `@ts-check`). Le sous-bloc non sélectionné reste
+    **monté mais masqué** (`.we-lfo-block.is-hidden{display:none}`, contrainte
+    canvas) ; la **boucle rAF unique** ne dessine/anime plus que le **graphe de
+    l'effet visible** (`effectsSelected` ajouté à ses deps → **repeint au switch**,
+    quand le canvas redevient mesurable ; gating perte de visibilité gardé sur
+    l'effet visible). Switcher header temporaire (remplacé en 1.2).
+  - **1.2 — boutons header** : rangée de boutons toggle Vibrato/Trémolo (libellés
+    texte) en items d'`OverflowToolbar` (`buildEffectsHeaderItems`). Deux notions
+    **indépendantes** : *en édition* (exclusif, `is-active` + `aria-pressed`) et
+    *activé* (`editor.<effet>.enabled` → **pastille accent** `.we-effect-dot`,
+    indicateur pur ; passe au contraste sur le bouton actif). Clic = **édition
+    seule**. `OverflowToolbar` étendu d'une prop opt-in **`triggerBadge`** : le `⋯`
+    porte la pastille agrégée dès qu'un item débordé porte `badge:true` (les autres
+    usages, sans la prop ni `badge`, sont inchangés).
+  - **1.3 — mobile + rename** : `moduleHeaderItems.modulation = buildEffectsHeaderItems()`
+    (le **même builder**) → la toolbar mobile reloge les boutons quand le module est
+    actif dans le switcher ; `triggerBadge` passé à l'`OverflowToolbar` mobile (inerte
+    pour les autres modules). Rename visible « Modulation » → « Effets » ; aucune
+    occurrence restante dans strings/doc/tour (le tour Designer ne cible pas ce module).
 - **2026-06-09 — Iteration S — CLÔTURE (release v1.11.0)** (`feat(v1.11.0)` +
   `docs`). Itération S « Support tactile au doigt (web pur) » **close** : features
   additives, zéro breaking change → **minor bump v1.10.0 → v1.11.0** (`package.json`

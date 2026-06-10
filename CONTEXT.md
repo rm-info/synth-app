@@ -42,14 +42,14 @@ framework UI (CSS manuscrit), pas de routing, pas de backend.
 | R | Refonte petit écran Designer : switcher de modules (un module plein cadre), top header priority-plus + hamburger, gate orientation-aware 300/500 + densification < 700×500, correctifs mobile (R.3.rectif) ; R.4 (orientation) annulée — v1.10.0 | 2026-06-08 |
 | S | Support tactile : Pointer Events app-wide (tracé · clavier polyphonique · poignées · Timeline), touch-action chirurgical, shell non-scrollable + PWA légère standalone ; durcissement audio (master headroom-bas + soft-clip filet, déclic MIN_RELEASE/ATTACK, buffer mobile, export normalisé) — v1.11.0 | 2026-06-09 |
 
-**État courant** : **Iteration S close (release v1.11.0)** — **entre deux
-itérations**. S a livré l'**entrée Pointer Events app-wide** (souris+tactile+stylet,
-pas de branche mobile) sur toutes les surfaces de manipulation directe (tracé,
-clavier **polyphonique**, poignées AHDSR/LFO, resizers/séparateurs, Timeline), un
-**shell non-scrollable** + **PWA légère** standalone, et un **durcissement audio**
-(master **headroom bas + soft-clip filet**, déclic `MIN_RELEASE`/`MIN_ATTACK`,
-buffer mobile `latencyHint`, export normalisé en crête). Détail par-phase
-S.1→S.audio.5 et arc audio complet dans `CONTEXT-ARCHIVE.md`.
+**État courant** : **Iteration T « Effets sans mémoire » en cours** (sur la base
+v1.11.0). **T.1 livrée** (socle UI pur) : le 6ᵉ module **Modulation → « Effets »**
+(label seul, id `'modulation'` inchangé), corps **un effet à la fois**, switcher de
+boutons en barre de titre (`OverflowToolbar` + pastille « activé » + badge tiroir),
+état UI `designerEffectsSelected` persisté hors undo — **aucun changement audio /
+modèle / `.osa`**. Reste T.2→T.6 (auto-pan `.osa` v4, pitch envelope, filtre,
+env+wah, distorsion). Dernière release : **v1.11.0** (Iteration S, support tactile +
+durcissement audio). Détail S.1→S.audio.5 et arc audio dans `CONTEXT-ARCHIVE.md`.
 
 > **Structure des fichiers de contexte.** Ce `CONTEXT.md` est le **brief
 > vivant** : état présent, modèle de données, composants, architecture,
@@ -315,6 +315,8 @@ type Clip = {                     // placement timeline + hauteur
 //   autoCollapse (iter-O phase-5d : politique d'auto-réduction par rangée),
 //   designerMobileModule (iter-R phase-1.1 : module plein cadre en petit écran,
 //     ∈ les 6 ids, défaut 'canvas' ; remplace l'ex-volatile mobileExpandedZone),
+//   designerEffectsSelected (iter-T phase-1.1 : effet édité dans le module Effets,
+//     ∈ {'vibrato','tremolo'}, défaut 'vibrato' ; validé à l'hydratation, hors undo),
 //   editorTestTuningSystem, editorTestNoteIndex, editorTestOctave,
 //   editorTestFrequency, editorVisualCuePattern, editorVisualCueTonic,
 //   selectedTrackId (iter-L phase-1.4.b) }
@@ -444,8 +446,27 @@ Seuls les **placements timeline** s'appellent "clips".
   Harmoniques / Spectrogramme), et garde la moitié basse à **3 cellules**
   (Instrument / AHDSR / Modulation, iter-P). Le panneau Actions est placé par
   App.jsx dans la sidebar gauche.
-- **Module Modulation (iter-P, graphe éditable P.5)** : `renderModulationArea`
-  rend 2 sous-blocs symétriques Vibrato/Trémolo — interrupteur on/off, switch de
+- **Module « Effets » (iter-P, graphe éditable P.5 ; switcher header iter-T T.1)** :
+  `renderModulationArea` (id interne toujours `'modulation'`, clés persistées
+  inchangées). **iter-T T.1** : le module est renommé **« Effets »** (label
+  `MODULE_META.modulation` + titre in-body + sepLabel rangée bas) et passe d'un
+  corps à 2 sous-blocs côte à côte à un **corps un effet à la fois**, pleine
+  largeur. Le sous-bloc non sélectionné reste **monté mais masqué**
+  (`.we-lfo-block.is-hidden { display:none }`, contrainte canvas) ; on ne le
+  démonte pas, on le **repeint au switch** (la boucle rAF re-tourne,
+  `effectsSelected` dans ses deps → canvas remesuré). Sélection via la **barre de
+  titre** : une rangée de **boutons toggle** (un par effet : Vibrato, Trémolo),
+  items d'un `OverflowToolbar` (débordent dans le tiroir `⋯` à l'étroit), construits
+  par `buildEffectsHeaderItems()` (**même builder** partagé desktop in-body /
+  relogement toolbar mobile). Deux notions visuelles **indépendantes** par bouton :
+  **en cours d'édition** (exclusif, highlight `is-active` + `aria-pressed`) et
+  **activé** (`editor.<effet>.enabled` → **pastille accent**, indicateur pur). Clic
+  = **mise en édition seule** (l'on/off reste l'interrupteur dans le panneau).
+  Badge agrégé sur le trigger `⋯` (prop opt-in `triggerBadge` de `OverflowToolbar`)
+  si un effet activé déborde dans le tiroir. État UI **`designerEffectsSelected`**
+  ∈ {vibrato, tremolo} (défaut vibrato), persisté, validé à l'hydratation, **hors
+  undo** ; action `SET_DESIGNER_EFFECTS_SELECTED` (non-undoable). Chaque sous-bloc
+  rend : interrupteur on/off, switch de
   forme (icônes SVG IconSine/IconTriangleWave/IconSquareWave), 3 `NumberInput` à
   steppers (vitesse Hz / profondeur cents|0..1 / installation ms) + un **graphe
   LFO éditable à poignées** par sous-bloc (P.5). Le graphe est **temporel** (axe
@@ -462,11 +483,13 @@ Seuls les **placements timeline** s'appellent "clips".
   **gelée** au mousedown (`modDragGeomRef`) le temps du geste, sinon la fenêtre se
   redimensionnerait sous la poignée. **Animation = point de phase** (remplace le
   scroll) : un seul point mobile parcourt la courbe figée à la vitesse `rate`.
-  **Une seule** boucle `rAF` pour le module (dessine les deux graphes), gatée
-  strictement par `modulationVisible` (prop App.jsx couvrant collapse/maximize/
-  onglet/mobile) ET au moins un effet `enabled` (sous-bloc désactivé = médiane
-  grise, poignées inertes) ET **figée pendant un drag** — arrêt propre au repli/
-  maximize/démontage (audit perf N.1). Édition via
+  **Une seule** boucle `rAF` pour le module ; **iter-T T.1** : elle ne dessine/anime
+  plus que le **graphe de l'effet visible** (`effectsSelected`) — l'autre canvas est
+  en `display:none` (clientWidth=0, le peindre produirait un canvas au format par
+  défaut), laissé intact et repeint au prochain switch. Gatée strictement par
+  `modulationVisible` (prop App.jsx couvrant collapse/maximize/onglet/mobile) ET par
+  l'effet **visible** `enabled` (effet off = médiane grise, poignées inertes) ET
+  **figée pendant un drag** — arrêt propre au repli/maximize/démontage (audit perf N.1). Édition via
   `editorActions.setModulation(effect, key, value)` → action paramétrée unique
   `SET_EDITOR_MODULATION` (clampée, undoable).
 - **Quadrant Instrument responsive (iter-O phase-3, desktop only)** : reçoit
@@ -708,8 +731,13 @@ Seuls les **placements timeline** s'appellent "clips".
 - Barre d'outils **générique réutilisable** « priority-plus » : affiche un max
   d'items en ligne (forme `bar`), pousse le reste dans un **tiroir popover `⋯`**
   (forme `tray`, ligne libellée). Repli **droite→gauche** (index 0 = plus
-  prioritaire). Props : `items:[{id,bar,tray}]`, `prefix?` (chrome fixe en tête),
-  `className?`, `ariaLabel?`, `menuLabel?`. Retourne `null` si `items` vide.
+  prioritaire). Props : `items:[{id,bar,tray,badge?}]`, `prefix?` (chrome fixe en
+  tête), `className?`, `ariaLabel?`, `menuLabel?`, `triggerIcon?`, `trayFooter?`,
+  `closeOnSelect?`, **`triggerBadge?`** (iter-T T.1, défaut `false` : le bouton `⋯`
+  porte une **pastille d'accent** dès qu'au moins un item **débordé** porte
+  `badge:true` — opt-in pur, inerte pour les usages qui ne le passent pas ; sert au
+  module Effets à signaler qu'un effet activé est masqué dans le tiroir). Retourne
+  `null` si `items` vide.
 - **Mesure** : *ghost row* hors flux (`position:absolute; visibility:hidden;
   pointer-events:none`) rendant toutes les formes `bar` (+ clone inerte du `⋯`)
   → largeurs naturelles même à largeur variable. **`ResizeObserver`** sur root +
@@ -2181,6 +2209,23 @@ Conventions tacites. Les enfreindre sans raison crée des bugs subtils.
 
 ## État actuel
 
+🚧 **En cours — Iteration T « Effets sans mémoire »** (cadrée 2026-06-10). Tour
+complet des effets qui s'intègrent au cycle de vie audio actuel (chaîne jetable par
+note, zéro queue) avant le chantier des effets à mémoire. Phases : **T.1** refonte
+module « Effets » + switcher header (UI pure) → **T.2** auto-pan (`StereoPannerNode`,
+bump `.osa` v4) → **T.3** pitch envelope → **T.4** filtre statique (`BiquadFilterNode`
+par voix) → **T.5** enveloppe de filtre + wah → **T.6** distorsion (`WaveShaperNode`
+par voix). Cadrage complet dans `archi/BACKLOG.md` (« Effets et modulations »).
+- ✅ **T.1 (socle UI pur)** — le 6ᵉ module **Modulation → « Effets »** (label seul,
+  id `'modulation'` inchangé, aucune migration). Corps **un effet à la fois** pleine
+  largeur (l'autre sous-bloc monté/masqué, repeint au switch ; rAF sur le seul graphe
+  visible). Barre de titre = **boutons toggle** par effet (`OverflowToolbar`,
+  `buildEffectsHeaderItems` partagé desktop/mobile) : **highlight** = en édition,
+  **pastille accent** = activé (indicateur pur), clic = édition seule ; **badge
+  agrégé** sur le tiroir `⋯` (nouvelle prop opt-in `triggerBadge` d'`OverflowToolbar`).
+  Nouvel état UI **`designerEffectsSelected`** (persisté, hors undo) +
+  `SET_DESIGNER_EFFECTS_SELECTED`. **Aucun changement audio / modèle / `.osa`.**
+
 ✅ **Terminé**
 - **Iteration S — « Support tactile au doigt (web pur) » (close, v1.11.0)**. L'app
   se **dessine et se joue au doigt** ; un **durcissement audio** a émergé en cours de
@@ -3081,14 +3126,30 @@ Conventions tacites. Les enfreindre sans raison crée des bugs subtils.
 > Détail des roadmaps des itérations livrées (A→M) → `CONTEXT-ARCHIVE.md`.
 > Ci-dessous : l'itération en cours, puis le backlog général (non planifié).
 
-### Entre deux itérations (depuis la clôture de S, 2026-06-09)
+### Iteration T « Effets sans mémoire » (cadrée 2026-06-10, en cours)
 
-Iteration S « Support tactile au doigt (web pur) » **close** (release **v1.11.0**) —
-Pointer Events app-wide (tracé · clavier polyphonique · poignées · Timeline),
-`touch-action` chirurgical, shell non-scrollable + PWA légère standalone, et un
-**durcissement audio** (master headroom-bas + soft-clip filet, déclic MIN_RELEASE/
-ATTACK, buffer mobile, export normalisé) ; détail dans `CONTEXT-ARCHIVE.md`.
-**Prochaine itération non cadrée.**
+Tour complet des effets/modulations qui s'intègrent au **cycle de vie audio actuel**
+(chaîne jetable par note, zéro queue) avant le gros chantier des effets à mémoire
+(delay-based). Tout **par patch**, persisté dans `Patch` + `.osa` **v4** (bump unique
+en T.2, défauts injectés pour les champs absents). Distorsion **par voix**
+(waveshaping, compatible archi jetable). Grille 3×2 conservée. Cadrage complet :
+`archi/BACKLOG.md` (« Effets et modulations »).
+
+- ✅ **T.1 — refonte module « Effets » + switcher header (UI pure)** : module
+  Modulation renommé « Effets » (label seul) ; corps un effet à la fois (l'autre
+  monté/masqué, repeint au switch, rAF sur le seul graphe visible) ; rangée de
+  boutons toggle en barre de titre via `OverflowToolbar` (highlight = en édition,
+  pastille accent = activé, clic = édition seule, badge agrégé tiroir via
+  `triggerBadge`) ; relogement mobile via `buildEffectsHeaderItems` ; état UI
+  `designerEffectsSelected` persisté hors undo. **Aucun changement audio/modèle/`.osa`.**
+- ⏳ **T.2** auto-pan (LFO → `StereoPannerNode.pan`) — **apporte le bump `.osa` v4**.
+- ⏳ **T.3** pitch envelope (enveloppe → `osc.detune`).
+- ⏳ **T.4** filtre statique (`BiquadFilterNode` par voix : LP/HP/BP/notch, cutoff, Q).
+- ⏳ **T.5** enveloppe de filtre + wah (LFO → cutoff).
+- ⏳ **T.6** distorsion (`WaveShaperNode` par voix : drive, courbe soft/hard/fold).
+
+Gros chantier **suivant** : effets **à mémoire** (delay/écho, reverb, chorus) via bus
+d'effet persistant par patch et/ou par piste — hors itération T (cf. `archi/BACKLOG.md`).
 
 **Dettes & limitations ouvertes par S** :
 - **Icônes PWA PNG** (apple-touch 180 / maskable 512) — manifest SVG-only en
