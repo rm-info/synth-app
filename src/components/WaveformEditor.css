@@ -1417,6 +1417,9 @@
   display: flex;
   flex-wrap: wrap;
   gap: 12px;
+  /* iter-T phase-1.1 : un effet à la fois → le corps remplit toute la hauteur
+     offerte sous le header (flex:1), le sous-bloc visible s'y étire. */
+  flex: 1;
   min-height: 0;
   overflow: auto;
 }
@@ -1538,13 +1541,17 @@
 }
 
 /* Graphe LFO éditable à poignées (P.5). Wrapper position:relative pour ancrer
-   le tooltip de rôle (.adsr-tooltip réutilisé). */
+   le tooltip de rôle (.adsr-tooltip réutilisé). iter-T : grandit pour remplir
+   l'espace vertical du bloc (le graphe = surface d'édition principale, plus de
+   place = poignées plus confortables) ; min-height garde le graphe utilisable. */
 .we-lfo-canvas-wrap {
   position: relative;
+  flex: 1 1 auto;
+  min-height: 80px;
 }
 .we-lfo-canvas {
   width: 100%;
-  height: 92px;
+  height: 100%;
   display: block;
   border-radius: 5px;
   background: var(--surface-elevated);
@@ -1580,14 +1587,7 @@
   opacity: 0.5;
 }
 
-/* R.3.rectif.5 : à hauteur de viewport rare (ex. 500×300), le module Modulation
-   déborde de quelques px → ascenseur interne. Contrairement aux autres modules
-   (canvas flex:1, compressible), il empile deux graphes LFO à HAUTEUR FIXE
-   (incompressibles). On rabote le graphe quand la hauteur manque (max-height
-   uniquement — pas en portrait 300×500 où la hauteur abonde), scopé au panneau
-   plein cadre mobile. Le graphe reste parfaitement lisible. */
-@media (max-height: 499px) {
-  .designer-mobile-panel .we-lfo-canvas {
-    height: 80px;
-  }
-}
+/* iter-T phase-1.1 : l'ancien rabotage R.3.rectif.5 (hauteur fixe à max-height:499px)
+   est devenu inutile — le module n'affiche plus qu'UN graphe LFO qui flexe
+   (`.we-lfo-canvas-wrap` flex:1 + min-height), compressible ; le corps a son
+   ascenseur interne (overflow:auto) si la hauteur manque vraiment. */

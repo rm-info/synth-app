@@ -451,7 +451,12 @@ Seuls les **placements timeline** s'appellent "clips".
   inchangées). **iter-T T.1** : le module est renommé **« Effets »** (label
   `MODULE_META.modulation` + titre in-body + sepLabel rangée bas) et passe d'un
   corps à 2 sous-blocs côte à côte à un **corps un effet à la fois**, pleine
-  largeur. Le sous-bloc non sélectionné reste **monté mais masqué**
+  largeur **et pleine hauteur** : le corps `flex:1` sous le header, le **graphe LFO
+  s'étire** (`.we-lfo-canvas-wrap` flex:1 + min-height) pour remplir l'espace entre
+  l'en-tête du sous-bloc et la rangée des 3 inputs (surface d'édition maximisée ;
+  un `ResizeObserver` sur le canvas visible le repeint au resize même effet off ;
+  ancien rabotage de hauteur R.3.rectif.5 devenu inutile). Le sous-bloc non
+  sélectionné reste **monté mais masqué**
   (`.we-lfo-block.is-hidden { display:none }`, contrainte canvas) ; on ne le
   démonte pas, on le **repeint au switch** (la boucle rAF re-tourne,
   `effectsSelected` dans ses deps → canvas remesuré). Sélection via la **barre de

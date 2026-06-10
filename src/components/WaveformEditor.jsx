@@ -813,11 +813,24 @@ function WaveformEditor({
     paint()
     // Re-peint au changement de thème (le cache themeColor est vidé sur l'event).
     window.addEventListener('themechange', paint)
+    // iter-T : le graphe remplit le module → sa taille varie au resize/maximize/
+    // collapse. Quand l'effet est OFF (pas de boucle rAF), le buffer resterait
+    // stale ; un RO sur le canvas visible le repeint. Re-attaché au bon canvas à
+    // chaque re-run (deps : effectsSelected/visibilité) → pas d'orphelinage.
+    let ro = null
+    if (typeof ResizeObserver !== 'undefined' && visible.canvas) {
+      ro = new ResizeObserver(() => paint())
+      ro.observe(visible.canvas)
+    }
+    const cleanupStatic = () => {
+      window.removeEventListener('themechange', paint)
+      if (ro) ro.disconnect()
+    }
 
     // Gating strict (audit perf N.1) : seul l'effet visible compte désormais pour
     // décider de l'animation. + figée pendant un drag.
     if (!modulationVisible || !visible.lfo.enabled || dragging) {
-      return () => window.removeEventListener('themechange', paint)
+      return cleanupStatic
     }
 
     let raf = 0
@@ -835,7 +848,7 @@ function WaveformEditor({
     raf = requestAnimationFrame(tick)
     return () => {
       cancelAnimationFrame(raf)
-      window.removeEventListener('themechange', paint)
+      cleanupStatic()
     }
   }, [vibrato, tremolo, modulationVisible, dragging, effectsSelected])
 
