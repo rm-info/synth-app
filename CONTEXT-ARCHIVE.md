@@ -883,6 +883,40 @@ Phases listées ci-dessous dans l'ordre chronologique d'implémentation.
 
 ## Historique (chronologie inverse)
 
+- **2026-06-10 — Iteration T — T.3 : pitch envelope (enveloppe de hauteur, v4 inchangé)**
+  (`feat(iter-T/phase-3.1)` modèle + `feat(iter-T/phase-3.2)` audio +
+  `feat(iter-T/phase-3.3)` UI + doc). **1ʳᵉ modulation non-LFO** : la forme « enveloppe →
+  paramètre » (réutilisée par l'enveloppe de filtre T.5).
+  - **3.1 — modèle (v4 inchangé)** : nouveau type **`PitchEnv { enabled, amount cents
+    SIGNÉ ±2400, time ms 0..2000 }`** (frère du `Lfo`, champs distincts). `DEFAULT_PITCHENV`
+    `{ false, 1200, 150 }` ; `PITCHENV_AMOUNT_MAX/TIME_MAX` ; `sanitizePitchEnv` ;
+    `clampModulationValue` branche pitchEnv (amount/time). `DESIGNER_EFFECT_IDS += pitchEnv` ;
+    `DEFAULT_EDITOR` + `patchMeta` + SAVE/UPDATE_PATCH + RESET(_WAVEFORM) + HYDRATE portent
+    pitchEnv. `types.ts` (Patch/PatchData/Editor + `DesignerEffectId` + clé action
+    `keyof Lfo | keyof PitchEnv`). **Pas de bump `.osa`** : `isPitchEnvValidOrAbsent` ajouté
+    DANS le bloc v4 (champ absent → défaut injecté) ; libraryTransfer exporte pitchEnv.
+  - **3.2 — audio (4 chemins)** : `applyModulation` += opts `pitchEnv` → **automation de la
+    VALEUR DE BASE d'`osc.detune`** : `setValueAtTime(amount, start)` →
+    `linearRampToValueAtTime(0, start + time/1000)`. **Aucun nœud** (donc aucun cleanup),
+    **aucun traitement au release** (note < time → la rampe continue, assumé). **Coexistence
+    vibrato par construction** : le vibrato est une branche *entrante* sur `osc.detune` → Web
+    Audio SOMME « base automatisée + entrées connectées » ; l'enveloppe pose la trajectoire,
+    le vibrato ondule autour, zéro coordination (documenté dans `lib/modulation.js`). Guard
+    `amount≠0 && time>0` → sinon aucune automation (chaîne identique). Rampe **linéaire**
+    (convention AHDSR ; exponentielle = polish backlog). 4 chemins + signature scheduler
+    (`sigOfPitchEnv`).
+  - **3.3 — UI** : 4ᵉ bouton **« Hauteur »** (`buildEffectsHeaderItems`), panneau « Enveloppe
+    de hauteur » à part (`renderPitchEnvBlock`) — **PAS de switch de forme**, **2 `NumberInput`**
+    (départ cents signé / durée ms). **Graphe d'enveloppe** dédié (`drawPitchEnvGraph` /
+    `pitchEnvGeometry`) : médiane = hauteur nominale (0 cent), axe Y **signé** (amount /
+    `PITCHENV_AMOUNT_MAX` = fraction de la demi-hauteur), 2 poignées **Départ** (drag vertical,
+    franchit la médiane → change de signe) / **Arrivée** (drag horizontal → time). **Aucune
+    animation** (rien ne boucle → branche statique de la boucle rAF, repeinte au
+    resize/thème/draft). Handlers pitchEnv dédiés (hit-test/down/move) réutilisant la
+    **machinerie d'undo partagée** (`modOwnerRef`/`modDragGeomRef`/`draftMod`/`endModDrag` +
+    `applyModDrag` branches amount/time). Dirty-check `pitchEnvEqual`/`clonePitchEnv` +
+    `buildPayload`. `pitchEnvCanvasRef`, CSS `.we-lfo-controls--two`.
+
 - **2026-06-10 — Iteration T — T.2 : auto-pan (LFO → panoramique stéréo, `.osa` v4)**
   (`feat(iter-T/phase-2.1)` modèle + `feat(iter-T/phase-2.2)` audio +
   `feat(iter-T/phase-2.3)` UI + doc). **1ᵉʳ effet stéréo** de l'app (tout était centré).
