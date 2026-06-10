@@ -15,9 +15,11 @@ import './OverflowToolbar.css'
 // observée par le même RO (variation de largeur d'un item ⇒ recalcul).
 //
 // Props :
-// - items: [{ id, bar, tray }] ordonnés (index 0 = plus prioritaire). `bar` et
-//   `tray` sont des nodes React fabriqués par le parent (l'état des contrôles
-//   vit dans le parent ; on ne fait que relocaliser le rendu).
+// - items: [{ id, bar, tray, badge? }] ordonnés (index 0 = plus prioritaire).
+//   `bar` et `tray` sont des nodes React fabriqués par le parent (l'état des
+//   contrôles vit dans le parent ; on ne fait que relocaliser le rendu). `badge`
+//   (opt-in, défaut absent) marque un item « actif » pour l'agrégat du tiroir
+//   (cf. triggerBadge).
 // - prefix?: node toujours visible, rendu en tête du cluster (chrome fixe, ex.
 //   séparateur). Ne déborde jamais.
 // - trayFooter?: node rendu en bas du tiroir popover, après les items débordés
@@ -29,11 +31,15 @@ import './OverflowToolbar.css'
 //   ferme le menu (opt-in : le hamburger d'en-tête veut fermer sur sélection ; le
 //   `…` des contrôles de module garde le tiroir ouvert pour ajuster des steppers/
 //   toggles en rafale — R.3.rectif.6).
+// - triggerBadge?: boolean (défaut false, iter-T phase-1.2). Si true, le bouton
+//   `⋯` porte une pastille d'accent dès qu'au moins un item DÉBORDÉ (caché dans le
+//   tiroir) porte `badge: true`. Opt-in pur : les usages qui ne passent pas cette
+//   prop sont inchangés (module Effets : signale qu'un effet activé est masqué).
 // - className?, ariaLabel?, menuLabel?
 
 const GAP = 8 // px — doit coller au gap CSS de .overflow-toolbar-row
 
-export default function OverflowToolbar({ items, prefix, trayFooter, className, ariaLabel, menuLabel, triggerIcon, closeOnSelect = false }) {
+export default function OverflowToolbar({ items, prefix, trayFooter, className, ariaLabel, menuLabel, triggerIcon, closeOnSelect = false, triggerBadge = false }) {
   const renderTriggerIcon = () => triggerIcon ?? <Ellipsis size={18} />
   const rootRef = useRef(null)
   const ghostRef = useRef(null)
@@ -130,6 +136,9 @@ export default function OverflowToolbar({ items, prefix, trayFooter, className, 
 
   const visible = items.slice(0, visibleCount)
   const overflow = items.slice(visibleCount)
+  // iter-T phase-1.2 : agrégat — un item « actif » caché dans le tiroir fait
+  // porter la pastille au trigger (opt-in via triggerBadge).
+  const showTriggerBadge = triggerBadge && overflow.some((it) => it.badge)
 
   return (
     <div className={`overflow-toolbar${className ? ` ${className}` : ''}`} ref={rootRef}>
@@ -153,14 +162,17 @@ export default function OverflowToolbar({ items, prefix, trayFooter, className, 
         {overflow.length > 0 && (
           <button
             type="button"
-            className="icon-btn overflow-toolbar-trigger"
+            className={`icon-btn overflow-toolbar-trigger${showTriggerBadge ? ' has-badge' : ''}`}
             ref={triggerRef}
             aria-haspopup="true"
             aria-expanded={menuOpen}
             aria-label={menuLabel ?? 'Plus de contrôles'}
             title={menuLabel ?? 'Plus de contrôles'}
             onClick={() => (menuOpen ? closeMenu() : setMenuOpen(true))}
-          >{renderTriggerIcon()}</button>
+          >
+            {renderTriggerIcon()}
+            {showTriggerBadge && <span className="overflow-toolbar-trigger-badge" aria-hidden="true" />}
+          </button>
         )}
       </div>
 

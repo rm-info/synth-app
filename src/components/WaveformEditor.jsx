@@ -3465,6 +3465,36 @@ function WaveformEditor({
   // (vitesse/profondeur/installation) + un GRAPHE LFO éditable à poignées (P.5).
   // Header aligné sur les autres modules (icône + titre ellipsis O.6) ; la chrome
   // (réduire/agrandir) est posée par DesignerModule en coin absolu.
+  // iter-T phase-1.2 : boutons d'effet de la barre de titre du module « Effets »,
+  // comme DONNÉE (items d'OverflowToolbar) — partagés entre le header in-body
+  // (desktop) et le relogement toolbar (mobile, phase-1.3). Deux notions visuelles
+  // INDÉPENDANTES par bouton : « en cours d'édition » (exclusif, highlight is-active
+  // + aria-pressed) et « activé » (état audio enabled → pastille accent, indicateur
+  // pur). Clic = mise en édition seule (le on/off reste l'interrupteur du panneau).
+  const buildEffectsHeaderItems = () => {
+    const effects = [
+      { id: 'vibrato', label: 'Vibrato', enabled: vibrato.enabled },
+      { id: 'tremolo', label: 'Trémolo', enabled: tremolo.enabled },
+    ]
+    return effects.map((eff) => {
+      const selected = effectsSelected === eff.id
+      const button = (
+        <button
+          type="button"
+          className={`icon-btn we-effect-btn${selected ? ' is-active' : ''}`}
+          onClick={() => onSetEffectsSelected(eff.id)}
+          aria-pressed={selected}
+          title={`Éditer ${eff.label}`}
+        >
+          <span className="we-effect-btn-label">{eff.label}</span>
+          {eff.enabled && <span className="we-effect-dot" aria-hidden="true" />}
+        </button>
+      )
+      // `badge` : l'effet est activé → compte pour l'agrégat du tiroir (triggerBadge).
+      return { id: eff.id, bar: button, tray: button, badge: eff.enabled }
+    })
+  }
+
   const renderModulationArea = () => {
     const renderLfoBlock = (effect) => {
       const isVibrato = effect === 'vibrato'
@@ -3595,19 +3625,15 @@ function WaveformEditor({
             <MODULE_META.modulation.Icon className="we-area-icon" size={15} aria-hidden="true" />
             <h3 className="we-area-title" title="Modulation">Modulation</h3>
           </div>
-          {/* iter-T phase-1.1 : switcher temporaire (remplacé par l'OverflowToolbar
-              à pastilles « activé » + badge tiroir en phase-1.2). */}
-          <div className="spline-interp-toggle" role="group" aria-label="Effet édité">
-            {['vibrato', 'tremolo'].map((eff) => (
-              <button
-                key={eff}
-                type="button"
-                className={`icon-btn${effectsSelected === eff ? ' is-active' : ''}`}
-                onClick={() => onSetEffectsSelected(eff)}
-                aria-pressed={effectsSelected === eff}
-              >{eff === 'vibrato' ? 'Vibrato' : 'Trémolo'}</button>
-            ))}
-          </div>
+          {/* iter-T phase-1.2 : rangée de boutons d'effet (OverflowToolbar, même
+              pattern que les autres headers de module). En mobile le header in-body
+              rend [] — les items sont relogés dans la toolbar mobile (phase-1.3). */}
+          <OverflowToolbar
+            items={isMobile ? [] : buildEffectsHeaderItems()}
+            ariaLabel="Effet édité"
+            menuLabel="Effets"
+            triggerBadge
+          />
         </header>
         <div className="we-modulation-body">
           {renderLfoBlock('vibrato')}

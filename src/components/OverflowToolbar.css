@@ -52,6 +52,23 @@
 
 /* Bouton `⋯` : repris du style .icon-btn (cohérence avec le reste du Designer). */
 
+/* iter-T phase-1.2 : pastille agrégée sur le trigger — au moins un item « actif »
+   est caché dans le tiroir. Indicateur pur (non cliquable), coin haut-droit. */
+.overflow-toolbar-trigger.has-badge {
+  position: relative;
+}
+.overflow-toolbar-trigger-badge {
+  position: absolute;
+  top: -2px;
+  right: -2px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--accent);
+  border: 1.5px solid var(--surface-bg);
+  pointer-events: none;
+}
+
 /* Tiroir popover : carte flottante sous le `⋯`, alignée à droite. Tokens de
    surface/ombre des menus existants. */
 .overflow-toolbar-backdrop {

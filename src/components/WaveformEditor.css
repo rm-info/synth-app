@@ -1427,6 +1427,38 @@
   display: none;
 }
 
+/* iter-T phase-1.2 : boutons d'effet de la barre de titre (libellés texte courts).
+   Réutilise .icon-btn (highlight is-active accentué = effet en cours d'édition) ;
+   `position:relative` pour loger la pastille « activé ». */
+.we-effect-btn {
+  position: relative;
+  padding: 4px 9px;
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1;
+}
+.we-effect-btn-label {
+  white-space: nowrap;
+}
+/* Pastille « activé » (état audio enabled) : indicateur PUR, non cliquable, coin
+   haut-droit. Couleur d'accent ; passe au contraste sur le bouton actif (fond
+   accent) pour rester lisible. Indépendante de l'effet affiché. */
+.we-effect-dot {
+  position: absolute;
+  top: -3px;
+  right: -3px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--accent);
+  border: 1.5px solid var(--surface-bg);
+  pointer-events: none;
+}
+.we-effect-btn.is-active .we-effect-dot {
+  background: var(--accent-contrast, #fff);
+  border-color: var(--accent);
+}
+
 /* Un seul sous-bloc Vibrato / Trémolo affiché à la fois (iter-T) — il occupe
    tout le corps du module. */
 .we-lfo-block {
