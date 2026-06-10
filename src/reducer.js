@@ -84,6 +84,9 @@ export const VIBRATO_DEPTH_MAX = 200 // cents
 export const TREMOLO_DEPTH_MAX = 1
 // iter-T phase-2.1 : auto-pan = excursion stéréo symétrique ∈ [0,1] (1 = G↔D pleine largeur).
 export const AUTOPAN_DEPTH_MAX = 1
+// iter-T phase-3.1 : pitch envelope (enveloppe de hauteur, PAS un Lfo).
+export const PITCHENV_AMOUNT_MAX = 2400 // cents (±2 octaves), signé
+export const PITCHENV_TIME_MAX = 2000   // ms — durée du glissement vers 0
 export const LFO_ONSET_MAX = 2000 // ms
 /** @type {import('./types').LfoShape[]} */
 export const LFO_SHAPES = ['sine', 'triangle', 'square']
@@ -96,6 +99,10 @@ export const DEFAULT_TREMOLO = { enabled: false, rate: 5, depth: 0.3, onset: 0, 
 // iter-T phase-2.1 : désactivé mais musical (un auto-pan à 1 Hz s'entend
 // immédiatement) ; onset 0 aligné sur vibrato/trémolo.
 export const DEFAULT_AUTOPAN = { enabled: false, rate: 1, depth: 0.5, onset: 0, shape: 'sine' }
+/** @type {import('./types').PitchEnv} */
+// iter-T phase-3.1 : désactivé mais musical (+1 octave qui retombe en 150 ms =
+// pluck/tom immédiatement parlant).
+export const DEFAULT_PITCHENV = { enabled: false, amount: 1200, time: 150 }
 
 const clampToRange = (v, lo, hi, fallback) => {
   const n = Number(v)
@@ -119,6 +126,17 @@ export function sanitizeVibrato(raw) { return clampLfo(raw, VIBRATO_DEPTH_MAX, D
 export function sanitizeTremolo(raw) { return clampLfo(raw, TREMOLO_DEPTH_MAX, DEFAULT_TREMOLO) }
 export function sanitizeAutoPan(raw) { return clampLfo(raw, AUTOPAN_DEPTH_MAX, DEFAULT_AUTOPAN) }
 
+// iter-T phase-3.1 : pitch envelope (type frère du Lfo, champs distincts).
+// Tolérant à l'absence (champ manquant → DEFAULT_PITCHENV) ; clamps en dur.
+export function sanitizePitchEnv(raw) {
+  if (!raw || typeof raw !== 'object') return { ...DEFAULT_PITCHENV }
+  return {
+    enabled: raw.enabled === true,
+    amount: clampToRange(raw.amount, -PITCHENV_AMOUNT_MAX, PITCHENV_AMOUNT_MAX, DEFAULT_PITCHENV.amount),
+    time: clampToRange(raw.time, 0, PITCHENV_TIME_MAX, DEFAULT_PITCHENV.time),
+  }
+}
+
 // Défaut + borne de profondeur d'un effet (vibrato cents 200 ; trémolo/auto-pan 0..1).
 function effectDefault(effect) {
   return effect === 'vibrato' ? DEFAULT_VIBRATO
@@ -133,6 +151,13 @@ function effectDepthMax(effect) {
 
 // Clamp d'un champ unique pour SET_EDITOR_MODULATION (action paramétrée).
 function clampModulationValue(effect, key, value) {
+  // iter-T phase-3.1 : pitch envelope = type frère (clés amount/time, pas Lfo).
+  if (effect === 'pitchEnv') {
+    if (key === 'enabled') return value === true
+    if (key === 'amount') return clampToRange(value, -PITCHENV_AMOUNT_MAX, PITCHENV_AMOUNT_MAX, DEFAULT_PITCHENV.amount)
+    if (key === 'time') return clampToRange(value, 0, PITCHENV_TIME_MAX, DEFAULT_PITCHENV.time)
+    return value
+  }
   const fallback = effectDefault(effect)
   if (key === 'enabled') return value === true
   if (key === 'shape') return LFO_SHAPES.includes(value) ? value : fallback.shape
@@ -319,7 +344,7 @@ function sanitizeColumnWidths(raw) {
 const DESIGNER_MODULE_IDS = ['canvas', 'harmonics', 'spectrogram', 'params', 'adsr', 'modulation']
 // iter-T phase-1.1 : effets éditables dans le module « Effets » (ex-Modulation).
 // Source unique de la validation d'hydratation de `designerEffectsSelected`.
-const DESIGNER_EFFECT_IDS = ['vibrato', 'tremolo', 'autoPan']
+const DESIGNER_EFFECT_IDS = ['vibrato', 'tremolo', 'autoPan', 'pitchEnv']
 function sanitizeDesignerCollapsed(raw) {
   const out = { canvas: false, harmonics: false, spectrogram: false, params: false, adsr: false, modulation: false }
   if (raw && typeof raw === 'object') {
@@ -372,6 +397,8 @@ export const DEFAULT_EDITOR = {
   tremolo: { ...DEFAULT_TREMOLO },
   // iter-T phase-2.1 : auto-pan (LFO → panoramique stéréo).
   autoPan: { ...DEFAULT_AUTOPAN },
+  // iter-T phase-3.1 : pitch envelope (enveloppe de hauteur).
+  pitchEnv: { ...DEFAULT_PITCHENV },
   testTuningSystem: '12-TET', // '12-TET' | 'free'
   testNoteIndex: 9, // A
   testOctave: 4,
@@ -496,6 +523,8 @@ function patchMeta(p) {
     tremolo: sanitizeTremolo(p.tremolo),
     // iter-T phase-2.1 : auto-pan (absent des patches v1/v2/v3 → DEFAULT_AUTOPAN).
     autoPan: sanitizeAutoPan(p.autoPan),
+    // iter-T phase-3.1 : pitch envelope (absent → DEFAULT_PITCHENV ; v4 inchangé).
+    pitchEnv: sanitizePitchEnv(p.pitchEnv),
   }
 }
 
@@ -1701,6 +1730,8 @@ export function reducer(state, action) {
         tremolo: sanitizeTremolo(patchData.tremolo),
         // iter-T phase-2.1 : auto-pan du patch.
         autoPan: sanitizeAutoPan(patchData.autoPan),
+        // iter-T phase-3.1 : pitch envelope du patch.
+        pitchEnv: sanitizePitchEnv(patchData.pitchEnv),
       }
 
       // SAVE_PATCH non-undoable, mais on rewrite les snapshots LIBRARY
@@ -1753,6 +1784,8 @@ export function reducer(state, action) {
             tremolo: sanitizeTremolo(patchData.tremolo),
             // iter-T phase-2.1 : auto-pan du patch.
             autoPan: sanitizeAutoPan(patchData.autoPan),
+            // iter-T phase-3.1 : pitch envelope du patch.
+            pitchEnv: sanitizePitchEnv(patchData.pitchEnv),
           }
         }),
       }
@@ -2201,6 +2234,7 @@ export function reducer(state, action) {
           vibrato: { ...DEFAULT_VIBRATO },
           tremolo: { ...DEFAULT_TREMOLO },
           autoPan: { ...DEFAULT_AUTOPAN },
+          pitchEnv: { ...DEFAULT_PITCHENV },
           testTuningSystem,
           testNoteIndex,
           testOctave,
@@ -2300,6 +2334,7 @@ export function reducer(state, action) {
           vibrato: { ...DEFAULT_VIBRATO },
           tremolo: { ...DEFAULT_TREMOLO },
           autoPan: { ...DEFAULT_AUTOPAN },
+          pitchEnv: { ...DEFAULT_PITCHENV },
           // cap & nombre d'ancres : PRÉSERVÉS (≠ Ctrl+Alt+N qui réinitialise tout).
         },
       }
@@ -2319,6 +2354,7 @@ export function reducer(state, action) {
             vibrato: { ...DEFAULT_VIBRATO },
             tremolo: { ...DEFAULT_TREMOLO },
             autoPan: { ...DEFAULT_AUTOPAN },
+            pitchEnv: { ...DEFAULT_PITCHENV },
           },
         }
       }
@@ -2338,6 +2374,7 @@ export function reducer(state, action) {
           vibrato: sanitizeVibrato(patch.vibrato),
           tremolo: sanitizeTremolo(patch.tremolo),
           autoPan: sanitizeAutoPan(patch.autoPan),
+          pitchEnv: sanitizePitchEnv(patch.pitchEnv),
           currentLens: 'free',
           // M.r.4 — le flag n'est pas persisté dans le patch : phase inconnue au
           // rechargement → false (l'utilisateur normalisera explicitement avant

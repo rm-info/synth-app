@@ -8,7 +8,7 @@
 
 import { OSA_VERSION } from './osaFormat.js'
 import { nextAvailableFolderName } from './folderNames.js'
-import { migrateLegacyPatch, sanitizeVibrato, sanitizeTremolo, sanitizeAutoPan } from '../reducer.js'
+import { migrateLegacyPatch, sanitizeVibrato, sanitizeTremolo, sanitizeAutoPan, sanitizePitchEnv } from '../reducer.js'
 
 export class EmptyExportError extends Error {
   constructor() { super('Rien à exporter'); this.name = 'EmptyExportError' }
@@ -45,6 +45,8 @@ function normalizePatchForExport(patch, folderId) {
     tremolo: sanitizeTremolo(patch.tremolo),
     // itération T (.osa v4) : auto-pan stéréo.
     autoPan: sanitizeAutoPan(patch.autoPan),
+    // itération T (T.3, v4 inchangé) : pitch envelope.
+    pitchEnv: sanitizePitchEnv(patch.pitchEnv),
   }
 }
 

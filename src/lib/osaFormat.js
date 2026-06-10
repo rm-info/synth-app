@@ -78,6 +78,18 @@ function isLfoValidOrAbsent(v, depthMax) {
   return true
 }
 
+// itération T (T.3, v4 inchangé) : pitch envelope. Même contrat que les Lfo
+// (tolérant à l'absence, strict si présent) mais champs distincts : amount cents
+// SIGNÉ [-2400, 2400], time ms [0, 2000].
+function isPitchEnvValidOrAbsent(v) {
+  if (v === undefined || v === null) return true
+  if (typeof v !== 'object') return false
+  if (typeof v.enabled !== 'boolean') return false
+  if (!isNumberInRange(v.amount, -2400, 2400)) return false
+  if (!isNumberInRange(v.time, 0, 2000)) return false
+  return true
+}
+
 export function validatePayload(obj) {
   assert(obj && typeof obj === 'object', 'racine du fichier non-objet')
   assert(obj.version === 1 || obj.version === 2 || obj.version === 3 || obj.version === 4,
@@ -159,6 +171,8 @@ export function validatePayload(obj) {
         // itération T : auto-pan stéréo (depth ∈ [0,1]). Absent (v1/v2/v3) →
         // DEFAULT_AUTOPAN injecté à l'hydratation.
         assert(isLfoValidOrAbsent(p.autoPan, 1), `patch ${p.id}: autoPan invalide`)
+        // T.3 : pitch envelope (v4 inchangé — champ absent → défaut injecté).
+        assert(isPitchEnvValidOrAbsent(p.pitchEnv), `patch ${p.id}: pitchEnv invalide`)
       }
     } else {
       // v1 (legacy) : union discriminée par `mode`. Convertie en v2 à
