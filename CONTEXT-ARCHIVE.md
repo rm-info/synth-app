@@ -883,6 +883,28 @@ Phases listées ci-dessous dans l'ordre chronologique d'implémentation.
 
 ## Historique (chronologie inverse)
 
+- **2026-06-10 — Iteration T — T.3bis (phase-3.4) : pitch envelope, mode « Inverser »**
+  (`feat(iter-T/phase-3.4)` + doc). Miroir du pitch env : au lieu de partir décalé et
+  rejoindre la nominale, **part de la nominale et s'éloigne** vers `amount`, où la note
+  **reste** (sirènes/bends — comportement assumé : la nominale n'est que le départ).
+  - **Modèle** : `PitchEnv += invert:boolean` (défaut false). `sanitizePitchEnv` +
+    `clampModulationValue` (clé `invert`) + `osaFormat` (`invert` optionnel, absent →
+    false, **v4 inchangé**) ; `libraryTransfer`/`patchMeta`/RESET/HYDRATE couverts par
+    `sanitizePitchEnv`/`DEFAULT_PITCHENV`.
+  - **Audio** : dans `applyModulation`, miroir — inversé = `setValueAtTime(0, start)` →
+    `linearRampToValueAtTime(amount, end)` (la note tient `amount` car l'`AudioParam`
+    garde sa dernière valeur de rampe) ; normal inchangé. Coexistence vibrato inchangée.
+    Signature scheduler `sigOfPitchEnv` += `invert`.
+  - **UI** : toggle **« Inverser »** (`FlipVertical2`, `is-active`/`aria-pressed`,
+    désactivé si effet off) dans le `.we-lfo-head`. **Graphe miroir** (`drawPitchEnvGraph`
+    + `pitchEnvGeometry` enrichis : `yLevel`/`xElbow`/`invert`) : part de la médiane →
+    coude à `amount`/`time` → plateau. La poignée **verticale** (amount) passe au **coude**
+    en inversé (la **Durée** reste sur la médiane au coude) ; **mapping valeur↔position
+    inchangé** (amount lu de Y, time de X) → `applyModDrag` intact. Tooltips/label
+    **Cible/Durée** en inversé (override `label` de `LfoTooltip` + libellé du champ
+    « Départ »→« Cible »). Franchissement de la médiane (signe d'`amount`) OK dans les
+    deux modes. Dirty-check `pitchEnvEqual`/`clonePitchEnv` += `invert`.
+
 - **2026-06-10 — Iteration T — T.3 : pitch envelope (enveloppe de hauteur, v4 inchangé)**
   (`feat(iter-T/phase-3.1)` modèle + `feat(iter-T/phase-3.2)` audio +
   `feat(iter-T/phase-3.3)` UI + doc). **1ʳᵉ modulation non-LFO** : la forme « enveloppe →

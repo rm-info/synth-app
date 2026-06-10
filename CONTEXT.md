@@ -248,7 +248,7 @@ type Patch = {
   // itération T (T.2) : auto-pan stéréo (LFO → panner.pan).
   autoPan: Lfo                    // depth 0..1 = excursion symétrique G↔D autour du centre
   // itération T (T.3) : pitch envelope (enveloppe → osc.detune ; PAS un Lfo).
-  pitchEnv: PitchEnv              // { enabled, amount cents signé ±2400, time ms 40..2000 }
+  pitchEnv: PitchEnv              // { enabled, amount cents signé ±2400, time ms 40..2000, invert }
 }
 // type Lfo = { enabled:boolean, rate:number /*0.1-20 Hz*/, depth:number
 //   /*vibrato 0-200 cents ; trémolo/auto-pan 0-1*/, onset:number /*0-2000 ms*/,
@@ -256,8 +256,10 @@ type Patch = {
 //   (DEFAULT_VIBRATO rate:5 depth:20 ; DEFAULT_TREMOLO rate:5 depth:0.3 ;
 //   DEFAULT_AUTOPAN rate:1 depth:0.5).
 // type PitchEnv = { enabled:boolean, amount:number /*cents signés ±2400*/,
-//   time:number /*ms 40-2000, plancher 40 = inaudible en dessous*/ }.
-//   DEFAULT_PITCHENV { false, 1200, 150 } (T.3).
+//   time:number /*ms 40-2000, plancher 40 = inaudible en dessous*/,
+//   invert:boolean /*T.3bis : false = part décalé → rejoint la nominale ; true = part
+//   de la nominale → s'éloigne vers amount, où la note RESTE*/ }.
+//   DEFAULT_PITCHENV { false, 1200, 150, false } (T.3/T.3bis).
 // Editor : mêmes champs (dont vibrato/tremolo/autoPan/pitchEnv) + `currentLens: 'free'|'spline'`
 // (volatile, non persisté) = quelle lentille est active (M.r.3.2 : 'bars' retiré, vestigial).
 // Migration v1→v2 (M.r.1) : les anciens
@@ -482,11 +484,14 @@ Seuls les **placements timeline** s'appellent "clips".
   si un effet activé déborde dans le tiroir. État UI **`designerEffectsSelected`**
   ∈ {vibrato, tremolo, autoPan, pitchEnv} (défaut vibrato), persisté, validé à l'hydratation, **hors
   undo** ; action `SET_DESIGNER_EFFECTS_SELECTED` (non-undoable). **Pitch envelope
-  (T.3)** : sous-bloc à part (`renderPitchEnvBlock`) — PAS de switch de forme, **2
-  `NumberInput`** (départ cents signé / durée ms) + un **graphe d'enveloppe** dédié
-  (`drawPitchEnvGraph` : médiane = hauteur nominale, axe Y **signé**, 2 poignées Départ
-  vertical / Arrivée horizontal, **aucune animation** — branche statique de la boucle
-  rAF) ; réutilise les classes `.we-lfo-*` et la machinerie d'undo partagée. Les
+  (T.3/T.3bis)** : sous-bloc à part (`renderPitchEnvBlock`) — PAS de switch de forme, un
+  **toggle « Inverser »** (T.3bis, `FlipVertical2`) + **2 `NumberInput`** (départ|cible
+  cents signé / durée ms) + un **graphe d'enveloppe** dédié (`drawPitchEnvGraph` : médiane
+  = hauteur nominale, axe Y **signé**, axe x **racine carrée**, 2 poignées vertical/horizontal,
+  **aucune animation** — branche statique de la boucle rAF). En mode **inversé** le graphe
+  est en **miroir** (part de la médiane → s'éloigne vers `amount` → plateau) et la poignée
+  verticale se place au **coude** ; tooltips/label Cible/Durée. Réutilise les classes
+  `.we-lfo-*` et la machinerie d'undo partagée. Les
   sous-blocs **LFO** (vibrato/trémolo/auto-pan) rendent : interrupteur on/off, switch de
   forme (icônes SVG IconSine/IconTriangleWave/IconSquareWave), 3 `NumberInput` à
   steppers (vitesse Hz / profondeur cents|0..1 / installation ms) + un **graphe
@@ -1066,13 +1071,18 @@ Seuls les **placements timeline** s'appellent "clips".
   (pan ∈ [-depth, +depth]). Cleanup : le panner est poussé dans le tableau `mod`
   (déconnecté partout où l'osc l'est ; `stopModNodes` tolère l'absence de `.stop()`).
   **Pitch envelope (T.3, 1ʳᵉ modulation non-LFO) → automation de la VALEUR DE BASE
-  d'`osc.detune`** (`setValueAtTime(amount, start)` → `linearRampToValueAtTime(0,
-  start + time)`) : **aucun nœud**, donc rien à cleanup. **Coexistence vibrato par
-  construction** : le vibrato est une branche *entrante* sur `osc.detune` → Web Audio
-  somme « base automatisée + entrées » ; l'enveloppe pose la trajectoire, le vibrato
-  ondule autour, sans coordination. Guard `amount≠0 && time>0` (sinon aucune
-  automation). Rampe linéaire (convention AHDSR ; exponentielle = polish backlog). Pas
-  de traitement au release (note < time → la rampe continue, assumé).
+  d'`osc.detune`** : **aucun nœud**, donc rien à cleanup. **Normal** :
+  `setValueAtTime(amount, start)` → `linearRampToValueAtTime(0, start+time)` (part décalé,
+  rejoint la nominale). **Inversé (T.3bis, `invert:true`)** : miroir `setValueAtTime(0,
+  start)` → `linearRampToValueAtTime(amount, start+time)` — part de la nominale, s'éloigne
+  vers `amount` **et y reste** (l'`AudioParam` tient sa dernière valeur de rampe) : la
+  note tenue reste décalée de `amount`, la nominale n'est que le départ (**comportement
+  assumé** — sirènes/bends). **Coexistence vibrato par construction** : le vibrato est une
+  branche *entrante* sur `osc.detune` → Web Audio somme « base automatisée + entrées » ;
+  l'enveloppe pose la trajectoire, le vibrato ondule autour, sans coordination. Guard
+  `amount≠0 && time>0` (sinon aucune automation). Rampe linéaire (convention AHDSR ;
+  exponentielle = polish backlog). Pas de traitement au release (note < time → la rampe
+  continue, assumé).
   `onset` = fondu d'installation depuis le début de la note. Le
   trémolo reste **constant pendant le sustain** et ne s'éteint **qu'au release**
   (P.5) : sur les chemins programmés (timeline/export), `applyModulation` reçoit
@@ -2301,7 +2311,15 @@ par voix). Cadrage complet dans `archi/BACKLOG.md` (« Effets et modulations »)
   (2 inputs départ/durée, **pas de switch de forme**, graphe d'enveloppe à 2 poignées
   Départ/Arrivée, **sans animation**). **Pas de bump `.osa`** (v4 inchangé,
   `isPitchEnvValidOrAbsent`, absent → défaut). `sanitizePitchEnv`, `PITCHENV_AMOUNT_MAX/
-  TIME_MAX`, `drawPitchEnvGraph`, `pitchEnvCanvasRef`.
+  TIME_MIN/MAX`, `drawPitchEnvGraph` (axe x **racine carrée**, plancher 40 ms),
+  `pitchEnvCanvasRef`.
+- ✅ **T.3bis / T.3.4 (pitch envelope — mode Inverser)** — `pitchEnv += invert:boolean`
+  (défaut false). Audio : miroir de l'automation (`0 → amount` au lieu de `amount → 0`),
+  la note **reste** décalée de `amount` (l'`AudioParam` tient sa dernière valeur —
+  sirène/bend, **assumé**). UI : toggle **« Inverser »** (`FlipVertical2`) dans le head ;
+  **graphe miroir** (part de la médiane → s'éloigne vers `amount` → plateau) ; poignée
+  verticale au **coude** en inversé ; tooltips/label **Cible/Durée**. Signature scheduler
+  += invert. Pas de bump (`invert` absent → false).
 
 ✅ **Terminé**
 - **Iteration S — « Support tactile au doigt (web pur) » (close, v1.11.0)**. L'app
@@ -3225,10 +3243,12 @@ en T.2, défauts injectés pour les champs absents). Distorsion **par voix**
   les 4 chemins, `applyModulation` ne fait qu'ajouter la branche LFO ; 3ᵉ bouton + panneau
   (graphe à étiquettes G/D). **`OSA_VERSION = 4`** (bump unique de l'itération, accepte v1→v4).
 - ✅ **T.3 — pitch envelope (enveloppe → `osc.detune`, v4 inchangé)** : 1ʳᵉ modulation
-  non-LFO. `Patch`/`Editor` += `pitchEnv {enabled, amount cents signé, time ms}` ; automation
-  de la valeur de base d'`osc.detune` (aucun nœud ; somme avec le vibrato par construction)
-  sur les 4 chemins ; 4ᵉ bouton « Hauteur » + panneau enveloppe à 2 poignées (sans
-  animation). Pas de bump (`pitchEnv` absent → défaut injecté).
+  non-LFO. `Patch`/`Editor` += `pitchEnv {enabled, amount cents signé, time ms, invert}` ;
+  automation de la valeur de base d'`osc.detune` (aucun nœud ; somme avec le vibrato par
+  construction) sur les 4 chemins ; 4ᵉ bouton « Hauteur » + panneau enveloppe à 2 poignées
+  (sans animation). Pas de bump (`pitchEnv` absent → défaut injecté). **T.3bis** : mode
+  **« Inverser »** (part de la note, s'éloigne vers `amount` et y reste) — toggle + graphe
+  miroir.
 - ⏳ **T.4** filtre statique (`BiquadFilterNode` par voix : LP/HP/BP/notch, cutoff, Q).
 - ⏳ **T.5** enveloppe de filtre + wah (LFO → cutoff).
 - ⏳ **T.6** distorsion (`WaveShaperNode` par voix : drive, courbe soft/hard/fold).
@@ -3275,6 +3295,10 @@ effets temporels par piste, mixage/pan…) **non cadrée** ; « Monde B » inhar
 - **(iter-T, T.3) Courbe exponentielle du pitch envelope** : la rampe est linéaire
   (convention AHDSR). Une décroissance exponentielle (`setTargetAtTime` / time
   constant) sonnerait plus « drum ». Polish à juger à l'écoute, non prioritaire.
+- **(iter-T, T.3bis « inattendus ») Pitch « fall » au release** : chute de hauteur
+  déclenchée en **fin de note** (type cuivres), ancrée sur `releaseStart` plutôt que
+  sur l'attaque. Autre mécanique que le pitch env (qui agit à l'attaque) — variante
+  à explorer hors itération T.
 - **(iter-M) Sweep horizontal multi-barres** dans l'éditeur Harmoniques :
   peindre plusieurs barres en un drag (actuellement 1 barre/geste). Nice-to-have
   noté dans le prompt M.2 (nécessiterait une action « set amplitudes en bloc »
