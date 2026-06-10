@@ -1547,17 +1547,24 @@
    le tooltip de rôle (.adsr-tooltip réutilisé). iter-T : grandit pour remplir
    l'espace vertical du bloc (le graphe = surface d'édition principale, plus de
    place = poignées plus confortables) ; min-height garde le graphe utilisable. */
+/* Pattern identique au conteneur du canvas AHDSR (`.adsr-canvas-container`) qui
+   remplit son module : `flex:1` (basis 0 → prend tout le reste, pas `1 1 auto` qui
+   part de la taille de contenu et ne distribue pas), min-height plancher, overflow
+   hidden. Le canvas absolu (inset:0) remplit le wrap SANS contribuer à sa hauteur
+   de contenu → le buffer (canvas.height posé par drawLfoGraph) ne peut plus pousser
+   la boîte ni reboucler avec le ResizeObserver. */
 .we-lfo-canvas-wrap {
   position: relative;
-  flex: 1 1 auto;
+  flex: 1;
   min-height: 80px;
+  min-width: 0;
+  overflow: hidden;
 }
-/* Canvas en position:absolute (inset:0) : il remplit le wrap MAIS ne contribue pas
-   à sa hauteur de contenu → le buffer (canvas.height posé par drawLfoGraph) ne peut
-   plus pousser la boîte ni reboucler avec le ResizeObserver. */
 .we-lfo-canvas {
   position: absolute;
   inset: 0;
+  width: 100%;
+  height: 100%;
   box-sizing: border-box;
   display: block;
   border-radius: 5px;
