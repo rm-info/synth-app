@@ -46,11 +46,14 @@ framework UI (CSS manuscrit), pas de routing, pas de backend.
 v1.11.0). **T.1** (socle UI pur, module « Effets » + switcher header) → **T.2** (auto-pan,
 1ᵉʳ effet **stéréo**, `StereoPannerNode` conditionnel, **`.osa` `OSA_VERSION = 4`** =
 seul bump de l'itération) → **T.3 livrée** (pitch envelope) : 1ʳᵉ modulation **non-LFO** —
-`Patch`/`Editor` += **`pitchEnv {enabled, amount cents signé, time ms}`**, **automation
-de la valeur de base d'`osc.detune`** (aucun nœud ; le vibrato, branche entrante, s'y
-**somme** → coexistence par construction) sur les 4 chemins, 4ᵉ bouton « Hauteur » +
-panneau (graphe d'enveloppe à 2 poignées). **Pas de bump** (`pitchEnv` absent → défaut
-injecté, v4 inchangé). Reste T.4→T.6 (filtre, env+wah, distorsion). Dernière release :
+`Patch`/`Editor` += **`pitchEnv {enabled, amount cents signé, time ms, invert, curve}`**,
+**automation de la valeur de base d'`osc.detune`** (aucun nœud ; le vibrato, branche
+entrante, s'y **somme** → coexistence par construction) sur les 4 chemins, 4ᵉ bouton
+« Hauteur » + panneau (graphe d'enveloppe à 2 poignées). **T.3bis** : mode **Inverser**
+(part de la note → s'en éloigne, y reste). **T.3ter** : **4 formes de progression**
+(`curve` Linéaire/Décélérée/Exponentielle/Accélérée) via **`setValueCurveAtTime`** (64 pts
+pour les formes non linéaires) — orthogonal à `invert`. **Pas de bump** (`pitchEnv`/`curve`
+absent → défaut injecté, v4 inchangé). Reste T.4→T.6 (filtre, env+wah, distorsion). Dernière release :
 **v1.11.0** (Iteration S). Détail S.1→S.audio.5 et arc audio dans `CONTEXT-ARCHIVE.md`.
 
 > **Structure des fichiers de contexte.** Ce `CONTEXT.md` est le **brief
@@ -258,8 +261,12 @@ type Patch = {
 // type PitchEnv = { enabled:boolean, amount:number /*cents signés ±2400*/,
 //   time:number /*ms 40-2000, plancher 40 = inaudible en dessous*/,
 //   invert:boolean /*T.3bis : false = part décalé → rejoint la nominale ; true = part
-//   de la nominale → s'éloigne vers amount, où la note RESTE*/ }.
-//   DEFAULT_PITCHENV { false, 1200, 150, false } (T.3/T.3bis).
+//   de la nominale → s'éloigne vers amount, où la note RESTE*/,
+//   curve:'linear'|'easeOut'|'expo'|'easeIn' /*T.3ter : forme de la progression p(t)∈[0,1],
+//   orthogonale à invert ; valeur posée = départ + (arrivée−départ)·p(t). Audio :
+//   linear = linearRamp (chemin historique), formes non linéaires = setValueCurveAtTime
+//   (64 pts) — PAS exponentialRamp (ne traverse pas zéro)*/ }.
+//   DEFAULT_PITCHENV { false, 1200, 150, false, 'linear' } (T.3/T.3bis/T.3ter).
 // Editor : mêmes champs (dont vibrato/tremolo/autoPan/pitchEnv) + `currentLens: 'free'|'spline'`
 // (volatile, non persisté) = quelle lentille est active (M.r.3.2 : 'bars' retiré, vestigial).
 // Migration v1→v2 (M.r.1) : les anciens
@@ -484,11 +491,15 @@ Seuls les **placements timeline** s'appellent "clips".
   si un effet activé déborde dans le tiroir. État UI **`designerEffectsSelected`**
   ∈ {vibrato, tremolo, autoPan, pitchEnv} (défaut vibrato), persisté, validé à l'hydratation, **hors
   undo** ; action `SET_DESIGNER_EFFECTS_SELECTED` (non-undoable). **Pitch envelope
-  (T.3/T.3bis)** : sous-bloc à part (`renderPitchEnvBlock`) — PAS de switch de forme, un
-  **toggle « Inverser »** (T.3bis, `FlipVertical2`) + **2 `NumberInput`** (départ|cible
+  (T.3/T.3bis/T.3ter)** : sous-bloc à part (`renderPitchEnvBlock`) — un **toggle « Inverser »**
+  (T.3bis, `FlipVertical2`) + un **switch segmenté 4 formes** (T.3ter, idiome LFO :
+  `PITCH_CURVE_META`, glyphes SVG `IconCurve*` de trajectoire, libellés `STRINGS.pitchCurves`),
+  groupés à droite du head (`.we-lfo-head-controls`), + **2 `NumberInput`** (départ|cible
   cents signé / durée ms) + un **graphe d'enveloppe** dédié (`drawPitchEnvGraph` : médiane
   = hauteur nominale, axe Y **signé**, axe x **racine carrée**, 2 poignées vertical/horizontal,
-  **aucune animation** — branche statique de la boucle rAF). En mode **inversé** le graphe
+  **aucune animation** — branche statique de la boucle rAF ; **T.3ter** : la rampe est
+  échantillonnée via `pitchProgression(curve, t)` — **même fonction que l'audio**, donc
+  le tracé reflète exactement la forme choisie). En mode **inversé** le graphe
   est en **miroir** (part de la médiane → s'éloigne vers `amount` → plateau) et la poignée
   verticale se place **à droite sur le plateau** (fixe horizontalement, miroir du départ à
   gauche en normal) ; tooltips/label Cible/Durée. Réutilise les classes
@@ -1081,9 +1092,18 @@ Seuls les **placements timeline** s'appellent "clips".
   assumé** — sirènes/bends). **Coexistence vibrato par construction** : le vibrato est une
   branche *entrante* sur `osc.detune` → Web Audio somme « base automatisée + entrées » ;
   l'enveloppe pose la trajectoire, le vibrato ondule autour, sans coordination. Guard
-  `amount≠0 && time>0` (sinon aucune automation). Rampe linéaire (convention AHDSR ;
-  exponentielle = polish backlog). Pas de traitement au release (note < time → la rampe
-  continue, assumé).
+  `amount≠0 && time>0` (sinon aucune automation). **Forme de progression (T.3ter,
+  `curve`)** : `pitchProgression(curve, t)` donne `p(t)∈[0,1]` (linear=`t`,
+  easeOut=`1−(1−t)²`, expo=`(1−e^−5ᵗ)/(1−e^−5)`, easeIn=`t²`) ; la valeur posée =
+  `from + (to−from)·p(t)`, donc **orthogonale à `invert`** (qui n'échange que `from`/`to`).
+  `linear` garde le chemin historique (`setValueAtTime` + `linearRampToValueAtTime`) ;
+  les formes non linéaires passent par **un seul** `setValueCurveAtTime(Float32Array(64),
+  start, time/1000)` — **PAS `exponentialRampToValueAtTime`** (ne peut ni atteindre ni
+  traverser zéro, or la cible est 0 cent et `amount` est signé). `setValueCurveAtTime`
+  verrouille `osc.detune` sur sa fenêtre — sans conséquence, le pitch env est la **seule**
+  automation de base (le vibrato est une branche entrante sommée). Même fonction
+  `pitchProgression` partagée avec le graphe (`drawPitchEnvGraph`) → tracé == audio.
+  Pas de traitement au release (note < time → la rampe continue, assumé).
   `onset` = fondu d'installation depuis le début de la note. Le
   trémolo reste **constant pendant le sustain** et ne s'éteint **qu'au release**
   (P.5) : sur les chemins programmés (timeline/export), `applyModulation` reçoit
@@ -2321,6 +2341,16 @@ par voix). Cadrage complet dans `archi/BACKLOG.md` (« Effets et modulations »)
   **graphe miroir** (part de la médiane → s'éloigne vers `amount` → plateau) ; poignée
   verticale **à droite sur le plateau** en inversé ; tooltips/label **Cible/Durée**. Signature scheduler
   += invert. Pas de bump (`invert` absent → false).
+- ✅ **T.3ter / T.3.5 (pitch envelope — 4 formes de progression)** — `pitchEnv +=
+  curve:'linear'|'easeOut'|'expo'|'easeIn'` (défaut `'linear'`). Progression normalisée
+  `p(t)∈[0,1]` **orthogonale à `invert`** : valeur = `départ + (arrivée−départ)·p(t)`.
+  Audio (`modulation.js`) : `pitchProgression(curve, t)` partagée ; `linear` = chemin
+  historique (linearRamp), formes non linéaires = **un seul** `setValueCurveAtTime` (64 pts)
+  — **PAS `exponentialRampToValueAtTime`** (ne traverse pas zéro). 4 chemins, signature
+  scheduler += curve. UI : **switch segmenté 4 positions** (idiome LFO, `PITCH_CURVE_META`,
+  glyphes SVG `IconCurve*`, libellés `STRINGS.pitchCurves` Linéaire/Décélérée/Exponentielle/
+  Accélérée) groupé à droite du head avec Inverser ; le graphe applique la **vraie** `p(t)`
+  (même fonction que l'audio). Pas de bump (`curve` absent → `'linear'`). `PITCHENV_CURVES`.
 
 ✅ **Terminé**
 - **Iteration S — « Support tactile au doigt (web pur) » (close, v1.11.0)**. L'app
@@ -3293,13 +3323,14 @@ effets temporels par piste, mixage/pan…) **non cadrée** ; « Monde B » inhar
 
 ### Backlog général (à caser quand pertinent)
 
-- **(iter-T, T.3) Courbe exponentielle du pitch envelope** : la rampe est linéaire
-  (convention AHDSR). Une décroissance exponentielle (`setTargetAtTime` / time
-  constant) sonnerait plus « drum ». Polish à juger à l'écoute, non prioritaire.
 - **(iter-T, T.3bis « inattendus ») Pitch « fall » au release** : chute de hauteur
   déclenchée en **fin de note** (type cuivres), ancrée sur `releaseStart` plutôt que
   sur l'attaque. Autre mécanique que le pitch env (qui agit à l'attaque) — variante
   à explorer hors itération T.
+- **(iter-T, T.3ter) Courbure continue draggable du pitch envelope** : remplacer le
+  switch 4 formes par une courbure continue éditable sur le graphe, les 4 formes
+  devenant des presets de courbure. Le modèle (`p(t)` paramétrée) n'aurait pas à
+  casser. Noté à la livraison de T.3ter.
 - **(iter-M) Sweep horizontal multi-barres** dans l'éditeur Harmoniques :
   peindre plusieurs barres en un drag (actuellement 1 barre/geste). Nice-to-have
   noté dans le prompt M.2 (nécessiterait une action « set amplitudes en bloc »
