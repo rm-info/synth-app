@@ -76,15 +76,30 @@ function scheduleOneClip(ctx, clip, patch, startTime, trackGainNodes, defaultDes
   gain.gain.linearRampToValueAtTime(0, clipStart + totalDuration)
 
   osc.connect(gain)
-  gain.connect(dest)
+
+  // Auto-pan (itération T) : 1ᵉʳ effet stéréo. Le panner n'est inséré QUE si
+  // l'effet est actif et a une excursion — sinon chaîne bit-identique à avant
+  // (mono, zéro coût). osc → gain → panner → dest.
+  const ap = patch.autoPan
+  let panner = null
+  if (ap && ap.enabled && ap.depth > 0) {
+    panner = ctx.createStereoPanner()
+    gain.connect(panner)
+    panner.connect(dest)
+  } else {
+    gain.connect(dest)
+  }
 
   // Modulations LFO (itération P) : branchées après la programmation de
   // l'enveloppe, avant osc.start(). stopTime fourni → extinction programmée.
   const { nodes: mod } = applyModulation(ctx, {
-    osc, gain,
-    vibrato: patch.vibrato, tremolo: patch.tremolo,
+    osc, gain, panner,
+    vibrato: patch.vibrato, tremolo: patch.tremolo, autoPan: patch.autoPan,
     startTime: clipStart, stopTime: clipStart + totalDuration, releaseStart, baseAmplitude: amp,
   })
+  // Cleanup symétrique : le panner est déconnecté partout où l'osc l'est
+  // (stopModNodes tolère l'absence de .stop() sur un StereoPannerNode).
+  if (panner) mod.push(panner)
 
   osc.start(clipStart)
   osc.stop(clipStart + totalDuration)
@@ -133,15 +148,27 @@ function scheduleAllClips(ctx, clips, patches, startTime, trackGainNodes, defaul
     gain.gain.linearRampToValueAtTime(0, clipStart + totalDuration)
 
     osc.connect(gain)
-    gain.connect(dest)
+
+    // Auto-pan (itération T) : même insertion conditionnelle qu'en lecture.
+    // L'OfflineAudioContext est stéréo (2 canaux) → le WAV exporté porte la
+    // stéréo. Pas de cleanup (ctx jeté après rendu).
+    const ap = patch.autoPan
+    let panner = null
+    if (ap && ap.enabled && ap.depth > 0) {
+      panner = ctx.createStereoPanner()
+      gain.connect(panner)
+      panner.connect(dest)
+    } else {
+      gain.connect(dest)
+    }
 
     // Modulations LFO (itération P) — MÊME helper que scheduleOneClip, sinon
     // l'export WAV diverge de la lecture timeline (régression classique du code
     // dupliqué). Pas de cleanup manuel : l'OfflineAudioContext est jeté après
     // rendu, seul lfo.start/stop programmé suffit.
     applyModulation(ctx, {
-      osc, gain,
-      vibrato: patch.vibrato, tremolo: patch.tremolo,
+      osc, gain, panner,
+      vibrato: patch.vibrato, tremolo: patch.tremolo, autoPan: patch.autoPan,
       startTime: clipStart, stopTime: clipStart + totalDuration, releaseStart, baseAmplitude: amp,
     })
 
@@ -307,14 +334,14 @@ export function usePlayback({ clips, patches, tracks, bpm, a4Ref, xEdoN, totalDu
 
       if (currentClips !== prevClipsRef.current || currentPatches !== prevPatchesRef.current) {
         // La signature inclut l'enveloppe du patch référencé (F.3.12.1) ET ses
-        // modulations LFO (itération P) : changer hold/attack/decay/sustain/
-        // release/amplitude OU le vibrato/trémolo d'un patch utilisé en cours de
-        // lecture re-schedule les clips à venir (même mécanique que l'AHDSR).
+        // modulations LFO (itération P/T) : changer hold/attack/decay/sustain/
+        // release/amplitude OU le vibrato/trémolo/auto-pan d'un patch utilisé en
+        // cours de lecture re-schedule les clips à venir (même mécanique que l'AHDSR).
         const sigOfLfo = (l) => l ? `${l.enabled ? 1 : 0}:${l.rate}:${l.depth}:${l.onset}:${l.shape}` : ''
         const sigOf = (c, patchList) => {
           const p = patchList?.find(p => p.id === c.patchId)
           const env = p
-            ? `${p.attack}:${p.hold ?? 0}:${p.decay}:${p.sustain}:${p.release}:${p.amplitude}|${sigOfLfo(p.vibrato)}|${sigOfLfo(p.tremolo)}`
+            ? `${p.attack}:${p.hold ?? 0}:${p.decay}:${p.sustain}:${p.release}:${p.amplitude}|${sigOfLfo(p.vibrato)}|${sigOfLfo(p.tremolo)}|${sigOfLfo(p.autoPan)}`
             : ''
           return `${c.measure}:${c.beat}:${c.duration}:${c.patchId}:${c.trackId}:${c.tuningSystem}:${c.noteIndex}:${c.octave}:${c.frequency}|${env}`
         }

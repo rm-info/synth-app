@@ -6,7 +6,7 @@ import { applyModulation } from '../lib/modulation'
 import { splineToPoints } from '../lib/spline'
 import {
   CAP_MIN, CAP_MAX, SPLINE_ANCHOR_MIN, SPLINE_ANCHOR_MAX,
-  DEFAULT_VIBRATO, DEFAULT_TREMOLO,
+  DEFAULT_VIBRATO, DEFAULT_TREMOLO, DEFAULT_AUTOPAN,
   LFO_RATE_MIN, LFO_RATE_MAX, VIBRATO_DEPTH_MAX, TREMOLO_DEPTH_MAX, LFO_ONSET_MAX, LFO_SHAPES,
 } from '../reducer'
 import useWindowSize from '../hooks/useWindowSize'
@@ -638,6 +638,7 @@ function WaveformEditor({
   // `??` défensif pour un état hydraté avant migration).
   const vibratoBase = editor.vibrato ?? DEFAULT_VIBRATO
   const tremoloBase = editor.tremolo ?? DEFAULT_TREMOLO
+  const autoPanBase = editor.autoPan ?? DEFAULT_AUTOPAN
   // P.5 — graphe LFO éditable. Draft local d'un drag de poignée (un seul champ
   // d'un seul effet à la fois) : la pile undo ne reçoit qu'UN cran au relâchement
   // (SET_EDITOR_MODULATION est undoable par dispatch — cf. discipline AHDSR).
@@ -648,6 +649,7 @@ function WaveformEditor({
     (draftMod && draftMod.effect === effect) ? { ...lfo, [draftMod.key]: draftMod.value } : lfo
   const vibrato = applyModDraft('vibrato', vibratoBase)
   const tremolo = applyModDraft('tremolo', tremoloBase)
+  const autoPan = applyModDraft('autoPan', autoPanBase)
 
   const {
     testTuningSystem, testNoteIndex, testOctave, preset: activePreset,
@@ -770,7 +772,8 @@ function WaveformEditor({
     attack, hold, decay, sustain, release, amplitude, definition: effectiveDefinition,
     testOctave, testTuningSystem, testFrequency, a4Ref, xEdoN,
     // itération P : modulations LFO lues par les previews clavier / note libre.
-    vibrato, tremolo,
+    // itération T : += auto-pan.
+    vibrato, tremolo, autoPan,
   }
 
   // itération P — mini-courbes LFO animées du module Modulation. UNE seule boucle
@@ -1362,14 +1365,28 @@ function WaveformEditor({
     // Sustain indéfini jusqu'au release.
 
     osc.connect(gain)
-    gain.connect(analyserGainRef.current)
+
+    // itération T : auto-pan stéréo. Panner inséré seulement si actif + excursion
+    // (sinon chaîne mono inchangée). osc → gain → panner → analyserGain.
+    const ap = params.autoPan
+    let panner = null
+    if (ap && ap.enabled && ap.depth > 0) {
+      panner = ctx.createStereoPanner()
+      gain.connect(panner)
+      panner.connect(analyserGainRef.current)
+    } else {
+      gain.connect(analyserGainRef.current)
+    }
 
     // itération P : modulations LFO. Pas de stopTime (sustain indéfini) → le
     // cleanup est manuel (release / retrigger / stopAll / onended).
     const { nodes: mod, tremoloDepthGain } = applyModulation(ctx, {
-      osc, gain, vibrato: params.vibrato, tremolo: params.tremolo,
+      osc, gain, panner, vibrato: params.vibrato, tremolo: params.tremolo, autoPan: params.autoPan,
       startTime: now, baseAmplitude: params.amplitude,
     })
+    // Cleanup symétrique : le panner suit les nœuds LFO (stopModImmediate /
+    // releaseModNodes / disconnectModNodes tolèrent l'absence de .stop()).
+    if (panner) mod.push(panner)
 
     // Décrément réel à la fin de la voix : osc.onended fire quand
     // l'oscillator s'arrête effectivement (release naturel OU osc.stop()
@@ -1583,13 +1600,24 @@ function WaveformEditor({
     gain.gain.linearRampToValueAtTime(sustainLevel, now + a + h + d)
 
     osc.connect(gain)
-    gain.connect(analyserGainRef.current)
+
+    // itération T : auto-pan stéréo (canal libre). Même insertion conditionnelle.
+    const ap = params.autoPan
+    let panner = null
+    if (ap && ap.enabled && ap.depth > 0) {
+      panner = ctx.createStereoPanner()
+      gain.connect(panner)
+      panner.connect(analyserGainRef.current)
+    } else {
+      gain.connect(analyserGainRef.current)
+    }
 
     // itération P : modulations LFO (canal libre, sustain indéfini → cleanup manuel).
     const { nodes: mod, tremoloDepthGain } = applyModulation(ctx, {
-      osc, gain, vibrato: params.vibrato, tremolo: params.tremolo,
+      osc, gain, panner, vibrato: params.vibrato, tremolo: params.tremolo, autoPan: params.autoPan,
       startTime: now, baseAmplitude: params.amplitude,
     })
+    if (panner) mod.push(panner)
 
     // Décrément réel à la fin de la voix : osc.onended fire quand
     // l'oscillator s'arrête effectivement (release naturel OU osc.stop()

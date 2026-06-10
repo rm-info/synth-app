@@ -12,8 +12,14 @@
 // fréquence déjà programmée par l'appelant sur `osc.frequency`.
 // Trémolo → `gain.gain` : Web Audio SOMME ce signal à l'automation AHDSR déjà
 // programmée (on ne multiplie pas, on ne reprogramme pas l'enveloppe).
+// Auto-pan (itération T) → `panner.pan` d'un StereoPannerNode que l'APPELANT a
+// inséré dans la chaîne principale (osc → gain → panner → suite). Le helper ne
+// crée jamais le panner : il n'ajoute que la branche LFO sur `panner.pan` (base
+// 0, le LFO s'y somme dans [-depth, +depth]). `panner` absent → pas d'auto-pan
+// (appels existants sans stéréo restent valides).
 //
-// 100 % Web Audio API native (OscillatorNode + GainNode existants), zéro dépendance.
+// 100 % Web Audio API native (OscillatorNode + GainNode + StereoPannerNode
+// existants), zéro dépendance.
 
 // Programme la rampe d'onset (fondu d'installation depuis le début de la note).
 // onset === 0 → pose directement la valeur cible à startTime.
@@ -30,19 +36,21 @@ function scheduleOnset(param, target, startTime, onsetMs) {
 /**
  * @param {BaseAudioContext} ctx
  * @param {{
- *   osc: OscillatorNode, gain: GainNode,
+ *   osc: OscillatorNode, gain: GainNode, panner?: StereoPannerNode|null,
  *   vibrato?: import('../types').Lfo, tremolo?: import('../types').Lfo,
+ *   autoPan?: import('../types').Lfo,
  *   startTime: number, stopTime?: number, releaseStart?: number,
  *   baseAmplitude: number,
  * }} opts
  *   `releaseStart` (chemins programmés timeline/export) = instant où démarre le
  *   release de l'enveloppe principale. Sert au trémolo pour rester constant
  *   pendant le sustain puis ne s'éteindre que sur la durée du release.
+ *   `panner` = StereoPannerNode inséré par l'appelant (auto-pan only).
  * @returns {{ nodes: AudioNode[], tremoloDepthGain: GainNode|null }}
  *   `nodes` = [] si aucun effet enabled. `tremoloDepthGain` exposé pour que les
  *   previews (sans stopTime) éteignent le trémolo au release.
  */
-export function applyModulation(ctx, { osc, gain, vibrato, tremolo, startTime, stopTime, releaseStart, baseAmplitude }) {
+export function applyModulation(ctx, { osc, gain, panner, vibrato, tremolo, autoPan, startTime, stopTime, releaseStart, baseAmplitude }) {
   const nodes = []
   let tremoloDepthGain = null
 
@@ -86,6 +94,24 @@ export function applyModulation(ctx, { osc, gain, vibrato, tremolo, startTime, s
     if (stopTime != null) lfo.stop(stopTime)
     nodes.push(lfo, depthGain)
     tremoloDepthGain = depthGain
+  }
+
+  // Auto-pan (itération T) : LFO → `panner.pan` (base 0). depth ∈ [0,1] =
+  // excursion symétrique → pan oscille dans [-depth, +depth]. Comme le vibrato,
+  // depth reste CONSTANT jusqu'au bout de la note : StereoPannerNode est
+  // equal-power (pas d'énergie ajoutée), donc pas de plateau/release spécial à
+  // la trémolo. Le panner n'existe que si l'appelant l'a inséré (enabled && depth>0).
+  if (autoPan && autoPan.enabled && panner) {
+    const lfo = ctx.createOscillator()
+    lfo.type = autoPan.shape
+    lfo.frequency.setValueAtTime(autoPan.rate, startTime)
+    const depthGain = ctx.createGain()
+    scheduleOnset(depthGain.gain, autoPan.depth, startTime, autoPan.onset)
+    lfo.connect(depthGain)
+    depthGain.connect(panner.pan)
+    lfo.start(startTime)
+    if (stopTime != null) lfo.stop(stopTime)
+    nodes.push(lfo, depthGain)
   }
 
   return { nodes, tremoloDepthGain }
