@@ -9,7 +9,10 @@ import { TUNING_SYSTEMS } from './tuningSystems'
 export const OSA_MAGIC = new Uint8Array([0x4F, 0x53, 0x41, 0x32]) // "OSA2"
 // v3 (itération P) : ajoute vibrato/tremolo (LFO par patch). Le modèle canonique
 // est inchangé depuis v2 — v3 = v2 + deux objets Lfo optionnels par patch.
-export const OSA_VERSION = 3
+// v4 (itération T) : ajoute autoPan (3ᵉ Lfo, auto-pan stéréo). SEUL bump de
+// l'itération T : les phases T.3→T.6 ajouteront leurs champs DANS v4 avec la même
+// règle « champ absent → défaut injecté à l'hydratation ».
+export const OSA_VERSION = 4
 
 // 4 octets injectés à l'intérieur du flux gzip à GARBAGE_OFFSET (= juste
 // après le header gzip standard de 10 octets). Casse les archiveurs
@@ -77,8 +80,8 @@ function isLfoValidOrAbsent(v, depthMax) {
 
 export function validatePayload(obj) {
   assert(obj && typeof obj === 'object', 'racine du fichier non-objet')
-  assert(obj.version === 1 || obj.version === 2 || obj.version === 3,
-    'version non supportée (attendu 1, 2 ou 3)')
+  assert(obj.version === 1 || obj.version === 2 || obj.version === 3 || obj.version === 4,
+    'version non supportée (attendu 1, 2, 3 ou 4)')
   assert(Array.isArray(obj.patches), 'patches absent ou non-tableau')
   assert(Array.isArray(obj.soundFolders), 'soundFolders absent ou non-tableau')
 
@@ -112,9 +115,10 @@ export function validatePayload(obj) {
     assert(typeof p.id === 'string' && p.id.length > 0, 'patch.id invalide')
     assert(typeof p.name === 'string', `patch ${p.id}: name invalide`)
     assert(typeof p.color === 'string' && COLOR_RE.test(p.color), `patch ${p.id}: color invalide`)
-    if (obj.version === 2 || obj.version === 3) {
+    if (obj.version >= 2) {
       // v2 (M rattrapage) : modèle canonique unifié. v3 (itération P) : idem +
-      // vibrato/tremolo par patch (validés plus bas, tolérants à l'absence).
+      // vibrato/tremolo par patch. v4 (itération T) : idem + autoPan. Les LFO
+      // sont validés plus bas, tolérants à l'absence.
       // M.r.5.bis — borne défensive [-10, 10] (résidu [-12, 12]) au lieu de ±1.
       // Le pic théorique est Σ amplitudes_k (4-5 pour des patches normaux) ; 10
       // absorbe les cas extrêmes (résidu accumulé, harmoniques saturées) sans
@@ -145,11 +149,16 @@ export function validatePayload(obj) {
         assert(isNumberInRange(p.residual[i], -12, 12), `patch ${p.id}: residual ${i} hors [-12,12]`)
       }
       assert(isNumberInRange(p.amplitude, 0, 1), `patch ${p.id}: amplitude hors [0,1]`)
-      if (obj.version === 3) {
+      if (obj.version >= 3) {
         // itération P : modulations LFO. Absentes = tolérées (defaults à
         // l'hydratation) ; présentes = validées strictement.
         assert(isLfoValidOrAbsent(p.vibrato, 200), `patch ${p.id}: vibrato invalide`)
         assert(isLfoValidOrAbsent(p.tremolo, 1), `patch ${p.id}: tremolo invalide`)
+      }
+      if (obj.version >= 4) {
+        // itération T : auto-pan stéréo (depth ∈ [0,1]). Absent (v1/v2/v3) →
+        // DEFAULT_AUTOPAN injecté à l'hydratation.
+        assert(isLfoValidOrAbsent(p.autoPan, 1), `patch ${p.id}: autoPan invalide`)
       }
     } else {
       // v1 (legacy) : union discriminée par `mode`. Convertie en v2 à

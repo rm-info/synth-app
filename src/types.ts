@@ -93,7 +93,7 @@ export type LfoShape = 'sine' | 'triangle' | 'square'
 export interface Lfo {
   enabled: boolean
   rate: number     // Hz, borné [LFO_RATE_MIN, LFO_RATE_MAX]
-  depth: number    // vibrato : cents [0, VIBRATO_DEPTH_MAX] ; trémolo : [0, TREMOLO_DEPTH_MAX]
+  depth: number    // vibrato : cents [0, VIBRATO_DEPTH_MAX] ; trémolo/auto-pan : [0, 1]
   onset: number    // ms, borné [0, LFO_ONSET_MAX]
   shape: LfoShape
 }
@@ -175,6 +175,8 @@ export interface Patch extends AdsrEnvelope {
   // itération P : modulations LFO par patch (vibrato = hauteur, trémolo = volume).
   vibrato: Lfo
   tremolo: Lfo
+  // iter-T phase-2.1 : auto-pan (LFO → panoramique stéréo, depth = excursion 0..1).
+  autoPan: Lfo
 }
 
 // Données d'un patch transmises à SAVE_PATCH / UPDATE_PATCH (sans id/color).
@@ -193,6 +195,7 @@ export interface PatchData {
   // par le reducer si absentes — rétro-compat call-sites).
   vibrato?: Lfo
   tremolo?: Lfo
+  autoPan?: Lfo
   attack?: number
   hold?: number
   decay?: number
@@ -230,6 +233,8 @@ export interface Editor extends AdsrEnvelope {
   // l'identité du patch, comme l'AHDSR — ≠ champs `test*` volatils).
   vibrato: Lfo
   tremolo: Lfo
+  // iter-T phase-2.1 : auto-pan (LFO → panoramique stéréo).
+  autoPan: Lfo
   testTuningSystem: TuningSystemId
   testNoteIndex: number
   testOctave: number
@@ -307,7 +312,8 @@ export type TabId = 'library' | 'composer' | 'designer' | 'documentation'
 // itération P : 6ᵉ module 'modulation'.
 export type DesignerModuleId = 'canvas' | 'harmonics' | 'spectrogram' | 'params' | 'adsr' | 'modulation'
 // iter-T phase-1.1 : effets éditables dans le module « Effets » (ex-Modulation).
-export type DesignerEffectId = 'vibrato' | 'tremolo'
+// iter-T phase-2.1 : += 'autoPan' (auto-pan stéréo).
+export type DesignerEffectId = 'vibrato' | 'tremolo' | 'autoPan'
 // iter-O phase-5a : état replié (bande) de chacun des modules. Préférence UI
 // persistée (localStorage), non-undoable — comme designerColumnWidths.
 export interface DesignerCollapsed {
@@ -570,7 +576,7 @@ export type ActionBody =
   | { type: 'SET_EDITOR_ADSR_AND_AMP'; payload: { adsr?: Partial<AdsrEnvelope>; amplitude?: number } }
   // itération P : édition d'un paramètre de modulation. Action générique unique
   // (10 champs × set) qui clampe selon effect+key dans le reducer.
-  | { type: 'SET_EDITOR_MODULATION'; payload: { effect: 'vibrato' | 'tremolo'; key: keyof Lfo; value: boolean | number | LfoShape } }
+  | { type: 'SET_EDITOR_MODULATION'; payload: { effect: DesignerEffectId; key: keyof Lfo; value: boolean | number | LfoShape } }
   | { type: 'RESET_EDITOR' }
   // iter-M phase-r.2.2 : reset du timbre seul (canonical + cap + lentille
   // spline). Préserve ADSR / amplitude / test* / currentLens / currentPatchId.

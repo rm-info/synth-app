@@ -82,6 +82,8 @@ export const LFO_RATE_MIN = 0.1
 export const LFO_RATE_MAX = 20
 export const VIBRATO_DEPTH_MAX = 200 // cents
 export const TREMOLO_DEPTH_MAX = 1
+// iter-T phase-2.1 : auto-pan = excursion stéréo symétrique ∈ [0,1] (1 = G↔D pleine largeur).
+export const AUTOPAN_DEPTH_MAX = 1
 export const LFO_ONSET_MAX = 2000 // ms
 /** @type {import('./types').LfoShape[]} */
 export const LFO_SHAPES = ['sine', 'triangle', 'square']
@@ -90,6 +92,10 @@ export const LFO_SHAPES = ['sine', 'triangle', 'square']
 export const DEFAULT_VIBRATO = { enabled: false, rate: 5, depth: 20, onset: 0, shape: 'sine' }
 /** @type {import('./types').Lfo} */
 export const DEFAULT_TREMOLO = { enabled: false, rate: 5, depth: 0.3, onset: 0, shape: 'sine' }
+/** @type {import('./types').Lfo} */
+// iter-T phase-2.1 : désactivé mais musical (un auto-pan à 1 Hz s'entend
+// immédiatement) ; onset 0 aligné sur vibrato/trémolo.
+export const DEFAULT_AUTOPAN = { enabled: false, rate: 1, depth: 0.5, onset: 0, shape: 'sine' }
 
 const clampToRange = (v, lo, hi, fallback) => {
   const n = Number(v)
@@ -111,18 +117,28 @@ function clampLfo(raw, depthMax, fallback) {
 }
 export function sanitizeVibrato(raw) { return clampLfo(raw, VIBRATO_DEPTH_MAX, DEFAULT_VIBRATO) }
 export function sanitizeTremolo(raw) { return clampLfo(raw, TREMOLO_DEPTH_MAX, DEFAULT_TREMOLO) }
+export function sanitizeAutoPan(raw) { return clampLfo(raw, AUTOPAN_DEPTH_MAX, DEFAULT_AUTOPAN) }
+
+// Défaut + borne de profondeur d'un effet (vibrato cents 200 ; trémolo/auto-pan 0..1).
+function effectDefault(effect) {
+  return effect === 'vibrato' ? DEFAULT_VIBRATO
+    : effect === 'tremolo' ? DEFAULT_TREMOLO
+    : DEFAULT_AUTOPAN
+}
+function effectDepthMax(effect) {
+  return effect === 'vibrato' ? VIBRATO_DEPTH_MAX
+    : effect === 'tremolo' ? TREMOLO_DEPTH_MAX
+    : AUTOPAN_DEPTH_MAX
+}
 
 // Clamp d'un champ unique pour SET_EDITOR_MODULATION (action paramétrée).
 function clampModulationValue(effect, key, value) {
-  const fallback = effect === 'vibrato' ? DEFAULT_VIBRATO : DEFAULT_TREMOLO
+  const fallback = effectDefault(effect)
   if (key === 'enabled') return value === true
   if (key === 'shape') return LFO_SHAPES.includes(value) ? value : fallback.shape
   if (key === 'rate') return clampToRange(value, LFO_RATE_MIN, LFO_RATE_MAX, fallback.rate)
   if (key === 'onset') return clampToRange(value, 0, LFO_ONSET_MAX, fallback.onset)
-  if (key === 'depth') {
-    const depthMax = effect === 'vibrato' ? VIBRATO_DEPTH_MAX : TREMOLO_DEPTH_MAX
-    return clampToRange(value, 0, depthMax, fallback.depth)
-  }
+  if (key === 'depth') return clampToRange(value, 0, effectDepthMax(effect), fallback.depth)
   return value
 }
 
@@ -303,7 +319,7 @@ function sanitizeColumnWidths(raw) {
 const DESIGNER_MODULE_IDS = ['canvas', 'harmonics', 'spectrogram', 'params', 'adsr', 'modulation']
 // iter-T phase-1.1 : effets éditables dans le module « Effets » (ex-Modulation).
 // Source unique de la validation d'hydratation de `designerEffectsSelected`.
-const DESIGNER_EFFECT_IDS = ['vibrato', 'tremolo']
+const DESIGNER_EFFECT_IDS = ['vibrato', 'tremolo', 'autoPan']
 function sanitizeDesignerCollapsed(raw) {
   const out = { canvas: false, harmonics: false, spectrogram: false, params: false, adsr: false, modulation: false }
   if (raw && typeof raw === 'object') {
@@ -354,6 +370,8 @@ export const DEFAULT_EDITOR = {
   // itération P : modulations LFO par patch (défauts désactivés mais musicaux).
   vibrato: { ...DEFAULT_VIBRATO },
   tremolo: { ...DEFAULT_TREMOLO },
+  // iter-T phase-2.1 : auto-pan (LFO → panoramique stéréo).
+  autoPan: { ...DEFAULT_AUTOPAN },
   testTuningSystem: '12-TET', // '12-TET' | 'free'
   testNoteIndex: 9, // A
   testOctave: 4,
@@ -476,6 +494,8 @@ function patchMeta(p) {
     // itération P : modulations LFO (absentes des patches v1/v2 → défauts).
     vibrato: sanitizeVibrato(p.vibrato),
     tremolo: sanitizeTremolo(p.tremolo),
+    // iter-T phase-2.1 : auto-pan (absent des patches v1/v2/v3 → DEFAULT_AUTOPAN).
+    autoPan: sanitizeAutoPan(p.autoPan),
   }
 }
 
@@ -1679,6 +1699,8 @@ export function reducer(state, action) {
         // itération P : modulations LFO du patch.
         vibrato: sanitizeVibrato(patchData.vibrato),
         tremolo: sanitizeTremolo(patchData.tremolo),
+        // iter-T phase-2.1 : auto-pan du patch.
+        autoPan: sanitizeAutoPan(patchData.autoPan),
       }
 
       // SAVE_PATCH non-undoable, mais on rewrite les snapshots LIBRARY
@@ -1729,6 +1751,8 @@ export function reducer(state, action) {
             // itération P : modulations LFO du patch.
             vibrato: sanitizeVibrato(patchData.vibrato),
             tremolo: sanitizeTremolo(patchData.tremolo),
+            // iter-T phase-2.1 : auto-pan du patch.
+            autoPan: sanitizeAutoPan(patchData.autoPan),
           }
         }),
       }
@@ -2146,7 +2170,7 @@ export function reducer(state, action) {
     // seule action paramétrée (10 champs × set) qui clampe selon effect+key.
     case 'SET_EDITOR_MODULATION': {
       const { effect, key, value } = action.payload
-      if (effect !== 'vibrato' && effect !== 'tremolo') return state
+      if (!DESIGNER_EFFECT_IDS.includes(effect)) return state
       const clamped = clampModulationValue(effect, key, value)
       const current = state.editor[effect]
       if (current[key] === clamped) return state
@@ -2176,6 +2200,7 @@ export function reducer(state, action) {
           // itération P : modulations remises aux défauts (« Nouveau patch »).
           vibrato: { ...DEFAULT_VIBRATO },
           tremolo: { ...DEFAULT_TREMOLO },
+          autoPan: { ...DEFAULT_AUTOPAN },
           testTuningSystem,
           testNoteIndex,
           testOctave,
@@ -2274,6 +2299,7 @@ export function reducer(state, action) {
           // défauts (cohérent avec le reset des autres champs de timbre).
           vibrato: { ...DEFAULT_VIBRATO },
           tremolo: { ...DEFAULT_TREMOLO },
+          autoPan: { ...DEFAULT_AUTOPAN },
           // cap & nombre d'ancres : PRÉSERVÉS (≠ Ctrl+Alt+N qui réinitialise tout).
         },
       }
@@ -2292,6 +2318,7 @@ export function reducer(state, action) {
             anchors: DEFAULT_EDITOR.anchors.map((a) => ({ ...a })),
             vibrato: { ...DEFAULT_VIBRATO },
             tremolo: { ...DEFAULT_TREMOLO },
+            autoPan: { ...DEFAULT_AUTOPAN },
           },
         }
       }
@@ -2310,6 +2337,7 @@ export function reducer(state, action) {
           // itération P : modulations recopiées du patch (font partie de son identité).
           vibrato: sanitizeVibrato(patch.vibrato),
           tremolo: sanitizeTremolo(patch.tremolo),
+          autoPan: sanitizeAutoPan(patch.autoPan),
           currentLens: 'free',
           // M.r.4 — le flag n'est pas persisté dans le patch : phase inconnue au
           // rechargement → false (l'utilisateur normalisera explicitement avant
