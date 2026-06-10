@@ -900,8 +900,9 @@ Phases listées ci-dessous dans l'ordre chronologique d'implémentation.
     + `pitchEnvGeometry` enrichis : `yLevel`/`xElbow`/`invert`) : part de la médiane →
     coude à `amount`/`time` → plateau. La poignée **verticale** (amount) se place **à
     droite sur le plateau** en inversé (FIXE horizontalement, miroir du départ à gauche en
-    normal — ne suit pas la Durée ; la **Durée** reste sur la médiane au coude) ; **mapping
-    valeur↔position inchangé** (amount lu de Y, time de X) → `applyModDrag` intact. Tooltips/label
+    normal — ne suit pas la Durée) ; la **Durée** est sur le **coude** (donc SUR LA TRACE :
+    médiane en normal, niveau `amount` en inversé) ; **mapping valeur↔position inchangé**
+    (amount lu de Y, time de X, y de la Durée purement visuel) → `applyModDrag` intact. Tooltips/label
     **Cible/Durée** en inversé (override `label` de `LfoTooltip` + libellé du champ
     « Départ »→« Cible »). Franchissement de la médiane (signe d'`amount`) OK dans les
     deux modes. Dirty-check `pitchEnvEqual`/`clonePitchEnv` += `invert`.
