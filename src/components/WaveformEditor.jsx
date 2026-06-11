@@ -733,16 +733,37 @@ function drawDistortionGraph(canvas, distortion) {
   ctx.setLineDash([])
   ctx.globalAlpha = 1
 
-  // Courbe de transfert active.
+  const N = 96
+  const mix = distortion.mix
+  // T.6bis — wet pure f(x) en gris discret quand mix < 1 (repère ; même convention que
+  // la courbe « normalisée » du canvas Forme d'onde). La courbe accent étant l'EFFECTIVE,
+  // ce repère montre la non-linéarité brute sous le mélange.
+  if (enabled && mix < 1) {
+    ctx.strokeStyle = themeColor('canvas-text-primary')
+    ctx.globalAlpha = 0.5
+    ctx.lineWidth = 1
+    ctx.beginPath()
+    for (let i = 0; i <= N; i++) {
+      const x = (i / N) * 2 - 1
+      const y = Math.max(-1, Math.min(1, distortionTransfer(distortion.curve, distortion.drive, x)))
+      if (i === 0) ctx.moveTo(xOf(x), yOf(y))
+      else ctx.lineTo(xOf(x), yOf(y))
+    }
+    ctx.stroke()
+    ctx.globalAlpha = 1
+  }
+
+  // T.6bis — courbe EFFECTIVE (réellement entendue) = mix·f(x) + (1−mix)·x. À mix:1 elle
+  // coïncide avec f ; en baissant le mix elle se couche vers la diagonale identité.
   ctx.strokeStyle = enabled ? themeColor('accent') : themeColor('canvas-text-secondary')
   ctx.globalAlpha = enabled ? 1 : 0.45
   ctx.lineWidth = 1.75
   ctx.lineJoin = 'round'
   ctx.beginPath()
-  const N = 96
   for (let i = 0; i <= N; i++) {
     const x = (i / N) * 2 - 1
-    const y = Math.max(-1, Math.min(1, distortionTransfer(distortion.curve, distortion.drive, x)))
+    const f = distortionTransfer(distortion.curve, distortion.drive, x)
+    const y = Math.max(-1, Math.min(1, mix * f + (1 - mix) * x))
     if (i === 0) ctx.moveTo(xOf(x), yOf(y))
     else ctx.lineTo(xOf(x), yOf(y))
   }
