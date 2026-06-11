@@ -17,6 +17,7 @@ import {
   FILTERENV_AMOUNT_MAX, FILTERENV_TIME_MAX, FILTERENV_TIME_MIN, WAH_DEPTH_MAX,
   FILTER_CUTOFF_MIN, FILTER_CUTOFF_MAX, FILTER_Q_MIN, FILTER_Q_MAX, FILTER_TYPES,
   DISTORTION_DRIVE_MIN, DISTORTION_DRIVE_MAX, DISTORTION_CURVES,
+  DRIVEENV_AMOUNT_MAX, DRIVEENV_TIME_MAX, DRIVEENV_TIME_MIN,
 } from '../reducer'
 import useWindowSize from '../hooks/useWindowSize'
 import FreqInput from './FreqInput'
@@ -514,6 +515,8 @@ function drawParamEnvGraph(canvas, env, bounds) {
 const PARAM_ENV_BOUNDS = {
   pitchEnv: { amountMax: PITCHENV_AMOUNT_MAX, timeMax: PITCHENV_TIME_MAX, timeMin: PITCHENV_TIME_MIN },
   filterEnv: { amountMax: FILTERENV_AMOUNT_MAX, timeMax: FILTERENV_TIME_MAX, timeMin: FILTERENV_TIME_MIN },
+  // T.6bis : driveEnv — `amount` est un décalage de GAIN (±1, fin), pas des cents.
+  driveEnv: { amountMax: DRIVEENV_AMOUNT_MAX, timeMax: DRIVEENV_TIME_MAX, timeMin: DRIVEENV_TIME_MIN, gain: true },
 }
 
 // === Graphe de réponse en fréquence du filtre (T.4) ===
@@ -1310,6 +1313,8 @@ function WaveformEditor({
   const wahCanvasRef = useRef(null)
   // T.6 — graphe de la courbe de transfert de la distorsion (statique, poignée Drive).
   const distortionCanvasRef = useRef(null)
+  // T.6bis — graphe d'enveloppe de drive (statique, comme pitchEnv/filterEnv).
+  const driveEnvCanvasRef = useRef(null)
   // T.4 — graphe de réponse du filtre + biquad de MESURE. On réutilise le contexte
   // audio du Designer s'il existe (mêmes coefficients que la lecture) ; sinon un
   // OfflineAudioContext léger (avant la 1ʳᵉ note, pas de geste utilisateur requis).
@@ -1344,11 +1349,11 @@ function WaveformEditor({
     // LFO), AUCUNE animation (rien ne boucle). État statique, repeint au resize/thème/
     // draft (deps `pitchEnv`/`filterEnv`), sans jamais lancer la boucle rAF. Même graphe,
     // bornes propres (PARAM_ENV_BOUNDS) — seul écart entre les deux.
-    if (effectsSelected === 'pitchEnv' || effectsSelected === 'filterEnv') {
-      const isPitch = effectsSelected === 'pitchEnv'
-      const canvas = isPitch ? pitchEnvCanvasRef.current : filterEnvCanvasRef.current
-      const env = isPitch ? pitchEnv : filterEnv
-      const bounds = isPitch ? PARAM_ENV_BOUNDS.pitchEnv : PARAM_ENV_BOUNDS.filterEnv
+    if (effectsSelected === 'pitchEnv' || effectsSelected === 'filterEnv' || effectsSelected === 'driveEnv') {
+      const canvas = effectsSelected === 'pitchEnv' ? pitchEnvCanvasRef.current
+        : effectsSelected === 'filterEnv' ? filterEnvCanvasRef.current : driveEnvCanvasRef.current
+      const env = effectsSelected === 'pitchEnv' ? pitchEnv : effectsSelected === 'filterEnv' ? filterEnv : driveEnv
+      const bounds = PARAM_ENV_BOUNDS[effectsSelected]
       const paint = () => drawParamEnvGraph(canvas, env, bounds)
       paint()
       window.addEventListener('themechange', paint)
@@ -1457,7 +1462,7 @@ function WaveformEditor({
       cancelAnimationFrame(raf)
       cleanupStatic()
     }
-  }, [vibrato, tremolo, autoPan, pitchEnv, filter, filterEnv, wah, distortion, modulationVisible, dragging, effectsSelected])
+  }, [vibrato, tremolo, autoPan, pitchEnv, filter, filterEnv, wah, distortion, driveEnv, modulationVisible, dragging, effectsSelected])
 
   const referenceRef = useRef(snapshotPatchFields(editor))
   const referencedPatchIdRef = useRef(null)
@@ -4089,9 +4094,11 @@ function WaveformEditor({
       const frac = Math.max(0, Math.min(1, (fg.driveBottom - y) / fg.driveUsableH))
       const drive = Math.exp(DIST_DRIVE_LN_MIN + frac * (DIST_DRIVE_LN_MAX - DIST_DRIVE_LN_MIN))
       value = Math.round(Math.max(DISTORTION_DRIVE_MIN, Math.min(DISTORTION_DRIVE_MAX, drive)))
-    } else if (fg.key === 'amount') { // T.3/T.5 : drag vertical SIGNÉ (franchit la médiane → change de signe)
+    } else if (fg.key === 'amount') { // T.3/T.5/T.6bis : drag vertical SIGNÉ (franchit la médiane → change de signe)
       const frac = Math.max(-1, Math.min(1, (fg.midY - y) / fg.halfUsableH))
-      value = Math.round(frac * fg.amountMax)
+      const raw = frac * fg.amountMax
+      // gain (driveEnv ±1) → 2 décimales ; cents (pitch/filtre) → entier.
+      value = fg.amountGain ? Math.round(raw * 100) / 100 : Math.round(raw)
     } else { // T.3/T.5 'time' : drag horizontal → durée. Inverse du mapping racine (frac²·max).
       const frac = Math.max(0, Math.min(1, (x - fg.marginL) / fg.usableW))
       const ms = frac * frac * fg.timeMax
@@ -4140,7 +4147,8 @@ function WaveformEditor({
         : fg.effect === 'autoPan' ? autoPanBase
         : fg.effect === 'wah' ? wahBase
         : fg.effect === 'distortion' ? distortionBase
-        : fg.effect === 'filterEnv' ? filterEnvBase : pitchEnvBase
+        : fg.effect === 'filterEnv' ? filterEnvBase
+        : fg.effect === 'driveEnv' ? driveEnvBase : pitchEnvBase
       if (draftMod.value !== base[draftMod.key]) {
         editorActions.setModulation(draftMod.effect, draftMod.key, draftMod.value)
       }
@@ -4172,7 +4180,8 @@ function WaveformEditor({
   // `applyModDrag` (branches amount/time, bornes gelées) + handleModPointerUp/Cancel/
   // Leave partagés. Paramétré par `effect` (pitchEnv | filterEnv) + ses bornes propres.
   const paramEnvCanvasFor = (effect) =>
-    effect === 'pitchEnv' ? pitchEnvCanvasRef.current : filterEnvCanvasRef.current
+    effect === 'pitchEnv' ? pitchEnvCanvasRef.current
+    : effect === 'filterEnv' ? filterEnvCanvasRef.current : driveEnvCanvasRef.current
   const paramEnvHitTest = (effect, env, bounds, e) => {
     const canvas = paramEnvCanvasFor(effect)
     if (!canvas) return { key: null }
@@ -4204,6 +4213,7 @@ function WaveformEditor({
       halfUsableH: hit.g.halfUsableH,
       // Bornes gelées (cf. applyModDrag amount/time) — propres à l'instance.
       amountMax: bounds.amountMax, timeMax: bounds.timeMax, timeMin: bounds.timeMin,
+      amountGain: bounds.gain === true,
     }
     setDraftMod({ effect, key: hit.key, value: env[hit.key] })
   }
@@ -4366,6 +4376,7 @@ function WaveformEditor({
       { id: 'filterEnv', label: 'Env. filtre', enabled: filterEnv.enabled },
       { id: 'wah', label: 'Wah', enabled: wah.enabled },
       { id: 'distortion', label: 'Disto', enabled: distortion.enabled },
+      { id: 'driveEnv', label: 'Env. drive', enabled: driveEnv.enabled },
     ]
     return effects.map((eff) => {
       const selected = effectsSelected === eff.id
@@ -4401,6 +4412,21 @@ function WaveformEditor({
             className="we-effect-hint-btn"
             onClick={() => editorActions.setModulation('filter', 'enabled', true)}
           >Activer le filtre</button>
+        </div>
+      )
+    }
+    // T.6bis — même pattern pour l'env. de drive : muette tant que la disto n'est pas
+    // insérée (distortion.enabled). Le bouton inline l'active en un cran d'undo.
+    const renderDistortionTargetHint = () => {
+      if (distortion.enabled) return null
+      return (
+        <div className="we-effect-hint" role="note">
+          <span>La distorsion est désactivée — cet effet est muet.</span>
+          <button
+            type="button"
+            className="we-effect-hint-btn"
+            onClick={() => editorActions.setModulation('distortion', 'enabled', true)}
+          >Activer la distorsion</button>
         </div>
       )
     }
@@ -4550,22 +4576,36 @@ function WaveformEditor({
     // du graphe diffère seulement par la médiane (hauteur nominale vs cutoff réglé).
     const renderParamEnvBlock = (effect) => {
       const isPitch = effect === 'pitchEnv'
-      const env = isPitch ? pitchEnv : filterEnv
-      const bounds = isPitch ? PARAM_ENV_BOUNDS.pitchEnv : PARAM_ENV_BOUNDS.filterEnv
-      const canvasRef = isPitch ? pitchEnvCanvasRef : filterEnvCanvasRef
+      const isDrive = effect === 'driveEnv'
+      const env = isPitch ? pitchEnv : isDrive ? driveEnv : filterEnv
+      const bounds = PARAM_ENV_BOUNDS[effect]
+      const canvasRef = isPitch ? pitchEnvCanvasRef : isDrive ? driveEnvCanvasRef : filterEnvCanvasRef
       const enabled = env.enabled
       const hidden = effectsSelected !== effect
       const set = (key, value) => editorActions.setModulation(effect, key, value)
-      const switchLabel = isPitch ? 'Enveloppe de hauteur' : 'Enveloppe de filtre'
+      const switchLabel = isPitch ? 'Enveloppe de hauteur' : isDrive ? 'Enveloppe de drive' : 'Enveloppe de filtre'
       const invertTitle = isPitch
         ? "Inverser : part de la note et s'en éloigne vers la cible (où elle reste)"
+        : isDrive
+        ? "Inverser : part du drive nominal et s'en éloigne vers la cible (où il reste)"
         : "Inverser : part du cutoff réglé et s'en éloigne vers la cible (où il reste)"
       const startAria = isPitch
         ? "Départ de l'enveloppe de hauteur en cents (signé)"
+        : isDrive
+        ? "Départ de l'enveloppe de drive (décalage de gain signé)"
         : "Départ de l'enveloppe de filtre en cents (signé)"
       const durationAria = isPitch
         ? "Durée du glissement vers la hauteur nominale en millisecondes"
+        : isDrive
+        ? "Durée du glissement vers le drive nominal en millisecondes"
         : "Durée du glissement vers le cutoff réglé en millisecondes"
+      // T.6bis : driveEnv `amount` = décalage de GAIN (±1, 2 décimales), pas des cents.
+      const startUnit = isDrive ? '' : ' (cents)'
+      const amountFormat = isDrive ? (v) => v.toFixed(2) : (v) => String(Math.round(v))
+      const amountStep = isDrive ? 0.05 : 10
+      const amountShift = isDrive ? 0.25 : 100
+      // Hint « cible désactivée » : filterEnv → filtre off ; driveEnv → disto off.
+      const targetHint = isPitch ? null : isDrive ? renderDistortionTargetHint() : renderFilterTargetHint()
       return (
         <div className={`we-lfo-block${enabled ? ' is-enabled' : ''}${hidden ? ' is-hidden' : ''}`} key={effect}>
           <div className="we-lfo-head">
@@ -4615,7 +4655,7 @@ function WaveformEditor({
               </div>
             </div>
           </div>
-          {!isPitch && renderFilterTargetHint()}
+          {targetHint}
           <div className="we-lfo-canvas-wrap">
             <canvas
               className="we-lfo-canvas"
@@ -4643,17 +4683,17 @@ function WaveformEditor({
           </div>
           <div className="we-lfo-controls we-lfo-controls--two">
             <div className="we-lfo-control">
-              <span>{env.invert ? 'Cible (cents)' : 'Départ (cents)'}</span>
+              <span>{(env.invert ? 'Cible' : 'Départ') + startUnit}</span>
               <NumberInput
                 value={env.amount}
                 onChange={(v) => set('amount', v)}
                 min={-bounds.amountMax}
                 max={bounds.amountMax}
                 parse={parseLfoNum}
-                format={(v) => String(Math.round(v))}
+                format={amountFormat}
                 showSteppers
-                step={10}
-                shiftStep={100}
+                step={amountStep}
+                shiftStep={amountShift}
                 className="adsr-value-input"
                 disabled={!enabled}
                 ariaLabel={startAria}
@@ -4916,6 +4956,7 @@ function WaveformEditor({
           {renderParamEnvBlock('filterEnv')}
           {renderLfoBlock('wah')}
           {renderDistortionBlock()}
+          {renderParamEnvBlock('driveEnv')}
         </div>
       </div>
     )
