@@ -128,6 +128,17 @@ export interface PatchFilter {
   q: number        // résonance linéaire, bornée [FILTER_Q_MIN, FILTER_Q_MAX]
 }
 
+// iter-T phase-6.1 : distorsion par voix (WaveShaperNode 4x). `curve` = forme de la
+// courbe de transfert (toutes normalisées ±1 → ±1), `drive` = raideur (k), `mix` =
+// dosage wet/dry. Insérée AVANT le filtre (osc → shaper → biquad → gain).
+export type DistortionCurve = 'soft' | 'hard' | 'fold'
+export interface Distortion {
+  enabled: boolean
+  curve: DistortionCurve
+  drive: number    // raideur, bornée [DISTORTION_DRIVE_MIN, DISTORTION_DRIVE_MAX]
+  mix: number      // wet/dry ∈ [0, 1] (1 = tout distordu)
+}
+
 // === Modèle métier ===
 
 // Hauteur portée par un clip : système-based (noteIndex/octave non nuls) OU
@@ -215,6 +226,8 @@ export interface Patch extends AdsrEnvelope {
   filterEnv: ParamEnv
   // iter-T phase-5.1 : wah (LFO → biquad.detune, depth en cents ; no-op si filtre off).
   wah: Lfo
+  // iter-T phase-6.1 : distorsion par voix (WaveShaper inséré avant le filtre).
+  distortion: Distortion
 }
 
 // Données d'un patch transmises à SAVE_PATCH / UPDATE_PATCH (sans id/color).
@@ -238,6 +251,7 @@ export interface PatchData {
   filter?: PatchFilter
   filterEnv?: ParamEnv
   wah?: Lfo
+  distortion?: Distortion
   attack?: number
   hold?: number
   decay?: number
@@ -284,6 +298,8 @@ export interface Editor extends AdsrEnvelope {
   // iter-T phase-5.1 : enveloppe de filtre + wah (modulent biquad.detune).
   filterEnv: ParamEnv
   wah: Lfo
+  // iter-T phase-6.1 : distorsion par voix (WaveShaper).
+  distortion: Distortion
   testTuningSystem: TuningSystemId
   testNoteIndex: number
   testOctave: number
@@ -364,7 +380,8 @@ export type DesignerModuleId = 'canvas' | 'harmonics' | 'spectrogram' | 'params'
 // iter-T phase-2.1 : += 'autoPan' (auto-pan stéréo). phase-3.1 : += 'pitchEnv'.
 // phase-4.1 : += 'filter' (filtre statique BiquadFilter). phase-5.1 : += 'filterEnv'
 // (enveloppe de filtre) + 'wah' (LFO de cutoff), tous deux sur biquad.detune.
-export type DesignerEffectId = 'vibrato' | 'tremolo' | 'autoPan' | 'pitchEnv' | 'filter' | 'filterEnv' | 'wah'
+// phase-6.1 : += 'distortion' (WaveShaper par voix, 8ᵉ et dernier).
+export type DesignerEffectId = 'vibrato' | 'tremolo' | 'autoPan' | 'pitchEnv' | 'filter' | 'filterEnv' | 'wah' | 'distortion'
 // iter-O phase-5a : état replié (bande) de chacun des modules. Préférence UI
 // persistée (localStorage), non-undoable — comme designerColumnWidths.
 export interface DesignerCollapsed {
@@ -627,7 +644,7 @@ export type ActionBody =
   | { type: 'SET_EDITOR_ADSR_AND_AMP'; payload: { adsr?: Partial<AdsrEnvelope>; amplitude?: number } }
   // itération P : édition d'un paramètre de modulation. Action générique unique
   // (10 champs × set) qui clampe selon effect+key dans le reducer.
-  | { type: 'SET_EDITOR_MODULATION'; payload: { effect: DesignerEffectId; key: keyof Lfo | keyof ParamEnv | keyof PatchFilter; value: boolean | number | LfoShape | ParamEnvCurve | FilterType } }
+  | { type: 'SET_EDITOR_MODULATION'; payload: { effect: DesignerEffectId; key: keyof Lfo | keyof ParamEnv | keyof PatchFilter | keyof Distortion; value: boolean | number | LfoShape | ParamEnvCurve | FilterType | DistortionCurve } }
   | { type: 'SET_EDITOR_FILTER_POINT'; payload: { cutoff: number; q: number } }
   | { type: 'RESET_EDITOR' }
   // iter-M phase-r.2.2 : reset du timbre seul (canonical + cap + lentille

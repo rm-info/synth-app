@@ -108,6 +108,18 @@ function isFilterValidOrAbsent(v) {
   return true
 }
 
+// itération T (T.6, v4 inchangé) : distorsion par voix. Même contrat (tolérant à
+// l'absence, strict si présent) : enum curve + drive [1, 50] + mix [0, 1].
+function isDistortionValidOrAbsent(v) {
+  if (v === undefined || v === null) return true
+  if (typeof v !== 'object') return false
+  if (typeof v.enabled !== 'boolean') return false
+  if (v.curve !== 'soft' && v.curve !== 'hard' && v.curve !== 'fold') return false
+  if (!isNumberInRange(v.drive, 1, 50)) return false
+  if (!isNumberInRange(v.mix, 0, 1)) return false
+  return true
+}
+
 export function validatePayload(obj) {
   assert(obj && typeof obj === 'object', 'racine du fichier non-objet')
   assert(obj.version === 1 || obj.version === 2 || obj.version === 3 || obj.version === 4,
@@ -196,6 +208,8 @@ export function validatePayload(obj) {
         // T.5 : enveloppe de filtre (amount ±4800) + wah (Lfo, depth cents [0, 3600]).
         assert(isParamEnvValidOrAbsent(p.filterEnv, 4800), `patch ${p.id}: filterEnv invalide`)
         assert(isLfoValidOrAbsent(p.wah, 3600), `patch ${p.id}: wah invalide`)
+        // T.6 : distorsion (curve soft/hard/fold, drive [1,50], mix [0,1]).
+        assert(isDistortionValidOrAbsent(p.distortion), `patch ${p.id}: distortion invalide`)
       }
     } else {
       // v1 (legacy) : union discriminée par `mode`. Convertie en v2 à

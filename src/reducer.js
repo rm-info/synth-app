@@ -113,6 +113,15 @@ export const FILTER_Q_MIN = 0.1        // résonance linéaire (≈ neutre à 1)
 export const FILTER_Q_MAX = 20
 /** @type {import('./types').FilterType[]} */
 export const FILTER_TYPES = ['lowpass', 'highpass', 'bandpass', 'notch']
+
+// === Distorsion par voix (itération T, T.6) ===
+//
+// WaveShaperNode (4x) inséré AVANT le filtre. `drive` = raideur de la courbe (k),
+// `mix` = dosage wet/dry. Pas de bump .osa : champ absent → DEFAULT_DISTORTION (v4).
+export const DISTORTION_DRIVE_MIN = 1
+export const DISTORTION_DRIVE_MAX = 50
+/** @type {import('./types').DistortionCurve[]} */
+export const DISTORTION_CURVES = ['soft', 'hard', 'fold']
 // iter-T phase-3.5 : formes de progression d'une ParamEnv (orthogonales à `invert`).
 // Partagées par pitchEnv ET filterEnv (le nom historique est conservé).
 /** @type {import('./types').ParamEnvCurve[]} */
@@ -141,6 +150,9 @@ export const DEFAULT_FILTERENV = { enabled: false, amount: 2400, time: 200, inve
 /** @type {import('./types').Lfo} */
 // iter-T phase-5.1 : wah désactivé mais musical (2 Hz / 1200 cents = wah-wah franc).
 export const DEFAULT_WAH = { enabled: false, rate: 2, depth: 1200, onset: 0, shape: 'sine' }
+/** @type {import('./types').Distortion} */
+// iter-T phase-6.1 : disto désactivée mais musicale (saturation douce drive 5, tout wet).
+export const DEFAULT_DISTORTION = { enabled: false, curve: 'soft', drive: 5, mix: 1 }
 
 const clampToRange = (v, lo, hi, fallback) => {
   const n = Number(v)
@@ -199,6 +211,18 @@ export function sanitizeFilter(raw) {
   }
 }
 
+// iter-T phase-6.1 : distorsion (type frère, ni Lfo ni ParamEnv). Tolérant à
+// l'absence (champ manquant → DEFAULT_DISTORTION) ; enum curve + clamps en dur.
+export function sanitizeDistortion(raw) {
+  if (!raw || typeof raw !== 'object') return { ...DEFAULT_DISTORTION }
+  return {
+    enabled: raw.enabled === true,
+    curve: DISTORTION_CURVES.includes(raw.curve) ? raw.curve : DEFAULT_DISTORTION.curve,
+    drive: clampToRange(raw.drive, DISTORTION_DRIVE_MIN, DISTORTION_DRIVE_MAX, DEFAULT_DISTORTION.drive),
+    mix: clampToRange(raw.mix, 0, 1, DEFAULT_DISTORTION.mix),
+  }
+}
+
 // Défaut + borne de profondeur d'un effet LFO (vibrato/wah cents ; trémolo/auto-pan 0..1).
 function effectDefault(effect) {
   return effect === 'vibrato' ? DEFAULT_VIBRATO
@@ -221,6 +245,14 @@ function clampModulationValue(effect, key, value) {
     if (key === 'type') return FILTER_TYPES.includes(value) ? value : DEFAULT_FILTER.type
     if (key === 'cutoff') return clampToRange(value, FILTER_CUTOFF_MIN, FILTER_CUTOFF_MAX, DEFAULT_FILTER.cutoff)
     if (key === 'q') return clampToRange(value, FILTER_Q_MIN, FILTER_Q_MAX, DEFAULT_FILTER.q)
+    return value
+  }
+  // iter-T phase-6.1 : distorsion = type frère (clés curve/drive/mix, pas Lfo).
+  if (effect === 'distortion') {
+    if (key === 'enabled') return value === true
+    if (key === 'curve') return DISTORTION_CURVES.includes(value) ? value : DEFAULT_DISTORTION.curve
+    if (key === 'drive') return clampToRange(value, DISTORTION_DRIVE_MIN, DISTORTION_DRIVE_MAX, DEFAULT_DISTORTION.drive)
+    if (key === 'mix') return clampToRange(value, 0, 1, DEFAULT_DISTORTION.mix)
     return value
   }
   // iter-T phase-3.1 / 5.1 : ParamEnv (pitchEnv | filterEnv) = type frère (clés
@@ -421,7 +453,7 @@ function sanitizeColumnWidths(raw) {
 const DESIGNER_MODULE_IDS = ['canvas', 'harmonics', 'spectrogram', 'params', 'adsr', 'modulation']
 // iter-T phase-1.1 : effets éditables dans le module « Effets » (ex-Modulation).
 // Source unique de la validation d'hydratation de `designerEffectsSelected`.
-const DESIGNER_EFFECT_IDS = ['vibrato', 'tremolo', 'autoPan', 'pitchEnv', 'filter', 'filterEnv', 'wah']
+const DESIGNER_EFFECT_IDS = ['vibrato', 'tremolo', 'autoPan', 'pitchEnv', 'filter', 'filterEnv', 'wah', 'distortion']
 function sanitizeDesignerCollapsed(raw) {
   const out = { canvas: false, harmonics: false, spectrogram: false, params: false, adsr: false, modulation: false }
   if (raw && typeof raw === 'object') {
@@ -481,6 +513,8 @@ export const DEFAULT_EDITOR = {
   // iter-T phase-5.1 : enveloppe de filtre + wah (modulent biquad.detune).
   filterEnv: { ...DEFAULT_FILTERENV },
   wah: { ...DEFAULT_WAH },
+  // iter-T phase-6.1 : distorsion par voix (WaveShaper).
+  distortion: { ...DEFAULT_DISTORTION },
   testTuningSystem: '12-TET', // '12-TET' | 'free'
   testNoteIndex: 9, // A
   testOctave: 4,
@@ -612,6 +646,8 @@ function patchMeta(p) {
     // iter-T phase-5.1 : enveloppe de filtre + wah (absents → défauts ; v4 inchangé).
     filterEnv: sanitizeFilterEnv(p.filterEnv),
     wah: sanitizeWah(p.wah),
+    // iter-T phase-6.1 : distorsion (absente → DEFAULT_DISTORTION ; v4 inchangé).
+    distortion: sanitizeDistortion(p.distortion),
   }
 }
 
@@ -1824,6 +1860,8 @@ export function reducer(state, action) {
         // iter-T phase-5.1 : enveloppe de filtre + wah du patch.
         filterEnv: sanitizeFilterEnv(patchData.filterEnv),
         wah: sanitizeWah(patchData.wah),
+        // iter-T phase-6.1 : distorsion du patch.
+        distortion: sanitizeDistortion(patchData.distortion),
       }
 
       // SAVE_PATCH non-undoable, mais on rewrite les snapshots LIBRARY
@@ -1884,6 +1922,8 @@ export function reducer(state, action) {
             // iter-T phase-5.1 : enveloppe de filtre + wah du patch.
             filterEnv: sanitizeFilterEnv(patchData.filterEnv),
             wah: sanitizeWah(patchData.wah),
+            // iter-T phase-6.1 : distorsion du patch.
+            distortion: sanitizeDistortion(patchData.distortion),
           }
         }),
       }
@@ -2351,6 +2391,7 @@ export function reducer(state, action) {
           filter: { ...DEFAULT_FILTER },
           filterEnv: { ...DEFAULT_FILTERENV },
           wah: { ...DEFAULT_WAH },
+          distortion: { ...DEFAULT_DISTORTION },
           testTuningSystem,
           testNoteIndex,
           testOctave,
@@ -2454,6 +2495,7 @@ export function reducer(state, action) {
           filter: { ...DEFAULT_FILTER },
           filterEnv: { ...DEFAULT_FILTERENV },
           wah: { ...DEFAULT_WAH },
+          distortion: { ...DEFAULT_DISTORTION },
           // cap & nombre d'ancres : PRÉSERVÉS (≠ Ctrl+Alt+N qui réinitialise tout).
         },
       }
@@ -2477,6 +2519,7 @@ export function reducer(state, action) {
             filter: { ...DEFAULT_FILTER },
             filterEnv: { ...DEFAULT_FILTERENV },
             wah: { ...DEFAULT_WAH },
+            distortion: { ...DEFAULT_DISTORTION },
           },
         }
       }
@@ -2500,6 +2543,7 @@ export function reducer(state, action) {
           filter: sanitizeFilter(patch.filter),
           filterEnv: sanitizeFilterEnv(patch.filterEnv),
           wah: sanitizeWah(patch.wah),
+          distortion: sanitizeDistortion(patch.distortion),
           currentLens: 'free',
           // M.r.4 — le flag n'est pas persisté dans le patch : phase inconnue au
           // rechargement → false (l'utilisateur normalisera explicitement avant
