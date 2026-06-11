@@ -883,6 +883,39 @@ Phases listées ci-dessous dans l'ordre chronologique d'implémentation.
 
 ## Historique (chronologie inverse)
 
+- **2026-06-11 — Iteration T — T.6quater (phase-6.8) : graphe disto, poignée 2D unique au point
+  caractéristique** (`feat(iter-T/phase-6.8)` + doc). Remplace l'ergonomie des poignées T.6/T.6ter
+  sur retour d'usage : (a) la poignée Drive (drag vertical) ne correspondait pas à l'effet visuel du
+  drive (horizontal : le genou/les plis se resserrent) ; (b) la poignée Mix à abscisse fixe avait un
+  **cas mort** quand la courbe traverse la diagonale à son abscisse (`f(x₀)=x₀` → course du mix nulle).
+  **Nouveau design : une seule poignée 2D** au **point caractéristique** de la courbe — horizontal =
+  drive, vertical = mix ; les deux anciennes poignées disparaissent.
+  - **Point caractéristique** (`lib/distortion.js`) : `distortionCharacteristicX(curve, drive)` —
+    `hard` = l'angle d'écrêtage (**x_c = 1/k**), `fold` = le 1ᵉʳ sommet de la sinusoïde (**1/k**),
+    `soft` = l'intersection de la tangente à l'origine et de l'asymptote y=1 (**tanh(k)/k**, hors
+    courbe mais dans sa région, voulu). Dans les 3 cas x_c **décroît quand le drive monte** (tirer à
+    gauche resserre le genou/les plis) ; c'est le lieu d'écart maximal à la diagonale → **la course du
+    mix ne s'effondre plus jamais** (le piège du croisement disparaît par construction).
+  - **Position** : `(x_c, x_c + mix·(1−x_c))` — l'ordonnée voyage linéairement entre la diagonale
+    (y=x_c, mix 0) et le sommet (y=1, mix 1). **Drag horizontal → drive** = inversion de x_c
+    (`distortionDriveForX` : analytique `k=1/x` hard/fold, **dichotomie** ~24 itérations pour soft,
+    x_c(k) strictement monotone ; clamp [1,50] ; mapping naturellement log-perceptuel, 1/k comprime
+    les hauts drives). **Drag vertical → mix** = `(y−x_c)/(1−x_c)`, clamp [0,1] ; garde si x_c≈1
+    (dénominateur ~0) → mix inchangé. Drag libre 2D simultané.
+  - **Undo** : commit ATOMIQUE des deux valeurs au relâchement via **`SET_EDITOR_DISTORTION_POINT`**
+    (nouveau, frère de `SET_EDITOR_FILTER_POINT`) + `editorActions.setDistortionPoint` — un seul
+    dispatch. Draft local `draftDistortionPoint`, géométrie gelée au pointerdown (`distortionDragGeomRef`),
+    Pointer Events + capture + `pointercancel`, cercle isotrope, curseur grab/grabbing, tooltip
+    « Drive / Mix ». Suppression des poignées T.6/T.6ter (code + hit-test) ; steppers Drive/Mix
+    conservés (précision).
+  - **Repères visuels (drag uniquement)** : `hard`/`soft` = les deux tangentes/segments formant
+    l'angle (montante origine→(x_c,1) + plateau y=1) ; `fold` = verticale pointillée au sommet.
+    Discrets (1px, alpha faible), disparaissent au relâchement.
+  - **Cas limites assumés** (documentés, non corrigés) : `hard` drive→1 → angle vers (1,1), course
+    mix→0 (cohérent : `clamp(x)`=identité, l'audio n'a plus d'effet) ; `fold` drive→1 → même
+    convergence alors que `sin(x·π/2)`≠identité (petite incohérence résiduelle, steppers en fallback).
+    Switch de courbe en cours d'édition → la poignée saute à son nouveau point caractéristique.
+    **Dernier rectificatif de T avant le prompt de clôture.**
 - **2026-06-11 — Iteration T — T.6ter (phase-6.7) : graphe disto, poignée Mix** (`feat(iter-T/
   phase-6.7)` + doc). Rectificatif d'usage sur T.6bis : la courbe effective rendait le mix visible,
   mais l'intention était aussi de le rendre **manipulable au geste** (comme tout paramètre graphé du

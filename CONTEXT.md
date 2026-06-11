@@ -572,9 +572,11 @@ Seuls les **placements timeline** s'appellent "clips".
   segmenté 3 courbes `IconDistort*`/`STRINGS.distortionCurves` + steppers Drive 1..50 / Mix 0..1).
   **Graphe de la courbe de transfert** (`drawDistortionGraph` : entrée x∈[−1,1] → sortie y∈[−1,1] ;
   **T.6bis** : courbe accent = **effective** `mix·f(x)+(1−mix)·x` + wet pure grisée si mix<1 ;
-  **diagonale identité pointillée**, **curseur Drive** vertical à mapping log + **poignée Mix**
-  (T.6ter, sur la courbe effective à x₀=−0.6, drag vertical → mix par inversion de l'interpolation,
-  hit-test 2 poignées la plus proche) ; statique, branche rAF) — draft mono-clé. **Env. drive (T.6bis)** : 9ᵉ bouton, 3ᵉ usage de
+  **diagonale identité pointillée** ; **T.6.8 : UNE poignée 2D** au **point caractéristique**
+  `x_c(curve, drive)` (hard/fold 1/k, soft tanh(k)/k — décroît avec le drive) : horizontal → drive
+  (inversion de x_c, dichotomie pour soft), vertical → mix `(y−x_c)/(1−x_c)` ; drag libre 2D, commit
+  **atomique `SET_EDITOR_DISTORTION_POINT`** (un undo), guides du point pendant le drag ; statique,
+  branche rAF). **Env. drive (T.6bis)** : 9ᵉ bouton, 3ᵉ usage de
   `renderParamEnvBlock` (généralisé : `amount` = décalage de **gain** ±1, label sans cents, format 2
   décimales, drag arrondi via flag `gain` des bornes) + hint « disto désactivée » (`renderDistortion
   TargetHint`). Les sous-blocs **LFO** (vibrato/trémolo/auto-pan/wah) rendent : interrupteur on/off, switch de
@@ -2522,7 +2524,18 @@ par voix). Cadrage complet dans `archi/BACKLOG.md` (« Effets et modulations »)
   inversion de `mix·f(x₀)+(1−mix)·x₀`, clampé [0,1]. **Course réduite à drive bas** (f(x₀)≈x₀),
   assumée (les steppers restent le chemin de précision). Hit-test 2 poignées (la plus proche gagne),
   tooltip Drive/Mix, discipline standard (draft + un dispatch `SET_EDITOR_MODULATION distortion/mix`,
-  géométrie gelée, Pointer Events + cancel). Dernier rectificatif de T avant la clôture.
+  géométrie gelée, Pointer Events + cancel).
+- ✅ **T.6quater (phase-6.8) — poignée 2D unique au point caractéristique** : remplace les poignées
+  Drive (T.6, drag vertical ≠ effet visuel) et Mix (T.6ter, cas mort au croisement `f(x₀)=x₀`). UNE
+  poignée 2D posée au **point caractéristique** `x_c(curve, drive)` (lieu d'écart max à la diagonale) :
+  `hard`/`fold` = l'angle/le 1ᵉʳ sommet (x_c=1/k), `soft` = l'intersection tangente-origine × asymptote
+  y=1 (x_c=tanh(k)/k). x_c **décroît** avec le drive → gauche = drive ↑ (genou/plis resserrés), le
+  piège du croisement disparaît par construction. **Horizontal → drive** (inversion de x_c : analytique
+  hard/fold `k=1/x`, **dichotomie** soft, `lib/distortion.js`), **vertical → mix** `(y−x_c)/(1−x_c)`
+  (garde si x_c≈1). Drag libre 2D (style P1/P2 AHDSR), **commit atomique `SET_EDITOR_DISTORTION_POINT`**
+  (drive+mix, un undo) ; guides du point pendant le drag (tangentes hard/soft, verticale fold) ;
+  steppers conservés. Cas limites assumés (hard/fold drive→1 : course mix→0). Dernier rectificatif
+  de T avant la clôture.
 
 ✅ **Terminé**
 - **Iteration S — « Support tactile au doigt (web pur) » (close, v1.11.0)**. L'app
