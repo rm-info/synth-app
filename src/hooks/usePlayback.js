@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { pointsToPeriodicWave, audioBufferToWav, normalizePeak, downloadWav, MIN_ATTACK, MIN_RELEASE, createMasterBus } from '../audio'
 import { clipFrequency } from '../reducer'
 import { applyModulation } from '../lib/modulation'
+import { configureBiquad } from '../lib/filter'
 
 // Stoppe/déconnecte les nœuds LFO d'un record de voix (symétrique à osc/gain).
 // `m.stop()` n'existe que sur les OscillatorNode → try/catch absorbe les GainNode.
@@ -75,7 +76,21 @@ function scheduleOneClip(ctx, clip, patch, startTime, trackGainNodes, defaultDes
   gain.gain.linearRampToValueAtTime(sustainLevel, releaseStart)
   gain.gain.linearRampToValueAtTime(0, clipStart + totalDuration)
 
-  osc.connect(gain)
+  // Filtre statique (itération T, T.4) : BiquadFilter inséré conditionnellement
+  // selon la convention VCO→VCF→VCA — osc → biquad → gain. Désactivé → aucun nœud,
+  // chaîne bit-identique. À résonance haute le biquad AJOUTE du gain au cutoff
+  // (~+26 dB) ; le filet est le master headroom-bas + soft-clip sans mémoire
+  // (iter S) → pas de pompage.
+  const flt = patch.filter
+  let biquad = null
+  if (flt && flt.enabled) {
+    biquad = ctx.createBiquadFilter()
+    configureBiquad(biquad, flt)
+    osc.connect(biquad)
+    biquad.connect(gain)
+  } else {
+    osc.connect(gain)
+  }
 
   // Auto-pan (itération T) : 1ᵉʳ effet stéréo. Le panner n'est inséré QUE si
   // l'effet est actif et a une excursion — sinon chaîne bit-identique à avant
@@ -97,9 +112,10 @@ function scheduleOneClip(ctx, clip, patch, startTime, trackGainNodes, defaultDes
     vibrato: patch.vibrato, tremolo: patch.tremolo, autoPan: patch.autoPan, pitchEnv: patch.pitchEnv,
     startTime: clipStart, stopTime: clipStart + totalDuration, releaseStart, baseAmplitude: amp,
   })
-  // Cleanup symétrique : le panner est déconnecté partout où l'osc l'est
-  // (stopModNodes tolère l'absence de .stop() sur un StereoPannerNode).
+  // Cleanup symétrique : le panner ET le biquad sont déconnectés partout où l'osc
+  // l'est (stopModNodes tolère l'absence de .stop() sur ces nœuds, comme le panner).
   if (panner) mod.push(panner)
+  if (biquad) mod.push(biquad)
 
   osc.start(clipStart)
   osc.stop(clipStart + totalDuration)
@@ -147,7 +163,17 @@ function scheduleAllClips(ctx, clips, patches, startTime, trackGainNodes, defaul
     gain.gain.linearRampToValueAtTime(sustainLevel, releaseStart)
     gain.gain.linearRampToValueAtTime(0, clipStart + totalDuration)
 
-    osc.connect(gain)
+    // Filtre statique (T.4) : MÊME insertion conditionnelle qu'en lecture, sinon
+    // l'export WAV diverge. Pas de cleanup (ctx jeté après rendu).
+    const flt = patch.filter
+    if (flt && flt.enabled) {
+      const biquad = ctx.createBiquadFilter()
+      configureBiquad(biquad, flt)
+      osc.connect(biquad)
+      biquad.connect(gain)
+    } else {
+      osc.connect(gain)
+    }
 
     // Auto-pan (itération T) : même insertion conditionnelle qu'en lecture.
     // L'OfflineAudioContext est stéréo (2 canaux) → le WAV exporté porte la
@@ -340,10 +366,14 @@ export function usePlayback({ clips, patches, tracks, bpm, a4Ref, xEdoN, totalDu
         const sigOfLfo = (l) => l ? `${l.enabled ? 1 : 0}:${l.rate}:${l.depth}:${l.onset}:${l.shape}` : ''
         // T.3 : pitch envelope (champs amount/time, pas un Lfo). T.3ter : += curve.
         const sigOfPitchEnv = (pe) => pe ? `${pe.enabled ? 1 : 0}:${pe.amount}:${pe.time}:${pe.invert ? 1 : 0}:${pe.curve ?? 'linear'}` : ''
+        // T.4 : filtre statique (type/cutoff/q). Éditer le filtre d'un patch en cours
+        // de lecture re-schedule les clips à venir (le biquad est posé à la création
+        // de la voix → seul un re-schedule applique le changement).
+        const sigOfFilter = (f) => f ? `${f.enabled ? 1 : 0}:${f.type}:${f.cutoff}:${f.q}` : ''
         const sigOf = (c, patchList) => {
           const p = patchList?.find(p => p.id === c.patchId)
           const env = p
-            ? `${p.attack}:${p.hold ?? 0}:${p.decay}:${p.sustain}:${p.release}:${p.amplitude}|${sigOfLfo(p.vibrato)}|${sigOfLfo(p.tremolo)}|${sigOfLfo(p.autoPan)}|${sigOfPitchEnv(p.pitchEnv)}`
+            ? `${p.attack}:${p.hold ?? 0}:${p.decay}:${p.sustain}:${p.release}:${p.amplitude}|${sigOfLfo(p.vibrato)}|${sigOfLfo(p.tremolo)}|${sigOfLfo(p.autoPan)}|${sigOfPitchEnv(p.pitchEnv)}|${sigOfFilter(p.filter)}`
             : ''
           return `${c.measure}:${c.beat}:${c.duration}:${c.patchId}:${c.trackId}:${c.tuningSystem}:${c.noteIndex}:${c.octave}:${c.frequency}|${env}`
         }

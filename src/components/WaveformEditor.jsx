@@ -4,10 +4,11 @@ import { IconDoux, IconAnguleux, IconSine, IconTriangleWave, IconSquareWave,
   IconCurveLinear, IconCurveEaseOut, IconCurveExpo, IconCurveEaseIn } from './icons'
 import { pointsToPeriodicWave, MIN_ATTACK, MIN_RELEASE, HARMONIC_COUNT, harmonicsToPoints, canonicalToBars, createMasterBus } from '../audio'
 import { applyModulation, pitchProgression } from '../lib/modulation'
+import { configureBiquad } from '../lib/filter'
 import { splineToPoints } from '../lib/spline'
 import {
   CAP_MIN, CAP_MAX, SPLINE_ANCHOR_MIN, SPLINE_ANCHOR_MAX,
-  DEFAULT_VIBRATO, DEFAULT_TREMOLO, DEFAULT_AUTOPAN, DEFAULT_PITCHENV,
+  DEFAULT_VIBRATO, DEFAULT_TREMOLO, DEFAULT_AUTOPAN, DEFAULT_PITCHENV, DEFAULT_FILTER,
   LFO_RATE_MIN, LFO_RATE_MAX, VIBRATO_DEPTH_MAX, TREMOLO_DEPTH_MAX, AUTOPAN_DEPTH_MAX, LFO_ONSET_MAX, LFO_SHAPES,
   PITCHENV_AMOUNT_MAX, PITCHENV_TIME_MAX, PITCHENV_TIME_MIN, PITCHENV_CURVES,
 } from '../reducer'
@@ -792,6 +793,8 @@ function WaveformEditor({
   const autoPan = applyModDraft('autoPan', autoPanBase)
   const pitchEnvBase = editor.pitchEnv ?? DEFAULT_PITCHENV
   const pitchEnv = applyModDraft('pitchEnv', pitchEnvBase)
+  // iter-T phase-4.1 : filtre statique de l'éditeur (`??` défensif, comme les LFO).
+  const filter = editor.filter ?? DEFAULT_FILTER
 
   const {
     testTuningSystem, testNoteIndex, testOctave, preset: activePreset,
@@ -914,8 +917,8 @@ function WaveformEditor({
     attack, hold, decay, sustain, release, amplitude, definition: effectiveDefinition,
     testOctave, testTuningSystem, testFrequency, a4Ref, xEdoN,
     // itération P : modulations LFO lues par les previews clavier / note libre.
-    // itération T : += auto-pan + pitch envelope.
-    vibrato, tremolo, autoPan, pitchEnv,
+    // itération T : += auto-pan + pitch envelope + filtre statique.
+    vibrato, tremolo, autoPan, pitchEnv, filter,
   }
 
   // itération P — mini-courbes LFO animées du module Modulation. UNE seule boucle
@@ -1530,7 +1533,18 @@ function WaveformEditor({
     gain.gain.linearRampToValueAtTime(sustainLevel, now + a + h + d)
     // Sustain indéfini jusqu'au release.
 
-    osc.connect(gain)
+    // itération T (T.4) : filtre statique VCO→VCF→VCA — osc → biquad → gain.
+    // Désactivé → aucun nœud, chaîne mono inchangée.
+    const flt = params.filter
+    let biquad = null
+    if (flt && flt.enabled) {
+      biquad = ctx.createBiquadFilter()
+      configureBiquad(biquad, flt)
+      osc.connect(biquad)
+      biquad.connect(gain)
+    } else {
+      osc.connect(gain)
+    }
 
     // itération T : auto-pan stéréo. Panner inséré seulement si actif + excursion
     // (sinon chaîne mono inchangée). osc → gain → panner → analyserGain.
@@ -1551,9 +1565,10 @@ function WaveformEditor({
       pitchEnv: params.pitchEnv,
       startTime: now, baseAmplitude: params.amplitude,
     })
-    // Cleanup symétrique : le panner suit les nœuds LFO (stopModImmediate /
-    // releaseModNodes / disconnectModNodes tolèrent l'absence de .stop()).
+    // Cleanup symétrique : panner ET biquad suivent les nœuds LFO (stopModImmediate
+    // / releaseModNodes / disconnectModNodes tolèrent l'absence de .stop()).
     if (panner) mod.push(panner)
+    if (biquad) mod.push(biquad)
 
     // Décrément réel à la fin de la voix : osc.onended fire quand
     // l'oscillator s'arrête effectivement (release naturel OU osc.stop()
@@ -1766,7 +1781,17 @@ function WaveformEditor({
     gain.gain.linearRampToValueAtTime(params.amplitude, now + a + h)
     gain.gain.linearRampToValueAtTime(sustainLevel, now + a + h + d)
 
-    osc.connect(gain)
+    // itération T (T.4) : filtre statique (canal libre). Même insertion conditionnelle.
+    const flt = params.filter
+    let biquad = null
+    if (flt && flt.enabled) {
+      biquad = ctx.createBiquadFilter()
+      configureBiquad(biquad, flt)
+      osc.connect(biquad)
+      biquad.connect(gain)
+    } else {
+      osc.connect(gain)
+    }
 
     // itération T : auto-pan stéréo (canal libre). Même insertion conditionnelle.
     const ap = params.autoPan
@@ -1786,6 +1811,7 @@ function WaveformEditor({
       startTime: now, baseAmplitude: params.amplitude,
     })
     if (panner) mod.push(panner)
+    if (biquad) mod.push(biquad)
 
     // Décrément réel à la fin de la voix : osc.onended fire quand
     // l'oscillator s'arrête effectivement (release naturel OU osc.stop()
