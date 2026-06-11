@@ -572,9 +572,10 @@ Seuls les **placements timeline** s'appellent "clips".
   segmenté 3 courbes `IconDistort*`/`STRINGS.distortionCurves` + steppers Drive 1..50 / Mix 0..1).
   **Graphe de la courbe de transfert** (`drawDistortionGraph` : entrée x∈[−1,1] → sortie y∈[−1,1] ;
   **T.6bis** : courbe accent = **effective** `mix·f(x)+(1−mix)·x` + wet pure grisée si mix<1 ;
-  **diagonale identité pointillée** ; **T.6.8 : UNE poignée 2D** au **point caractéristique**
-  `x_c(curve, drive)` (hard/fold 1/k, soft tanh(k)/k — décroît avec le drive) : horizontal → drive
-  (inversion de x_c, dichotomie pour soft), vertical → mix `(y−x_c)/(1−x_c)` ; drag libre 2D, commit
+  **diagonale identité pointillée** ; **T.6.8/6.9 : UNE poignée 2D** au **point caractéristique**
+  `x_c(curve, drive)` (hard 1/k, soft tanh(k)/k, **fold** `(2/kπ)·arccos(2/kπ)` = point de distance
+  max à la diagonale — décroît avec le drive) : horizontal → **drive float continu** (inversion de x_c,
+  dichotomie soft+fold), vertical → mix `(y−x_c)/(top−x_c)` (top=f(x_c) en fold, 1 sinon) ; drag libre 2D, commit
   **atomique `SET_EDITOR_DISTORTION_POINT`** (un undo), guides du point pendant le drag ; statique,
   branche rAF). **Env. drive (T.6bis)** : 9ᵉ bouton, 3ᵉ usage de
   `renderParamEnvBlock` (généralisé : `amount` = décalage de **gain** ±1, label sans cents, format 2
@@ -2536,6 +2537,17 @@ par voix). Cadrage complet dans `archi/BACKLOG.md` (« Effets et modulations »)
   (drive+mix, un undo) ; guides du point pendant le drag (tangentes hard/soft, verticale fold) ;
   steppers conservés. Cas limites assumés (hard/fold drive→1 : course mix→0). Dernier rectificatif
   de T avant la clôture.
+- ✅ **T.6quinquies (phase-6.9) — drive continu + point de distance max en replié** : affine la
+  poignée 2D (T.6quater). **(1) Drive float** dans les 3 modes : suppression de l'arrondi entier
+  (k est continu) au reducer (`SET_EDITOR_DISTORTION_POINT` brut), au drag (`distortionDriveForX`
+  écrit le float) et au format `NumberInput` (affichage arrondi à 0.1 ; steppers ±1/±5 inchangés).
+  Le cache `(curve, drive)`, `clampToRange` et `isNumberInRange` (.osa) acceptaient déjà le float —
+  round-trip d'un drive décimal préservé. **(2) Fold : nouvelle abscisse** `x_c=(2/kπ)·arccos(2/kπ)`
+  (point où `sin(kπx/2)−x` est maximal, remplace le sommet `1/k`) : à drive 1, x_c≈0.561 (écart 0.21,
+  plus de poignée morte/demi-morte dans l'angle (1,1)) ; à drive élevé, x_c→1/k (continuité). Inversion
+  par **dichotomie** (`bisectDrive` partagé avec la douce, x_c décroissant). Poignée **sur la courbe
+  effective** : `y=mix·f(x_c)+(1−mix)·x_c`, dénominateur `f(x_c)−x_c` jamais nul → la garde résiduelle
+  ne protège plus que hard à drive→1. Dure/douce : placement inchangé.
 
 ✅ **Terminé**
 - **Iteration S — « Support tactile au doigt (web pur) » (close, v1.11.0)**. L'app
