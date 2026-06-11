@@ -883,6 +883,43 @@ Phases listées ci-dessous dans l'ordre chronologique d'implémentation.
 
 ## Historique (chronologie inverse)
 
+- **2026-06-11 — Iteration T — T.6bis (phase-6.4→6.6) : disto vivante (mix lisible + enveloppe
+  de drive)** (`feat(iter-T/phase-6.4..6.6)` + doc). Suite de T.6 sur deux constats : le mix
+  n'était pas lisible au graphe, et une disto **statique** (entrée à niveau constant) équivaut
+  pour une note tenue à redessiner la forme d'onde — son intérêt musical (le timbre qui **évolue
+  dans la note**) exige qu'on fasse varier quelque chose à travers la non-linéarité. Toujours sans
+  mémoire (GainNode + automation), pas de bump `.osa`. 3 sous-commits.
+  - **6.4 — graphe** : `drawDistortionGraph` — la courbe accent devient l'**effective** (réellement
+    entendue) `mix·f(x) + (1−mix)·x` (se couche vers la diagonale identité quand mix baisse, coïncide
+    avec f à mix:1) ; quand mix<1, la **wet pure** `f(x)` est tracée en gris discret (même convention
+    que la courbe « normalisée » du canvas Forme d'onde). Diagonale identité pointillée inchangée.
+  - **6.5 — modèle + audio** : `Patch`/`Editor`/`PatchData` += `driveEnv: ParamEnv` (3ᵉ instance du
+    type T.5 ; `amount` = décalage de **gain** −1..+1, `time` 0..2000). `DEFAULT_DRIVEENV` false/
+    **−0.8**/300/**invert:true**/linear — **invert par défaut = comportement « ampli »** (part du
+    drive nominal, attaque saturée → s'éclaircit vers 1+amount=0.2 où la note reste ; mode normal =
+    swell into saturation). `DRIVEENV_AMOUNT_MAX/TIME_MIN/MAX`, `sanitizeDriveEnv`,
+    `clampModulationValue` (driveEnv rejoint la branche ParamEnv), `DESIGNER_EFFECT_IDS`, tous les
+    sites editor/patch, `osaFormat` (`isParamEnvValidOrAbsent(p.driveEnv, 1)`), `libraryTransfer`.
+    **Audio** — la courbe d'un WaveShaperNode n'est PAS un AudioParam → on module le **NIVEAU
+    D'ENTRÉE** du shaper, pas `k`. `scheduleParamEnv(param, env, startTime, base=0)` gagne un `base`
+    (0 pour un detune cents, **1 pour un gain** ; from/to s'y ajoutent). `connectDistortion` insère un
+    `inputGain` (base 1) **avant le shaper** quand `driveEnv.enabled` (la branche dry tape la source
+    PURE, pré-inputGain) et le **retourne** (`{ nodes, inputGain }`) ; `applyModulation` += `inputGain`/
+    `driveEnv` → `scheduleParamEnv(inputGain.gain, driveEnv, startTime, 1)`. 4 chemins + signature
+    scheduler (`sigOfParamEnv(p.driveEnv)`). Niveau : moduler l'entrée d'une courbe normalisée module
+    aussi la sortie (drive bas = plus doux ET moins fort) — inhérent au drive réel, assumé.
+  - **6.6 — UI** : 9ᵉ bouton **« Env. drive »** ; `renderParamEnvBlock` généralisé pour driveEnv
+    (unité **gain** via flag `gain` des bornes `PARAM_ENV_BOUNDS.driveEnv` : label « Départ »/« Cible »
+    sans « (cents) », format 2 décimales, step 0.05/0.25, drag `amount` arrondi à 2 décimales ; médiane
+    du graphe = drive nominal) ; `paramEnvCanvasFor`/rAF/`endModDrag`/`PARAM_ENV_BOUNDS` étendus ;
+    `driveEnvCanvasRef`. **Hint** « La distorsion est désactivée — cet effet est muet » + bouton inline
+    **« Activer la distorsion »** (`renderDistortionTargetHint`, undoable) quand `!distortion.enabled`.
+  - **Comportement de référence** : mix 0.5 → courbe accent à mi-chemin de la diagonale, wet pure
+    grise visible ; Env. drive défauts (invert) sur carré + soft drive 15 → attaque saturée qui
+    s'éclaircit en ~300 ms (timbre vivant dans la note) ; mode normal = crescendo de saturation ;
+    Env. drive + env. filtre + AHDSR = trois enveloppes indépendantes (démo soustractive complète).
+    **Hors scope** : LFO sur le drive (backlog « inattendus »), compensation de loudness, bias.
+    **Itération T feature-complete (9 effets), clôture/release au prompt suivant.**
 - **2026-06-11 — Iteration T — T.6 (phase-6.1→6.3) : distorsion (WaveShaper 4x par voix)**
   (`feat(iter-T/phase-6.1..6.3)` + doc). **Dernière phase de l'itération T** — distorsion par
   **waveshaping par voix** (chaque note distordue séparément, pas d'intermodulation ; la variante
