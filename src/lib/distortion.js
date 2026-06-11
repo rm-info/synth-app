@@ -38,6 +38,42 @@ export function distortionCurveTable(curve, drive) {
   return table
 }
 
+// Bornes de drive (miroir de reducer.js DISTORTION_DRIVE_MIN/MAX ; lib feuille, on
+// évite la dépendance au reducer comme filter.js).
+const DRIVE_MIN = 1
+const DRIVE_MAX = 50
+
+// iter-T phase-6.8 — abscisse du POINT CARACTÉRISTIQUE de la courbe (lieu d'écart
+// maximal à la diagonale, où l'on pose la poignée 2D). x_c DÉCROÎT quand le drive
+// monte (gauche = drive ↑). hard : l'angle d'écrêtage (x_c = 1/k) ; fold : le 1ᵉʳ
+// sommet de la sinusoïde (x_c = 1/k) ; soft : l'intersection de la tangente à
+// l'origine et de l'asymptote y=1 (x_c = tanh(k)/k, hors courbe mais dans sa région).
+export function distortionCharacteristicX(curve, drive) {
+  if (curve === 'soft') return Math.tanh(drive) / drive
+  return 1 / drive // hard, fold
+}
+
+// Inversion de x_c → drive, clampé [1, 50]. Analytique pour hard/fold (k = 1/x),
+// DICHOTOMIE pour soft (x_c(k) = tanh(k)/k strictement décroissant sur [1,50] →
+// ~24 itérations). Mapping naturellement log-perceptuel (1/k comprime les hauts drives).
+export function distortionDriveForX(curve, x) {
+  if (curve === 'soft') {
+    const xMax = Math.tanh(DRIVE_MIN) / DRIVE_MIN // k=1 → plus grand x_c
+    const xMin = Math.tanh(DRIVE_MAX) / DRIVE_MAX // k=50 → plus petit x_c
+    const xc = Math.max(xMin, Math.min(xMax, x))
+    let lo = DRIVE_MIN, hi = DRIVE_MAX
+    for (let i = 0; i < 24; i++) {
+      const mid = (lo + hi) / 2
+      // x_c décroît avec k : si x_c(mid) > cible, il faut un k plus grand.
+      if (Math.tanh(mid) / mid > xc) lo = mid
+      else hi = mid
+    }
+    return (lo + hi) / 2
+  }
+  const k = 1 / Math.max(1e-6, x) // hard/fold : x_c = 1/k
+  return Math.max(DRIVE_MIN, Math.min(DRIVE_MAX, k))
+}
+
 // Configure un WaveShaperNode depuis le modèle `distortion` (table + oversample 4x).
 export function configureShaper(shaper, distortion) {
   shaper.curve = distortionCurveTable(distortion.curve, distortion.drive)

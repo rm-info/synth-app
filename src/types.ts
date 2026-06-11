@@ -653,6 +653,8 @@ export type ActionBody =
   // (10 champs × set) qui clampe selon effect+key dans le reducer.
   | { type: 'SET_EDITOR_MODULATION'; payload: { effect: DesignerEffectId; key: keyof Lfo | keyof ParamEnv | keyof PatchFilter | keyof Distortion; value: boolean | number | LfoShape | ParamEnvCurve | FilterType | DistortionCurve } }
   | { type: 'SET_EDITOR_FILTER_POINT'; payload: { cutoff: number; q: number } }
+  // iter-T phase-6.8 : poignée 2D du graphe de transfert (drive+mix atomique, un undo).
+  | { type: 'SET_EDITOR_DISTORTION_POINT'; payload: { drive: number; mix: number } }
   | { type: 'RESET_EDITOR' }
   // iter-M phase-r.2.2 : reset du timbre seul (canonical + cap + lentille
   // spline). Préserve ADSR / amplitude / test* / currentLens / currentPatchId.

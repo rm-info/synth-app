@@ -2384,6 +2384,21 @@ export function reducer(state, action) {
       if (next.cutoff === cur.cutoff && next.q === cur.q) return state
       return { ...state, editor: { ...state.editor, filter: next } }
     }
+    case 'SET_EDITOR_DISTORTION_POINT': {
+      // iter-T phase-6.8 : commit ATOMIQUE de la poignée 2D du graphe de transfert
+      // (drive horizontal + mix vertical) en UN seul cran d'undo. Frère de
+      // SET_EDITOR_FILTER_POINT ; distinct de SET_EDITOR_MODULATION (mono-clé : switch
+      // de courbe / steppers).
+      const { drive, mix } = action.payload
+      const cur = state.editor.distortion
+      const next = {
+        ...cur,
+        drive: Math.round(clampToRange(drive, DISTORTION_DRIVE_MIN, DISTORTION_DRIVE_MAX, cur.drive)),
+        mix: clampToRange(mix, 0, 1, cur.mix),
+      }
+      if (next.drive === cur.drive && next.mix === cur.mix) return state
+      return { ...state, editor: { ...state.editor, distortion: next } }
+    }
     // iter-N phase-5c.3 : APPLY_EDITOR_PRESET supprimé — la barre des presets
     // géométriques (mode Libre) qui le déclenchait a été retirée au profit de la
     // modale (chemin LOAD_PRESET unifié).

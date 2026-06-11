@@ -2110,6 +2110,8 @@ function App() {
     // iter-T phase-4.4 : commit 2D de la poignée du graphe de filtre (cutoff + q).
     setFilterPoint: (cutoff, q) =>
       dispatch({ type: 'SET_EDITOR_FILTER_POINT', payload: { cutoff, q } }),
+    setDistortionPoint: (drive, mix) =>
+      dispatch({ type: 'SET_EDITOR_DISTORTION_POINT', payload: { drive, mix } }),
     // iter-M phase-r.2.2 : reset du timbre seul (≠ RESET_EDITOR « Nouveau patch »).
     resetWaveform: () => dispatch({ type: 'RESET_EDITOR_WAVEFORM' }),
     // iter-M phase-r.2.3 : normalisation (iDFT phase canonique).

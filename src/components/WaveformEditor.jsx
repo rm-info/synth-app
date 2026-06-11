@@ -7,7 +7,7 @@ import { IconDoux, IconAnguleux, IconSine, IconTriangleWave, IconSquareWave,
 import { pointsToPeriodicWave, MIN_ATTACK, MIN_RELEASE, HARMONIC_COUNT, harmonicsToPoints, canonicalToBars, createMasterBus } from '../audio'
 import { applyModulation, pitchProgression } from '../lib/modulation'
 import { configureBiquad } from '../lib/filter'
-import { connectDistortion, distortionTransfer } from '../lib/distortion'
+import { connectDistortion, distortionTransfer, distortionCharacteristicX, distortionDriveForX } from '../lib/distortion'
 import { splineToPoints } from '../lib/spline'
 import {
   CAP_MIN, CAP_MAX, SPLINE_ANCHOR_MIN, SPLINE_ANCHOR_MAX,
@@ -670,12 +670,6 @@ function drawFilterGraph(canvas, filter, biquad) {
 // identité** en pointillé (référence « pas de disto »). **Une poignée** = curseur
 // vertical de `drive` (mapping LOG 1..50) posée à droite du graphe : drag vertical →
 // drive (la courbe se redessine plus raide). Pas d'animation (redraw aux changements).
-const DIST_HANDLE_X_FRAC = 0.84            // position x (fraction de usableW) du curseur Drive
-// T.6ter : abscisse (entrée) de la poignée Mix, posée sur la courbe EFFECTIVE. Côté
-// négatif, loin de la poignée Drive (input ≈ +0.68) → les deux ne se gênent jamais.
-const DIST_MIX_X0 = -0.6
-const DIST_DRIVE_LN_MIN = Math.log(DISTORTION_DRIVE_MIN)
-const DIST_DRIVE_LN_MAX = Math.log(DISTORTION_DRIVE_MAX)
 function distortionGeometry(cssW, cssH) {
   const marginL = LFO_MARGIN_X
   const marginR = LFO_MARGIN_X
@@ -685,23 +679,24 @@ function distortionGeometry(cssW, cssH) {
   const usableH = Math.max(1, cssH - marginT - marginB)
   const xOf = (x) => marginL + (x + 1) / 2 * usableW            // x ∈ [-1,1]
   const yOf = (y) => marginT + (1 - y) / 2 * usableH            // y ∈ [-1,1], haut = +1
-  const handleX = marginL + DIST_HANDLE_X_FRAC * usableW
-  const top = marginT, bottom = marginT + usableH
-  // Curseur de drive : log(drive) ∈ [lnMin, lnMax] → vertical [bottom, top].
-  const yForDrive = (drive) => {
-    const frac = (Math.log(Math.max(DISTORTION_DRIVE_MIN, drive)) - DIST_DRIVE_LN_MIN) / (DIST_DRIVE_LN_MAX - DIST_DRIVE_LN_MIN)
-    return bottom - frac * usableH
-  }
-  const driveForY = (y) => {
-    const frac = Math.max(0, Math.min(1, (bottom - y) / usableH))
-    return Math.exp(DIST_DRIVE_LN_MIN + frac * (DIST_DRIVE_LN_MAX - DIST_DRIVE_LN_MIN))
-  }
-  return { marginL, marginT, usableW, usableH, xOf, yOf, handleX, top, bottom, yForDrive, driveForY }
+  const xInputOf = (sx) => -1 + 2 * (sx - marginL) / usableW    // inverse de xOf
+  const yOutOf = (sy) => 1 - 2 * (sy - marginT) / usableH       // inverse de yOf
+  return { marginL, marginT, usableW, usableH, xOf, yOf, xInputOf, yOutOf }
 }
 
-// Dessine le graphe figé (diagonale identité + courbe de transfert + curseur Drive).
-// Effet désactivé → courbe grise atténuée, poignée inerte, diagonale seule en accent.
-function drawDistortionGraph(canvas, distortion) {
+// T.6.8 — position 2D de la poignée au point caractéristique. x = x_c(curve, drive) ;
+// l'ordonnée voyage linéairement entre la diagonale (y = x_c, mix 0) et le sommet
+// (y = 1, mix 1) : y = x_c + mix·(1 − x_c).
+function distortionHandle(distortion, g) {
+  const xc = distortionCharacteristicX(distortion.curve, distortion.drive)
+  const yVal = xc + distortion.mix * (1 - xc)
+  return { xc, x: g.xOf(Math.max(-1, Math.min(1, xc))), y: g.yOf(Math.max(-1, Math.min(1, yVal))) }
+}
+
+// Dessine le graphe figé (diagonale identité + courbe de transfert + poignée 2D au
+// point caractéristique). `drag` (T.6.8) affiche en plus les guides du point pendant
+// le geste. Effet désactivé → courbe grise atténuée, poignée inerte, diagonale en accent.
+function drawDistortionGraph(canvas, distortion, drag = false) {
   if (!canvas) return
   const dpr = window.devicePixelRatio || 1
   const cssW = canvas.clientWidth || 160
@@ -778,33 +773,32 @@ function drawDistortionGraph(canvas, distortion) {
 
   if (!enabled) return // poignée inerte
 
-  // Curseur de Drive (vertical) : track pointillé + poignée.
-  const hx = g.handleX
-  const hy = g.yForDrive(distortion.drive)
-  ctx.strokeStyle = themeColor('canvas-grid-secondary')
-  ctx.globalAlpha = 0.4
-  ctx.setLineDash([2, 3])
-  ctx.beginPath()
-  ctx.moveTo(hx, g.top); ctx.lineTo(hx, g.bottom)
-  ctx.stroke()
-  ctx.setLineDash([])
-  ctx.globalAlpha = 1
-  ctx.beginPath()
-  ctx.arc(hx, hy, LFO_HANDLE_RADIUS, 0, 2 * Math.PI)
-  ctx.fillStyle = themeColor('canvas-marker')
-  ctx.fill()
-  ctx.strokeStyle = themeColor('accent')
-  ctx.lineWidth = 1.5
-  ctx.stroke()
+  const hd = distortionHandle(distortion, g)
 
-  // T.6ter — poignée Mix : posée SUR la courbe effective à x₀. Elle voyage linéairement
-  // entre la diagonale identité (mix 0) et la wet pure (mix 1) ; drag vertical → mix.
-  const f0 = distortionTransfer(distortion.curve, distortion.drive, DIST_MIX_X0)
-  const yEffMix = Math.max(-1, Math.min(1, mix * f0 + (1 - mix) * DIST_MIX_X0))
-  const mxx = xOf(DIST_MIX_X0)
-  const myy = yOf(yEffMix)
+  // T.6.8 — guides du point caractéristique, UNIQUEMENT pendant le drag (discrets, 1px).
+  // hard/soft : les deux tangentes qui forment l'angle — la montante (origine → sommet
+  // (x_c,1), qui encode la pente k ou k/tanh(k)) et le plateau y=1. fold : verticale au
+  // sommet. Disparaissent au relâchement.
+  if (drag) {
+    ctx.strokeStyle = themeColor('canvas-grid-secondary')
+    ctx.globalAlpha = 0.5
+    ctx.lineWidth = 1
+    ctx.setLineDash([3, 3])
+    ctx.beginPath()
+    if (distortion.curve === 'fold') {
+      ctx.moveTo(xOf(hd.xc), yOf(1)); ctx.lineTo(xOf(hd.xc), yOf(-1))
+    } else {
+      ctx.moveTo(xOf(0), yOf(0)); ctx.lineTo(xOf(hd.xc), yOf(1)) // tangente montante
+      ctx.moveTo(xOf(hd.xc), yOf(1)); ctx.lineTo(xOf(1), yOf(1)) // plateau y=1
+    }
+    ctx.stroke()
+    ctx.setLineDash([])
+    ctx.globalAlpha = 1
+  }
+
+  // Poignée 2D (horizontal = drive, vertical = mix), style AHDSR/LFO.
   ctx.beginPath()
-  ctx.arc(mxx, myy, LFO_HANDLE_RADIUS, 0, 2 * Math.PI)
+  ctx.arc(hd.x, hd.y, LFO_HANDLE_RADIUS, 0, 2 * Math.PI)
   ctx.fillStyle = themeColor('canvas-marker')
   ctx.fill()
   ctx.strokeStyle = themeColor('accent')
@@ -1164,6 +1158,9 @@ function WaveformEditor({
   // ≠ draftMod mono-clé). Commit ATOMIQUE au relâchement (SET_EDITOR_FILTER_POINT,
   // un seul cran d'undo). Alimente AUSSI les steppers (coexistence, comme draftMod).
   const [draftFilter, setDraftFilter] = useState(null) // { cutoff, q } | null
+  // T.6.8 — draft de la poignée 2D du graphe de transfert (drive + mix simultanés ;
+  // commit ATOMIQUE au relâchement, un cran d'undo). Alimente AUSSI les steppers.
+  const [draftDistortionPoint, setDraftDistortionPoint] = useState(null) // { drive, mix } | null
   const applyModDraft = (effect, lfo) =>
     (draftMod && draftMod.effect === effect) ? { ...lfo, [draftMod.key]: draftMod.value } : lfo
   const vibrato = applyModDraft('vibrato', vibratoBase)
@@ -1182,10 +1179,12 @@ function WaveformEditor({
   const filterEnv = applyModDraft('filterEnv', filterEnvBase)
   const wahBase = editor.wah ?? DEFAULT_WAH
   const wah = applyModDraft('wah', wahBase)
-  // iter-T phase-6.1 : distorsion (WaveShaper). Le draft du drag de poignée Drive du
-  // graphe de transfert s'y superpose (mono-clé `drive`, comme pitchEnv).
+  // iter-T phase-6.1 : distorsion (WaveShaper). T.6.8 : le draft de la poignée 2D
+  // (drive + mix) du graphe de transfert s'y superpose (commit atomique au relâchement).
   const distortionBase = editor.distortion ?? DEFAULT_DISTORTION
-  const distortion = applyModDraft('distortion', distortionBase)
+  const applyDistortionPointDraft = (base) => draftDistortionPoint
+    ? { ...base, drive: draftDistortionPoint.drive, mix: draftDistortionPoint.mix } : base
+  const distortion = applyDistortionPointDraft(distortionBase)
   // iter-T phase-6.5 : enveloppe de drive (3ᵉ ParamEnv → gain d'entrée du shaper).
   const driveEnvBase = editor.driveEnv ?? DEFAULT_DRIVEENV
   const driveEnv = applyModDraft('driveEnv', driveEnvBase)
@@ -1407,7 +1406,7 @@ function WaveformEditor({
     // Repeint au resize/thème/draft (deps `distortion`).
     if (effectsSelected === 'distortion') {
       const canvas = distortionCanvasRef.current
-      const paint = () => drawDistortionGraph(canvas, distortion)
+      const paint = () => drawDistortionGraph(canvas, distortion, draftDistortionPoint != null)
       paint()
       window.addEventListener('themechange', paint)
       let ro = null
@@ -1479,7 +1478,7 @@ function WaveformEditor({
       cancelAnimationFrame(raf)
       cleanupStatic()
     }
-  }, [vibrato, tremolo, autoPan, pitchEnv, filter, filterEnv, wah, distortion, driveEnv, modulationVisible, dragging, effectsSelected])
+  }, [vibrato, tremolo, autoPan, pitchEnv, filter, filterEnv, wah, distortion, driveEnv, draftDistortionPoint, modulationVisible, dragging, effectsSelected])
 
   const referenceRef = useRef(snapshotPatchFields(editor))
   const referencedPatchIdRef = useRef(null)
@@ -4107,18 +4106,6 @@ function WaveformEditor({
       const period = t - fg.onsetSec
       const r = period > 0 ? 1 / period : LFO_RATE_MAX
       value = Math.round(Math.max(LFO_RATE_MIN, Math.min(LFO_RATE_MAX, r)) * 10) / 10
-    } else if (fg.key === 'drive') { // T.6 : drag vertical → drive (mapping LOG 1..50)
-      const frac = Math.max(0, Math.min(1, (fg.driveBottom - y) / fg.driveUsableH))
-      const drive = Math.exp(DIST_DRIVE_LN_MIN + frac * (DIST_DRIVE_LN_MAX - DIST_DRIVE_LN_MIN))
-      value = Math.round(Math.max(DISTORTION_DRIVE_MIN, Math.min(DISTORTION_DRIVE_MAX, drive)))
-    } else if (fg.key === 'mix') { // T.6ter : manipulation directe de la courbe effective à x₀
-      // y écran → sortie [-1,1] (inverse de yOf) → mix = inversion de l'interpolation
-      // mix·f0 + (1−mix)·x₀. Dénominateur (f0−x₀) ≈ 0 à drive très bas (course nulle, assumé).
-      const yOut = 1 - 2 * (y - fg.marginT) / fg.mixUsableH
-      const denom = fg.mixF0 - fg.mixX0
-      if (Math.abs(denom) < 1e-6) return // courbe ≈ identité à x₀ : poignée figée
-      const mixVal = (yOut - fg.mixX0) / denom
-      value = Math.round(Math.max(0, Math.min(1, mixVal)) * 100) / 100
     } else if (fg.key === 'amount') { // T.3/T.5/T.6bis : drag vertical SIGNÉ (franchit la médiane → change de signe)
       const frac = Math.max(-1, Math.min(1, (fg.midY - y) / fg.halfUsableH))
       const raw = frac * fg.amountMax
@@ -4171,7 +4158,6 @@ function WaveformEditor({
         : fg.effect === 'tremolo' ? tremoloBase
         : fg.effect === 'autoPan' ? autoPanBase
         : fg.effect === 'wah' ? wahBase
-        : fg.effect === 'distortion' ? distortionBase
         : fg.effect === 'filterEnv' ? filterEnvBase
         : fg.effect === 'driveEnv' ? driveEnvBase : pitchEnvBase
       if (draftMod.value !== base[draftMod.key]) {
@@ -4339,18 +4325,11 @@ function WaveformEditor({
     setDraftFilter(null)
   }
 
-  // === T.6 — drag de la poignée Drive du graphe de transfert de la distorsion ===
-  // DEUX poignées (T.6ter) : Drive (vertical, mapping log) + Mix (sur la courbe effective
-  // à x₀, vertical → mix). MÊME machinerie d'undo que les LFO/env (draftMod mono-clé,
-  // modOwnerRef/modDragGeomRef/endModDrag partagés). Hit-test : la plus proche gagne.
-  const distortionHandlePositions = (g) => {
-    const f0 = distortionTransfer(distortion.curve, distortion.drive, DIST_MIX_X0)
-    const yEffMix = Math.max(-1, Math.min(1, distortion.mix * f0 + (1 - distortion.mix) * DIST_MIX_X0))
-    return {
-      drive: { key: 'drive', x: g.handleX, y: g.yForDrive(distortion.drive) },
-      mix: { key: 'mix', x: g.xOf(DIST_MIX_X0), y: g.yOf(yEffMix), f0 },
-    }
-  }
+  // === T.6.8 — poignée 2D unique du graphe de transfert (au point caractéristique) ===
+  // Horizontal → drive (inversion de x_c), vertical → mix ; drag libre 2D (comme les
+  // poignées P1/P2 de l'AHDSR). Draft local `draftDistortionPoint` + commit ATOMIQUE
+  // `SET_EDITOR_DISTORTION_POINT` (un cran d'undo). Géométrie gelée au pointerdown.
+  const distortionDragGeomRef = useRef(null)
   const distortionHitTest = (e) => {
     const canvas = distortionCanvasRef.current
     if (!canvas) return { hit: false }
@@ -4358,12 +4337,26 @@ function WaveformEditor({
     const x = e.clientX - rect.left
     const y = e.clientY - rect.top
     const g = distortionGeometry(rect.width, rect.height)
-    const h = distortionHandlePositions(g)
-    const dDrive = Math.hypot(x - h.drive.x, y - h.drive.y)
-    const dMix = Math.hypot(x - h.mix.x, y - h.mix.y)
-    let handle = null
-    if (dDrive < LFO_HIT_RADIUS || dMix < LFO_HIT_RADIUS) handle = dDrive <= dMix ? h.drive : h.mix
-    return { hit: !!handle, g, handle }
+    const hd = distortionHandle(distortion, g)
+    return { hit: Math.hypot(x - hd.x, y - hd.y) < LFO_HIT_RADIUS, g, hd }
+  }
+  // Curseur → (drive, mix) via la géométrie GELÉE. drive = inversion de x_c (clamp 1..50,
+  // arrondi entier) ; mix = inversion linéaire (y − x_c)/(1 − x_c), clampé [0,1] ; garde si
+  // x_c ≈ 1 (dénominateur ~0 : mode dur/replié à drive→1) → mix inchangé pendant le geste.
+  const applyDistortionDrag = (e) => {
+    const fg = distortionDragGeomRef.current
+    if (!fg) return
+    const rect = fg.canvas.getBoundingClientRect()
+    const x = e.clientX - rect.left
+    const y = e.clientY - rect.top
+    const xInput = Math.max(1e-4, Math.min(1, fg.g.xInputOf(x)))
+    const drive = Math.round(distortionDriveForX(fg.curve, xInput))
+    const xc = distortionCharacteristicX(fg.curve, drive)
+    const yOut = fg.g.yOutOf(y)
+    let mix = fg.mix
+    if (Math.abs(1 - xc) >= 1e-6) mix = (yOut - xc) / (1 - xc)
+    mix = Math.round(Math.max(0, Math.min(1, mix)) * 100) / 100
+    setDraftDistortionPoint({ drive, mix })
   }
   const handleDistortionPointerDown = (e) => {
     if (!distortion.enabled) return
@@ -4373,33 +4366,40 @@ function WaveformEditor({
     e.preventDefault()
     modOwnerRef.current = e.pointerId
     e.currentTarget.setPointerCapture?.(e.pointerId)
-    const h = hit.handle
-    if (h.key === 'mix') {
-      // Géométrie gelée : inversion y → mix via le segment [identité, wet pure] à x₀.
-      modDragGeomRef.current = {
-        effect: 'distortion', key: 'mix', canvas: distortionCanvasRef.current,
-        marginT: hit.g.marginT, mixUsableH: hit.g.usableH, mixX0: DIST_MIX_X0, mixF0: h.f0,
-      }
-      setDraftMod({ effect: 'distortion', key: 'mix', value: distortion.mix })
-    } else {
-      modDragGeomRef.current = {
-        effect: 'distortion', key: 'drive', canvas: distortionCanvasRef.current,
-        driveBottom: hit.g.bottom, driveUsableH: hit.g.usableH,
-      }
-      setDraftMod({ effect: 'distortion', key: 'drive', value: distortion.drive })
-    }
+    distortionDragGeomRef.current = { canvas: distortionCanvasRef.current, g: hit.g, curve: distortion.curve, mix: distortionBase.mix }
+    setDraftDistortionPoint({ drive: distortionBase.drive, mix: distortionBase.mix })
   }
   const handleDistortionPointerMove = (e) => {
-    if (modDragGeomRef.current) {
+    if (distortionDragGeomRef.current) {
       if (e.pointerId !== modOwnerRef.current) return
-      applyModDrag(e); return
+      applyDistortionDrag(e); return
     }
     if (!distortion.enabled) { if (modHover) setModHover(null); return }
     const hit = distortionHitTest(e)
     if (!hit.hit) { if (modHover) setModHover(null); return }
-    if (!modHover || modHover.effect !== 'distortion' || modHover.handle !== hit.handle.key) {
-      setModHover({ effect: 'distortion', handle: hit.handle.key, px: hit.handle.x, py: hit.handle.y })
+    if (!modHover || modHover.effect !== 'distortion') {
+      setModHover({ effect: 'distortion', handle: 'point', px: hit.hd.x, py: hit.hd.y })
     }
+  }
+  const endDistortionDrag = () => {
+    const fg = distortionDragGeomRef.current
+    distortionDragGeomRef.current = null
+    if (fg && draftDistortionPoint
+      && (draftDistortionPoint.drive !== distortionBase.drive || draftDistortionPoint.mix !== distortionBase.mix)) {
+      editorActions.setDistortionPoint(draftDistortionPoint.drive, draftDistortionPoint.mix)
+    }
+    setDraftDistortionPoint(null)
+  }
+  const handleDistortionPointerUp = (e) => {
+    if (e.pointerId !== modOwnerRef.current) return
+    modOwnerRef.current = null
+    endDistortionDrag()
+  }
+  const handleDistortionPointerCancel = (e) => {
+    if (e.pointerId !== modOwnerRef.current) return
+    modOwnerRef.current = null
+    distortionDragGeomRef.current = null
+    setDraftDistortionPoint(null)
   }
 
   // itération P — 6ᵉ module « Modulation ». Deux sous-blocs symétriques
@@ -4920,19 +4920,19 @@ function WaveformEditor({
               ref={distortionCanvasRef}
               aria-hidden="true"
               style={{
-                cursor: (draftMod && draftMod.effect === 'distortion') ? 'grabbing'
+                cursor: draftDistortionPoint ? 'grabbing'
                   : (modHover && modHover.effect === 'distortion' ? 'grab' : 'default'),
               }}
               onPointerDown={handleDistortionPointerDown}
               onPointerMove={handleDistortionPointerMove}
-              onPointerUp={handleModPointerUp}
-              onPointerCancel={handleModPointerCancel}
+              onPointerUp={handleDistortionPointerUp}
+              onPointerCancel={handleDistortionPointerCancel}
               onPointerLeave={handleModPointerLeave}
             />
             <LfoTooltip
-              handle={(draftMod && draftMod.effect === 'distortion') ? null
+              handle={draftDistortionPoint ? null
                 : (modHover && modHover.effect === 'distortion' ? modHover.handle : null)}
-              label={modHover?.handle === 'mix' ? 'Mix' : 'Drive'}
+              label="Drive / Mix"
               px={modHover?.px}
               py={modHover?.py}
             />
