@@ -883,6 +883,45 @@ Phases listées ci-dessous dans l'ordre chronologique d'implémentation.
 
 ## Historique (chronologie inverse)
 
+- **2026-06-11 — Iteration T — T.6 (phase-6.1→6.3) : distorsion (WaveShaper 4x par voix)**
+  (`feat(iter-T/phase-6.1..6.3)` + doc). **Dernière phase de l'itération T** — distorsion par
+  **waveshaping par voix** (chaque note distordue séparément, pas d'intermodulation ; la variante
+  « somme par patch » appartient au futur chantier des nœuds persistants). 3 sous-commits.
+  - **6.1 — modèle** : `Patch`/`Editor`/`PatchData` += `distortion {enabled, curve 'soft'|'hard'|
+    'fold', drive 1..50, mix 0..1}` (`DEFAULT_DISTORTION` false/soft/5/1). `DISTORTION_DRIVE_MIN/MAX`,
+    `DISTORTION_CURVES` ; `sanitizeDistortion` ; `clampModulationValue` branche distortion ;
+    `DESIGNER_EFFECT_IDS += 'distortion'` ; tous les call-sites editor/patch. `types.ts`
+    (`DistortionCurve`/`Distortion`), `osaFormat` (`isDistortionValidOrAbsent`, **v4 inchangé**,
+    absent → défaut), `libraryTransfer`.
+  - **6.2 — audio** : `lib/distortion.js` — `distortionTransfer(curve, k, x)` (soft `tanh(kx)/tanh(k)`
+    saturation chaude / hard `clamp(kx,-1,1)` clipping / fold `sin(kx·π/2)` wavefolding, toutes
+    **normalisées ±1→±1**) ; `distortionCurveTable` (mémo dernière (curve,drive), Float32Array 2048) ;
+    `configureShaper` (table + **`oversample='4x'`** anti-alias, alias résiduel à drive extrême sur
+    notes aiguës accepté) ; `connectDistortion` (split wet/dry : `source → shaper → wetGain` +
+    `source → dryGain` sommés, `wetGain=mix`/`dryGain=1−mix`, statique ; insertion conditionnelle
+    `enabled && mix>0`, retourne les nœuds pour cleanup). **Position AVANT le filtre** :
+    `osc → shaper → biquad → gain → [panner]` (logique soustractive — la disto enrichit le spectre,
+    le filtre / l'env de filtre / le wah le sculptent ensuite). 4 chemins (filtre découplé
+    `biquad→gain`, source → `connectDistortion` → `biquad ?? gain`) + signature scheduler
+    (`sigOfDistortion`, re-schedule live). Niveaux : disto compresse (loudness ↑), absorbé par le
+    master headroom-bas (iter S).
+  - **6.3 — UI** : 3 glyphes SVG style Lucide `IconDistort{Soft,Hard,Fold}` (courbe de transfert) +
+    `STRINGS.distortionCurves` (Douce/Dure/Repliée) ; 8ᵉ bouton header **« Disto »** (pastille/
+    highlight/badge hérités, OverflowToolbar absorbe). `renderDistortionBlock` : interrupteur +
+    switch segmenté 3 courbes (`DISTORTION_CURVE_META`) + 2 `NumberInput` Drive (1..50, step 1/5) /
+    Mix (0..1, step 0.05). **Graphe de la courbe de transfert** (`drawDistortionGraph` :
+    `distortionGeometry` x∈[−1,1]→[−1,1], `distortionTransfer` 96 pts partagé avec l'audio,
+    **diagonale identité pointillée** = « pas de disto », **curseur Drive** vertical à mapping LOG
+    1..50 inséré à droite ; désactivé → courbe grise + diagonale en accent + poignée inerte).
+    Drag vertical → drive (draftMod mono-clé `drive`, géométrie gelée, un dispatch, Pointer Events +
+    `setPointerCapture` + cancel). Branche **statique** de la boucle rAF (RO + themechange, aucune
+    animation). `distortionCanvasRef`. Dirty-check `distortionEqual`/`cloneDistortion`.
+  - **Comportement de référence** : sinus + soft drive 15 = chaleur tube (harmoniques impaires) ;
+    hard = clipping net ; fold drive 30 = métallique ; mix 0.5 = disto parallèle ; mix 0 ≡ off.
+    Disto + env de filtre = le « waouw » devient hurlant (filtre balaye le spectre enrichi).
+    **Hors scope** : disto sur la somme par patch (intermodulation → nœuds persistants), drive
+    modulable (le `curve` n'est pas un AudioParam — backlog « inattendus »). **Itération T
+    feature-complete (8 effets sans mémoire), clôture/release à la main de l'archi.**
 - **2026-06-11 — Iteration T — T.5 (phase-5.1→5.3) : enveloppe de filtre + wah (sur
   `biquad.detune`)** (`feat(iter-T/phase-5.1..5.3)` + doc). Le filtre statique (T.4) gagne
   ses 2 modulations classiques. **Clé architecturale** : `BiquadFilterNode` possède un

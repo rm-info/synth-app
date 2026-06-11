@@ -61,8 +61,14 @@ l'oscillateur → l'env de filtre **réutilise le pitch env** et le wah **réuti
 à `biquad.detune` (no-op si filtre off). `PitchEnv` **généralisé en `ParamEnv`** (type partagé) ;
 `Patch`/`Editor` += **`filterEnv: ParamEnv`** (amount ±4800 cents, time 0..2000) + **`wah: Lfo`**
 (depth cents 0..3600). Helper audio partagé **`scheduleParamEnv`** (osc.detune ET biquad.detune).
-**Pas de bump** (champs absents → défauts injectés, v4 inchangé). Reste T.6 (distorsion). Dernière
-release : **v1.11.0** (Iteration S). Détail S.1→S.audio.5 et arc audio dans `CONTEXT-ARCHIVE.md`.
+→ **T.6 livrée** (distorsion — dernière phase) : **`WaveShaperNode` 4x par voix**, inséré **AVANT
+le filtre** (`osc → shaper → biquad → gain` ; logique soustractive — on enrichit le spectre, le
+filtre le dompte). `Patch`/`Editor` += **`distortion {enabled, curve soft/hard/fold, drive 1..50,
+mix 0..1}`** ; courbes de transfert normalisées ±1→±1 (`lib/distortion.js`, mémo + helper partagé
+audio/graphe) ; **mix** = split wet/dry ; 8ᵉ bouton « Disto » + panneau (switch 3 courbes, graphe
+de transfert à poignée Drive log). **Itération T complète (8 effets sans mémoire), en attente de
+release.** **Pas de bump** (champs absents → défauts injectés, v4 inchangé). Dernière release :
+**v1.11.0** (Iteration S). Détail S.1→S.audio.5 et arc audio dans `CONTEXT-ARCHIVE.md`.
 
 > **Structure des fichiers de contexte.** Ce `CONTEXT.md` est le **brief
 > vivant** : état présent, modèle de données, composants, architecture,
@@ -123,6 +129,7 @@ synth-app/
     │   ├── shortcuts.js      # table déclarative + matchesShortcut / getAnchor (iter-L phase-1.1)
     │   ├── designerModules.js # (iter-O phase-5c/5d, iter-P) MODULE_META des 6 modules Designer { label, Icon Lucide } + DESIGNER_ROWS / rowSiblings (rangée haut 3 / bas 3) — source unique (headers, bande, auto-réduction)
     │   ├── filter.js         # (iter-T T.4) filtre statique : biquadQValue (piège d'unité Q — dB pour LP/HP, linéaire pour BP/notch) + configureBiquad, partagés par les 4 chemins audio ET le graphe de réponse (biquad de mesure)
+    │   ├── distortion.js     # (iter-T T.6) distorsion par voix : distortionTransfer (soft tanh / hard clamp / fold sin, normalisées ±1→±1) + distortionCurveTable (mémo (curve,drive)) + configureShaper (oversample 4x) + connectDistortion (split wet/dry, insertion avant le filtre) ; partagé 4 chemins audio + graphe de transfert
     │   ├── modulation.js     # (iter-P/T) applyModulation : branche vibrato/trémolo/auto-pan/pitch-env/env-filtre/wah (osc.detune & biquad.detune cents sommés / gain.gain sommé / panner.pan stéréo / automation de base osc.detune & biquad.detune) sur un couple (osc, gain[, panner][, biquad]) existant ; helper partagé des 4 chemins. scheduleParamEnv(param, env, startTime) = automation d'enveloppe (4 formes) partagée osc.detune (pitch T.3) ET biquad.detune (filtre T.5) ; biquad absent → env-filtre + wah no-ops
     │   ├── getAnchoredPosition.js # résolution viewport rect d'un [data-anchor] (iter-L phase-1.5)
     │   ├── highlightElement.js # halo temporaire ancré (DocLink), retry RAF (iter-L phase-3.1)
@@ -266,6 +273,8 @@ type Patch = {
   // itération T (T.5) : enveloppe de filtre + wah, tous deux sur biquad.detune (cents).
   filterEnv: ParamEnv            // { ... } amount ±4800 cents, time 0..2000 ms (no-op si filtre off)
   wah: Lfo                       // depth cents 0..3600 (LFO de cutoff ; no-op si filtre off)
+  // itération T (T.6) : distorsion par voix (WaveShaper 4x, inséré avant le filtre).
+  distortion: Distortion         // { enabled, curve soft/hard/fold, drive 1..50, mix 0..1 }
 }
 // type PatchFilter = { enabled:boolean, type:'lowpass'|'highpass'|'bandpass'|'notch',
 //   cutoff:number /*Hz 20-20000*/, q:number /*résonance LINÉAIRE 0.1-20*/ }. DEFAULT_FILTER
@@ -292,13 +301,17 @@ type Patch = {
 //   bornes propres. DEFAULT_PITCHENV { false, 1200, 150, false, 'linear' } ;
 //   DEFAULT_FILTERENV { false, 2400, 200, false, 'linear' }. Helper audio partagé
 //   scheduleParamEnv(param, env, startTime) — une seule implémentation des 4 formes.
-// Editor : mêmes champs (dont vibrato/tremolo/autoPan/pitchEnv/filter/filterEnv/wah) +
-// `currentLens: 'free'|'spline'` (volatile, non persisté) = lentille active (M.r.3.2 :
+// type Distortion = { enabled:boolean, curve:'soft'|'hard'|'fold', drive:number /*1-50*/,
+//   mix:number /*0-1 wet/dry*/ }. DEFAULT_DISTORTION { false, 'soft', 5, 1 }. WaveShaper 4x
+//   par voix inséré AVANT le filtre ; courbes normalisées ±1→±1 (soft tanh / hard clamp /
+//   fold sin) ; lib/distortion.js (mémo + helper audio/graphe partagé).
+// Editor : mêmes champs (dont vibrato/tremolo/autoPan/pitchEnv/filter/filterEnv/wah/distortion)
+// + `currentLens: 'free'|'spline'` (volatile, non persisté) = lentille active (M.r.3.2 :
 // 'bars' retiré, vestigial).
 // Migration v1→v2 (M.r.1) : les anciens
 // patches (draw/harmonic/spline) sont convertis à l'hydratation localStorage et
 // à l'import .osa v1 (reducer.migrateLegacyPatch, idempotent). OSA_VERSION = 4
-// (iter-T T.2 : += autoPan ; T.3→T.5 ajoutent pitchEnv/filter/filterEnv/wah DANS v4 ;
+// (iter-T T.2 : += autoPan ; T.3→T.6 ajoutent pitchEnv/filter/filterEnv/wah/distortion DANS v4 ;
 // iter-P avait += vibrato/tremolo) ; l'import accepte v1 (legacy), v2, v3 ET v4 —
 // champs absents → défauts injectés à l'hydratation (règle « champ absent → défaut »).
 
@@ -362,7 +375,7 @@ type Clip = {                     // placement timeline + hauteur
 //   designerMobileModule (iter-R phase-1.1 : module plein cadre en petit écran,
 //     ∈ les 6 ids, défaut 'canvas' ; remplace l'ex-volatile mobileExpandedZone),
 //   designerEffectsSelected (iter-T phase-1.1 : effet édité dans le module Effets,
-//     ∈ {'vibrato','tremolo','autoPan'(T.2),'pitchEnv'(T.3),'filter'(T.4),'filterEnv'(T.5),'wah'(T.5)}, défaut 'vibrato' ; validé à l'hydratation, hors undo),
+//     ∈ {'vibrato','tremolo','autoPan'(T.2),'pitchEnv'(T.3),'filter'(T.4),'filterEnv'(T.5),'wah'(T.5),'distortion'(T.6)}, défaut 'vibrato' ; validé à l'hydratation, hors undo),
 //   editorTestTuningSystem, editorTestNoteIndex, editorTestOctave,
 //   editorTestFrequency, editorVisualCuePattern, editorVisualCueTonic,
 //   selectedTrackId (iter-L phase-1.4.b) }
@@ -546,6 +559,11 @@ Seuls les **placements timeline** s'appellent "clips".
   `wahCanvasRef` + point de phase animé). Les deux affichent une **ligne discrète**
   « filtre désactivé — cet effet est muet » + bouton inline **« Activer le filtre »**
   (`renderFilterTargetHint`, undoable) quand `!filter.enabled` ; contrôles restent éditables.
+  **Distorsion (T.6)** : 8ᵉ bouton « Disto » + `renderDistortionBlock` (interrupteur + switch
+  segmenté 3 courbes `IconDistort*`/`STRINGS.distortionCurves` + steppers Drive 1..50 / Mix 0..1).
+  **Graphe de la courbe de transfert** (`drawDistortionGraph` : entrée x∈[−1,1] → sortie y∈[−1,1],
+  `distortionTransfer` partagé avec l'audio, **diagonale identité pointillée**, **curseur Drive**
+  vertical à mapping log ; statique, branche rAF) — drag vertical → drive (draftMod mono-clé).
   Les sous-blocs **LFO** (vibrato/trémolo/auto-pan/wah) rendent : interrupteur on/off, switch de
   forme (icônes SVG IconSine/IconTriangleWave/IconSquareWave), 3 `NumberInput` à
   steppers (vitesse Hz / profondeur cents|0..1 / installation ms) + un **graphe
@@ -2448,7 +2466,24 @@ par voix). Cadrage complet dans `archi/BACKLOG.md` (« Effets et modulations »)
   **hint « filtre désactivé — cet effet est muet »** + bouton inline « Activer le filtre »
   (undoable). Pas de bump `.osa` (v4 inchangé, `isParamEnvValidOrAbsent(v, amountMax)`, absent →
   défaut). Au passage : **fix `UPDATE_PATCH` persiste enfin `filter`** (oubli T.4). `sanitizeFilterEnv`/
-  `sanitizeWah`, `FILTERENV_*`/`WAH_DEPTH_MAX`, `filterEnvCanvasRef`/`wahCanvasRef`. **Reste T.6 (distorsion).**
+  `sanitizeWah`, `FILTERENV_*`/`WAH_DEPTH_MAX`, `filterEnvCanvasRef`/`wahCanvasRef`.
+- ✅ **T.6 (distorsion — dernière phase, v4 inchangé)** : **`WaveShaperNode` 4x par voix**,
+  waveshaping par voix (pas d'intermodulation entre notes — la variante « somme par patch »
+  appartient au futur chantier des nœuds persistants). `Patch`/`Editor` += **`distortion {enabled,
+  curve 'soft'|'hard'|'fold', drive 1..50, mix 0..1}`** (`DEFAULT_DISTORTION` false/soft/5/1).
+  Audio (`lib/distortion.js`) : `distortionTransfer` (soft `tanh(kx)/tanh(k)` / hard `clamp(kx)` /
+  fold `sin(kx·π/2)`, **normalisées ±1→±1**) + `distortionCurveTable` (mémo dernière (curve,drive),
+  table 2048 pts) + `configureShaper` (**oversample 4x** anti-alias) + `connectDistortion`
+  (helper de câblage : split wet/dry `osc → shaper → wetGain` + `osc → dryGain`, sommés). **Position
+  AVANT le filtre** : `osc → shaper → biquad → gain → [panner]` (logique soustractive — on enrichit
+  le spectre, le filtre/l'env de filtre/le wah le sculptent). Insertion conditionnelle (`enabled &&
+  mix>0`, sinon bit-identique), 4 chemins (filtre découplé `biquad→gain`) + signature scheduler
+  (`sigOfDistortion`), cleanup via `mod`. UI : 8ᵉ bouton **« Disto »** + panneau (switch 3 courbes
+  `IconDistort*` + steppers Drive/Mix) + **graphe de la courbe de transfert** (`drawDistortionGraph` :
+  x∈[−1,1]→y∈[−1,1], diagonale identité pointillée, **curseur Drive** vertical log, statique) —
+  drag vertical → drive (draftMod mono-clé). Pas de bump (`isDistortionValidOrAbsent`, absent →
+  défaut). `sanitizeDistortion`, `DISTORTION_DRIVE_MIN/MAX`/`DISTORTION_CURVES`, `distortionCanvasRef`.
+  **Itération T complète (8 effets sans mémoire), en attente de clôture/release.**
 
 ✅ **Terminé**
 - **Iteration S — « Support tactile au doigt (web pur) » (close, v1.11.0)**. L'app
@@ -3392,7 +3427,15 @@ en T.2, défauts injectés pour les champs absents). Distorsion **par voix**
   cents 0..3600). Helper audio partagé **`scheduleParamEnv`** (4 formes, osc + biquad). 2 boutons
   header « Env. filtre »/« Wah » (panneaux clones, graphe généralisé par bornes) + **hint « filtre
   désactivé » + bouton « Activer le filtre »**. Au passage : fix `UPDATE_PATCH` persiste `filter`.
-- ⏳ **T.6** distorsion (`WaveShaperNode` par voix : drive, courbe soft/hard/fold).
+- ✅ **T.6 — distorsion (`WaveShaperNode` 4x par voix, v4 inchangé)** : `distortion {enabled,
+  curve soft/hard/fold, drive 1..50, mix wet/dry}` ; courbes de transfert normalisées ±1→±1
+  (`lib/distortion.js`, mémo + helper audio/graphe) ; inséré **AVANT le filtre** (logique
+  soustractive) ; split wet/dry ; 8ᵉ bouton « Disto » + panneau (switch 3 courbes + graphe de
+  transfert à poignée Drive log). **Hors scope** : disto « sur la somme » par patch (→ effets à
+  mémoire), drive modulable (noté backlog « inattendus »). **Itération T complète (8 effets).**
+
+**Itération T feature-complete** (T.1→T.6) — en attente de clôture/release (version + déplacement
+de la roadmap vers l'archive, à la main de l'archi).
 
 Gros chantier **suivant** : effets **à mémoire** (delay/écho, reverb, chorus) via bus
 d'effet persistant par patch et/ou par piste — hors itération T (cf. `archi/BACKLOG.md`).
