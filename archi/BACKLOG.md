@@ -1393,7 +1393,9 @@ via bus d'effet partagé persistant, et/ou *par piste*) :
 taux audio, FM (pousser le `rate` des LFO existants dans le domaine
 audio en donne un avant-goût), LFO sur le cap d'harmoniques, « fall »
 de hauteur déclenché au release (chute type cuivres — ancrage sur
-`releaseStart`, identifié en T.3bis)…
+`releaseStart`, identifié en T.3bis), **keytracking du cutoff** (le
+cutoff suit la hauteur de la note — classique synthé, identifié en
+T.4)…
 
 **Effets de mixage** (par piste) :
 - **Pan stéréo statique** : `StereoPannerNode`. (L'auto-pan T.2 ouvre
