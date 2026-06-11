@@ -116,6 +116,13 @@ const fr = {
     notch: 'Coupe-bande',
   },
 
+  // iter-T phase-6.3 : courbes de transfert de la distorsion (switch du panneau Disto).
+  distortionCurves: {
+    soft: 'Douce',
+    hard: 'Dure',
+    fold: 'Repliée',
+  },
+
   // Presets de formes d'onde (mode dessin).
   presets: {
     sine: 'Sinusoïde',

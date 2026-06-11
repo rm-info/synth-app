@@ -144,6 +144,35 @@ export function IconFilterNotch(props) {
   )
 }
 
+// iter-T phase-6.3 — courbes de transfert de la distorsion (switch du panneau Disto).
+// Chaque glyphe schématise la COURBE entrée→sortie (x gauche→droite, y bas→haut),
+// la forme que dessine le graphe : sigmoïde (douce), rampe écrêtée (dure), repli
+// sinueux (repliée). Rien d'approprié dans Lucide.
+export function IconDistortSoft(props) {
+  // Sigmoïde douce (S) : saturation progressive.
+  return (
+    <svg {...lucideProps(props)}>
+      <path d="M3 19 C 8 19 9 12 12 12 C 15 12 16 5 21 5" />
+    </svg>
+  )
+}
+export function IconDistortHard(props) {
+  // Rampe écrêtée : plat bas, montée diagonale, plat haut (clipping dur).
+  return (
+    <svg {...lucideProps(props)}>
+      <path d="M3 18 L 8 18 L 16 6 L 21 6" />
+    </svg>
+  )
+}
+export function IconDistortFold(props) {
+  // Repli sinueux : la courbe se replie (zigzag) à fort drive.
+  return (
+    <svg {...lucideProps(props)}>
+      <path d="M3 17 L 7.5 6 L 12 17 L 16.5 6 L 21 17" />
+    </svg>
+  )
+}
+
 // Crête (peak hold du spectrogramme) : un mini-spectre de barres verticales de
 // hauteurs variées, chacune coiffée d'un court rectangle horizontal détaché — la
 // « crête maintenue » au-dessus de la barre courante. Visuellement une série de

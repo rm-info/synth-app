@@ -2,11 +2,12 @@ import { useRef, useState, useCallback, useEffect, useImperativeHandle, useMemo 
 import { Plus, Save, SaveAll, Undo2, Redo2, Sliders, X, Lock, Spline, AlignEndHorizontal, Sigma, Waves, ChartSpline, Activity, SlidersHorizontal, FlipVertical2 } from 'lucide-react'
 import { IconDoux, IconAnguleux, IconSine, IconTriangleWave, IconSquareWave,
   IconCurveLinear, IconCurveEaseOut, IconCurveExpo, IconCurveEaseIn,
-  IconFilterLowpass, IconFilterHighpass, IconFilterBandpass, IconFilterNotch } from './icons'
+  IconFilterLowpass, IconFilterHighpass, IconFilterBandpass, IconFilterNotch,
+  IconDistortSoft, IconDistortHard, IconDistortFold } from './icons'
 import { pointsToPeriodicWave, MIN_ATTACK, MIN_RELEASE, HARMONIC_COUNT, harmonicsToPoints, canonicalToBars, createMasterBus } from '../audio'
 import { applyModulation, pitchProgression } from '../lib/modulation'
 import { configureBiquad } from '../lib/filter'
-import { connectDistortion } from '../lib/distortion'
+import { connectDistortion, distortionTransfer } from '../lib/distortion'
 import { splineToPoints } from '../lib/spline'
 import {
   CAP_MIN, CAP_MAX, SPLINE_ANCHOR_MIN, SPLINE_ANCHOR_MAX,
@@ -15,6 +16,7 @@ import {
   PITCHENV_AMOUNT_MAX, PITCHENV_TIME_MAX, PITCHENV_TIME_MIN, PITCHENV_CURVES,
   FILTERENV_AMOUNT_MAX, FILTERENV_TIME_MAX, FILTERENV_TIME_MIN, WAH_DEPTH_MAX,
   FILTER_CUTOFF_MIN, FILTER_CUTOFF_MAX, FILTER_Q_MIN, FILTER_Q_MAX, FILTER_TYPES,
+  DISTORTION_DRIVE_MIN, DISTORTION_DRIVE_MAX, DISTORTION_CURVES,
 } from '../reducer'
 import useWindowSize from '../hooks/useWindowSize'
 import FreqInput from './FreqInput'
@@ -239,6 +241,13 @@ const FILTER_TYPE_META = {
   highpass: { Icon: IconFilterHighpass, label: STRINGS.filterTypes.highpass },
   bandpass: { Icon: IconFilterBandpass, label: STRINGS.filterTypes.bandpass },
   notch: { Icon: IconFilterNotch, label: STRINGS.filterTypes.notch },
+}
+// iter-T phase-6.3 : switch segmenté des 3 courbes de distorsion (glyphe de transfert
+// + libellé FR). Tooltips = libellés (Douce / Dure / Repliée).
+const DISTORTION_CURVE_META = {
+  soft: { Icon: IconDistortSoft, label: STRINGS.distortionCurves.soft },
+  hard: { Icon: IconDistortHard, label: STRINGS.distortionCurves.hard },
+  fold: { Icon: IconDistortFold, label: STRINGS.distortionCurves.fold },
 }
 // Pas multiplicatif des steppers de Fréquence : 2^(1/12) = un demi-ton, Shift = une
 // octave (×2). Pas musicaux, pédagogiquement cohérents, utilisables sur 20–20 000 Hz.
@@ -642,6 +651,117 @@ function drawFilterGraph(canvas, filter, biquad) {
   const cutoffDb = Math.max(FILTER_DB_MIN, Math.min(FILTER_DB_MAX, filterDbAt(biquad, filter.cutoff)))
   const hx = xOf(Math.max(FILTER_F_MIN, Math.min(FILTER_F_MAX, filter.cutoff)))
   const hy = yOf(cutoffDb)
+  ctx.beginPath()
+  ctx.arc(hx, hy, LFO_HANDLE_RADIUS, 0, 2 * Math.PI)
+  ctx.fillStyle = themeColor('canvas-marker')
+  ctx.fill()
+  ctx.strokeStyle = themeColor('accent')
+  ctx.lineWidth = 1.5
+  ctx.stroke()
+}
+
+// === Graphe de la courbe de transfert de la distorsion (T.6) ===
+//
+// Entrée x ∈ [−1,1] (gauche→droite) → sortie y ∈ [−1,1] (bas→haut). On trace la
+// courbe active (`distortionTransfer`, helper partagé avec l'audio) + la **diagonale
+// identité** en pointillé (référence « pas de disto »). **Une poignée** = curseur
+// vertical de `drive` (mapping LOG 1..50) posée à droite du graphe : drag vertical →
+// drive (la courbe se redessine plus raide). Pas d'animation (redraw aux changements).
+const DIST_HANDLE_X_FRAC = 0.84            // position x (fraction de usableW) du curseur Drive
+const DIST_DRIVE_LN_MIN = Math.log(DISTORTION_DRIVE_MIN)
+const DIST_DRIVE_LN_MAX = Math.log(DISTORTION_DRIVE_MAX)
+function distortionGeometry(cssW, cssH) {
+  const marginL = LFO_MARGIN_X
+  const marginR = LFO_MARGIN_X
+  const marginT = LFO_MARGIN_Y
+  const marginB = LFO_MARGIN_Y
+  const usableW = Math.max(1, cssW - marginL - marginR)
+  const usableH = Math.max(1, cssH - marginT - marginB)
+  const xOf = (x) => marginL + (x + 1) / 2 * usableW            // x ∈ [-1,1]
+  const yOf = (y) => marginT + (1 - y) / 2 * usableH            // y ∈ [-1,1], haut = +1
+  const handleX = marginL + DIST_HANDLE_X_FRAC * usableW
+  const top = marginT, bottom = marginT + usableH
+  // Curseur de drive : log(drive) ∈ [lnMin, lnMax] → vertical [bottom, top].
+  const yForDrive = (drive) => {
+    const frac = (Math.log(Math.max(DISTORTION_DRIVE_MIN, drive)) - DIST_DRIVE_LN_MIN) / (DIST_DRIVE_LN_MAX - DIST_DRIVE_LN_MIN)
+    return bottom - frac * usableH
+  }
+  const driveForY = (y) => {
+    const frac = Math.max(0, Math.min(1, (bottom - y) / usableH))
+    return Math.exp(DIST_DRIVE_LN_MIN + frac * (DIST_DRIVE_LN_MAX - DIST_DRIVE_LN_MIN))
+  }
+  return { marginL, marginT, usableW, usableH, xOf, yOf, handleX, top, bottom, yForDrive, driveForY }
+}
+
+// Dessine le graphe figé (diagonale identité + courbe de transfert + curseur Drive).
+// Effet désactivé → courbe grise atténuée, poignée inerte, diagonale seule en accent.
+function drawDistortionGraph(canvas, distortion) {
+  if (!canvas) return
+  const dpr = window.devicePixelRatio || 1
+  const cssW = canvas.clientWidth || 160
+  const cssH = canvas.clientHeight || 92
+  const w = Math.round(cssW * dpr)
+  const h = Math.round(cssH * dpr)
+  if (canvas.width !== w) canvas.width = w
+  if (canvas.height !== h) canvas.height = h
+  const ctx = canvas.getContext('2d')
+  if (!ctx) return
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0) // coords CSS px (cercle de poignée isotrope)
+  ctx.clearRect(0, 0, cssW, cssH)
+  const g = distortionGeometry(cssW, cssH)
+  const { xOf, yOf } = g
+  const enabled = distortion.enabled
+
+  // Axes médians (x=0, y=0) discrets.
+  ctx.strokeStyle = themeColor('canvas-grid-secondary')
+  ctx.globalAlpha = 0.5
+  ctx.lineWidth = 1
+  ctx.beginPath()
+  ctx.moveTo(xOf(-1), yOf(0)); ctx.lineTo(xOf(1), yOf(0))
+  ctx.moveTo(xOf(0), yOf(1)); ctx.lineTo(xOf(0), yOf(-1))
+  ctx.stroke()
+  ctx.globalAlpha = 1
+
+  // Diagonale identité (référence « pas de disto ») : pointillé, accent si désactivé.
+  ctx.strokeStyle = enabled ? themeColor('canvas-grid-secondary') : themeColor('accent')
+  ctx.globalAlpha = enabled ? 0.6 : 1
+  ctx.lineWidth = 1.25
+  ctx.setLineDash([4, 3])
+  ctx.beginPath()
+  ctx.moveTo(xOf(-1), yOf(-1)); ctx.lineTo(xOf(1), yOf(1))
+  ctx.stroke()
+  ctx.setLineDash([])
+  ctx.globalAlpha = 1
+
+  // Courbe de transfert active.
+  ctx.strokeStyle = enabled ? themeColor('accent') : themeColor('canvas-text-secondary')
+  ctx.globalAlpha = enabled ? 1 : 0.45
+  ctx.lineWidth = 1.75
+  ctx.lineJoin = 'round'
+  ctx.beginPath()
+  const N = 96
+  for (let i = 0; i <= N; i++) {
+    const x = (i / N) * 2 - 1
+    const y = Math.max(-1, Math.min(1, distortionTransfer(distortion.curve, distortion.drive, x)))
+    if (i === 0) ctx.moveTo(xOf(x), yOf(y))
+    else ctx.lineTo(xOf(x), yOf(y))
+  }
+  ctx.stroke()
+  ctx.globalAlpha = 1
+
+  if (!enabled) return // poignée inerte
+
+  // Curseur de Drive (vertical) : track pointillé + poignée.
+  const hx = g.handleX
+  const hy = g.yForDrive(distortion.drive)
+  ctx.strokeStyle = themeColor('canvas-grid-secondary')
+  ctx.globalAlpha = 0.4
+  ctx.setLineDash([2, 3])
+  ctx.beginPath()
+  ctx.moveTo(hx, g.top); ctx.lineTo(hx, g.bottom)
+  ctx.stroke()
+  ctx.setLineDash([])
+  ctx.globalAlpha = 1
   ctx.beginPath()
   ctx.arc(hx, hy, LFO_HANDLE_RADIUS, 0, 2 * Math.PI)
   ctx.fillStyle = themeColor('canvas-marker')
@@ -1161,6 +1281,8 @@ function WaveformEditor({
   // T.5 — graphes env. de filtre (statique, comme pitchEnv) + wah (animé, comme un LFO).
   const filterEnvCanvasRef = useRef(null)
   const wahCanvasRef = useRef(null)
+  // T.6 — graphe de la courbe de transfert de la distorsion (statique, poignée Drive).
+  const distortionCanvasRef = useRef(null)
   // T.4 — graphe de réponse du filtre + biquad de MESURE. On réutilise le contexte
   // audio du Designer s'il existe (mêmes coefficients que la lecture) ; sinon un
   // OfflineAudioContext léger (avant la 1ʳᵉ note, pas de geste utilisateur requis).
@@ -1232,6 +1354,24 @@ function WaveformEditor({
       }
     }
 
+    // T.6 — distorsion : graphe de la courbe de transfert, statique (AUCUNE animation).
+    // Repeint au resize/thème/draft (deps `distortion`).
+    if (effectsSelected === 'distortion') {
+      const canvas = distortionCanvasRef.current
+      const paint = () => drawDistortionGraph(canvas, distortion)
+      paint()
+      window.addEventListener('themechange', paint)
+      let ro = null
+      if (typeof ResizeObserver !== 'undefined' && canvas) {
+        ro = new ResizeObserver(() => paint())
+        ro.observe(canvas)
+      }
+      return () => {
+        window.removeEventListener('themechange', paint)
+        if (ro) ro.disconnect()
+      }
+    }
+
     const visible = effectsSelected === 'tremolo'
       ? { canvas: tremoloCanvasRef.current, lfo: tremolo, depthMax: TREMOLO_DEPTH_MAX, key: 'tremolo' }
       : effectsSelected === 'autoPan'
@@ -1290,7 +1430,7 @@ function WaveformEditor({
       cancelAnimationFrame(raf)
       cleanupStatic()
     }
-  }, [vibrato, tremolo, autoPan, pitchEnv, filter, filterEnv, wah, modulationVisible, dragging, effectsSelected])
+  }, [vibrato, tremolo, autoPan, pitchEnv, filter, filterEnv, wah, distortion, modulationVisible, dragging, effectsSelected])
 
   const referenceRef = useRef(snapshotPatchFields(editor))
   const referencedPatchIdRef = useRef(null)
@@ -3915,6 +4055,10 @@ function WaveformEditor({
       const period = t - fg.onsetSec
       const r = period > 0 ? 1 / period : LFO_RATE_MAX
       value = Math.round(Math.max(LFO_RATE_MIN, Math.min(LFO_RATE_MAX, r)) * 10) / 10
+    } else if (fg.key === 'drive') { // T.6 : drag vertical → drive (mapping LOG 1..50)
+      const frac = Math.max(0, Math.min(1, (fg.driveBottom - y) / fg.driveUsableH))
+      const drive = Math.exp(DIST_DRIVE_LN_MIN + frac * (DIST_DRIVE_LN_MAX - DIST_DRIVE_LN_MIN))
+      value = Math.round(Math.max(DISTORTION_DRIVE_MIN, Math.min(DISTORTION_DRIVE_MAX, drive)))
     } else if (fg.key === 'amount') { // T.3/T.5 : drag vertical SIGNÉ (franchit la médiane → change de signe)
       const frac = Math.max(-1, Math.min(1, (fg.midY - y) / fg.halfUsableH))
       value = Math.round(frac * fg.amountMax)
@@ -3965,6 +4109,7 @@ function WaveformEditor({
         : fg.effect === 'tremolo' ? tremoloBase
         : fg.effect === 'autoPan' ? autoPanBase
         : fg.effect === 'wah' ? wahBase
+        : fg.effect === 'distortion' ? distortionBase
         : fg.effect === 'filterEnv' ? filterEnvBase : pitchEnvBase
       if (draftMod.value !== base[draftMod.key]) {
         editorActions.setModulation(draftMod.effect, draftMod.key, draftMod.value)
@@ -4129,6 +4274,47 @@ function WaveformEditor({
     setDraftFilter(null)
   }
 
+  // === T.6 — drag de la poignée Drive du graphe de transfert de la distorsion ===
+  // Poignée verticale UNIQUE (mapping log → drive). MÊME machinerie d'undo que les
+  // LFO/env (draftMod mono-clé `drive`, modOwnerRef/modDragGeomRef/endModDrag partagés).
+  const distortionHitTest = (e) => {
+    const canvas = distortionCanvasRef.current
+    if (!canvas) return { hit: false }
+    const rect = canvas.getBoundingClientRect()
+    const x = e.clientX - rect.left
+    const y = e.clientY - rect.top
+    const g = distortionGeometry(rect.width, rect.height)
+    const hx = g.handleX
+    const hy = g.yForDrive(distortion.drive)
+    return { hit: Math.hypot(x - hx, y - hy) < LFO_HIT_RADIUS, g, hx, hy }
+  }
+  const handleDistortionPointerDown = (e) => {
+    if (!distortion.enabled) return
+    if (modOwnerRef.current !== null) return
+    const hit = distortionHitTest(e)
+    if (!hit.hit) return
+    e.preventDefault()
+    modOwnerRef.current = e.pointerId
+    e.currentTarget.setPointerCapture?.(e.pointerId)
+    modDragGeomRef.current = {
+      effect: 'distortion', key: 'drive', canvas: distortionCanvasRef.current,
+      driveBottom: hit.g.bottom, driveUsableH: hit.g.usableH,
+    }
+    setDraftMod({ effect: 'distortion', key: 'drive', value: distortion.drive })
+  }
+  const handleDistortionPointerMove = (e) => {
+    if (modDragGeomRef.current) {
+      if (e.pointerId !== modOwnerRef.current) return
+      applyModDrag(e); return
+    }
+    if (!distortion.enabled) { if (modHover) setModHover(null); return }
+    const hit = distortionHitTest(e)
+    if (!hit.hit) { if (modHover) setModHover(null); return }
+    if (!modHover || modHover.effect !== 'distortion') {
+      setModHover({ effect: 'distortion', handle: 'drive', px: hit.hx, py: hit.hy })
+    }
+  }
+
   // itération P — 6ᵉ module « Modulation ». Deux sous-blocs symétriques
   // Vibrato/Trémolo : interrupteur on/off, switch de forme (icônes), 3 steppers
   // (vitesse/profondeur/installation) + un GRAPHE LFO éditable à poignées (P.5).
@@ -4149,6 +4335,7 @@ function WaveformEditor({
       { id: 'filter', label: 'Filtre', enabled: filter.enabled },
       { id: 'filterEnv', label: 'Env. filtre', enabled: filterEnv.enabled },
       { id: 'wah', label: 'Wah', enabled: wah.enabled },
+      { id: 'distortion', label: 'Disto', enabled: distortion.enabled },
     ]
     return effects.map((eff) => {
       const selected = effectsSelected === eff.id
@@ -4569,6 +4756,110 @@ function WaveformEditor({
       )
     }
 
+    // T.6 — panneau Distorsion : interrupteur + switch segmenté 3 courbes + 2 steppers
+    // (Drive 1..50 / Mix 0..1) + graphe de la courbe de transfert à poignée Drive.
+    const renderDistortionBlock = () => {
+      const enabled = distortion.enabled
+      const hidden = effectsSelected !== 'distortion'
+      const set = (key, value) => editorActions.setModulation('distortion', key, value)
+      return (
+        <div className={`we-lfo-block${enabled ? ' is-enabled' : ''}${hidden ? ' is-hidden' : ''}`} key="distortion">
+          <div className="we-lfo-head">
+            <label className="we-lfo-switch">
+              <input
+                type="checkbox"
+                className="we-lfo-switch-input"
+                checked={enabled}
+                onChange={(e) => set('enabled', e.target.checked)}
+              />
+              <span className="we-lfo-switch-track" aria-hidden="true">
+                <span className="we-lfo-switch-thumb" />
+              </span>
+              <span className="we-lfo-switch-label">Distorsion</span>
+            </label>
+            <div className="we-lfo-head-controls">
+              <div className="spline-interp-toggle we-lfo-shape" role="group" aria-label="Courbe de distorsion">
+                {DISTORTION_CURVES.map((cv) => {
+                  const { Icon, label } = DISTORTION_CURVE_META[cv]
+                  return (
+                    <button
+                      key={cv}
+                      type="button"
+                      className={`icon-btn${distortion.curve === cv ? ' is-active' : ''}`}
+                      onClick={() => set('curve', cv)}
+                      disabled={!enabled}
+                      title={label}
+                      aria-label={label}
+                      aria-pressed={distortion.curve === cv}
+                    ><Icon size={16} /></button>
+                  )
+                })}
+              </div>
+            </div>
+          </div>
+          <div className="we-lfo-canvas-wrap">
+            <canvas
+              className="we-lfo-canvas"
+              ref={distortionCanvasRef}
+              aria-hidden="true"
+              style={{
+                cursor: (draftMod && draftMod.effect === 'distortion') ? 'grabbing'
+                  : (modHover && modHover.effect === 'distortion' ? 'grab' : 'default'),
+              }}
+              onPointerDown={handleDistortionPointerDown}
+              onPointerMove={handleDistortionPointerMove}
+              onPointerUp={handleModPointerUp}
+              onPointerCancel={handleModPointerCancel}
+              onPointerLeave={handleModPointerLeave}
+            />
+            <LfoTooltip
+              handle={(draftMod && draftMod.effect === 'distortion') ? null
+                : (modHover && modHover.effect === 'distortion' ? modHover.handle : null)}
+              label="Drive"
+              px={modHover?.px}
+              py={modHover?.py}
+            />
+          </div>
+          <div className="we-lfo-controls we-lfo-controls--two">
+            <div className="we-lfo-control">
+              <span>Drive</span>
+              <NumberInput
+                value={distortion.drive}
+                onChange={(v) => set('drive', v)}
+                min={DISTORTION_DRIVE_MIN}
+                max={DISTORTION_DRIVE_MAX}
+                parse={parseLfoNum}
+                format={(v) => String(Math.round(v))}
+                showSteppers
+                step={1}
+                shiftStep={5}
+                className="adsr-value-input"
+                disabled={!enabled}
+                ariaLabel="Drive de la distorsion"
+              />
+            </div>
+            <div className="we-lfo-control">
+              <span>Mix</span>
+              <NumberInput
+                value={distortion.mix}
+                onChange={(v) => set('mix', v)}
+                min={0}
+                max={1}
+                parse={parseLfoNum}
+                format={(v) => v.toFixed(2)}
+                showSteppers
+                step={0.05}
+                shiftStep={0.1}
+                className="adsr-value-input"
+                disabled={!enabled}
+                ariaLabel="Mix wet/dry de la distorsion"
+              />
+            </div>
+          </div>
+        </div>
+      )
+    }
+
     return (
       <div className="we-modulation-area" data-anchor="designer-modulation">
         <header className="we-area-header">
@@ -4594,6 +4885,7 @@ function WaveformEditor({
           {renderFilterBlock()}
           {renderParamEnvBlock('filterEnv')}
           {renderLfoBlock('wah')}
+          {renderDistortionBlock()}
         </div>
       </div>
     )
