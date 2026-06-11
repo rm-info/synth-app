@@ -115,6 +115,17 @@ export interface PitchEnv {
   curve: PitchEnvCurve
 }
 
+// iter-T phase-4.1 : filtre statique par patch (un BiquadFilterNode inséré dans la
+// chaîne de voix). `q` est la résonance LINÉAIRE (facteur de qualité) ; la couche
+// audio la convertit en dB pour lowpass/highpass — cf. lib/filter.js (piège d'unité).
+export type FilterType = 'lowpass' | 'highpass' | 'bandpass' | 'notch'
+export interface PatchFilter {
+  enabled: boolean
+  type: FilterType
+  cutoff: number   // Hz, borné [FILTER_CUTOFF_MIN, FILTER_CUTOFF_MAX]
+  q: number        // résonance linéaire, bornée [FILTER_Q_MIN, FILTER_Q_MAX]
+}
+
 // === Modèle métier ===
 
 // Hauteur portée par un clip : système-based (noteIndex/octave non nuls) OU
@@ -196,6 +207,8 @@ export interface Patch extends AdsrEnvelope {
   autoPan: Lfo
   // iter-T phase-3.1 : pitch envelope (enveloppe de hauteur → osc.detune).
   pitchEnv: PitchEnv
+  // iter-T phase-4.1 : filtre statique (BiquadFilter par voix).
+  filter: PatchFilter
 }
 
 // Données d'un patch transmises à SAVE_PATCH / UPDATE_PATCH (sans id/color).
@@ -216,6 +229,7 @@ export interface PatchData {
   tremolo?: Lfo
   autoPan?: Lfo
   pitchEnv?: PitchEnv
+  filter?: PatchFilter
   attack?: number
   hold?: number
   decay?: number
@@ -257,6 +271,8 @@ export interface Editor extends AdsrEnvelope {
   autoPan: Lfo
   // iter-T phase-3.1 : pitch envelope (enveloppe de hauteur).
   pitchEnv: PitchEnv
+  // iter-T phase-4.1 : filtre statique (BiquadFilter par voix).
+  filter: PatchFilter
   testTuningSystem: TuningSystemId
   testNoteIndex: number
   testOctave: number
@@ -335,7 +351,8 @@ export type TabId = 'library' | 'composer' | 'designer' | 'documentation'
 export type DesignerModuleId = 'canvas' | 'harmonics' | 'spectrogram' | 'params' | 'adsr' | 'modulation'
 // iter-T phase-1.1 : effets éditables dans le module « Effets » (ex-Modulation).
 // iter-T phase-2.1 : += 'autoPan' (auto-pan stéréo). phase-3.1 : += 'pitchEnv'.
-export type DesignerEffectId = 'vibrato' | 'tremolo' | 'autoPan' | 'pitchEnv'
+// phase-4.1 : += 'filter' (filtre statique BiquadFilter).
+export type DesignerEffectId = 'vibrato' | 'tremolo' | 'autoPan' | 'pitchEnv' | 'filter'
 // iter-O phase-5a : état replié (bande) de chacun des modules. Préférence UI
 // persistée (localStorage), non-undoable — comme designerColumnWidths.
 export interface DesignerCollapsed {
@@ -598,7 +615,8 @@ export type ActionBody =
   | { type: 'SET_EDITOR_ADSR_AND_AMP'; payload: { adsr?: Partial<AdsrEnvelope>; amplitude?: number } }
   // itération P : édition d'un paramètre de modulation. Action générique unique
   // (10 champs × set) qui clampe selon effect+key dans le reducer.
-  | { type: 'SET_EDITOR_MODULATION'; payload: { effect: DesignerEffectId; key: keyof Lfo | keyof PitchEnv; value: boolean | number | LfoShape | PitchEnvCurve } }
+  | { type: 'SET_EDITOR_MODULATION'; payload: { effect: DesignerEffectId; key: keyof Lfo | keyof PitchEnv | keyof PatchFilter; value: boolean | number | LfoShape | PitchEnvCurve | FilterType } }
+  | { type: 'SET_EDITOR_FILTER_POINT'; payload: { cutoff: number; q: number } }
   | { type: 'RESET_EDITOR' }
   // iter-M phase-r.2.2 : reset du timbre seul (canonical + cap + lentille
   // spline). Préserve ADSR / amplitude / test* / currentLens / currentPatchId.

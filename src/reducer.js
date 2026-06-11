@@ -92,6 +92,19 @@ export const PITCHENV_TIME_MIN = 40     // ms
 export const LFO_ONSET_MAX = 2000 // ms
 /** @type {import('./types').LfoShape[]} */
 export const LFO_SHAPES = ['sine', 'triangle', 'square']
+
+// === Filtre statique (itération T, T.4) ===
+//
+// Un BiquadFilterNode par voix (inséré conditionnellement dans la chaîne). Le
+// modèle stocke un `q` LINÉAIRE unique (facteur de qualité) ; la couche audio le
+// convertit en dB pour lowpass/highpass — cf. le piège d'unité documenté dans
+// lib/filter.js. Pas de bump .osa : champ absent → DEFAULT_FILTER injecté (v4).
+export const FILTER_CUTOFF_MIN = 20    // Hz
+export const FILTER_CUTOFF_MAX = 20000 // Hz
+export const FILTER_Q_MIN = 0.1        // résonance linéaire (≈ neutre à 1)
+export const FILTER_Q_MAX = 20
+/** @type {import('./types').FilterType[]} */
+export const FILTER_TYPES = ['lowpass', 'highpass', 'bandpass', 'notch']
 // iter-T phase-3.5 : formes de progression du pitch envelope (orthogonales à `invert`).
 /** @type {import('./types').PitchEnvCurve[]} */
 export const PITCHENV_CURVES = ['linear', 'easeOut', 'expo', 'easeIn']
@@ -108,6 +121,10 @@ export const DEFAULT_AUTOPAN = { enabled: false, rate: 1, depth: 0.5, onset: 0, 
 // iter-T phase-3.1 : désactivé mais musical (+1 octave qui retombe en 150 ms =
 // pluck/tom immédiatement parlant).
 export const DEFAULT_PITCHENV = { enabled: false, amount: 1200, time: 150, invert: false, curve: 'linear' }
+/** @type {import('./types').PatchFilter} */
+// iter-T phase-4.1 : filtre désactivé mais musical (un passe-bas à 2 kHz, q neutre,
+// adoucit nettement un timbre riche dès qu'on l'active).
+export const DEFAULT_FILTER = { enabled: false, type: 'lowpass', cutoff: 2000, q: 1 }
 
 const clampToRange = (v, lo, hi, fallback) => {
   const n = Number(v)
@@ -146,6 +163,18 @@ export function sanitizePitchEnv(raw) {
   }
 }
 
+// iter-T phase-4.1 : filtre statique (type frère, ni Lfo ni PitchEnv). Tolérant à
+// l'absence (champ manquant → DEFAULT_FILTER) ; enum type + clamps en dur.
+export function sanitizeFilter(raw) {
+  if (!raw || typeof raw !== 'object') return { ...DEFAULT_FILTER }
+  return {
+    enabled: raw.enabled === true,
+    type: FILTER_TYPES.includes(raw.type) ? raw.type : DEFAULT_FILTER.type,
+    cutoff: clampToRange(raw.cutoff, FILTER_CUTOFF_MIN, FILTER_CUTOFF_MAX, DEFAULT_FILTER.cutoff),
+    q: clampToRange(raw.q, FILTER_Q_MIN, FILTER_Q_MAX, DEFAULT_FILTER.q),
+  }
+}
+
 // Défaut + borne de profondeur d'un effet (vibrato cents 200 ; trémolo/auto-pan 0..1).
 function effectDefault(effect) {
   return effect === 'vibrato' ? DEFAULT_VIBRATO
@@ -160,6 +189,14 @@ function effectDepthMax(effect) {
 
 // Clamp d'un champ unique pour SET_EDITOR_MODULATION (action paramétrée).
 function clampModulationValue(effect, key, value) {
+  // iter-T phase-4.1 : filtre statique = type frère (clés type/cutoff/q, pas Lfo).
+  if (effect === 'filter') {
+    if (key === 'enabled') return value === true
+    if (key === 'type') return FILTER_TYPES.includes(value) ? value : DEFAULT_FILTER.type
+    if (key === 'cutoff') return clampToRange(value, FILTER_CUTOFF_MIN, FILTER_CUTOFF_MAX, DEFAULT_FILTER.cutoff)
+    if (key === 'q') return clampToRange(value, FILTER_Q_MIN, FILTER_Q_MAX, DEFAULT_FILTER.q)
+    return value
+  }
   // iter-T phase-3.1 : pitch envelope = type frère (clés amount/time, pas Lfo).
   if (effect === 'pitchEnv') {
     if (key === 'enabled') return value === true
@@ -355,7 +392,7 @@ function sanitizeColumnWidths(raw) {
 const DESIGNER_MODULE_IDS = ['canvas', 'harmonics', 'spectrogram', 'params', 'adsr', 'modulation']
 // iter-T phase-1.1 : effets éditables dans le module « Effets » (ex-Modulation).
 // Source unique de la validation d'hydratation de `designerEffectsSelected`.
-const DESIGNER_EFFECT_IDS = ['vibrato', 'tremolo', 'autoPan', 'pitchEnv']
+const DESIGNER_EFFECT_IDS = ['vibrato', 'tremolo', 'autoPan', 'pitchEnv', 'filter']
 function sanitizeDesignerCollapsed(raw) {
   const out = { canvas: false, harmonics: false, spectrogram: false, params: false, adsr: false, modulation: false }
   if (raw && typeof raw === 'object') {
@@ -410,6 +447,8 @@ export const DEFAULT_EDITOR = {
   autoPan: { ...DEFAULT_AUTOPAN },
   // iter-T phase-3.1 : pitch envelope (enveloppe de hauteur).
   pitchEnv: { ...DEFAULT_PITCHENV },
+  // iter-T phase-4.1 : filtre statique (BiquadFilter par voix).
+  filter: { ...DEFAULT_FILTER },
   testTuningSystem: '12-TET', // '12-TET' | 'free'
   testNoteIndex: 9, // A
   testOctave: 4,
@@ -536,6 +575,8 @@ function patchMeta(p) {
     autoPan: sanitizeAutoPan(p.autoPan),
     // iter-T phase-3.1 : pitch envelope (absent → DEFAULT_PITCHENV ; v4 inchangé).
     pitchEnv: sanitizePitchEnv(p.pitchEnv),
+    // iter-T phase-4.1 : filtre statique (absent → DEFAULT_FILTER ; v4 inchangé).
+    filter: sanitizeFilter(p.filter),
   }
 }
 
@@ -1743,6 +1784,8 @@ export function reducer(state, action) {
         autoPan: sanitizeAutoPan(patchData.autoPan),
         // iter-T phase-3.1 : pitch envelope du patch.
         pitchEnv: sanitizePitchEnv(patchData.pitchEnv),
+        // iter-T phase-4.1 : filtre statique du patch.
+        filter: sanitizeFilter(patchData.filter),
       }
 
       // SAVE_PATCH non-undoable, mais on rewrite les snapshots LIBRARY
@@ -2220,6 +2263,21 @@ export function reducer(state, action) {
       if (current[key] === clamped) return state
       return { ...state, editor: { ...state.editor, [effect]: { ...current, [key]: clamped } } }
     }
+    case 'SET_EDITOR_FILTER_POINT': {
+      // iter-T phase-4.4 : commit ATOMIQUE des deux axes de la poignée 2D du graphe
+      // de réponse (cutoff horizontal + q vertical) en UN seul cran d'undo. Frère du
+      // MOVE_SPLINE_ANCHOR (poignée 2D → action 2D), distinct de SET_EDITOR_MODULATION
+      // (mono-clé : interrupteur / switch de type / steppers).
+      const { cutoff, q } = action.payload
+      const cur = state.editor.filter
+      const next = {
+        ...cur,
+        cutoff: clampToRange(cutoff, FILTER_CUTOFF_MIN, FILTER_CUTOFF_MAX, cur.cutoff),
+        q: clampToRange(q, FILTER_Q_MIN, FILTER_Q_MAX, cur.q),
+      }
+      if (next.cutoff === cur.cutoff && next.q === cur.q) return state
+      return { ...state, editor: { ...state.editor, filter: next } }
+    }
     // iter-N phase-5c.3 : APPLY_EDITOR_PRESET supprimé — la barre des presets
     // géométriques (mode Libre) qui le déclenchait a été retirée au profit de la
     // modale (chemin LOAD_PRESET unifié).
@@ -2246,6 +2304,7 @@ export function reducer(state, action) {
           tremolo: { ...DEFAULT_TREMOLO },
           autoPan: { ...DEFAULT_AUTOPAN },
           pitchEnv: { ...DEFAULT_PITCHENV },
+          filter: { ...DEFAULT_FILTER },
           testTuningSystem,
           testNoteIndex,
           testOctave,
@@ -2346,6 +2405,7 @@ export function reducer(state, action) {
           tremolo: { ...DEFAULT_TREMOLO },
           autoPan: { ...DEFAULT_AUTOPAN },
           pitchEnv: { ...DEFAULT_PITCHENV },
+          filter: { ...DEFAULT_FILTER },
           // cap & nombre d'ancres : PRÉSERVÉS (≠ Ctrl+Alt+N qui réinitialise tout).
         },
       }
@@ -2366,6 +2426,7 @@ export function reducer(state, action) {
             tremolo: { ...DEFAULT_TREMOLO },
             autoPan: { ...DEFAULT_AUTOPAN },
             pitchEnv: { ...DEFAULT_PITCHENV },
+            filter: { ...DEFAULT_FILTER },
           },
         }
       }
@@ -2386,6 +2447,7 @@ export function reducer(state, action) {
           tremolo: sanitizeTremolo(patch.tremolo),
           autoPan: sanitizeAutoPan(patch.autoPan),
           pitchEnv: sanitizePitchEnv(patch.pitchEnv),
+          filter: sanitizeFilter(patch.filter),
           currentLens: 'free',
           // M.r.4 — le flag n'est pas persisté dans le patch : phase inconnue au
           // rechargement → false (l'utilisateur normalisera explicitement avant
@@ -2988,6 +3050,8 @@ const DESIGNER_UNDOABLE = new Set([
   'SET_EDITOR_ADSR', 'SET_EDITOR_ADSR_AND_AMP', 'RESET_EDITOR',
   // itération P : édition des modulations LFO (vibrato/trémolo).
   'SET_EDITOR_MODULATION',
+  // iter-T phase-4.4 : commit 2D de la poignée du graphe de filtre (cutoff + q).
+  'SET_EDITOR_FILTER_POINT',
   // iter-M phase-r.2 : reset du timbre seul + normalisation (iDFT phase
   // canonique) + re-fit du nombre d'ancres.
   'RESET_EDITOR_WAVEFORM', 'NORMALIZE_EDITOR_CANONICAL', 'SET_EDITOR_ANCHOR_COUNT',

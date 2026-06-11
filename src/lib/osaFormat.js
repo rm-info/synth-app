@@ -95,6 +95,19 @@ function isPitchEnvValidOrAbsent(v) {
   return true
 }
 
+// itération T (T.4, v4 inchangé) : filtre statique. Même contrat que les Lfo
+// (tolérant à l'absence, strict si présent) : enum type + cutoff Hz [20, 20000] +
+// q linéaire [0.1, 20].
+function isFilterValidOrAbsent(v) {
+  if (v === undefined || v === null) return true
+  if (typeof v !== 'object') return false
+  if (typeof v.enabled !== 'boolean') return false
+  if (v.type !== 'lowpass' && v.type !== 'highpass' && v.type !== 'bandpass' && v.type !== 'notch') return false
+  if (!isNumberInRange(v.cutoff, 20, 20000)) return false
+  if (!isNumberInRange(v.q, 0.1, 20)) return false
+  return true
+}
+
 export function validatePayload(obj) {
   assert(obj && typeof obj === 'object', 'racine du fichier non-objet')
   assert(obj.version === 1 || obj.version === 2 || obj.version === 3 || obj.version === 4,
@@ -178,6 +191,8 @@ export function validatePayload(obj) {
         assert(isLfoValidOrAbsent(p.autoPan, 1), `patch ${p.id}: autoPan invalide`)
         // T.3 : pitch envelope (v4 inchangé — champ absent → défaut injecté).
         assert(isPitchEnvValidOrAbsent(p.pitchEnv), `patch ${p.id}: pitchEnv invalide`)
+        // T.4 : filtre statique (v4 inchangé — champ absent → défaut injecté).
+        assert(isFilterValidOrAbsent(p.filter), `patch ${p.id}: filter invalide`)
       }
     } else {
       // v1 (legacy) : union discriminée par `mode`. Convertie en v2 à
