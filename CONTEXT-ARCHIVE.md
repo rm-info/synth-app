@@ -883,6 +883,48 @@ Phases listées ci-dessous dans l'ordre chronologique d'implémentation.
 
 ## Historique (chronologie inverse)
 
+- **2026-06-11 — Iteration T — T.5 (phase-5.1→5.3) : enveloppe de filtre + wah (sur
+  `biquad.detune`)** (`feat(iter-T/phase-5.1..5.3)` + doc). Le filtre statique (T.4) gagne
+  ses 2 modulations classiques. **Clé architecturale** : `BiquadFilterNode` possède un
+  **`detune` en cents**, comme l'oscillateur → l'enveloppe de filtre est le pitch env (T.3)
+  appliqué à `biquad.detune` et le wah le vibrato appliqué à `biquad.detune` — réutilisations
+  à l'identique, qui **composent par construction** (automation de base + branche entrante
+  sommée). 3 sous-commits.
+  - **5.1 — modèle** : `PitchEnv` **généralisé en `ParamEnv`** (type partagé, simple renommage ;
+    `PitchEnvCurve` → `ParamEnvCurve`). `Patch`/`Editor`/`PatchData` += `filterEnv: ParamEnv`
+    (amount ±4800 cents, time 0..2000 ms, `DEFAULT_FILTERENV` false/2400/200) + `wah: Lfo`
+    (depth cents 0..3600, `DEFAULT_WAH` false/2/1200). `FILTERENV_AMOUNT_MAX`/`TIME_MIN`/`TIME_MAX`,
+    `WAH_DEPTH_MAX` ; `sanitizeParamEnv(raw, bounds, fallback)` partagé (→ `sanitizePitchEnv`/
+    `sanitizeFilterEnv`) + `sanitizeWah` ; `clampModulationValue` branches `filterEnv`/`wah` ;
+    `effectDefault`/`effectDepthMax` += wah ; `DESIGNER_EFFECT_IDS += 'filterEnv','wah'` ; tous
+    les call-sites editor/patch. `osaFormat` : `isPitchEnvValidOrAbsent` généralisé en
+    `isParamEnvValidOrAbsent(v, amountMax)` (2400 pitch / 4800 filtre) + validation `filterEnv`/
+    `wah` (**v4 inchangé**, absents → défauts). `libraryTransfer` += filterEnv/wah. **Au passage :
+    `UPDATE_PATCH` persiste enfin `filter`** (oubli T.4 — éditer le filtre puis « Mettre à jour »
+    le perdait).
+  - **5.2 — audio** : extraction de **`scheduleParamEnv(param, env, startTime)`** dans
+    `modulation.js` — une seule implémentation des 4 formes (setValueAtTime/linearRamp/
+    setValueCurveAtTime + garde durée nulle + invert + `pitchProgression`), appelée pour
+    `osc.detune` (pitch) ET `biquad.detune` (filtre). `applyModulation` signature += `biquad`/
+    `filterEnv`/`wah` ; wah = **même fabrique de branche LFO que le vibrato** (osc LFO → depthGain
+    onset → `biquad.detune`, nœuds dans `mod`) ; **no-op si pas de biquad** (filtre off). Cutoff
+    effectif (`frequency × 2^(detune/1200)`) clampé [0, Nyquist] par la spec → sweeps extrêmes
+    sûrs. 4 chemins (`scheduleOneClip`/`scheduleAllClips` — biquad hoisté `let`/previews ×2) +
+    signature scheduler (`sigOfParamEnv` partagé pitch/filtre + `sigOfLfo(wah)`).
+  - **5.3 — UI** : 2 boutons header **« Env. filtre »**/**« Wah »** (positions 6/7, 7 boutons,
+    OverflowToolbar absorbe). Graphe/drag d'enveloppe **généralisés par bornes** :
+    `pitchEnvGeometry`/`drawPitchEnvGraph`/`pitchEnvXFrac` → `paramEnv*(…, bounds)`,
+    `PARAM_ENV_BOUNDS`, handlers `paramEnv*(effect, env, bounds, e)` (bornes gelées dans le geom) ;
+    `renderPitchEnvBlock` → **`renderParamEnvBlock(effect)`**. Wah = clone LFO :
+    `renderLfoBlock('wah')` (profondeur en cents comme le vibrato), `wahCanvasRef` + point de
+    phase animé (rAF, `lfoDotRef.wah`). **Hint** « filtre désactivé — cet effet est muet » +
+    bouton inline **« Activer le filtre »** (`renderFilterTargetHint`, undoable) sur les 2
+    panneaux quand `!filter.enabled` ; contrôles restent éditables (config avant activation).
+    Dirty-check + previews (`instrumentParams`/`buildPayload`) portent filterEnv/wah. CSS
+    `.we-effect-hint`/`.we-effect-hint-btn`.
+  - **Comportement de référence** : carré + lowpass 300 Hz Q 8 + env filtre +2400/300 ms décélérée
+    = le « waouw » soustractif ; wah 2 Hz/1200 cents = wah-wah ; env + wah composent (sommation).
+    Hors scope : keytracking (T.4 backlog), distorsion (T.6).
 - **2026-06-11 — Iteration T — T.4 (phase-4.1→4.4) : filtre statique (BiquadFilter par
   voix + graphe de réponse)** (`feat(iter-T/phase-4.1..4.4)` + doc). 1ᵉʳ
   `BiquadFilterNode` dans la chaîne de voix et 1ᵉʳ **graphe fréquentiel** du module

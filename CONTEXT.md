@@ -56,9 +56,13 @@ pour les formes non linéaires) — orthogonal à `invert`. → **T.4 livrée** 
 1ᵉʳ **`BiquadFilterNode` par voix** (`filter {enabled, type LP/HP/BP/notch, cutoff, q linéaire}`,
 insertion **VCO→VCF→VCA** conditionnelle, **mapping Q** dB↔linéaire partagé audio/graphe via
 `lib/filter.js`) + 1ᵉʳ **graphe de réponse en fréquence** à poignée 2D (`getFrequencyResponse`).
-**Pas de bump** (`pitchEnv`/`curve`/`filter` absent → défaut injecté, v4 inchangé). Reste T.5→T.6
-(env de filtre+wah, distorsion). Dernière release :
-**v1.11.0** (Iteration S). Détail S.1→S.audio.5 et arc audio dans `CONTEXT-ARCHIVE.md`.
+→ **T.5 livrée** (enveloppe de filtre + wah) : **clé archi = `biquad.detune` est en cents**, comme
+l'oscillateur → l'env de filtre **réutilise le pitch env** et le wah **réutilise le vibrato**, appliqués
+à `biquad.detune` (no-op si filtre off). `PitchEnv` **généralisé en `ParamEnv`** (type partagé) ;
+`Patch`/`Editor` += **`filterEnv: ParamEnv`** (amount ±4800 cents, time 0..2000) + **`wah: Lfo`**
+(depth cents 0..3600). Helper audio partagé **`scheduleParamEnv`** (osc.detune ET biquad.detune).
+**Pas de bump** (champs absents → défauts injectés, v4 inchangé). Reste T.6 (distorsion). Dernière
+release : **v1.11.0** (Iteration S). Détail S.1→S.audio.5 et arc audio dans `CONTEXT-ARCHIVE.md`.
 
 > **Structure des fichiers de contexte.** Ce `CONTEXT.md` est le **brief
 > vivant** : état présent, modèle de données, composants, architecture,
@@ -119,7 +123,7 @@ synth-app/
     │   ├── shortcuts.js      # table déclarative + matchesShortcut / getAnchor (iter-L phase-1.1)
     │   ├── designerModules.js # (iter-O phase-5c/5d, iter-P) MODULE_META des 6 modules Designer { label, Icon Lucide } + DESIGNER_ROWS / rowSiblings (rangée haut 3 / bas 3) — source unique (headers, bande, auto-réduction)
     │   ├── filter.js         # (iter-T T.4) filtre statique : biquadQValue (piège d'unité Q — dB pour LP/HP, linéaire pour BP/notch) + configureBiquad, partagés par les 4 chemins audio ET le graphe de réponse (biquad de mesure)
-    │   ├── modulation.js     # (iter-P/T) applyModulation : branche vibrato/trémolo/auto-pan/pitch-env (osc.detune cents sommé / gain.gain sommé / panner.pan stéréo / automation valeur de base osc.detune) sur un couple (osc, gain[, panner]) existant ; helper partagé des 4 chemins de synthèse
+    │   ├── modulation.js     # (iter-P/T) applyModulation : branche vibrato/trémolo/auto-pan/pitch-env/env-filtre/wah (osc.detune & biquad.detune cents sommés / gain.gain sommé / panner.pan stéréo / automation de base osc.detune & biquad.detune) sur un couple (osc, gain[, panner][, biquad]) existant ; helper partagé des 4 chemins. scheduleParamEnv(param, env, startTime) = automation d'enveloppe (4 formes) partagée osc.detune (pitch T.3) ET biquad.detune (filtre T.5) ; biquad absent → env-filtre + wah no-ops
     │   ├── getAnchoredPosition.js # résolution viewport rect d'un [data-anchor] (iter-L phase-1.5)
     │   ├── highlightElement.js # halo temporaire ancré (DocLink), retry RAF (iter-L phase-3.1)
     │   ├── markdown.js       # parser Markdown maison + AST, délègue le math à mathParse (iter-L phase-2.2 / R.1)
@@ -256,9 +260,12 @@ type Patch = {
   // itération T (T.2) : auto-pan stéréo (LFO → panner.pan).
   autoPan: Lfo                    // depth 0..1 = excursion symétrique G↔D autour du centre
   // itération T (T.3) : pitch envelope (enveloppe → osc.detune ; PAS un Lfo).
-  pitchEnv: PitchEnv              // { enabled, amount cents signé ±2400, time ms 40..2000, invert }
-  // itération T (T.4) : filtre statique (BiquadFilter par voix ; ni Lfo ni PitchEnv).
+  pitchEnv: ParamEnv             // { enabled, amount cents signé ±2400, time ms 40..2000, invert, curve }
+  // itération T (T.4) : filtre statique (BiquadFilter par voix ; ni Lfo ni ParamEnv).
   filter: PatchFilter            // { enabled, type LP/HP/BP/notch, cutoff Hz 20..20000, q linéaire 0.1..20 }
+  // itération T (T.5) : enveloppe de filtre + wah, tous deux sur biquad.detune (cents).
+  filterEnv: ParamEnv            // { ... } amount ±4800 cents, time 0..2000 ms (no-op si filtre off)
+  wah: Lfo                       // depth cents 0..3600 (LFO de cutoff ; no-op si filtre off)
 }
 // type PatchFilter = { enabled:boolean, type:'lowpass'|'highpass'|'bandpass'|'notch',
 //   cutoff:number /*Hz 20-20000*/, q:number /*résonance LINÉAIRE 0.1-20*/ }. DEFAULT_FILTER
@@ -269,27 +276,31 @@ type Patch = {
 //   bit-identique. Édition mono-clé via SET_EDITOR_MODULATION ; poignée 2D du graphe via
 //   SET_EDITOR_FILTER_POINT (cutoff+q atomique, un undo/geste).
 // type Lfo = { enabled:boolean, rate:number /*0.1-20 Hz*/, depth:number
-//   /*vibrato 0-200 cents ; trémolo/auto-pan 0-1*/, onset:number /*0-2000 ms*/,
+//   /*vibrato 0-200 cents ; trémolo/auto-pan 0-1 ; wah 0-3600 cents*/, onset:number /*0-2000 ms*/,
 //   shape:'sine'|'triangle'|'square' }. Défauts désactivés mais musicaux
 //   (DEFAULT_VIBRATO rate:5 depth:20 ; DEFAULT_TREMOLO rate:5 depth:0.3 ;
-//   DEFAULT_AUTOPAN rate:1 depth:0.5).
-// type PitchEnv = { enabled:boolean, amount:number /*cents signés ±2400*/,
-//   time:number /*ms 40-2000, plancher 40 = inaudible en dessous*/,
+//   DEFAULT_AUTOPAN rate:1 depth:0.5 ; DEFAULT_WAH rate:2 depth:1200).
+// type ParamEnv = { enabled:boolean, amount:number /*cents signés — pitch ±2400, filtre ±4800*/,
+//   time:number /*ms 0-2000 (pitch plancher 40 ; filtre 0 = cran statique via garde durée nulle)*/,
 //   invert:boolean /*T.3bis : false = part décalé → rejoint la nominale ; true = part
-//   de la nominale → s'éloigne vers amount, où la note RESTE*/,
+//   de la nominale → s'éloigne vers amount, où la valeur RESTE*/,
 //   curve:'linear'|'easeOut'|'expo'|'easeIn' /*T.3ter : forme de la progression p(t)∈[0,1],
 //   orthogonale à invert ; valeur posée = départ + (arrivée−départ)·p(t). Audio :
 //   linear = linearRamp (chemin historique), formes non linéaires = setValueCurveAtTime
-//   (64 pts) — PAS exponentialRamp (ne traverse pas zéro)*/ }.
-//   DEFAULT_PITCHENV { false, 1200, 150, false, 'linear' } (T.3/T.3bis/T.3ter).
-// Editor : mêmes champs (dont vibrato/tremolo/autoPan/pitchEnv) + `currentLens: 'free'|'spline'`
-// (volatile, non persisté) = quelle lentille est active (M.r.3.2 : 'bars' retiré, vestigial).
+//   (64 pts) — PAS exponentialRamp (ne traverse pas zéro)*/ }. Type PARTAGÉ (T.5) :
+//   pitchEnv (→ osc.detune) ET filterEnv (→ biquad.detune) en sont deux instances à
+//   bornes propres. DEFAULT_PITCHENV { false, 1200, 150, false, 'linear' } ;
+//   DEFAULT_FILTERENV { false, 2400, 200, false, 'linear' }. Helper audio partagé
+//   scheduleParamEnv(param, env, startTime) — une seule implémentation des 4 formes.
+// Editor : mêmes champs (dont vibrato/tremolo/autoPan/pitchEnv/filter/filterEnv/wah) +
+// `currentLens: 'free'|'spline'` (volatile, non persisté) = lentille active (M.r.3.2 :
+// 'bars' retiré, vestigial).
 // Migration v1→v2 (M.r.1) : les anciens
 // patches (draw/harmonic/spline) sont convertis à l'hydratation localStorage et
 // à l'import .osa v1 (reducer.migrateLegacyPatch, idempotent). OSA_VERSION = 4
-// (iter-T : += autoPan ; iter-P avait += vibrato/tremolo) ; l'import accepte
-// v1 (legacy), v2, v3 ET v4 — modulations absentes → DEFAULT_VIBRATO/TREMOLO/
-// AUTOPAN injectés à l'hydratation (règle « champ absent → défaut injecté »).
+// (iter-T T.2 : += autoPan ; T.3→T.5 ajoutent pitchEnv/filter/filterEnv/wah DANS v4 ;
+// iter-P avait += vibrato/tremolo) ; l'import accepte v1 (legacy), v2, v3 ET v4 —
+// champs absents → défauts injectés à l'hydratation (règle « champ absent → défaut »).
 
 type Track = {
   id: string                      // "track-N"
@@ -351,7 +362,7 @@ type Clip = {                     // placement timeline + hauteur
 //   designerMobileModule (iter-R phase-1.1 : module plein cadre en petit écran,
 //     ∈ les 6 ids, défaut 'canvas' ; remplace l'ex-volatile mobileExpandedZone),
 //   designerEffectsSelected (iter-T phase-1.1 : effet édité dans le module Effets,
-//     ∈ {'vibrato','tremolo','autoPan'(T.2),'pitchEnv'(T.3),'filter'(T.4)}, défaut 'vibrato' ; validé à l'hydratation, hors undo),
+//     ∈ {'vibrato','tremolo','autoPan'(T.2),'pitchEnv'(T.3),'filter'(T.4),'filterEnv'(T.5),'wah'(T.5)}, défaut 'vibrato' ; validé à l'hydratation, hors undo),
 //   editorTestTuningSystem, editorTestNoteIndex, editorTestOctave,
 //   editorTestFrequency, editorVisualCuePattern, editorVisualCueTonic,
 //   selectedTrackId (iter-L phase-1.4.b) }
@@ -527,8 +538,15 @@ Seuls les **placements timeline** s'appellent "clips".
   connecté, **même mapping Q** que l'audio ; **sans animation** — branche statique de
   la boucle rAF) à **poignée 2D unique** au cutoff (horizontal log → cutoff, vertical
   log → q) ; `draftFilter` + commit atomique `SET_EDITOR_FILTER_POINT`, géométrie gelée
-  au pointerdown (`filterDragGeomRef`), désactivé → courbe grise atténuée. Les
-  sous-blocs **LFO** (vibrato/trémolo/auto-pan) rendent : interrupteur on/off, switch de
+  au pointerdown (`filterDragGeomRef`), désactivé → courbe grise atténuée. **Env. filtre +
+  Wah (T.5)** : 6ᵉ/7ᵉ boutons header. **Env. filtre** = clone du panneau Hauteur
+  (`renderParamEnvBlock(effect)` généralisé par bornes `PARAM_ENV_BOUNDS` ; `paramEnvGeometry`/
+  `drawParamEnvGraph`/handlers `paramEnv*` paramétrés ; médiane = cutoff réglé, courbe =
+  décalage cents). **Wah** = clone LFO (`renderLfoBlock('wah')`, profondeur en cents,
+  `wahCanvasRef` + point de phase animé). Les deux affichent une **ligne discrète**
+  « filtre désactivé — cet effet est muet » + bouton inline **« Activer le filtre »**
+  (`renderFilterTargetHint`, undoable) quand `!filter.enabled` ; contrôles restent éditables.
+  Les sous-blocs **LFO** (vibrato/trémolo/auto-pan/wah) rendent : interrupteur on/off, switch de
   forme (icônes SVG IconSine/IconTriangleWave/IconSquareWave), 3 `NumberInput` à
   steppers (vitesse Hz / profondeur cents|0..1 / installation ms) + un **graphe
   LFO éditable à poignées** par sous-bloc (P.5). **Auto-pan (T.2)** : sous-bloc
@@ -2413,7 +2431,24 @@ par voix). Cadrage complet dans `archi/BACKLOG.md` (« Effets et modulations »)
   un undo/geste ; **aucune animation**, branche statique de la boucle rAF). `NumberInput`
   += prop opt-in `stepFactor`/`shiftFactor` (chevron ×/÷, 2^(1/12) demi-ton, Shift octave).
   Pas de bump `.osa` (v4 inchangé, `isFilterValidOrAbsent`, absent → défaut). `sanitizeFilter`,
-  `FILTER_CUTOFF/Q/TYPES`, `filterCanvasRef`. **Reste T.5 (env de filtre + wah), T.6 (distorsion).**
+  `FILTER_CUTOFF/Q/TYPES`, `filterCanvasRef`.
+- ✅ **T.5 (enveloppe de filtre + wah)** — le filtre statique gagne ses 2 modulations
+  classiques. **Clé archi** : `BiquadFilterNode` a un **`detune` en cents**, comme l'osc →
+  l'env de filtre **réutilise le pitch env** et le wah **réutilise le vibrato**, appliqués à
+  `biquad.detune` (composent par construction comme pitch env + vibrato sur osc.detune). Modèle :
+  `PitchEnv` **généralisé en `ParamEnv`** (type partagé, simple renommage) ; `Patch`/`Editor` +=
+  **`filterEnv: ParamEnv`** (amount ±4800 cents, time 0..2000) + **`wah: Lfo`** (depth cents 0..3600).
+  `DEFAULT_FILTERENV` false/2400/200, `DEFAULT_WAH` false/2/1200. Audio : extraction de
+  **`scheduleParamEnv(param, env, startTime)`** (helper partagé osc.detune + biquad.detune, 1 seule
+  implémentation des 4 formes) ; `applyModulation` += `biquad`/`filterEnv`/`wah` ; wah = branche LFO
+  sur `biquad.detune` ; **no-op si pas de biquad** (filtre off) ; 4 chemins + signature scheduler.
+  Cutoff effectif clampé [0, Nyquist] par la spec → sweeps extrêmes sûrs. UI : 2 boutons header
+  **« Env. filtre »**/**« Wah »** (7 boutons, OverflowToolbar absorbe), panneaux clones (graphe
+  d'enveloppe/LFO généralisés par bornes `PARAM_ENV_BOUNDS` ; `renderParamEnvBlock(effect)`) +
+  **hint « filtre désactivé — cet effet est muet »** + bouton inline « Activer le filtre »
+  (undoable). Pas de bump `.osa` (v4 inchangé, `isParamEnvValidOrAbsent(v, amountMax)`, absent →
+  défaut). Au passage : **fix `UPDATE_PATCH` persiste enfin `filter`** (oubli T.4). `sanitizeFilterEnv`/
+  `sanitizeWah`, `FILTERENV_*`/`WAH_DEPTH_MAX`, `filterEnvCanvasRef`/`wahCanvasRef`. **Reste T.6 (distorsion).**
 
 ✅ **Terminé**
 - **Iteration S — « Support tactile au doigt (web pur) » (close, v1.11.0)**. L'app
@@ -3350,7 +3385,13 @@ en T.2, défauts injectés pour les champs absents). Distorsion **par voix**
   steppers Fréquence **multiplicatifs**) + **graphe de réponse** (`getFrequencyResponse`,
   biquad de mesure) à poignée 2D (commit atomique `SET_EDITOR_FILTER_POINT`). `NumberInput`
   += `stepFactor`. Pas de bump (`filter` absent → défaut). **Keytracking du cutoff → backlog.**
-- ⏳ **T.5** enveloppe de filtre + wah (LFO → cutoff).
+- ✅ **T.5 — enveloppe de filtre + wah (→ `biquad.detune`, v4 inchangé)** : `biquad.detune`
+  est en cents comme l'osc → l'env de filtre **réutilise le pitch env** et le wah **réutilise
+  le vibrato**, sur `biquad.detune` (no-op si filtre off). `PitchEnv` généralisé en **`ParamEnv`**
+  (type partagé) ; `Patch`/`Editor` += `filterEnv: ParamEnv` (amount ±4800) + `wah: Lfo` (depth
+  cents 0..3600). Helper audio partagé **`scheduleParamEnv`** (4 formes, osc + biquad). 2 boutons
+  header « Env. filtre »/« Wah » (panneaux clones, graphe généralisé par bornes) + **hint « filtre
+  désactivé » + bouton « Activer le filtre »**. Au passage : fix `UPDATE_PATCH` persiste `filter`.
 - ⏳ **T.6** distorsion (`WaveShaperNode` par voix : drive, courbe soft/hard/fold).
 
 Gros chantier **suivant** : effets **à mémoire** (delay/écho, reverb, chorus) via bus
