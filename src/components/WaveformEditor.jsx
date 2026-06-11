@@ -496,6 +496,150 @@ function drawPitchEnvGraph(canvas, env) {
   }
 }
 
+// === Graphe de réponse en fréquence du filtre (T.4) ===
+//
+// X log 20 Hz–20 kHz (repères 100 / 1k / 10k), Y en dB (magnitude → 20·log10),
+// fenêtre −30..+30 dB, ligne 0 dB accentuée. La courbe vient de
+// BiquadFilterNode.getFrequencyResponse sur un biquad de MESURE jamais connecté au
+// graphe audio, configuré avec le MÊME mapping Q que la chaîne (configureBiquad) :
+// ce qu'on voit = ce qu'on entend, pic de résonance LP/HP inclus. UNE poignée 2D
+// au point de cutoff sur la courbe — horizontal (log) → cutoff, vertical (log) → q.
+// Pas d'animation : repeint aux seuls changements (type/cutoff/q/draft/thème/resize).
+const FILTER_F_MIN = 20
+const FILTER_F_MAX = 20000
+const FILTER_DB_MIN = -30
+const FILTER_DB_MAX = 30
+const FILTER_RESPONSE_SAMPLES = 128
+const FILTER_GRAPH_MARGIN_BOTTOM = 16 // gouttière sous la courbe pour les repères 100/1k/10k
+const FILTER_LOG_MIN = Math.log10(FILTER_F_MIN)
+const FILTER_LOG_MAX = Math.log10(FILTER_F_MAX)
+const FILTER_LN_Q_MIN = Math.log(FILTER_Q_MIN)
+const FILTER_LN_Q_MAX = Math.log(FILTER_Q_MAX)
+
+// Géométrie (coords CSS px) partagée dessin / hit-test / drag. Pure : ne dépend
+// que de la taille du canvas (les échelles X log et Y dB sont FIXES, contrairement
+// au LFO). `qOfY` mappe une ordonnée → q (log, haut = qMax).
+function filterGeometry(cssW, cssH) {
+  const marginL = LFO_MARGIN_X
+  const marginR = LFO_MARGIN_X
+  const marginT = LFO_MARGIN_Y
+  const marginB = FILTER_GRAPH_MARGIN_BOTTOM
+  const usableW = Math.max(1, cssW - marginL - marginR)
+  const usableH = Math.max(1, cssH - marginT - marginB)
+  const xOf = (f) => marginL + (Math.log10(f) - FILTER_LOG_MIN) / (FILTER_LOG_MAX - FILTER_LOG_MIN) * usableW
+  const freqOfX = (x) => Math.pow(10, FILTER_LOG_MIN + ((x - marginL) / usableW) * (FILTER_LOG_MAX - FILTER_LOG_MIN))
+  const yOf = (db) => marginT + (FILTER_DB_MAX - db) / (FILTER_DB_MAX - FILTER_DB_MIN) * usableH
+  const qOfY = (y) => {
+    const frac = Math.max(0, Math.min(1, (marginT + usableH - y) / usableH)) // 0 en bas, 1 en haut
+    return Math.exp(FILTER_LN_Q_MIN + (FILTER_LN_Q_MAX - FILTER_LN_Q_MIN) * frac)
+  }
+  return { marginL, marginR, marginT, marginB, usableW, usableH, xOf, freqOfX, yOf, qOfY }
+}
+
+// dB de la réponse à une fréquence donnée (biquad de mesure déjà configuré). Sert
+// à poser la poignée AU point de cutoff sur la courbe (hit-test + dessin).
+function filterDbAt(biquad, freq) {
+  const f = new Float32Array([Math.max(FILTER_F_MIN, Math.min(FILTER_F_MAX, freq))])
+  const m = new Float32Array(1)
+  const p = new Float32Array(1)
+  biquad.getFrequencyResponse(f, m, p)
+  return 20 * Math.log10(Math.max(m[0], 1e-7))
+}
+
+// Dessine le graphe figé (grille + 0 dB + courbe + poignée 2D). `biquad` = nœud de
+// mesure (jamais connecté). Effet désactivé → courbe grise atténuée, poignée inerte.
+// Pur, hors cycle React. Aucune animation.
+function drawFilterGraph(canvas, filter, biquad) {
+  if (!canvas || !biquad) return
+  const dpr = window.devicePixelRatio || 1
+  const cssW = canvas.clientWidth || 160
+  const cssH = canvas.clientHeight || 92
+  const w = Math.round(cssW * dpr)
+  const h = Math.round(cssH * dpr)
+  if (canvas.width !== w) canvas.width = w
+  if (canvas.height !== h) canvas.height = h
+  const ctx = canvas.getContext('2d')
+  if (!ctx) return
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0) // coords CSS px (cercle de poignée isotrope)
+  ctx.clearRect(0, 0, cssW, cssH)
+  const g = filterGeometry(cssW, cssH)
+  const { marginL, marginT, usableW, usableH, xOf, yOf } = g
+  const right = marginL + usableW
+  const bottom = marginT + usableH
+
+  configureBiquad(biquad, filter) // MÊME mapping Q que l'audio
+
+  // Repères de fréquence : 100 / 1k / 10k (verticales pointillées + étiquettes).
+  ctx.font = '9px monospace'
+  ctx.textAlign = 'center'
+  ctx.textBaseline = 'top'
+  for (const { f, label } of [{ f: 100, label: '100' }, { f: 1000, label: '1k' }, { f: 10000, label: '10k' }]) {
+    const x = xOf(f)
+    ctx.strokeStyle = themeColor('canvas-grid-secondary')
+    ctx.globalAlpha = 0.4
+    ctx.lineWidth = 1
+    ctx.setLineDash([3, 3])
+    ctx.beginPath()
+    ctx.moveTo(x, marginT)
+    ctx.lineTo(x, bottom)
+    ctx.stroke()
+    ctx.setLineDash([])
+    ctx.globalAlpha = 0.7
+    ctx.fillStyle = themeColor('canvas-text-secondary')
+    ctx.fillText(label, x, bottom + 3)
+  }
+  ctx.globalAlpha = 1
+  ctx.textAlign = 'start'
+
+  // Ligne 0 dB accentuée.
+  ctx.strokeStyle = themeColor('canvas-grid-secondary')
+  ctx.lineWidth = 1
+  ctx.beginPath()
+  ctx.moveTo(marginL, yOf(0))
+  ctx.lineTo(right, yOf(0))
+  ctx.stroke()
+
+  // Réponse échantillonnée en log sur 20 Hz–20 kHz.
+  const N = FILTER_RESPONSE_SAMPLES
+  const freqs = new Float32Array(N)
+  for (let i = 0; i < N; i++) {
+    freqs[i] = Math.pow(10, FILTER_LOG_MIN + (i / (N - 1)) * (FILTER_LOG_MAX - FILTER_LOG_MIN))
+  }
+  const mag = new Float32Array(N)
+  const phase = new Float32Array(N)
+  biquad.getFrequencyResponse(freqs, mag, phase)
+
+  // Désactivé → courbe grise atténuée (poignée inerte) ; activé → accent.
+  ctx.strokeStyle = filter.enabled ? themeColor('accent') : themeColor('canvas-text-secondary')
+  ctx.globalAlpha = filter.enabled ? 1 : 0.45
+  ctx.lineWidth = 1.75
+  ctx.lineJoin = 'round'
+  ctx.beginPath()
+  for (let i = 0; i < N; i++) {
+    const db = Math.max(FILTER_DB_MIN, Math.min(FILTER_DB_MAX, 20 * Math.log10(Math.max(mag[i], 1e-7))))
+    const x = xOf(freqs[i])
+    const y = yOf(db)
+    if (i === 0) ctx.moveTo(x, y)
+    else ctx.lineTo(x, y)
+  }
+  ctx.stroke()
+  ctx.globalAlpha = 1
+
+  if (!filter.enabled) return // poignée inerte
+
+  // Poignée 2D au point de cutoff sur la courbe (style AHDSR/LFO).
+  const cutoffDb = Math.max(FILTER_DB_MIN, Math.min(FILTER_DB_MAX, filterDbAt(biquad, filter.cutoff)))
+  const hx = xOf(Math.max(FILTER_F_MIN, Math.min(FILTER_F_MAX, filter.cutoff)))
+  const hy = yOf(cutoffDb)
+  ctx.beginPath()
+  ctx.arc(hx, hy, LFO_HANDLE_RADIUS, 0, 2 * Math.PI)
+  ctx.fillStyle = themeColor('canvas-marker')
+  ctx.fill()
+  ctx.strokeStyle = themeColor('accent')
+  ctx.lineWidth = 1.5
+  ctx.stroke()
+}
+
 // Tooltip de rôle d'une poignée LFO (réutilise le style .adsr-tooltip). `label`
 // override le libellé par défaut (T.3bis : « Cible »/« Durée » en pitch env inversé).
 function LfoTooltip({ handle, label, px, py }) {
@@ -818,6 +962,10 @@ function WaveformEditor({
   // `draftMod` alimente AUSSI la valeur affichée des steppers (coexistence).
   const [draftMod, setDraftMod] = useState(null) // { effect, key, value } | null
   const [modHover, setModHover] = useState(null) // { effect, handle, px, py } | null
+  // T.4 — draft du drag de la poignée 2D du graphe de filtre (cutoff + q simultanés,
+  // ≠ draftMod mono-clé). Commit ATOMIQUE au relâchement (SET_EDITOR_FILTER_POINT,
+  // un seul cran d'undo). Alimente AUSSI les steppers (coexistence, comme draftMod).
+  const [draftFilter, setDraftFilter] = useState(null) // { cutoff, q } | null
   const applyModDraft = (effect, lfo) =>
     (draftMod && draftMod.effect === effect) ? { ...lfo, [draftMod.key]: draftMod.value } : lfo
   const vibrato = applyModDraft('vibrato', vibratoBase)
@@ -826,7 +974,10 @@ function WaveformEditor({
   const pitchEnvBase = editor.pitchEnv ?? DEFAULT_PITCHENV
   const pitchEnv = applyModDraft('pitchEnv', pitchEnvBase)
   // iter-T phase-4.1 : filtre statique de l'éditeur (`??` défensif, comme les LFO).
-  const filter = editor.filter ?? DEFAULT_FILTER
+  // T.4 : le draft du drag de poignée se superpose (cutoff/q), comme applyModDraft.
+  const filterBase = editor.filter ?? DEFAULT_FILTER
+  const applyFilterDraft = (base) => draftFilter ? { ...base, ...draftFilter } : base
+  const filter = applyFilterDraft(filterBase)
 
   const {
     testTuningSystem, testNoteIndex, testOctave, preset: activePreset,
@@ -963,6 +1114,20 @@ function WaveformEditor({
   const tremoloCanvasRef = useRef(null)
   const autoPanCanvasRef = useRef(null)
   const pitchEnvCanvasRef = useRef(null)
+  // T.4 — graphe de réponse du filtre + biquad de MESURE. On réutilise le contexte
+  // audio du Designer s'il existe (mêmes coefficients que la lecture) ; sinon un
+  // OfflineAudioContext léger (avant la 1ʳᵉ note, pas de geste utilisateur requis).
+  // Le biquad de mesure n'est JAMAIS connecté au graphe audio.
+  const filterCanvasRef = useRef(null)
+  const measureCtxRef = useRef(null)
+  const makeMeasureBiquad = () => {
+    let ctx = audioCtxRef.current
+    if (!ctx) {
+      if (!measureCtxRef.current) measureCtxRef.current = new OfflineAudioContext(1, 1, 44100)
+      ctx = measureCtxRef.current
+    }
+    return ctx.createBiquadFilter()
+  }
   // Position (en secondes depuis le début de note) du point de phase par effet.
   const lfoDotRef = useRef({ vibrato: 0, tremolo: 0, autoPan: 0 })
   // Géométrie figée au mousedown d'un drag (cf. lfoGeometry) : map curseur→valeur
@@ -985,6 +1150,24 @@ function WaveformEditor({
     if (effectsSelected === 'pitchEnv') {
       const canvas = pitchEnvCanvasRef.current
       const paint = () => drawPitchEnvGraph(canvas, pitchEnv)
+      paint()
+      window.addEventListener('themechange', paint)
+      let ro = null
+      if (typeof ResizeObserver !== 'undefined' && canvas) {
+        ro = new ResizeObserver(() => paint())
+        ro.observe(canvas)
+      }
+      return () => {
+        window.removeEventListener('themechange', paint)
+        if (ro) ro.disconnect()
+      }
+    }
+
+    // T.4 — filtre : graphe de réponse en fréquence, statique (AUCUNE animation).
+    // Repeint au resize/thème/draft (deps `filter`) ; biquad de mesure éphémère.
+    if (effectsSelected === 'filter') {
+      const canvas = filterCanvasRef.current
+      const paint = () => drawFilterGraph(canvas, filter, makeMeasureBiquad())
       paint()
       window.addEventListener('themechange', paint)
       let ro = null
@@ -1054,7 +1237,7 @@ function WaveformEditor({
       cancelAnimationFrame(raf)
       cleanupStatic()
     }
-  }, [vibrato, tremolo, autoPan, pitchEnv, modulationVisible, dragging, effectsSelected])
+  }, [vibrato, tremolo, autoPan, pitchEnv, filter, modulationVisible, dragging, effectsSelected])
 
   const referenceRef = useRef(snapshotPatchFields(editor))
   const referencedPatchIdRef = useRef(null)
@@ -3797,6 +3980,88 @@ function WaveformEditor({
     }
   }
 
+  // === T.4 — drag de la poignée 2D du graphe de réponse du filtre ===
+  // Poignée UNIQUE au point de cutoff sur la courbe : horizontal (log) → cutoff,
+  // vertical (log) → q. Draft 2D `draftFilter`, commit ATOMIQUE au relâchement
+  // (SET_EDITOR_FILTER_POINT = un seul cran d'undo). Géométrie GELÉE au pointerdown
+  // (`filterDragGeomRef`). Mono-pointeur partagé via `modOwnerRef`.
+  const filterDragGeomRef = useRef(null)
+  // Position de la poignée (cutoff X + dB au cutoff Y) — biquad de mesure éphémère.
+  const filterHandlePos = (flt, g) => {
+    const biquad = makeMeasureBiquad()
+    configureBiquad(biquad, flt)
+    const db = Math.max(FILTER_DB_MIN, Math.min(FILTER_DB_MAX, filterDbAt(biquad, flt.cutoff)))
+    return { x: g.xOf(Math.max(FILTER_F_MIN, Math.min(FILTER_F_MAX, flt.cutoff))), y: g.yOf(db) }
+  }
+  const filterHitTest = (e) => {
+    const canvas = filterCanvasRef.current
+    if (!canvas) return { hit: false }
+    const rect = canvas.getBoundingClientRect()
+    const x = e.clientX - rect.left
+    const y = e.clientY - rect.top
+    const g = filterGeometry(rect.width, rect.height)
+    const hd = filterHandlePos(filter, g)
+    const hit = Math.hypot(x - hd.x, y - hd.y) < LFO_HIT_RADIUS
+    return { hit, g, hd }
+  }
+  const applyFilterDrag = (e) => {
+    const fg = filterDragGeomRef.current
+    if (!fg) return
+    const rect = fg.canvas.getBoundingClientRect()
+    const x = e.clientX - rect.left
+    const y = e.clientY - rect.top
+    const g = fg.g
+    const cutoff = g.freqOfX(Math.max(g.marginL, Math.min(g.marginL + g.usableW, x)))
+    const q = g.qOfY(y)
+    setDraftFilter({
+      cutoff: Math.round(Math.max(FILTER_CUTOFF_MIN, Math.min(FILTER_CUTOFF_MAX, cutoff))),
+      q: Math.round(Math.max(FILTER_Q_MIN, Math.min(FILTER_Q_MAX, q)) * 10) / 10,
+    })
+  }
+  const handleFilterPointerDown = (e) => {
+    if (!filter.enabled) return
+    if (modOwnerRef.current !== null) return
+    const hit = filterHitTest(e)
+    if (!hit.hit) return
+    e.preventDefault()
+    modOwnerRef.current = e.pointerId
+    e.currentTarget.setPointerCapture?.(e.pointerId)
+    filterDragGeomRef.current = { canvas: filterCanvasRef.current, g: hit.g }
+    setDraftFilter({ cutoff: filterBase.cutoff, q: filterBase.q })
+  }
+  const handleFilterPointerMove = (e) => {
+    if (filterDragGeomRef.current) {
+      if (e.pointerId !== modOwnerRef.current) return
+      applyFilterDrag(e); return
+    }
+    if (!filter.enabled) { if (modHover) setModHover(null); return }
+    const hit = filterHitTest(e)
+    if (!hit.hit) { if (modHover) setModHover(null); return }
+    if (!modHover || modHover.effect !== 'filter') {
+      setModHover({ effect: 'filter', handle: 'point', px: hit.hd.x, py: hit.hd.y })
+    }
+  }
+  const endFilterDrag = () => {
+    const fg = filterDragGeomRef.current
+    filterDragGeomRef.current = null
+    if (fg && draftFilter
+      && (draftFilter.cutoff !== filterBase.cutoff || draftFilter.q !== filterBase.q)) {
+      editorActions.setFilterPoint(draftFilter.cutoff, draftFilter.q)
+    }
+    setDraftFilter(null)
+  }
+  const handleFilterPointerUp = (e) => {
+    if (e.pointerId !== modOwnerRef.current) return
+    modOwnerRef.current = null
+    endFilterDrag()
+  }
+  const handleFilterPointerCancel = (e) => {
+    if (e.pointerId !== modOwnerRef.current) return
+    modOwnerRef.current = null
+    filterDragGeomRef.current = null
+    setDraftFilter(null)
+  }
+
   // itération P — 6ᵉ module « Modulation ». Deux sous-blocs symétriques
   // Vibrato/Trémolo : interrupteur on/off, switch de forme (icônes), 3 steppers
   // (vitesse/profondeur/installation) + un GRAPHE LFO éditable à poignées (P.5).
@@ -4133,6 +4398,29 @@ function WaveformEditor({
                 })}
               </div>
             </div>
+          </div>
+          <div className="we-lfo-canvas-wrap">
+            <canvas
+              className="we-lfo-canvas"
+              ref={filterCanvasRef}
+              aria-hidden="true"
+              style={{
+                cursor: draftFilter ? 'grabbing'
+                  : (modHover && modHover.effect === 'filter' ? 'grab' : 'default'),
+              }}
+              onPointerDown={handleFilterPointerDown}
+              onPointerMove={handleFilterPointerMove}
+              onPointerUp={handleFilterPointerUp}
+              onPointerCancel={handleFilterPointerCancel}
+              onPointerLeave={handleModPointerLeave}
+            />
+            <LfoTooltip
+              handle={draftFilter ? null
+                : (modHover && modHover.effect === 'filter' ? modHover.handle : null)}
+              label="Fréquence / Résonance"
+              px={modHover?.px}
+              py={modHover?.py}
+            />
           </div>
           <div className="we-lfo-controls we-lfo-controls--two">
             <div className="we-lfo-control">

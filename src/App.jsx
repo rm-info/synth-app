@@ -2107,6 +2107,9 @@ function App() {
     // itération P : édition d'un paramètre de modulation (vibrato/trémolo).
     setModulation: (effect, key, value) =>
       dispatch({ type: 'SET_EDITOR_MODULATION', payload: { effect, key, value } }),
+    // iter-T phase-4.4 : commit 2D de la poignée du graphe de filtre (cutoff + q).
+    setFilterPoint: (cutoff, q) =>
+      dispatch({ type: 'SET_EDITOR_FILTER_POINT', payload: { cutoff, q } }),
     // iter-M phase-r.2.2 : reset du timbre seul (≠ RESET_EDITOR « Nouveau patch »).
     resetWaveform: () => dispatch({ type: 'RESET_EDITOR_WAVEFORM' }),
     // iter-M phase-r.2.3 : normalisation (iDFT phase canonique).
