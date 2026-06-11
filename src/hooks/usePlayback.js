@@ -3,6 +3,7 @@ import { pointsToPeriodicWave, audioBufferToWav, normalizePeak, downloadWav, MIN
 import { clipFrequency } from '../reducer'
 import { applyModulation } from '../lib/modulation'
 import { configureBiquad } from '../lib/filter'
+import { connectDistortion } from '../lib/distortion'
 
 // Stoppe/déconnecte les nœuds LFO d'un record de voix (symétrique à osc/gain).
 // `m.stop()` n'existe que sur les OscillatorNode → try/catch absorbe les GainNode.
@@ -86,11 +87,13 @@ function scheduleOneClip(ctx, clip, patch, startTime, trackGainNodes, defaultDes
   if (flt && flt.enabled) {
     biquad = ctx.createBiquadFilter()
     configureBiquad(biquad, flt)
-    osc.connect(biquad)
     biquad.connect(gain)
-  } else {
-    osc.connect(gain)
   }
+  // Distorsion (T.6) : insérée AVANT le filtre. La source (osc) alimente le shaper
+  // (split wet/dry) puis le filtre (ou directement le gain si pas de filtre). Off →
+  // osc → chainHead direct (chaîne bit-identique). Nœuds dans `mod` (cleanup symétrique).
+  const chainHead = biquad ?? gain
+  const distNodes = connectDistortion(ctx, osc, chainHead, patch.distortion)
 
   // Auto-pan (itération T) : 1ᵉʳ effet stéréo. Le panner n'est inséré QUE si
   // l'effet est actif et a une excursion — sinon chaîne bit-identique à avant
@@ -113,10 +116,11 @@ function scheduleOneClip(ctx, clip, patch, startTime, trackGainNodes, defaultDes
     filterEnv: patch.filterEnv, wah: patch.wah,
     startTime: clipStart, stopTime: clipStart + totalDuration, releaseStart, baseAmplitude: amp,
   })
-  // Cleanup symétrique : le panner ET le biquad sont déconnectés partout où l'osc
-  // l'est (stopModNodes tolère l'absence de .stop() sur ces nœuds, comme le panner).
+  // Cleanup symétrique : panner, biquad ET les nœuds de distorsion sont déconnectés
+  // partout où l'osc l'est (stopModNodes tolère l'absence de .stop(), comme le panner).
   if (panner) mod.push(panner)
   if (biquad) mod.push(biquad)
+  mod.push(...distNodes)
 
   osc.start(clipStart)
   osc.stop(clipStart + totalDuration)
@@ -171,11 +175,11 @@ function scheduleAllClips(ctx, clips, patches, startTime, trackGainNodes, defaul
     if (flt && flt.enabled) {
       biquad = ctx.createBiquadFilter()
       configureBiquad(biquad, flt)
-      osc.connect(biquad)
       biquad.connect(gain)
-    } else {
-      osc.connect(gain)
     }
+    // Distorsion (T.6) : MÊME insertion conditionnelle qu'en lecture (avant le filtre),
+    // sinon l'export WAV diverge. Pas de cleanup (ctx jeté après rendu).
+    connectDistortion(ctx, osc, biquad ?? gain, patch.distortion)
 
     // Auto-pan (itération T) : même insertion conditionnelle qu'en lecture.
     // L'OfflineAudioContext est stéréo (2 canaux) → le WAV exporté porte la
@@ -374,10 +378,13 @@ export function usePlayback({ clips, patches, tracks, bpm, a4Ref, xEdoN, totalDu
         // de la voix → seul un re-schedule applique le changement). T.5 : idem env de
         // filtre + wah (modulent biquad.detune, posés à la création de la voix).
         const sigOfFilter = (f) => f ? `${f.enabled ? 1 : 0}:${f.type}:${f.cutoff}:${f.q}` : ''
+        // T.6 : distorsion (curve/drive/mix). Le shaper est posé à la création de la voix
+        // → seul un re-schedule applique le changement (comme le filtre).
+        const sigOfDistortion = (d) => d ? `${d.enabled ? 1 : 0}:${d.curve}:${d.drive}:${d.mix}` : ''
         const sigOf = (c, patchList) => {
           const p = patchList?.find(p => p.id === c.patchId)
           const env = p
-            ? `${p.attack}:${p.hold ?? 0}:${p.decay}:${p.sustain}:${p.release}:${p.amplitude}|${sigOfLfo(p.vibrato)}|${sigOfLfo(p.tremolo)}|${sigOfLfo(p.autoPan)}|${sigOfParamEnv(p.pitchEnv)}|${sigOfFilter(p.filter)}|${sigOfParamEnv(p.filterEnv)}|${sigOfLfo(p.wah)}`
+            ? `${p.attack}:${p.hold ?? 0}:${p.decay}:${p.sustain}:${p.release}:${p.amplitude}|${sigOfLfo(p.vibrato)}|${sigOfLfo(p.tremolo)}|${sigOfLfo(p.autoPan)}|${sigOfParamEnv(p.pitchEnv)}|${sigOfFilter(p.filter)}|${sigOfParamEnv(p.filterEnv)}|${sigOfLfo(p.wah)}|${sigOfDistortion(p.distortion)}`
             : ''
           return `${c.measure}:${c.beat}:${c.duration}:${c.patchId}:${c.trackId}:${c.tuningSystem}:${c.noteIndex}:${c.octave}:${c.frequency}|${env}`
         }
