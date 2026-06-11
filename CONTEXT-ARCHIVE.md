@@ -883,6 +883,46 @@ Phases listées ci-dessous dans l'ordre chronologique d'implémentation.
 
 ## Historique (chronologie inverse)
 
+- **2026-06-11 — Iteration T — T.4 (phase-4.1→4.4) : filtre statique (BiquadFilter par
+  voix + graphe de réponse)** (`feat(iter-T/phase-4.1..4.4)` + doc). 1ᵉʳ
+  `BiquadFilterNode` dans la chaîne de voix et 1ᵉʳ **graphe fréquentiel** du module
+  Effets. Découpé en 4 sous-commits.
+  - **4.1 — modèle** : `Patch`/`Editor` += `filter {enabled, type:'lowpass'|'highpass'|
+    'bandpass'|'notch', cutoff Hz 20..20000, q linéaire 0.1..20}` (`DEFAULT_FILTER`
+    false/lowpass/2000/1). `sanitizeFilter`, `FILTER_CUTOFF/Q_MIN/MAX`, `FILTER_TYPES` ;
+    `clampModulationValue` branche `filter` ; `DESIGNER_EFFECT_IDS += 'filter'` ; tous les
+    call-sites editor/patch (DEFAULT_EDITOR, patchMeta, SAVE/UPDATE_PATCH, RESET_EDITOR,
+    RESET_EDITOR_WAVEFORM, HYDRATE×2). **Action 2D atomique `SET_EDITOR_FILTER_POINT`**
+    (cutoff+q, undoable, un cran/geste — frère de `MOVE_SPLINE_ANCHOR`). `types.ts`
+    (`FilterType`/`PatchFilter`), `osaFormat` (`isFilterValidOrAbsent`, **v4 inchangé**,
+    absent → défaut), `libraryTransfer` (`normalizePatchForExport += filter`).
+  - **4.2 — audio** : `lib/filter.js` — `biquadQValue` (**piège d'unité Q** : dB pour
+    LP/HP via `20·log10(q)`, linéaire pour BP/notch) + `configureBiquad`, partagés. Insertion
+    conditionnelle **VCO→VCF→VCA** (`osc → biquad → gain`, seulement si `enabled`, sinon
+    chaîne bit-identique) sur les **4 chemins** (`scheduleOneClip`, `scheduleAllClips`/export,
+    `playInstrumentNote`, `playFreeNote`) ; cleanup via le tableau `mod` (comme le panner) ;
+    `instrumentParamsRef += filter` ; signature scheduler `sigOfFilter` (re-schedule live).
+    Filet niveaux à résonance haute (+26 dB) = master headroom-bas + soft-clip sans mémoire
+    (iter S) → pas de pompage.
+  - **4.3 — UI panneau** : 5ᵉ bouton **« Filtre »** (`buildEffectsHeaderItems`) ;
+    `renderFilterBlock` (interrupteur + switch segmenté 4 types `IconFilter*` SVG style
+    Lucide + `STRINGS.filterTypes` + 2 `NumberInput` Fréquence/Résonance). **`NumberInput`
+    += `stepFactor`/`shiftFactor`** (steppers **multiplicatifs** opt-in : chevron ×/÷,
+    2^(1/12) = demi-ton, Shift = octave ; usages additifs inchangés). Dirty-check
+    `filterEqual`/`cloneFilter`, `buildPayload`/refs.
+  - **4.4 — graphe** : `drawFilterGraph` — courbe via `getFrequencyResponse` sur un **biquad
+    de mesure** (contexte Designer existant sinon `OfflineAudioContext`, **jamais connecté**),
+    **même mapping Q** (`configureBiquad`) → colle au son. Axes X log 20 Hz–20 kHz (repères
+    100/1k/10k), Y dB −30..+30, 0 dB accentué, ~128 pts. **Poignée 2D unique** au cutoff sur
+    la courbe (`filterGeometry` : horizontal log → cutoff, vertical log → q) ; `draftFilter`
+    + commit atomique `SET_EDITOR_FILTER_POINT`, géométrie gelée au pointerdown
+    (`filterDragGeomRef`), Pointer Events + `setPointerCapture` + `pointercancel`, tooltip
+    « Fréquence / Résonance ». **Aucune animation** (branche statique de la boucle rAF, RO +
+    themechange) ; désactivé → courbe grise atténuée, poignée inerte. `filterCanvasRef`,
+    `makeMeasureBiquad`, `App.editorActions.setFilterPoint`.
+  - **Backlog** : **keytracking du cutoff** (cutoff suivant la hauteur de la note) noté,
+    non cadré. Hors scope : env de filtre + wah (T.5), distorsion (T.6).
+
 - **2026-06-10 — Iteration T — T.3bis (phase-3.4) : pitch envelope, mode « Inverser »**
   (`feat(iter-T/phase-3.4)` + doc). Miroir du pitch env : au lieu de partir décalé et
   rejoindre la nominale, **part de la nominale et s'éloigne** vers `amount`, où la note

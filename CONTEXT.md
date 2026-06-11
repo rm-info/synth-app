@@ -52,8 +52,12 @@ entrante, s'y **somme** → coexistence par construction) sur les 4 chemins, 4�
 « Hauteur » + panneau (graphe d'enveloppe à 2 poignées). **T.3bis** : mode **Inverser**
 (part de la note → s'en éloigne, y reste). **T.3ter** : **4 formes de progression**
 (`curve` Linéaire/Décélérée/Exponentielle/Accélérée) via **`setValueCurveAtTime`** (64 pts
-pour les formes non linéaires) — orthogonal à `invert`. **Pas de bump** (`pitchEnv`/`curve`
-absent → défaut injecté, v4 inchangé). Reste T.4→T.6 (filtre, env+wah, distorsion). Dernière release :
+pour les formes non linéaires) — orthogonal à `invert`. → **T.4 livrée** (filtre statique) :
+1ᵉʳ **`BiquadFilterNode` par voix** (`filter {enabled, type LP/HP/BP/notch, cutoff, q linéaire}`,
+insertion **VCO→VCF→VCA** conditionnelle, **mapping Q** dB↔linéaire partagé audio/graphe via
+`lib/filter.js`) + 1ᵉʳ **graphe de réponse en fréquence** à poignée 2D (`getFrequencyResponse`).
+**Pas de bump** (`pitchEnv`/`curve`/`filter` absent → défaut injecté, v4 inchangé). Reste T.5→T.6
+(env de filtre+wah, distorsion). Dernière release :
 **v1.11.0** (Iteration S). Détail S.1→S.audio.5 et arc audio dans `CONTEXT-ARCHIVE.md`.
 
 > **Structure des fichiers de contexte.** Ce `CONTEXT.md` est le **brief
@@ -114,6 +118,7 @@ synth-app/
     │   ├── bibTransfer.js               # wouldCreateCycle + duplicateItemsToFolder (K.1.7)
     │   ├── shortcuts.js      # table déclarative + matchesShortcut / getAnchor (iter-L phase-1.1)
     │   ├── designerModules.js # (iter-O phase-5c/5d, iter-P) MODULE_META des 6 modules Designer { label, Icon Lucide } + DESIGNER_ROWS / rowSiblings (rangée haut 3 / bas 3) — source unique (headers, bande, auto-réduction)
+    │   ├── filter.js         # (iter-T T.4) filtre statique : biquadQValue (piège d'unité Q — dB pour LP/HP, linéaire pour BP/notch) + configureBiquad, partagés par les 4 chemins audio ET le graphe de réponse (biquad de mesure)
     │   ├── modulation.js     # (iter-P/T) applyModulation : branche vibrato/trémolo/auto-pan/pitch-env (osc.detune cents sommé / gain.gain sommé / panner.pan stéréo / automation valeur de base osc.detune) sur un couple (osc, gain[, panner]) existant ; helper partagé des 4 chemins de synthèse
     │   ├── getAnchoredPosition.js # résolution viewport rect d'un [data-anchor] (iter-L phase-1.5)
     │   ├── highlightElement.js # halo temporaire ancré (DocLink), retry RAF (iter-L phase-3.1)
@@ -252,7 +257,17 @@ type Patch = {
   autoPan: Lfo                    // depth 0..1 = excursion symétrique G↔D autour du centre
   // itération T (T.3) : pitch envelope (enveloppe → osc.detune ; PAS un Lfo).
   pitchEnv: PitchEnv              // { enabled, amount cents signé ±2400, time ms 40..2000, invert }
+  // itération T (T.4) : filtre statique (BiquadFilter par voix ; ni Lfo ni PitchEnv).
+  filter: PatchFilter            // { enabled, type LP/HP/BP/notch, cutoff Hz 20..20000, q linéaire 0.1..20 }
 }
+// type PatchFilter = { enabled:boolean, type:'lowpass'|'highpass'|'bandpass'|'notch',
+//   cutoff:number /*Hz 20-20000*/, q:number /*résonance LINÉAIRE 0.1-20*/ }. DEFAULT_FILTER
+//   { false, 'lowpass', 2000, 1 }. Piège d'unité Web Audio : le Q d'un biquad est en dB
+//   pour LP/HP, linéaire pour BP/notch ; le modèle stocke un q linéaire unique, la couche
+//   audio convertit (lib/filter.js biquadQValue/configureBiquad, partagé audio + graphe).
+//   Insertion VCO→VCF→VCA (osc → biquad → gain) seulement si enabled, sinon chaîne
+//   bit-identique. Édition mono-clé via SET_EDITOR_MODULATION ; poignée 2D du graphe via
+//   SET_EDITOR_FILTER_POINT (cutoff+q atomique, un undo/geste).
 // type Lfo = { enabled:boolean, rate:number /*0.1-20 Hz*/, depth:number
 //   /*vibrato 0-200 cents ; trémolo/auto-pan 0-1*/, onset:number /*0-2000 ms*/,
 //   shape:'sine'|'triangle'|'square' }. Défauts désactivés mais musicaux
@@ -336,7 +351,7 @@ type Clip = {                     // placement timeline + hauteur
 //   designerMobileModule (iter-R phase-1.1 : module plein cadre en petit écran,
 //     ∈ les 6 ids, défaut 'canvas' ; remplace l'ex-volatile mobileExpandedZone),
 //   designerEffectsSelected (iter-T phase-1.1 : effet édité dans le module Effets,
-//     ∈ {'vibrato','tremolo','autoPan'(T.2),'pitchEnv'(T.3)}, défaut 'vibrato' ; validé à l'hydratation, hors undo),
+//     ∈ {'vibrato','tremolo','autoPan'(T.2),'pitchEnv'(T.3),'filter'(T.4)}, défaut 'vibrato' ; validé à l'hydratation, hors undo),
 //   editorTestTuningSystem, editorTestNoteIndex, editorTestOctave,
 //   editorTestFrequency, editorVisualCuePattern, editorVisualCueTonic,
 //   selectedTrackId (iter-L phase-1.4.b) }
@@ -503,7 +518,16 @@ Seuls les **placements timeline** s'appellent "clips".
   est en **miroir** (part de la médiane → s'éloigne vers `amount` → plateau) et la poignée
   verticale se place **à droite sur le plateau** (fixe horizontalement, miroir du départ à
   gauche en normal) ; tooltips/label Cible/Durée. Réutilise les classes
-  `.we-lfo-*` et la machinerie d'undo partagée. Les
+  `.we-lfo-*` et la machinerie d'undo partagée. **Filtre (T.4)** : 5ᵉ sous-bloc
+  (`renderFilterBlock`) — interrupteur + **switch segmenté 4 types** (`IconFilter*`,
+  tooltips `STRINGS.filterTypes`) + 2 `NumberInput` (Fréquence à **steppers
+  multiplicatifs** `stepFactor`, Résonance additive) + un **graphe de réponse en
+  fréquence** dédié (`drawFilterGraph` : X log 20 Hz–20 kHz repères 100/1k/10k, Y dB
+  −30..+30, 0 dB accentué, `getFrequencyResponse` sur un biquad de mesure jamais
+  connecté, **même mapping Q** que l'audio ; **sans animation** — branche statique de
+  la boucle rAF) à **poignée 2D unique** au cutoff (horizontal log → cutoff, vertical
+  log → q) ; `draftFilter` + commit atomique `SET_EDITOR_FILTER_POINT`, géométrie gelée
+  au pointerdown (`filterDragGeomRef`), désactivé → courbe grise atténuée. Les
   sous-blocs **LFO** (vibrato/trémolo/auto-pan) rendent : interrupteur on/off, switch de
   forme (icônes SVG IconSine/IconTriangleWave/IconSquareWave), 3 `NumberInput` à
   steppers (vitesse Hz / profondeur cents|0..1 / installation ms) + un **graphe
@@ -1250,6 +1274,26 @@ Choix non évidents pris pour de bonnes raisons. À ne pas remettre en question
   battrait avec des poignées fixes ; **fenêtre x adaptative** (onset + ~2,5
   cycles) **gelée pendant un drag** (`modDragGeomRef`) pour que la poignée suive
   le curseur sans rétroaction d'échelle.
+- **Filtre statique = biquad par voix, chaîne VCO→VCF→VCA, mapping Q dB/linéaire
+  partagé audio/graphe (iter-T T.4)** : le filtre est un `BiquadFilterNode` **inséré
+  dans la chaîne de voix** (compatible archi jetable, comme le panner), **avant** le
+  gain d'enveloppe (`osc → biquad → gain`) — convention synthé : filtrer la source
+  brute, pas le signal enveloppé (sinon le filtre lisse les transitoires d'attaque).
+  Inséré **seulement si `enabled`** → chaîne bit-identique sinon. **Piège d'unité Web
+  Audio assumé en un seul point** (`lib/filter.js`) : le `Q` d'un biquad est en **dB**
+  pour lowpass/highpass mais **linéaire** pour bandpass/notch ; le modèle stocke un `q`
+  **linéaire unique** (0.1–20), `biquadQValue`/`configureBiquad` convertit, et le **graphe
+  de réponse appelle exactement la même fonction** sur un **biquad de mesure** (jamais
+  connecté) → « ce qu'on voit = ce qu'on entend », pic de résonance LP/HP compris. Le
+  graphe est **fréquentiel** (X log 20 Hz–20 kHz, Y dB), 1ᵉʳ du module Effets, **sans
+  animation** (rien ne boucle) ; sa **poignée 2D** (cutoff log horizontal, q log vertical)
+  commit en **un cran d'undo** via une action dédiée `SET_EDITOR_FILTER_POINT` (frère du
+  `MOVE_SPLINE_ANCHOR`), les contrôles discrets restant en `SET_EDITOR_MODULATION`.
+- **Steppers multiplicatifs opt-in du `NumberInput` (iter-T T.4)** : sur une plage
+  **géométrique** (cutoff 20–20 000 Hz) un pas additif fixe est inutilisable. Prop opt-in
+  `stepFactor`/`shiftFactor` → le chevron **×/÷** le facteur au lieu d'additionner `step`
+  (pas musicaux : 2^(1/12) = demi-ton, Shift = octave). Extension **rétro-compatible**
+  (mêmes usages additifs inchangés), même esprit que `triggerBadge`/`showSteppers`.
 - **Slider = grandeur continue / stepper = décompte discret (iter-O O.1)** :
   convention d'entrée. Un nombre qu'on **compte** (nombre d'ancres, plafond
   d'harmoniques) se règle au **stepper `▴▾`** (`NumberInput` opt-in) — la valeur
@@ -2351,6 +2395,25 @@ par voix). Cadrage complet dans `archi/BACKLOG.md` (« Effets et modulations »)
   glyphes SVG `IconCurve*`, libellés `STRINGS.pitchCurves` Linéaire/Décélérée/Exponentielle/
   Accélérée) groupé à droite du head avec Inverser ; le graphe applique la **vraie** `p(t)`
   (même fonction que l'audio). Pas de bump (`curve` absent → `'linear'`). `PITCHENV_CURVES`.
+- ✅ **T.4 (filtre statique)** — 1ᵉʳ `BiquadFilterNode` dans la chaîne de voix + 1ᵉʳ
+  **graphe fréquentiel** du module Effets. `Patch`/`Editor` += **`filter` `{enabled,
+  type:'lowpass'|'highpass'|'bandpass'|'notch', cutoff Hz 20..20000, q linéaire 0.1..20}`**
+  (`DEFAULT_FILTER` false/lowpass/2000/1). Audio (`lib/filter.js`) : insertion
+  conditionnelle **VCO→VCF→VCA** — `osc → biquad → gain` **seulement si `enabled`**
+  (sinon chaîne bit-identique), 4 chemins, cleanup via le tableau `mod` (comme le panner),
+  signature scheduler += filtre. **Piège d'unité `Q`** : `biquadQValue` convertit le `q`
+  linéaire du modèle → **dB** pour LP/HP (`20·log10(q)`), **linéaire** pour BP/notch ;
+  `configureBiquad` partagé par l'audio ET le graphe. UI : 5ᵉ bouton **« Filtre »** +
+  panneau (interrupteur + switch segmenté 4 types `IconFilter*`/`STRINGS.filterTypes` + 2
+  `NumberInput` Fréquence à **steppers multiplicatifs** / Résonance). **Graphe de réponse
+  en fréquence** (`drawFilterGraph` : X log 20 Hz–20 kHz repères 100/1k/10k, Y dB −30..+30,
+  0 dB accentué, ~128 pts via `getFrequencyResponse` sur un **biquad de mesure** jamais
+  connecté, **même mapping Q** → colle au son) à **poignée 2D unique** au cutoff (horizontal
+  log → cutoff, vertical log → q ; **draft + commit atomique `SET_EDITOR_FILTER_POINT`**,
+  un undo/geste ; **aucune animation**, branche statique de la boucle rAF). `NumberInput`
+  += prop opt-in `stepFactor`/`shiftFactor` (chevron ×/÷, 2^(1/12) demi-ton, Shift octave).
+  Pas de bump `.osa` (v4 inchangé, `isFilterValidOrAbsent`, absent → défaut). `sanitizeFilter`,
+  `FILTER_CUTOFF/Q/TYPES`, `filterCanvasRef`. **Reste T.5 (env de filtre + wah), T.6 (distorsion).**
 
 ✅ **Terminé**
 - **Iteration S — « Support tactile au doigt (web pur) » (close, v1.11.0)**. L'app
@@ -3279,8 +3342,14 @@ en T.2, défauts injectés pour les champs absents). Distorsion **par voix**
   construction) sur les 4 chemins ; 4ᵉ bouton « Hauteur » + panneau enveloppe à 2 poignées
   (sans animation). Pas de bump (`pitchEnv` absent → défaut injecté). **T.3bis** : mode
   **« Inverser »** (part de la note, s'éloigne vers `amount` et y reste) — toggle + graphe
-  miroir.
-- ⏳ **T.4** filtre statique (`BiquadFilterNode` par voix : LP/HP/BP/notch, cutoff, Q).
+  miroir. **T.3ter** : **4 formes de progression** (`curve`, `setValueCurveAtTime`).
+- ✅ **T.4 — filtre statique (`BiquadFilterNode` par voix, v4 inchangé)** : 1ᵉʳ filtre +
+  1ᵉʳ graphe fréquentiel. `Patch`/`Editor` += `filter {enabled, type LP/HP/BP/notch, cutoff,
+  q linéaire}` ; insertion **VCO→VCF→VCA** conditionnelle (4 chemins), **mapping Q** dB↔linéaire
+  partagé audio/graphe (`lib/filter.js`) ; 5ᵉ bouton « Filtre » + panneau (switch 4 types,
+  steppers Fréquence **multiplicatifs**) + **graphe de réponse** (`getFrequencyResponse`,
+  biquad de mesure) à poignée 2D (commit atomique `SET_EDITOR_FILTER_POINT`). `NumberInput`
+  += `stepFactor`. Pas de bump (`filter` absent → défaut). **Keytracking du cutoff → backlog.**
 - ⏳ **T.5** enveloppe de filtre + wah (LFO → cutoff).
 - ⏳ **T.6** distorsion (`WaveShaperNode` par voix : drive, courbe soft/hard/fold).
 
@@ -3323,6 +3392,13 @@ effets temporels par piste, mixage/pan…) **non cadrée** ; « Monde B » inhar
 
 ### Backlog général (à caser quand pertinent)
 
+- **(iter-T, T.4) Keytracking du cutoff** : faire suivre la fréquence de coupure du
+  filtre à la hauteur de la note jouée (classique synthé — le timbre reste constant
+  d'une octave à l'autre). Aujourd'hui le cutoff est **statique** (posé à la création
+  de la voix, indépendant de la note) : le filtre traverse la même fréquence quelle que
+  soit la hauteur, donc un sweep de pitch change le timbre — comportement assumé et
+  pédagogiquement intéressant. Le keytracking ajouterait un facteur (0–100 %) appliqué à
+  `cutoff` en fonction de `clipFrequency`. Non cadré, noté à la livraison de T.4.
 - **(iter-T, T.3bis « inattendus ») Pitch « fall » au release** : chute de hauteur
   déclenchée en **fin de note** (type cuivres), ancrée sur `releaseStart` plutôt que
   sur l'attaque. Autre mécanique que le pitch env (qui agit à l'attaque) — variante
