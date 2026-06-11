@@ -9,7 +9,7 @@ import { configureBiquad } from '../lib/filter'
 import { splineToPoints } from '../lib/spline'
 import {
   CAP_MIN, CAP_MAX, SPLINE_ANCHOR_MIN, SPLINE_ANCHOR_MAX,
-  DEFAULT_VIBRATO, DEFAULT_TREMOLO, DEFAULT_AUTOPAN, DEFAULT_PITCHENV, DEFAULT_FILTER,
+  DEFAULT_VIBRATO, DEFAULT_TREMOLO, DEFAULT_AUTOPAN, DEFAULT_PITCHENV, DEFAULT_FILTER, DEFAULT_FILTERENV, DEFAULT_WAH,
   LFO_RATE_MIN, LFO_RATE_MAX, VIBRATO_DEPTH_MAX, TREMOLO_DEPTH_MAX, AUTOPAN_DEPTH_MAX, LFO_ONSET_MAX, LFO_SHAPES,
   PITCHENV_AMOUNT_MAX, PITCHENV_TIME_MAX, PITCHENV_TIME_MIN, PITCHENV_CURVES,
   FILTER_CUTOFF_MIN, FILTER_CUTOFF_MAX, FILTER_Q_MIN, FILTER_Q_MAX, FILTER_TYPES,
@@ -978,6 +978,12 @@ function WaveformEditor({
   const filterBase = editor.filter ?? DEFAULT_FILTER
   const applyFilterDraft = (base) => draftFilter ? { ...base, ...draftFilter } : base
   const filter = applyFilterDraft(filterBase)
+  // iter-T phase-5.1 : enveloppe de filtre (ParamEnv) + wah (Lfo), tous deux sur
+  // biquad.detune. Mêmes drafts de drag que pitchEnv / les LFO (applyModDraft).
+  const filterEnvBase = editor.filterEnv ?? DEFAULT_FILTERENV
+  const filterEnv = applyModDraft('filterEnv', filterEnvBase)
+  const wahBase = editor.wah ?? DEFAULT_WAH
+  const wah = applyModDraft('wah', wahBase)
 
   const {
     testTuningSystem, testNoteIndex, testOctave, preset: activePreset,
@@ -1100,8 +1106,8 @@ function WaveformEditor({
     attack, hold, decay, sustain, release, amplitude, definition: effectiveDefinition,
     testOctave, testTuningSystem, testFrequency, a4Ref, xEdoN,
     // itération P : modulations LFO lues par les previews clavier / note libre.
-    // itération T : += auto-pan + pitch envelope + filtre statique.
-    vibrato, tremolo, autoPan, pitchEnv, filter,
+    // itération T : += auto-pan + pitch envelope + filtre statique + env. filtre + wah.
+    vibrato, tremolo, autoPan, pitchEnv, filter, filterEnv, wah,
   }
 
   // itération P — mini-courbes LFO animées du module Modulation. UNE seule boucle
@@ -1776,8 +1782,8 @@ function WaveformEditor({
     // itération P : modulations LFO. Pas de stopTime (sustain indéfini) → le
     // cleanup est manuel (release / retrigger / stopAll / onended).
     const { nodes: mod, tremoloDepthGain } = applyModulation(ctx, {
-      osc, gain, panner, vibrato: params.vibrato, tremolo: params.tremolo, autoPan: params.autoPan,
-      pitchEnv: params.pitchEnv,
+      osc, gain, panner, biquad, vibrato: params.vibrato, tremolo: params.tremolo, autoPan: params.autoPan,
+      pitchEnv: params.pitchEnv, filterEnv: params.filterEnv, wah: params.wah,
       startTime: now, baseAmplitude: params.amplitude,
     })
     // Cleanup symétrique : panner ET biquad suivent les nœuds LFO (stopModImmediate
@@ -2021,8 +2027,8 @@ function WaveformEditor({
 
     // itération P : modulations LFO (canal libre, sustain indéfini → cleanup manuel).
     const { nodes: mod, tremoloDepthGain } = applyModulation(ctx, {
-      osc, gain, panner, vibrato: params.vibrato, tremolo: params.tremolo, autoPan: params.autoPan,
-      pitchEnv: params.pitchEnv,
+      osc, gain, panner, biquad, vibrato: params.vibrato, tremolo: params.tremolo, autoPan: params.autoPan,
+      pitchEnv: params.pitchEnv, filterEnv: params.filterEnv, wah: params.wah,
       startTime: now, baseAmplitude: params.amplitude,
     })
     if (panner) mod.push(panner)
@@ -2298,10 +2304,12 @@ function WaveformEditor({
     // itération P : modulations LFO du patch.
     vibrato: cloneLfo(vibrato, DEFAULT_VIBRATO),
     tremolo: cloneLfo(tremolo, DEFAULT_TREMOLO),
-    // itération T : auto-pan + pitch envelope + filtre statique.
+    // itération T : auto-pan + pitch envelope + filtre statique + env. filtre + wah.
     autoPan: cloneLfo(autoPan, DEFAULT_AUTOPAN),
     pitchEnv: clonePitchEnv(pitchEnv, DEFAULT_PITCHENV),
     filter: cloneFilter(filter, DEFAULT_FILTER),
+    filterEnv: clonePitchEnv(filterEnv, DEFAULT_FILTERENV),
+    wah: cloneLfo(wah, DEFAULT_WAH),
     attack,
     hold,
     decay,

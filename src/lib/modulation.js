@@ -24,8 +24,18 @@
 // connectées à la valeur de base automatisée. L'enveloppe pose la trajectoire, le
 // vibrato ondule autour — les deux composent sans s'écraser, sans coordination.
 //
-// 100 % Web Audio API native (OscillatorNode + GainNode + StereoPannerNode
-// existants), zéro dépendance.
+// Enveloppe de filtre + wah (itération T, T.5) → biquad.detune. CLÉ ARCHITECTURALE :
+// BiquadFilterNode possède un `detune` EN CENTS, comme l'oscillateur. L'enveloppe de
+// filtre est donc le pitch env (scheduleParamEnv) appliqué à `biquad.detune`, et le
+// wah le vibrato (branche LFO sommée) appliqué à `biquad.detune` — réutilisations à
+// l'identique. Ils composent par construction comme pitch env + vibrato sur osc.detune
+// (automation de base + branche entrante sommée). Le `biquad` est inséré par
+// l'APPELANT (= filter.enabled, T.4) ; absent → les deux effets sont des no-ops.
+// Le cutoff effectif (frequency × 2^(detune/1200)) est clampé par la spec Web Audio
+// à [0, Nyquist] : les sweeps extrêmes (±4 oct. env + ±3 oct. wah) sont sans danger.
+//
+// 100 % Web Audio API native (OscillatorNode + GainNode + StereoPannerNode +
+// BiquadFilterNode existants), zéro dépendance.
 
 // Progression normalisée p(t) ∈ [0,1] sur le temps normalisé t ∈ [0,1] (T.3ter).
 // ORTHOGONALE au mode Inverser (qui n'échange que départ/arrivée) : la valeur posée
@@ -53,65 +63,78 @@ function scheduleOnset(param, target, startTime, onsetMs) {
 }
 
 /**
+ * Programme l'automation d'une ParamEnv sur la VALEUR DE BASE d'un AudioParam en
+ * cents (osc.detune pour le pitch env T.3, biquad.detune pour l'env de filtre T.5).
+ * Une seule implémentation des 4 formes, partagée. No-op silencieux si l'enveloppe
+ * est absente/désactivée, d'amplitude nulle, ou de durée nulle (cran statique).
+ *
+ * @param {AudioParam} param
+ * @param {import('../types').ParamEnv} [env]
+ * @param {number} startTime
+ */
+export function scheduleParamEnv(param, env, startTime) {
+  if (!env || !env.enabled || env.amount === 0 || (env.time ?? 0) <= 0) return
+  const durSec = env.time / 1000
+  // T.3bis « Inverser » échange départ/arrivée (orthogonal à la forme T.3ter) :
+  // normal = part décalé de `amount` → rejoint la nominale (0) ; inversé = part de la
+  // nominale (0) → s'éloigne vers `amount`, où la valeur RESTE (dernière valeur tenue).
+  const from = env.invert ? 0 : env.amount
+  const to = env.invert ? env.amount : 0
+  const curve = env.curve ?? 'linear'
+  if (durSec <= 0) {
+    // Durée nulle interdite par l'API (setValueCurveAtTime) : on pose l'arrivée.
+    param.setValueAtTime(to, startTime)
+  } else if (curve === 'linear') {
+    // Chemin historique (T.3) : rampe linéaire.
+    param.setValueAtTime(from, startTime)
+    param.linearRampToValueAtTime(to, startTime + durSec)
+  } else {
+    // Formes non linéaires (T.3ter) : un SEUL chemin via setValueCurveAtTime — PAS
+    // exponentialRampToValueAtTime, qui ne peut ni atteindre ni traverser zéro (cible
+    // = 0 cent, `amount` signé). On échantillonne p(t) sur 64 points ; la dernière
+    // valeur tient ensuite (0 normal, `amount` inversé).
+    const N = 64
+    const values = new Float32Array(N)
+    for (let i = 0; i < N; i++) {
+      values[i] = from + (to - from) * pitchProgression(curve, i / (N - 1))
+    }
+    param.setValueCurveAtTime(values, startTime, durSec)
+  }
+}
+
+/**
  * @param {BaseAudioContext} ctx
  * @param {{
  *   osc: OscillatorNode, gain: GainNode, panner?: StereoPannerNode|null,
+ *   biquad?: BiquadFilterNode|null,
  *   vibrato?: import('../types').Lfo, tremolo?: import('../types').Lfo,
- *   autoPan?: import('../types').Lfo, pitchEnv?: import('../types').PitchEnv,
+ *   autoPan?: import('../types').Lfo, pitchEnv?: import('../types').ParamEnv,
+ *   filterEnv?: import('../types').ParamEnv, wah?: import('../types').Lfo,
  *   startTime: number, stopTime?: number, releaseStart?: number,
  *   baseAmplitude: number,
  * }} opts
  *   `releaseStart` (chemins programmés timeline/export) = instant où démarre le
  *   release de l'enveloppe principale. Sert au trémolo pour rester constant
  *   pendant le sustain puis ne s'éteindre que sur la durée du release.
- *   `panner` = StereoPannerNode inséré par l'appelant (auto-pan only).
+ *   `panner` = StereoPannerNode inséré par l'appelant (auto-pan only). `biquad` =
+ *   BiquadFilterNode inséré par l'appelant (filtre T.4) ; sert de cible à l'env de
+ *   filtre et au wah (T.5) — absent → les deux sont des no-ops silencieux.
  * @returns {{ nodes: AudioNode[], tremoloDepthGain: GainNode|null }}
  *   `nodes` = [] si aucun effet enabled. `tremoloDepthGain` exposé pour que les
  *   previews (sans stopTime) éteignent le trémolo au release.
  */
-export function applyModulation(ctx, { osc, gain, panner, vibrato, tremolo, autoPan, pitchEnv, startTime, stopTime, releaseStart, baseAmplitude }) {
+export function applyModulation(ctx, { osc, gain, panner, biquad, vibrato, tremolo, autoPan, pitchEnv, filterEnv, wah, startTime, stopTime, releaseStart, baseAmplitude }) {
   const nodes = []
   let tremoloDepthGain = null
 
-  // Pitch envelope (T.3) : automation de la valeur de base d'osc.detune. Posée
-  // avant la branche vibrato — l'ordre est indifférent (base automatisée + entrées
-  // connectées se somment), mais on la pose tôt pour la lisibilité. Guard `amount
-  // !== 0 && time > 0` : à 0/désactivé, AUCUNE automation (detune reste à 0, chaîne
-  // identique). Pas de cleanup (pas de nœud), pas de traitement au release : si la
-  // note est plus courte que `time`, la rampe continue pendant le release (assumé).
-  if (pitchEnv && pitchEnv.enabled && pitchEnv.amount !== 0 && (pitchEnv.time ?? 0) > 0) {
-    const durSec = pitchEnv.time / 1000
-    // T.3bis « Inverser » ne fait qu'échanger départ/arrivée (orthogonal à la forme,
-    // T.3ter) : normal = part décalé de `amount` → rejoint la nominale (0) ; inversé =
-    // part de la nominale (0) → s'éloigne vers `amount`, où la note RESTE (l'AudioParam
-    // tient sa dernière valeur). La nominale du clip n'est que le point de départ.
-    const from = pitchEnv.invert ? 0 : pitchEnv.amount
-    const to = pitchEnv.invert ? pitchEnv.amount : 0
-    const curve = pitchEnv.curve ?? 'linear'
-    if (durSec <= 0) {
-      // Durée nulle interdite par l'API (setValueCurveAtTime) : on pose l'arrivée.
-      osc.detune.setValueAtTime(to, startTime)
-    } else if (curve === 'linear') {
-      // Chemin historique inchangé (T.3) : rampe linéaire.
-      osc.detune.setValueAtTime(from, startTime)
-      osc.detune.linearRampToValueAtTime(to, startTime + durSec)
-    } else {
-      // Formes non linéaires (T.3ter) : un SEUL chemin via setValueCurveAtTime —
-      // PAS exponentialRampToValueAtTime, qui ne peut ni atteindre ni traverser zéro
-      // (notre cible est 0 cent et `amount` est signé). On échantillonne p(t) sur 64
-      // points : values[i] = from + (to − from) · p(i/63). La dernière valeur tient
-      // ensuite (comportement natif d'un AudioParam) : 0 normal, `amount` inversé.
-      // Note : setValueCurveAtTime VERROUILLE le paramètre sur sa fenêtre — sans
-      // conséquence ici, le pitch env est la SEULE automation de base d'osc.detune
-      // (le vibrato est une branche entrante sommée, pas une automation).
-      const N = 64
-      const values = new Float32Array(N)
-      for (let i = 0; i < N; i++) {
-        values[i] = from + (to - from) * pitchProgression(curve, i / (N - 1))
-      }
-      osc.detune.setValueCurveAtTime(values, startTime, durSec)
-    }
-  }
+  // Pitch envelope (T.3) : automation de la valeur de base d'osc.detune (helper
+  // partagé). Posée avant les branches LFO — l'ordre est indifférent (base
+  // automatisée + entrées connectées se somment). Pas de cleanup (aucun nœud).
+  scheduleParamEnv(osc.detune, pitchEnv, startTime)
+
+  // Enveloppe de filtre (T.5) : MÊME helper sur biquad.detune (cents, comme osc).
+  // No-op si pas de biquad (filtre désactivé → aucun nœud à moduler).
+  if (biquad) scheduleParamEnv(biquad.detune, filterEnv, startTime)
 
   if (vibrato && vibrato.enabled) {
     const lfo = ctx.createOscillator()
@@ -168,6 +191,23 @@ export function applyModulation(ctx, { osc, gain, panner, vibrato, tremolo, auto
     scheduleOnset(depthGain.gain, autoPan.depth, startTime, autoPan.onset)
     lfo.connect(depthGain)
     depthGain.connect(panner.pan)
+    lfo.start(startTime)
+    if (stopTime != null) lfo.stop(stopTime)
+    nodes.push(lfo, depthGain)
+  }
+
+  // Wah (T.5) : MÊME fabrique de branche LFO que le vibrato, mais sur biquad.detune
+  // (cents). depth en cents → excursion de cutoff [-depth, +depth]. Comme le vibrato,
+  // depth reste CONSTANT jusqu'au bout (pas de plateau/release spécial). Se SOMME à
+  // l'env de filtre (automation de base) par construction. No-op sans biquad.
+  if (wah && wah.enabled && biquad) {
+    const lfo = ctx.createOscillator()
+    lfo.type = wah.shape
+    lfo.frequency.setValueAtTime(wah.rate, startTime)
+    const depthGain = ctx.createGain()
+    scheduleOnset(depthGain.gain, wah.depth, startTime, wah.onset)
+    lfo.connect(depthGain)
+    depthGain.connect(biquad.detune)
     lfo.start(startTime)
     if (stopTime != null) lfo.stop(stopTime)
     nodes.push(lfo, depthGain)
