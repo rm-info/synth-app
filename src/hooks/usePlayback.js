@@ -93,7 +93,7 @@ function scheduleOneClip(ctx, clip, patch, startTime, trackGainNodes, defaultDes
   // (split wet/dry) puis le filtre (ou directement le gain si pas de filtre). Off →
   // osc → chainHead direct (chaîne bit-identique). Nœuds dans `mod` (cleanup symétrique).
   const chainHead = biquad ?? gain
-  const distNodes = connectDistortion(ctx, osc, chainHead, patch.distortion)
+  const { nodes: distNodes, inputGain } = connectDistortion(ctx, osc, chainHead, patch.distortion, patch.driveEnv)
 
   // Auto-pan (itération T) : 1ᵉʳ effet stéréo. Le panner n'est inséré QUE si
   // l'effet est actif et a une excursion — sinon chaîne bit-identique à avant
@@ -111,9 +111,9 @@ function scheduleOneClip(ctx, clip, patch, startTime, trackGainNodes, defaultDes
   // Modulations LFO (itération P) : branchées après la programmation de
   // l'enveloppe, avant osc.start(). stopTime fourni → extinction programmée.
   const { nodes: mod } = applyModulation(ctx, {
-    osc, gain, panner, biquad,
+    osc, gain, panner, biquad, inputGain,
     vibrato: patch.vibrato, tremolo: patch.tremolo, autoPan: patch.autoPan, pitchEnv: patch.pitchEnv,
-    filterEnv: patch.filterEnv, wah: patch.wah,
+    filterEnv: patch.filterEnv, wah: patch.wah, driveEnv: patch.driveEnv,
     startTime: clipStart, stopTime: clipStart + totalDuration, releaseStart, baseAmplitude: amp,
   })
   // Cleanup symétrique : panner, biquad ET les nœuds de distorsion sont déconnectés
@@ -178,8 +178,9 @@ function scheduleAllClips(ctx, clips, patches, startTime, trackGainNodes, defaul
       biquad.connect(gain)
     }
     // Distorsion (T.6) : MÊME insertion conditionnelle qu'en lecture (avant le filtre),
-    // sinon l'export WAV diverge. Pas de cleanup (ctx jeté après rendu).
-    connectDistortion(ctx, osc, biquad ?? gain, patch.distortion)
+    // sinon l'export WAV diverge. Pas de cleanup (ctx jeté après rendu). T.6bis : inputGain
+    // récupéré pour l'automation de l'enveloppe de drive.
+    const { inputGain } = connectDistortion(ctx, osc, biquad ?? gain, patch.distortion, patch.driveEnv)
 
     // Auto-pan (itération T) : même insertion conditionnelle qu'en lecture.
     // L'OfflineAudioContext est stéréo (2 canaux) → le WAV exporté porte la
@@ -199,9 +200,9 @@ function scheduleAllClips(ctx, clips, patches, startTime, trackGainNodes, defaul
     // dupliqué). Pas de cleanup manuel : l'OfflineAudioContext est jeté après
     // rendu, seul lfo.start/stop programmé suffit.
     applyModulation(ctx, {
-      osc, gain, panner, biquad,
+      osc, gain, panner, biquad, inputGain,
       vibrato: patch.vibrato, tremolo: patch.tremolo, autoPan: patch.autoPan, pitchEnv: patch.pitchEnv,
-      filterEnv: patch.filterEnv, wah: patch.wah,
+      filterEnv: patch.filterEnv, wah: patch.wah, driveEnv: patch.driveEnv,
       startTime: clipStart, stopTime: clipStart + totalDuration, releaseStart, baseAmplitude: amp,
     })
 
@@ -384,7 +385,7 @@ export function usePlayback({ clips, patches, tracks, bpm, a4Ref, xEdoN, totalDu
         const sigOf = (c, patchList) => {
           const p = patchList?.find(p => p.id === c.patchId)
           const env = p
-            ? `${p.attack}:${p.hold ?? 0}:${p.decay}:${p.sustain}:${p.release}:${p.amplitude}|${sigOfLfo(p.vibrato)}|${sigOfLfo(p.tremolo)}|${sigOfLfo(p.autoPan)}|${sigOfParamEnv(p.pitchEnv)}|${sigOfFilter(p.filter)}|${sigOfParamEnv(p.filterEnv)}|${sigOfLfo(p.wah)}|${sigOfDistortion(p.distortion)}`
+            ? `${p.attack}:${p.hold ?? 0}:${p.decay}:${p.sustain}:${p.release}:${p.amplitude}|${sigOfLfo(p.vibrato)}|${sigOfLfo(p.tremolo)}|${sigOfLfo(p.autoPan)}|${sigOfParamEnv(p.pitchEnv)}|${sigOfFilter(p.filter)}|${sigOfParamEnv(p.filterEnv)}|${sigOfLfo(p.wah)}|${sigOfDistortion(p.distortion)}|${sigOfParamEnv(p.driveEnv)}`
             : ''
           return `${c.measure}:${c.beat}:${c.duration}:${c.patchId}:${c.trackId}:${c.tuningSystem}:${c.noteIndex}:${c.octave}:${c.frequency}|${env}`
         }

@@ -8,7 +8,7 @@
 
 import { OSA_VERSION } from './osaFormat.js'
 import { nextAvailableFolderName } from './folderNames.js'
-import { migrateLegacyPatch, sanitizeVibrato, sanitizeTremolo, sanitizeAutoPan, sanitizePitchEnv, sanitizeFilter, sanitizeFilterEnv, sanitizeWah, sanitizeDistortion } from '../reducer.js'
+import { migrateLegacyPatch, sanitizeVibrato, sanitizeTremolo, sanitizeAutoPan, sanitizePitchEnv, sanitizeFilter, sanitizeFilterEnv, sanitizeWah, sanitizeDistortion, sanitizeDriveEnv } from '../reducer.js'
 
 export class EmptyExportError extends Error {
   constructor() { super('Rien à exporter'); this.name = 'EmptyExportError' }
@@ -54,6 +54,8 @@ function normalizePatchForExport(patch, folderId) {
     wah: sanitizeWah(patch.wah),
     // itération T (T.6, v4 inchangé) : distorsion.
     distortion: sanitizeDistortion(patch.distortion),
+    // itération T (T.6bis, v4 inchangé) : enveloppe de drive.
+    driveEnv: sanitizeDriveEnv(patch.driveEnv),
   }
 }
 

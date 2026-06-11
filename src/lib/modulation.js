@@ -63,23 +63,25 @@ function scheduleOnset(param, target, startTime, onsetMs) {
 }
 
 /**
- * Programme l'automation d'une ParamEnv sur la VALEUR DE BASE d'un AudioParam en
- * cents (osc.detune pour le pitch env T.3, biquad.detune pour l'env de filtre T.5).
- * Une seule implémentation des 4 formes, partagée. No-op silencieux si l'enveloppe
- * est absente/désactivée, d'amplitude nulle, ou de durée nulle (cran statique).
+ * Programme l'automation d'une ParamEnv sur un AudioParam. Une seule implémentation
+ * des 4 formes, partagée : osc.detune (pitch env T.3) / biquad.detune (env de filtre
+ * T.5), base 0 ; inputGain.gain (env de drive T.6bis), base 1. No-op silencieux si
+ * l'enveloppe est absente/désactivée, d'amplitude nulle, ou de durée nulle.
  *
  * @param {AudioParam} param
  * @param {import('../types').ParamEnv} [env]
  * @param {number} startTime
+ * @param {number} [base=0] valeur de repos du paramètre (0 pour un detune cents, 1
+ *   pour un gain) ; les départ/arrivée s'y ajoutent.
  */
-export function scheduleParamEnv(param, env, startTime) {
+export function scheduleParamEnv(param, env, startTime, base = 0) {
   if (!env || !env.enabled || env.amount === 0 || (env.time ?? 0) <= 0) return
   const durSec = env.time / 1000
   // T.3bis « Inverser » échange départ/arrivée (orthogonal à la forme T.3ter) :
-  // normal = part décalé de `amount` → rejoint la nominale (0) ; inversé = part de la
-  // nominale (0) → s'éloigne vers `amount`, où la valeur RESTE (dernière valeur tenue).
-  const from = env.invert ? 0 : env.amount
-  const to = env.invert ? env.amount : 0
+  // normal = part décalé de `amount` → rejoint la nominale (base) ; inversé = part de la
+  // nominale (base) → s'éloigne vers `base+amount`, où la valeur RESTE (dernière tenue).
+  const from = base + (env.invert ? 0 : env.amount)
+  const to = base + (env.invert ? env.amount : 0)
   const curve = env.curve ?? 'linear'
   if (durSec <= 0) {
     // Durée nulle interdite par l'API (setValueCurveAtTime) : on pose l'arrivée.
@@ -106,13 +108,16 @@ export function scheduleParamEnv(param, env, startTime) {
  * @param {BaseAudioContext} ctx
  * @param {{
  *   osc: OscillatorNode, gain: GainNode, panner?: StereoPannerNode|null,
- *   biquad?: BiquadFilterNode|null,
+ *   biquad?: BiquadFilterNode|null, inputGain?: GainNode|null,
  *   vibrato?: import('../types').Lfo, tremolo?: import('../types').Lfo,
  *   autoPan?: import('../types').Lfo, pitchEnv?: import('../types').ParamEnv,
  *   filterEnv?: import('../types').ParamEnv, wah?: import('../types').Lfo,
+ *   driveEnv?: import('../types').ParamEnv,
  *   startTime: number, stopTime?: number, releaseStart?: number,
  *   baseAmplitude: number,
  * }} opts
+ *   `inputGain` = GainNode d'entrée du shaper de distorsion inséré par l'appelant
+ *   (T.6bis) ; cible de l'enveloppe de drive (base 1). Absent → driveEnv no-op.
  *   `releaseStart` (chemins programmés timeline/export) = instant où démarre le
  *   release de l'enveloppe principale. Sert au trémolo pour rester constant
  *   pendant le sustain puis ne s'éteindre que sur la durée du release.
@@ -123,7 +128,7 @@ export function scheduleParamEnv(param, env, startTime) {
  *   `nodes` = [] si aucun effet enabled. `tremoloDepthGain` exposé pour que les
  *   previews (sans stopTime) éteignent le trémolo au release.
  */
-export function applyModulation(ctx, { osc, gain, panner, biquad, vibrato, tremolo, autoPan, pitchEnv, filterEnv, wah, startTime, stopTime, releaseStart, baseAmplitude }) {
+export function applyModulation(ctx, { osc, gain, panner, biquad, inputGain, vibrato, tremolo, autoPan, pitchEnv, filterEnv, wah, driveEnv, startTime, stopTime, releaseStart, baseAmplitude }) {
   const nodes = []
   let tremoloDepthGain = null
 
@@ -135,6 +140,11 @@ export function applyModulation(ctx, { osc, gain, panner, biquad, vibrato, tremo
   // Enveloppe de filtre (T.5) : MÊME helper sur biquad.detune (cents, comme osc).
   // No-op si pas de biquad (filtre désactivé → aucun nœud à moduler).
   if (biquad) scheduleParamEnv(biquad.detune, filterEnv, startTime)
+
+  // Enveloppe de drive (T.6bis) : la courbe d'un WaveShaperNode n'est PAS un AudioParam
+  // → on ne module pas `k` mais le NIVEAU D'ENTRÉE du shaper (inputGain.gain, base 1).
+  // Le drive effectif suit le niveau d'entrée. No-op si pas d'inputGain (disto/drive off).
+  if (inputGain) scheduleParamEnv(inputGain.gain, driveEnv, startTime, 1)
 
   if (vibrato && vibrato.enabled) {
     const lfo = ctx.createOscillator()

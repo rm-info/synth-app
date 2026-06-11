@@ -228,6 +228,9 @@ export interface Patch extends AdsrEnvelope {
   wah: Lfo
   // iter-T phase-6.1 : distorsion par voix (WaveShaper inséré avant le filtre).
   distortion: Distortion
+  // iter-T phase-6.5 : enveloppe de drive (ParamEnv → gain d'entrée du shaper, base 1 ;
+  // amount = décalage de gain −1..+1, no-op si disto off).
+  driveEnv: ParamEnv
 }
 
 // Données d'un patch transmises à SAVE_PATCH / UPDATE_PATCH (sans id/color).
@@ -252,6 +255,7 @@ export interface PatchData {
   filterEnv?: ParamEnv
   wah?: Lfo
   distortion?: Distortion
+  driveEnv?: ParamEnv
   attack?: number
   hold?: number
   decay?: number
@@ -300,6 +304,8 @@ export interface Editor extends AdsrEnvelope {
   wah: Lfo
   // iter-T phase-6.1 : distorsion par voix (WaveShaper).
   distortion: Distortion
+  // iter-T phase-6.5 : enveloppe de drive (ParamEnv → gain d'entrée du shaper).
+  driveEnv: ParamEnv
   testTuningSystem: TuningSystemId
   testNoteIndex: number
   testOctave: number
@@ -380,8 +386,9 @@ export type DesignerModuleId = 'canvas' | 'harmonics' | 'spectrogram' | 'params'
 // iter-T phase-2.1 : += 'autoPan' (auto-pan stéréo). phase-3.1 : += 'pitchEnv'.
 // phase-4.1 : += 'filter' (filtre statique BiquadFilter). phase-5.1 : += 'filterEnv'
 // (enveloppe de filtre) + 'wah' (LFO de cutoff), tous deux sur biquad.detune.
-// phase-6.1 : += 'distortion' (WaveShaper par voix, 8ᵉ et dernier).
-export type DesignerEffectId = 'vibrato' | 'tremolo' | 'autoPan' | 'pitchEnv' | 'filter' | 'filterEnv' | 'wah' | 'distortion'
+// phase-6.1 : += 'distortion' (WaveShaper par voix, 8ᵉ). phase-6.5 : += 'driveEnv'
+// (enveloppe de drive → gain d'entrée du shaper, 9ᵉ).
+export type DesignerEffectId = 'vibrato' | 'tremolo' | 'autoPan' | 'pitchEnv' | 'filter' | 'filterEnv' | 'wah' | 'distortion' | 'driveEnv'
 // iter-O phase-5a : état replié (bande) de chacun des modules. Préférence UI
 // persistée (localStorage), non-undoable — comme designerColumnWidths.
 export interface DesignerCollapsed {

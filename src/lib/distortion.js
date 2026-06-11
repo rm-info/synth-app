@@ -47,22 +47,33 @@ export function configureShaper(shaper, distortion) {
 // Insère la distorsion entre `source` (osc) et `dest` (biquad si filtre actif, sinon
 // gain). Insertion conditionnelle (`enabled && mix > 0`), comme le panner/biquad :
 // désactivée → `source → dest` direct (chaîne bit-identique), aucun nœud.
-// Mix = split wet/dry autour du SEUL shaper : `source → shaper → wetGain` et
-// `source → dryGain`, les deux sommés vers `dest`. wetGain = mix, dryGain = 1−mix
-// (statique). Retourne les nœuds créés pour un cleanup symétrique (aucun `.stop()`,
-// comme panner/biquad). Helper partagé par les 4 chemins de synthèse.
-export function connectDistortion(ctx, source, dest, distortion) {
+// Mix = split wet/dry autour du SEUL shaper : la branche wet `source → [inputGain →]
+// shaper → wetGain`, la branche dry `source → dryGain` (signal PUR, jamais l'inputGain),
+// les deux sommées vers `dest`. wetGain = mix, dryGain = 1−mix (statique).
+// Env. de drive (T.6bis) : quand `driveEnv.enabled`, on insère un `inputGain` (base 1)
+// AVANT le shaper — son gain est automatisé par applyModulation (la courbe du shaper
+// n'est pas un AudioParam, on module le niveau d'entrée). Retourne { nodes, inputGain } :
+// `nodes` pour un cleanup symétrique (aucun `.stop()`), `inputGain` pour l'automation.
+export function connectDistortion(ctx, source, dest, distortion, driveEnv) {
   if (!distortion || !distortion.enabled || distortion.mix <= 0) {
     source.connect(dest)
-    return []
+    return { nodes: [], inputGain: null }
   }
   const shaper = ctx.createWaveShaper()
   configureShaper(shaper, distortion)
+  let wetInput = source
+  let inputGain = null
+  if (driveEnv && driveEnv.enabled) {
+    inputGain = ctx.createGain() // base 1 (gain.value par défaut) ; automation en applyModulation
+    source.connect(inputGain)
+    wetInput = inputGain
+  }
   const wetGain = ctx.createGain()
   wetGain.gain.value = distortion.mix
   const dryGain = ctx.createGain()
   dryGain.gain.value = 1 - distortion.mix
-  source.connect(shaper); shaper.connect(wetGain); wetGain.connect(dest)
-  source.connect(dryGain); dryGain.connect(dest)
-  return [shaper, wetGain, dryGain]
+  wetInput.connect(shaper); shaper.connect(wetGain); wetGain.connect(dest)
+  source.connect(dryGain); dryGain.connect(dest) // dry = signal pur (pré-inputGain)
+  const nodes = inputGain ? [inputGain, shaper, wetGain, dryGain] : [shaper, wetGain, dryGain]
+  return { nodes, inputGain }
 }

@@ -11,7 +11,7 @@ import { connectDistortion, distortionTransfer } from '../lib/distortion'
 import { splineToPoints } from '../lib/spline'
 import {
   CAP_MIN, CAP_MAX, SPLINE_ANCHOR_MIN, SPLINE_ANCHOR_MAX,
-  DEFAULT_VIBRATO, DEFAULT_TREMOLO, DEFAULT_AUTOPAN, DEFAULT_PITCHENV, DEFAULT_FILTER, DEFAULT_FILTERENV, DEFAULT_WAH, DEFAULT_DISTORTION,
+  DEFAULT_VIBRATO, DEFAULT_TREMOLO, DEFAULT_AUTOPAN, DEFAULT_PITCHENV, DEFAULT_FILTER, DEFAULT_FILTERENV, DEFAULT_WAH, DEFAULT_DISTORTION, DEFAULT_DRIVEENV,
   LFO_RATE_MIN, LFO_RATE_MAX, VIBRATO_DEPTH_MAX, TREMOLO_DEPTH_MAX, AUTOPAN_DEPTH_MAX, LFO_ONSET_MAX, LFO_SHAPES,
   PITCHENV_AMOUNT_MAX, PITCHENV_TIME_MAX, PITCHENV_TIME_MIN, PITCHENV_CURVES,
   FILTERENV_AMOUNT_MAX, FILTERENV_TIME_MAX, FILTERENV_TIME_MIN, WAH_DEPTH_MAX,
@@ -893,6 +893,7 @@ function patchFieldsEqual(a, b) {
   if (!pitchEnvEqual(a.filterEnv, b.filterEnv)) return false
   if (!lfoEqual(a.wah, b.wah)) return false
   if (!distortionEqual(a.distortion, b.distortion)) return false
+  if (!pitchEnvEqual(a.driveEnv, b.driveEnv)) return false
   if ((a.cap ?? HARMONIC_COUNT) !== (b.cap ?? HARMONIC_COUNT)) return false
   if ((a.interpolation ?? 'soft') !== (b.interpolation ?? 'soft')) return false
   const aan = a.anchors ?? []
@@ -954,6 +955,7 @@ function snapshotPatchFields(editor) {
     filterEnv: clonePitchEnv(editor.filterEnv, DEFAULT_FILTERENV),
     wah: cloneLfo(editor.wah, DEFAULT_WAH),
     distortion: cloneDistortion(editor.distortion, DEFAULT_DISTORTION),
+    driveEnv: clonePitchEnv(editor.driveEnv, DEFAULT_DRIVEENV),
   }
 }
 
@@ -978,6 +980,7 @@ function patchToReference(patch) {
     filterEnv: clonePitchEnv(patch.filterEnv, DEFAULT_FILTERENV),
     wah: cloneLfo(patch.wah, DEFAULT_WAH),
     distortion: cloneDistortion(patch.distortion, DEFAULT_DISTORTION),
+    driveEnv: clonePitchEnv(patch.driveEnv, DEFAULT_DRIVEENV),
   }
 }
 
@@ -1163,6 +1166,9 @@ function WaveformEditor({
   // graphe de transfert s'y superpose (mono-clé `drive`, comme pitchEnv).
   const distortionBase = editor.distortion ?? DEFAULT_DISTORTION
   const distortion = applyModDraft('distortion', distortionBase)
+  // iter-T phase-6.5 : enveloppe de drive (3ᵉ ParamEnv → gain d'entrée du shaper).
+  const driveEnvBase = editor.driveEnv ?? DEFAULT_DRIVEENV
+  const driveEnv = applyModDraft('driveEnv', driveEnvBase)
 
   const {
     testTuningSystem, testNoteIndex, testOctave, preset: activePreset,
@@ -1285,8 +1291,8 @@ function WaveformEditor({
     attack, hold, decay, sustain, release, amplitude, definition: effectiveDefinition,
     testOctave, testTuningSystem, testFrequency, a4Ref, xEdoN,
     // itération P : modulations LFO lues par les previews clavier / note libre.
-    // itération T : += auto-pan + pitch envelope + filtre statique + env. filtre + wah + disto.
-    vibrato, tremolo, autoPan, pitchEnv, filter, filterEnv, wah, distortion,
+    // itération T : += auto-pan + pitch envelope + filtre statique + env. filtre + wah + disto + env. drive.
+    vibrato, tremolo, autoPan, pitchEnv, filter, filterEnv, wah, distortion, driveEnv,
   }
 
   // itération P — mini-courbes LFO animées du module Modulation. UNE seule boucle
@@ -1972,8 +1978,9 @@ function WaveformEditor({
       biquad.connect(gain)
     }
     // itération T (T.6) : distorsion AVANT le filtre (split wet/dry). Off → osc →
-    // chainHead direct. Nœuds dans `mod` (cleanup symétrique, sans .stop()).
-    const distNodes = connectDistortion(ctx, osc, biquad ?? gain, params.distortion)
+    // chainHead direct. Nœuds dans `mod` (cleanup symétrique, sans .stop()). T.6bis :
+    // inputGain (gain d'entrée du shaper) récupéré pour l'enveloppe de drive.
+    const { nodes: distNodes, inputGain } = connectDistortion(ctx, osc, biquad ?? gain, params.distortion, params.driveEnv)
 
     // itération T : auto-pan stéréo. Panner inséré seulement si actif + excursion
     // (sinon chaîne mono inchangée). osc → gain → panner → analyserGain.
@@ -1990,8 +1997,8 @@ function WaveformEditor({
     // itération P : modulations LFO. Pas de stopTime (sustain indéfini) → le
     // cleanup est manuel (release / retrigger / stopAll / onended).
     const { nodes: mod, tremoloDepthGain } = applyModulation(ctx, {
-      osc, gain, panner, biquad, vibrato: params.vibrato, tremolo: params.tremolo, autoPan: params.autoPan,
-      pitchEnv: params.pitchEnv, filterEnv: params.filterEnv, wah: params.wah,
+      osc, gain, panner, biquad, inputGain, vibrato: params.vibrato, tremolo: params.tremolo, autoPan: params.autoPan,
+      pitchEnv: params.pitchEnv, filterEnv: params.filterEnv, wah: params.wah, driveEnv: params.driveEnv,
       startTime: now, baseAmplitude: params.amplitude,
     })
     // Cleanup symétrique : panner, biquad ET la distorsion suivent les nœuds LFO
@@ -2220,7 +2227,8 @@ function WaveformEditor({
       biquad.connect(gain)
     }
     // itération T (T.6) : distorsion avant le filtre (canal libre). Même insertion.
-    const distNodes = connectDistortion(ctx, osc, biquad ?? gain, params.distortion)
+    // T.6bis : inputGain récupéré pour l'enveloppe de drive.
+    const { nodes: distNodes, inputGain } = connectDistortion(ctx, osc, biquad ?? gain, params.distortion, params.driveEnv)
 
     // itération T : auto-pan stéréo (canal libre). Même insertion conditionnelle.
     const ap = params.autoPan
@@ -2235,8 +2243,8 @@ function WaveformEditor({
 
     // itération P : modulations LFO (canal libre, sustain indéfini → cleanup manuel).
     const { nodes: mod, tremoloDepthGain } = applyModulation(ctx, {
-      osc, gain, panner, biquad, vibrato: params.vibrato, tremolo: params.tremolo, autoPan: params.autoPan,
-      pitchEnv: params.pitchEnv, filterEnv: params.filterEnv, wah: params.wah,
+      osc, gain, panner, biquad, inputGain, vibrato: params.vibrato, tremolo: params.tremolo, autoPan: params.autoPan,
+      pitchEnv: params.pitchEnv, filterEnv: params.filterEnv, wah: params.wah, driveEnv: params.driveEnv,
       startTime: now, baseAmplitude: params.amplitude,
     })
     if (panner) mod.push(panner)
@@ -2520,6 +2528,7 @@ function WaveformEditor({
     filterEnv: clonePitchEnv(filterEnv, DEFAULT_FILTERENV),
     wah: cloneLfo(wah, DEFAULT_WAH),
     distortion: cloneDistortion(distortion, DEFAULT_DISTORTION),
+    driveEnv: clonePitchEnv(driveEnv, DEFAULT_DRIVEENV),
     attack,
     hold,
     decay,

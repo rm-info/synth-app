@@ -210,6 +210,8 @@ export function validatePayload(obj) {
         assert(isLfoValidOrAbsent(p.wah, 3600), `patch ${p.id}: wah invalide`)
         // T.6 : distorsion (curve soft/hard/fold, drive [1,50], mix [0,1]).
         assert(isDistortionValidOrAbsent(p.distortion), `patch ${p.id}: distortion invalide`)
+        // T.6bis : enveloppe de drive (ParamEnv, amount gain ±1).
+        assert(isParamEnvValidOrAbsent(p.driveEnv, 1), `patch ${p.id}: driveEnv invalide`)
       }
     } else {
       // v1 (legacy) : union discriminée par `mode`. Convertie en v2 à
