@@ -12,6 +12,7 @@ import {
   DEFAULT_VIBRATO, DEFAULT_TREMOLO, DEFAULT_AUTOPAN, DEFAULT_PITCHENV, DEFAULT_FILTER, DEFAULT_FILTERENV, DEFAULT_WAH,
   LFO_RATE_MIN, LFO_RATE_MAX, VIBRATO_DEPTH_MAX, TREMOLO_DEPTH_MAX, AUTOPAN_DEPTH_MAX, LFO_ONSET_MAX, LFO_SHAPES,
   PITCHENV_AMOUNT_MAX, PITCHENV_TIME_MAX, PITCHENV_TIME_MIN, PITCHENV_CURVES,
+  FILTERENV_AMOUNT_MAX, FILTERENV_TIME_MAX, FILTERENV_TIME_MIN, WAH_DEPTH_MAX,
   FILTER_CUTOFF_MIN, FILTER_CUTOFF_MAX, FILTER_Q_MIN, FILTER_Q_MAX, FILTER_TYPES,
 } from '../reducer'
 import useWindowSize from '../hooks/useWindowSize'
@@ -394,28 +395,30 @@ function drawLfoGraph(canvas, lfo, depthMax, dotT, windowSecOverride) {
   }
 }
 
-// === Graphe d'enveloppe de hauteur (T.3) ===
+// === Graphe d'enveloppe paramétrique (T.3 pitch / T.5 filtre) ===
 //
-// Médiane = hauteur nominale (0 cent). La courbe part à `amount` (au-dessus si
-// positif, en dessous si négatif) et rejoint la médiane à `time`, puis plateau.
-// Display normalisé : `amount / PITCHENV_AMOUNT_MAX` = fraction de la demi-hauteur
-// (axe Y SIGNÉ — la médiane se franchit pour changer de signe). 2 poignées :
-// Départ (drag vertical → `amount`, au début de la courbe) et Arrivée (drag
-// horizontal → `time`, sur la médiane). Pas d'animation (rien ne boucle).
+// Médiane = valeur nominale (0 cent : hauteur réglée pour pitchEnv, cutoff réglé
+// pour filterEnv). La courbe part à `amount` (au-dessus si positif, en dessous si
+// négatif) et rejoint la médiane à `time`, puis plateau. Display normalisé :
+// `amount / bounds.amountMax` = fraction de la demi-hauteur (axe Y SIGNÉ — la médiane
+// se franchit pour changer de signe). 2 poignées : Départ (drag vertical → `amount`,
+// au début de la courbe) et Arrivée (drag horizontal → `time`, sur la médiane). Pas
+// d'animation (rien ne boucle). `bounds` = { amountMax, timeMax } propres à l'instance
+// (pitch ±2400 / filtre ±4800) — seul paramètre qui distingue les deux graphes.
 //
-// Axe x = fraction RACINE de `time / TIME_MAX` (fenêtre fixe, pas proportionnelle
+// Axe x = fraction RACINE de `time / timeMax` (fenêtre fixe, pas proportionnelle
 // au temps — sinon la poignée serait scale-invariante et resterait figée). La
 // racine donne plus de place aux durées courtes (le cas courant 40–400 ms) tout
-// en laissant la poignée atteindre le bord à TIME_MAX, et la poignée reflète
+// en laissant la poignée atteindre le bord à timeMax, et la poignée reflète
 // toujours la valeur (monotone). Inversé dans applyModDrag ('time' → frac²·max).
-const pitchEnvXFrac = (timeMs) => Math.sqrt(Math.max(0, timeMs) / PITCHENV_TIME_MAX)
-function pitchEnvGeometry(env, cssW, cssH) {
+const paramEnvXFrac = (timeMs, timeMax) => Math.sqrt(Math.max(0, timeMs) / timeMax)
+function paramEnvGeometry(env, cssW, cssH, bounds) {
   const marginL = LFO_MARGIN_X
   const usableW = Math.max(1, cssW - 2 * LFO_MARGIN_X)
   const midY = cssH / 2
   const halfUsableH = Math.max(1, midY - LFO_MARGIN_Y)
-  const amountFrac = Math.max(-1, Math.min(1, (env.amount ?? 0) / PITCHENV_AMOUNT_MAX))
-  const xOf = (timeMs) => marginL + pitchEnvXFrac(timeMs) * usableW
+  const amountFrac = Math.max(-1, Math.min(1, (env.amount ?? 0) / bounds.amountMax))
+  const xOf = (timeMs) => marginL + paramEnvXFrac(timeMs, bounds.timeMax) * usableW
   const yLevel = midY - amountFrac * halfUsableH // niveau de `amount` (départ OU cible)
   const xElbow = xOf(env.time ?? 0)              // x du coude de la rampe
   const invert = !!env.invert
@@ -434,7 +437,7 @@ function pitchEnvGeometry(env, cssW, cssH) {
 
 // Dessine le graphe d'enveloppe figé (courbe + 2 poignées). Effet désactivé →
 // médiane grise, poignées inertes. Pur, hors cycle React. Pas de point de phase.
-function drawPitchEnvGraph(canvas, env) {
+function drawParamEnvGraph(canvas, env, bounds) {
   if (!canvas) return
   const dpr = window.devicePixelRatio || 1
   const cssW = canvas.clientWidth || 160
@@ -447,7 +450,7 @@ function drawPitchEnvGraph(canvas, env) {
   if (!ctx) return
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0) // coords CSS px (cercles isotropes)
   ctx.clearRect(0, 0, cssW, cssH)
-  const g = pitchEnvGeometry(env, cssW, cssH)
+  const g = paramEnvGeometry(env, cssW, cssH, bounds)
   const { midY, marginL, usableW, xElbow, yLevel, invert } = g
 
   // Médiane (hauteur nominale = 0 cent).
@@ -494,6 +497,13 @@ function drawPitchEnvGraph(canvas, env) {
     ctx.lineWidth = 1.5
     ctx.stroke()
   }
+}
+
+// Bornes propres de chaque ParamEnv (pitch ±2400 / filtre ±4800). Seul paramètre qui
+// distingue les deux graphes/drags d'enveloppe — tout le reste est partagé.
+const PARAM_ENV_BOUNDS = {
+  pitchEnv: { amountMax: PITCHENV_AMOUNT_MAX, timeMax: PITCHENV_TIME_MAX, timeMin: PITCHENV_TIME_MIN },
+  filterEnv: { amountMax: FILTERENV_AMOUNT_MAX, timeMax: FILTERENV_TIME_MAX, timeMin: FILTERENV_TIME_MIN },
 }
 
 // === Graphe de réponse en fréquence du filtre (T.4) ===
@@ -725,10 +735,12 @@ function patchFieldsEqual(a, b) {
   // itération P : modulations LFO (font partie de l'identité du patch).
   if (!lfoEqual(a.vibrato, b.vibrato)) return false
   if (!lfoEqual(a.tremolo, b.tremolo)) return false
-  // itération T : auto-pan + pitch envelope + filtre statique.
+  // itération T : auto-pan + pitch envelope + filtre statique + env. filtre + wah.
   if (!lfoEqual(a.autoPan, b.autoPan)) return false
   if (!pitchEnvEqual(a.pitchEnv, b.pitchEnv)) return false
   if (!filterEqual(a.filter, b.filter)) return false
+  if (!pitchEnvEqual(a.filterEnv, b.filterEnv)) return false
+  if (!lfoEqual(a.wah, b.wah)) return false
   if ((a.cap ?? HARMONIC_COUNT) !== (b.cap ?? HARMONIC_COUNT)) return false
   if ((a.interpolation ?? 'soft') !== (b.interpolation ?? 'soft')) return false
   const aan = a.anchors ?? []
@@ -782,6 +794,8 @@ function snapshotPatchFields(editor) {
     autoPan: cloneLfo(editor.autoPan, DEFAULT_AUTOPAN),
     pitchEnv: clonePitchEnv(editor.pitchEnv, DEFAULT_PITCHENV),
     filter: cloneFilter(editor.filter, DEFAULT_FILTER),
+    filterEnv: clonePitchEnv(editor.filterEnv, DEFAULT_FILTERENV),
+    wah: cloneLfo(editor.wah, DEFAULT_WAH),
   }
 }
 
@@ -803,6 +817,8 @@ function patchToReference(patch) {
     autoPan: cloneLfo(patch.autoPan, DEFAULT_AUTOPAN),
     pitchEnv: clonePitchEnv(patch.pitchEnv, DEFAULT_PITCHENV),
     filter: cloneFilter(patch.filter, DEFAULT_FILTER),
+    filterEnv: clonePitchEnv(patch.filterEnv, DEFAULT_FILTERENV),
+    wah: cloneLfo(patch.wah, DEFAULT_WAH),
   }
 }
 
@@ -1120,6 +1136,9 @@ function WaveformEditor({
   const tremoloCanvasRef = useRef(null)
   const autoPanCanvasRef = useRef(null)
   const pitchEnvCanvasRef = useRef(null)
+  // T.5 — graphes env. de filtre (statique, comme pitchEnv) + wah (animé, comme un LFO).
+  const filterEnvCanvasRef = useRef(null)
+  const wahCanvasRef = useRef(null)
   // T.4 — graphe de réponse du filtre + biquad de MESURE. On réutilise le contexte
   // audio du Designer s'il existe (mêmes coefficients que la lecture) ; sinon un
   // OfflineAudioContext léger (avant la 1ʳᵉ note, pas de geste utilisateur requis).
@@ -1135,7 +1154,7 @@ function WaveformEditor({
     return ctx.createBiquadFilter()
   }
   // Position (en secondes depuis le début de note) du point de phase par effet.
-  const lfoDotRef = useRef({ vibrato: 0, tremolo: 0, autoPan: 0 })
+  const lfoDotRef = useRef({ vibrato: 0, tremolo: 0, autoPan: 0, wah: 0 })
   // Géométrie figée au mousedown d'un drag (cf. lfoGeometry) : map curseur→valeur
   // à échelle gelée tant que le drag dure (sinon la fenêtre se redimensionnerait
   // sous la poignée). Recalculée au prochain drag.
@@ -1150,12 +1169,16 @@ function WaveformEditor({
     // effet re-tourne, `effectsSelected` étant dans ses deps, quand son canvas
     // est de nouveau affiché et mesurable).
 
-    // T.3 — pitch envelope : graphe d'ENVELOPPE (pas un LFO), AUCUNE animation
-    // (rien ne boucle). On peint un état statique, repeint au resize/thème/draft
-    // (deps `pitchEnv`), sans jamais lancer la boucle rAF.
-    if (effectsSelected === 'pitchEnv') {
-      const canvas = pitchEnvCanvasRef.current
-      const paint = () => drawPitchEnvGraph(canvas, pitchEnv)
+    // T.3/T.5 — enveloppe paramétrique (pitch | filtre) : graphe d'ENVELOPPE (pas un
+    // LFO), AUCUNE animation (rien ne boucle). État statique, repeint au resize/thème/
+    // draft (deps `pitchEnv`/`filterEnv`), sans jamais lancer la boucle rAF. Même graphe,
+    // bornes propres (PARAM_ENV_BOUNDS) — seul écart entre les deux.
+    if (effectsSelected === 'pitchEnv' || effectsSelected === 'filterEnv') {
+      const isPitch = effectsSelected === 'pitchEnv'
+      const canvas = isPitch ? pitchEnvCanvasRef.current : filterEnvCanvasRef.current
+      const env = isPitch ? pitchEnv : filterEnv
+      const bounds = isPitch ? PARAM_ENV_BOUNDS.pitchEnv : PARAM_ENV_BOUNDS.filterEnv
+      const paint = () => drawParamEnvGraph(canvas, env, bounds)
       paint()
       window.addEventListener('themechange', paint)
       let ro = null
@@ -1191,6 +1214,8 @@ function WaveformEditor({
       ? { canvas: tremoloCanvasRef.current, lfo: tremolo, depthMax: TREMOLO_DEPTH_MAX, key: 'tremolo' }
       : effectsSelected === 'autoPan'
       ? { canvas: autoPanCanvasRef.current, lfo: autoPan, depthMax: AUTOPAN_DEPTH_MAX, key: 'autoPan' }
+      : effectsSelected === 'wah'
+      ? { canvas: wahCanvasRef.current, lfo: wah, depthMax: WAH_DEPTH_MAX, key: 'wah' }
       : { canvas: vibratoCanvasRef.current, lfo: vibrato, depthMax: VIBRATO_DEPTH_MAX, key: 'vibrato' }
     const dots = lfoDotRef.current
     // Pendant un drag, le point de phase est figé (spec) → on passe null (pas de
@@ -1243,7 +1268,7 @@ function WaveformEditor({
       cancelAnimationFrame(raf)
       cleanupStatic()
     }
-  }, [vibrato, tremolo, autoPan, pitchEnv, filter, modulationVisible, dragging, effectsSelected])
+  }, [vibrato, tremolo, autoPan, pitchEnv, filter, filterEnv, wah, modulationVisible, dragging, effectsSelected])
 
   const referenceRef = useRef(snapshotPatchFields(editor))
   const referencedPatchIdRef = useRef(null)
@@ -3819,10 +3844,12 @@ function WaveformEditor({
   const modCanvasFor = (effect) =>
     effect === 'vibrato' ? vibratoCanvasRef.current
     : effect === 'tremolo' ? tremoloCanvasRef.current
+    : effect === 'wah' ? wahCanvasRef.current
     : autoPanCanvasRef.current
   const modDepthMax = (effect) =>
     effect === 'vibrato' ? VIBRATO_DEPTH_MAX
     : effect === 'tremolo' ? TREMOLO_DEPTH_MAX
+    : effect === 'wah' ? WAH_DEPTH_MAX
     : AUTOPAN_DEPTH_MAX
 
   // Hit-test géométrique → clé de poignée la plus proche (ou null).
@@ -3854,7 +3881,8 @@ function WaveformEditor({
     if (fg.key === 'depth') {
       const frac = Math.max(0, Math.min(1, (fg.midY - y) / fg.halfUsableH))
       const raw = frac * fg.depthMax
-      value = fg.effect === 'vibrato' ? Math.round(raw) : Math.round(raw * 100) / 100
+      // vibrato/wah = cents (entier) ; trémolo/auto-pan = 0..1 (2 décimales).
+      value = (fg.effect === 'vibrato' || fg.effect === 'wah') ? Math.round(raw) : Math.round(raw * 100) / 100
     } else if (fg.key === 'onset') {
       const t = ((x - fg.marginL) / fg.usableW) * fg.windowSec
       value = Math.round(Math.max(0, Math.min(LFO_ONSET_MAX / 1000, t)) * 1000)
@@ -3863,13 +3891,13 @@ function WaveformEditor({
       const period = t - fg.onsetSec
       const r = period > 0 ? 1 / period : LFO_RATE_MAX
       value = Math.round(Math.max(LFO_RATE_MIN, Math.min(LFO_RATE_MAX, r)) * 10) / 10
-    } else if (fg.key === 'amount') { // T.3 : drag vertical SIGNÉ (franchit la médiane → change de signe)
+    } else if (fg.key === 'amount') { // T.3/T.5 : drag vertical SIGNÉ (franchit la médiane → change de signe)
       const frac = Math.max(-1, Math.min(1, (fg.midY - y) / fg.halfUsableH))
-      value = Math.round(frac * PITCHENV_AMOUNT_MAX)
-    } else { // T.3 'time' : drag horizontal → durée. Inverse du mapping racine (frac²·max).
+      value = Math.round(frac * fg.amountMax)
+    } else { // T.3/T.5 'time' : drag horizontal → durée. Inverse du mapping racine (frac²·max).
       const frac = Math.max(0, Math.min(1, (x - fg.marginL) / fg.usableW))
-      const ms = frac * frac * PITCHENV_TIME_MAX
-      value = Math.round(Math.max(PITCHENV_TIME_MIN, Math.min(PITCHENV_TIME_MAX, ms)))
+      const ms = frac * frac * fg.timeMax
+      value = Math.round(Math.max(fg.timeMin, Math.min(fg.timeMax, ms)))
     }
     setDraftMod({ effect: fg.effect, key: fg.key, value })
   }
@@ -3911,7 +3939,9 @@ function WaveformEditor({
     if (fg && draftMod) {
       const base = fg.effect === 'vibrato' ? vibratoBase
         : fg.effect === 'tremolo' ? tremoloBase
-        : fg.effect === 'autoPan' ? autoPanBase : pitchEnvBase
+        : fg.effect === 'autoPan' ? autoPanBase
+        : fg.effect === 'wah' ? wahBase
+        : fg.effect === 'filterEnv' ? filterEnvBase : pitchEnvBase
       if (draftMod.value !== base[draftMod.key]) {
         editorActions.setModulation(draftMod.effect, draftMod.key, draftMod.value)
       }
@@ -3937,17 +3967,20 @@ function WaveformEditor({
     setDraftMod(null)
   }
 
-  // === T.3 — drag des 2 poignées du graphe d'enveloppe de hauteur ===
+  // === T.3/T.5 — drag des 2 poignées d'un graphe d'enveloppe paramétrique ===
   // Géométrie/hit-test propres (2 poignées, axe Y signé), mais MÊME machinerie
   // d'undo que les LFO : `modOwnerRef`/`modDragGeomRef`/`draftMod`/`endModDrag` +
-  // `applyModDrag` (branches amount/time) + handleModPointerUp/Cancel/Leave partagés.
-  const pitchEnvHitTest = (env, e) => {
-    const canvas = pitchEnvCanvasRef.current
+  // `applyModDrag` (branches amount/time, bornes gelées) + handleModPointerUp/Cancel/
+  // Leave partagés. Paramétré par `effect` (pitchEnv | filterEnv) + ses bornes propres.
+  const paramEnvCanvasFor = (effect) =>
+    effect === 'pitchEnv' ? pitchEnvCanvasRef.current : filterEnvCanvasRef.current
+  const paramEnvHitTest = (effect, env, bounds, e) => {
+    const canvas = paramEnvCanvasFor(effect)
     if (!canvas) return { key: null }
     const rect = canvas.getBoundingClientRect()
     const x = e.clientX - rect.left
     const y = e.clientY - rect.top
-    const g = pitchEnvGeometry(env, rect.width, rect.height)
+    const g = paramEnvGeometry(env, rect.width, rect.height, bounds)
     let best = null
     let bestD = LFO_HIT_RADIUS
     for (const key of Object.keys(g.handles)) {
@@ -3958,33 +3991,35 @@ function WaveformEditor({
     return { key: best, g }
   }
 
-  const handlePitchEnvPointerDown = (e) => {
-    if (!pitchEnv.enabled) return
+  const handleParamEnvPointerDown = (effect, env, bounds, e) => {
+    if (!env.enabled) return
     if (modOwnerRef.current !== null) return
-    const hit = pitchEnvHitTest(pitchEnv, e)
+    const hit = paramEnvHitTest(effect, env, bounds, e)
     if (!hit.key) return
     e.preventDefault()
     modOwnerRef.current = e.pointerId
     e.currentTarget.setPointerCapture?.(e.pointerId)
     modDragGeomRef.current = {
-      effect: 'pitchEnv', key: hit.key, canvas: pitchEnvCanvasRef.current,
+      effect, key: hit.key, canvas: paramEnvCanvasFor(effect),
       marginL: hit.g.marginL, usableW: hit.g.usableW, midY: hit.g.midY,
       halfUsableH: hit.g.halfUsableH,
+      // Bornes gelées (cf. applyModDrag amount/time) — propres à l'instance.
+      amountMax: bounds.amountMax, timeMax: bounds.timeMax, timeMin: bounds.timeMin,
     }
-    setDraftMod({ effect: 'pitchEnv', key: hit.key, value: pitchEnv[hit.key] })
+    setDraftMod({ effect, key: hit.key, value: env[hit.key] })
   }
 
-  const handlePitchEnvPointerMove = (e) => {
+  const handleParamEnvPointerMove = (effect, env, bounds, e) => {
     if (modDragGeomRef.current) {
       if (e.pointerId !== modOwnerRef.current) return
       applyModDrag(e); return
     }
-    if (!pitchEnv.enabled) { if (modHover) setModHover(null); return }
-    const hit = pitchEnvHitTest(pitchEnv, e)
+    if (!env.enabled) { if (modHover) setModHover(null); return }
+    const hit = paramEnvHitTest(effect, env, bounds, e)
     if (!hit.key) { if (modHover) setModHover(null); return }
     const hd = hit.g.handles[hit.key]
-    if (!modHover || modHover.effect !== 'pitchEnv' || modHover.handle !== hit.key) {
-      setModHover({ effect: 'pitchEnv', handle: hit.key, px: hd.x, py: hd.y })
+    if (!modHover || modHover.effect !== effect || modHover.handle !== hit.key) {
+      setModHover({ effect, handle: hit.key, px: hd.x, py: hd.y })
     }
   }
 
@@ -4088,6 +4123,8 @@ function WaveformEditor({
       { id: 'autoPan', label: 'Auto-pan', enabled: autoPan.enabled },
       { id: 'pitchEnv', label: 'Hauteur', enabled: pitchEnv.enabled },
       { id: 'filter', label: 'Filtre', enabled: filter.enabled },
+      { id: 'filterEnv', label: 'Env. filtre', enabled: filterEnv.enabled },
+      { id: 'wah', label: 'Wah', enabled: wah.enabled },
     ]
     return effects.map((eff) => {
       const selected = effectsSelected === eff.id
@@ -4109,13 +4146,33 @@ function WaveformEditor({
   }
 
   const renderModulationArea = () => {
+    // T.5 — ligne discrète « filtre maître désactivé » : env. de filtre et wah ciblent
+    // biquad.detune, muet tant que le filtre n'est pas inséré (filter.enabled). Les
+    // contrôles restent éditables (on configure avant d'activer) ; le bouton inline
+    // active le filtre en un cran d'undo (SET_EDITOR_MODULATION, undoable).
+    const renderFilterTargetHint = () => {
+      if (filter.enabled) return null
+      return (
+        <div className="we-effect-hint" role="note">
+          <span>Le filtre est désactivé — cet effet est muet.</span>
+          <button
+            type="button"
+            className="we-effect-hint-btn"
+            onClick={() => editorActions.setModulation('filter', 'enabled', true)}
+          >Activer le filtre</button>
+        </div>
+      )
+    }
     const renderLfoBlock = (effect) => {
       const isVibrato = effect === 'vibrato'
       const isAutoPan = effect === 'autoPan'
-      const lfo = isVibrato ? vibrato : isAutoPan ? autoPan : tremolo
-      const canvasRef = isVibrato ? vibratoCanvasRef : isAutoPan ? autoPanCanvasRef : tremoloCanvasRef
+      const isWah = effect === 'wah'
+      const lfo = isVibrato ? vibrato : isAutoPan ? autoPan : isWah ? wah : tremolo
+      const canvasRef = isVibrato ? vibratoCanvasRef : isAutoPan ? autoPanCanvasRef : isWah ? wahCanvasRef : tremoloCanvasRef
       const enabled = lfo.enabled
-      const title = isVibrato ? 'Vibrato' : isAutoPan ? 'Auto-pan' : 'Trémolo'
+      const title = isVibrato ? 'Vibrato' : isAutoPan ? 'Auto-pan' : isWah ? 'Wah' : 'Trémolo'
+      // Profondeur en cents (entier) pour vibrato & wah ; en 0..1 (2 décimales) sinon.
+      const isCents = isVibrato || isWah
       const depthMax = modDepthMax(effect)
       const set = (key, value) => editorActions.setModulation(effect, key, value)
       // iter-T phase-1.1 : un effet à la fois. Le sous-bloc non sélectionné reste
@@ -4155,6 +4212,7 @@ function WaveformEditor({
               })}
             </div>
           </div>
+          {isWah && renderFilterTargetHint()}
           <div className="we-lfo-canvas-wrap">
             {/* iter-T phase-2.3 : auto-pan = 1ᵉʳ graphe dont l'axe Y n'est pas une
                 amplitude mais une POSITION stéréo (médiane = centre). Étiquettes
@@ -4207,17 +4265,17 @@ function WaveformEditor({
               />
             </div>
             <div className="we-lfo-control">
-              <span>{isVibrato ? 'Profondeur (cents)' : 'Profondeur'}</span>
+              <span>{isCents ? 'Profondeur (cents)' : 'Profondeur'}</span>
               <NumberInput
                 value={lfo.depth}
                 onChange={(v) => set('depth', v)}
                 min={0}
                 max={depthMax}
                 parse={parseLfoNum}
-                format={isVibrato ? (v) => String(Math.round(v)) : (v) => v.toFixed(2)}
+                format={isCents ? (v) => String(Math.round(v)) : (v) => v.toFixed(2)}
                 showSteppers
-                step={isVibrato ? 1 : 0.05}
-                shiftStep={isVibrato ? 10 : 0.1}
+                step={isCents ? 1 : 0.05}
+                shiftStep={isCents ? 10 : 0.1}
                 className="adsr-value-input"
                 disabled={!enabled}
                 ariaLabel={`Profondeur du ${title}`}
@@ -4244,15 +4302,31 @@ function WaveformEditor({
         </div>
       )
     }
-    // T.3 — panneau enveloppe de hauteur : PAS un LFO (pas de switch de forme,
-    // graphe d'enveloppe à 2 poignées). Réutilise les classes `.we-lfo-*` pour
-    // l'apparence identique aux autres effets.
-    const renderPitchEnvBlock = () => {
-      const enabled = pitchEnv.enabled
-      const hidden = effectsSelected !== 'pitchEnv'
-      const set = (key, value) => editorActions.setModulation('pitchEnv', key, value)
+    // T.3/T.5 — panneau d'enveloppe paramétrique (pitch | filtre) : PAS un LFO (pas de
+    // switch de forme, graphe d'enveloppe à 2 poignées). Réutilise les classes
+    // `.we-lfo-*`. Paramétré par `effect` : env/bornes/canvas/libellés propres, le reste
+    // (toggle Inverser, switch 4 formes, graphe, 2 steppers) est identique. La sémantique
+    // du graphe diffère seulement par la médiane (hauteur nominale vs cutoff réglé).
+    const renderParamEnvBlock = (effect) => {
+      const isPitch = effect === 'pitchEnv'
+      const env = isPitch ? pitchEnv : filterEnv
+      const bounds = isPitch ? PARAM_ENV_BOUNDS.pitchEnv : PARAM_ENV_BOUNDS.filterEnv
+      const canvasRef = isPitch ? pitchEnvCanvasRef : filterEnvCanvasRef
+      const enabled = env.enabled
+      const hidden = effectsSelected !== effect
+      const set = (key, value) => editorActions.setModulation(effect, key, value)
+      const switchLabel = isPitch ? 'Enveloppe de hauteur' : 'Enveloppe de filtre'
+      const invertTitle = isPitch
+        ? "Inverser : part de la note et s'en éloigne vers la cible (où elle reste)"
+        : "Inverser : part du cutoff réglé et s'en éloigne vers la cible (où il reste)"
+      const startAria = isPitch
+        ? "Départ de l'enveloppe de hauteur en cents (signé)"
+        : "Départ de l'enveloppe de filtre en cents (signé)"
+      const durationAria = isPitch
+        ? "Durée du glissement vers la hauteur nominale en millisecondes"
+        : "Durée du glissement vers le cutoff réglé en millisecondes"
       return (
-        <div className={`we-lfo-block${enabled ? ' is-enabled' : ''}${hidden ? ' is-hidden' : ''}`} key="pitchEnv">
+        <div className={`we-lfo-block${enabled ? ' is-enabled' : ''}${hidden ? ' is-hidden' : ''}`} key={effect}>
           <div className="we-lfo-head">
             <label className="we-lfo-switch">
               <input
@@ -4264,19 +4338,19 @@ function WaveformEditor({
               <span className="we-lfo-switch-track" aria-hidden="true">
                 <span className="we-lfo-switch-thumb" />
               </span>
-              <span className="we-lfo-switch-label">Enveloppe de hauteur</span>
+              <span className="we-lfo-switch-label">{switchLabel}</span>
             </label>
             <div className="we-lfo-head-controls">
-              {/* T.3bis : toggle « Inverser ». Part de la note et s'en éloigne vers
+              {/* T.3bis : toggle « Inverser ». Part de la nominale et s'en éloigne vers
                   `amount` (où elle reste) au lieu de partir décalé et y rejoindre. */}
               <button
                 type="button"
-                className={`icon-btn we-lfo-invert${pitchEnv.invert ? ' is-active' : ''}`}
-                onClick={() => set('invert', !pitchEnv.invert)}
+                className={`icon-btn we-lfo-invert${env.invert ? ' is-active' : ''}`}
+                onClick={() => set('invert', !env.invert)}
                 disabled={!enabled}
-                title="Inverser : part de la note et s'en éloigne vers la cible (où elle reste)"
-                aria-label="Inverser l'enveloppe de hauteur"
-                aria-pressed={pitchEnv.invert}
+                title={invertTitle}
+                aria-label={`Inverser ${switchLabel.toLowerCase()}`}
+                aria-pressed={env.invert}
               ><FlipVertical2 size={16} /></button>
               {/* T.3ter : switch segmenté des 4 formes de progression (même idiome que
                   le switch de forme des LFO). Orthogonal à Inverser : il ne change que
@@ -4288,37 +4362,38 @@ function WaveformEditor({
                     <button
                       key={cv}
                       type="button"
-                      className={`icon-btn${pitchEnv.curve === cv ? ' is-active' : ''}`}
+                      className={`icon-btn${env.curve === cv ? ' is-active' : ''}`}
                       onClick={() => set('curve', cv)}
                       disabled={!enabled}
                       title={label}
                       aria-label={label}
-                      aria-pressed={pitchEnv.curve === cv}
+                      aria-pressed={env.curve === cv}
                     ><Icon size={16} /></button>
                   )
                 })}
               </div>
             </div>
           </div>
+          {!isPitch && renderFilterTargetHint()}
           <div className="we-lfo-canvas-wrap">
             <canvas
               className="we-lfo-canvas"
-              ref={pitchEnvCanvasRef}
+              ref={canvasRef}
               aria-hidden="true"
               style={{
-                cursor: (draftMod && draftMod.effect === 'pitchEnv') ? 'grabbing'
-                  : (modHover && modHover.effect === 'pitchEnv' ? 'grab' : 'default'),
+                cursor: (draftMod && draftMod.effect === effect) ? 'grabbing'
+                  : (modHover && modHover.effect === effect ? 'grab' : 'default'),
               }}
-              onPointerDown={handlePitchEnvPointerDown}
-              onPointerMove={handlePitchEnvPointerMove}
+              onPointerDown={(e) => handleParamEnvPointerDown(effect, env, bounds, e)}
+              onPointerMove={(e) => handleParamEnvPointerMove(effect, env, bounds, e)}
               onPointerUp={handleModPointerUp}
               onPointerCancel={handleModPointerCancel}
               onPointerLeave={handleModPointerLeave}
             />
             <LfoTooltip
-              handle={(draftMod && draftMod.effect === 'pitchEnv') ? null
-                : (modHover && modHover.effect === 'pitchEnv' ? modHover.handle : null)}
-              label={pitchEnv.invert && modHover?.effect === 'pitchEnv'
+              handle={(draftMod && draftMod.effect === effect) ? null
+                : (modHover && modHover.effect === effect ? modHover.handle : null)}
+              label={env.invert && modHover?.effect === effect
                 ? (modHover.handle === 'amount' ? 'Cible' : 'Durée')
                 : undefined}
               px={modHover?.px}
@@ -4327,12 +4402,12 @@ function WaveformEditor({
           </div>
           <div className="we-lfo-controls we-lfo-controls--two">
             <div className="we-lfo-control">
-              <span>{pitchEnv.invert ? 'Cible (cents)' : 'Départ (cents)'}</span>
+              <span>{env.invert ? 'Cible (cents)' : 'Départ (cents)'}</span>
               <NumberInput
-                value={pitchEnv.amount}
+                value={env.amount}
                 onChange={(v) => set('amount', v)}
-                min={-PITCHENV_AMOUNT_MAX}
-                max={PITCHENV_AMOUNT_MAX}
+                min={-bounds.amountMax}
+                max={bounds.amountMax}
                 parse={parseLfoNum}
                 format={(v) => String(Math.round(v))}
                 showSteppers
@@ -4340,16 +4415,16 @@ function WaveformEditor({
                 shiftStep={100}
                 className="adsr-value-input"
                 disabled={!enabled}
-                ariaLabel="Départ de l'enveloppe de hauteur en cents (signé)"
+                ariaLabel={startAria}
               />
             </div>
             <div className="we-lfo-control">
               <span>Durée (ms)</span>
               <NumberInput
-                value={pitchEnv.time}
+                value={env.time}
                 onChange={(v) => set('time', v)}
-                min={PITCHENV_TIME_MIN}
-                max={PITCHENV_TIME_MAX}
+                min={bounds.timeMin}
+                max={bounds.timeMax}
                 parse={parseLfoNum}
                 format={(v) => String(Math.round(v))}
                 showSteppers
@@ -4357,7 +4432,7 @@ function WaveformEditor({
                 shiftStep={100}
                 className="adsr-value-input"
                 disabled={!enabled}
-                ariaLabel="Durée du glissement vers la hauteur nominale en millisecondes"
+                ariaLabel={durationAria}
               />
             </div>
           </div>
@@ -4491,8 +4566,10 @@ function WaveformEditor({
           {renderLfoBlock('vibrato')}
           {renderLfoBlock('tremolo')}
           {renderLfoBlock('autoPan')}
-          {renderPitchEnvBlock()}
+          {renderParamEnvBlock('pitchEnv')}
           {renderFilterBlock()}
+          {renderParamEnvBlock('filterEnv')}
+          {renderLfoBlock('wah')}
         </div>
       </div>
     )

@@ -1487,6 +1487,31 @@
   flex-wrap: wrap;
 }
 
+/* T.5 — ligne discrète « filtre maître désactivé » (env. de filtre / wah, muets
+   tant que le filtre n'est pas inséré). Bouton inline pour activer le filtre. */
+.we-effect-hint {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  font-size: 11px;
+  color: var(--text-muted);
+  line-height: 1.3;
+}
+.we-effect-hint-btn {
+  flex: none;
+  padding: 2px 8px;
+  font-size: 11px;
+  border: 1px solid var(--accent);
+  border-radius: 5px;
+  background: var(--accent-bg-faint);
+  color: var(--accent);
+  cursor: pointer;
+}
+.we-effect-hint-btn:hover {
+  background: var(--accent-bg-light);
+}
+
 /* Interrupteur on/off (pastille) en tête du sous-bloc. */
 .we-lfo-switch {
   display: inline-flex;
