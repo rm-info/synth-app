@@ -78,14 +78,14 @@ function isLfoValidOrAbsent(v, depthMax) {
   return true
 }
 
-// itération T (T.3, v4 inchangé) : pitch envelope. Même contrat que les Lfo
-// (tolérant à l'absence, strict si présent) mais champs distincts : amount cents
-// SIGNÉ [-2400, 2400], time ms [0, 2000].
-function isPitchEnvValidOrAbsent(v) {
+// itération T (T.3/T.5, v4 inchangé) : ParamEnv (pitchEnv | filterEnv). Même contrat
+// que les Lfo (tolérant à l'absence, strict si présent) mais champs distincts : amount
+// cents SIGNÉ [-amountMax, amountMax] (2400 pitch / 4800 filtre), time ms [0, 2000].
+function isParamEnvValidOrAbsent(v, amountMax) {
   if (v === undefined || v === null) return true
   if (typeof v !== 'object') return false
   if (typeof v.enabled !== 'boolean') return false
-  if (!isNumberInRange(v.amount, -2400, 2400)) return false
+  if (!isNumberInRange(v.amount, -amountMax, amountMax)) return false
   if (!isNumberInRange(v.time, 0, 2000)) return false
   // T.3bis : `invert` optionnel (absent = patch T.3 → false à l'hydratation).
   if (v.invert !== undefined && typeof v.invert !== 'boolean') return false
@@ -190,9 +190,12 @@ export function validatePayload(obj) {
         // DEFAULT_AUTOPAN injecté à l'hydratation.
         assert(isLfoValidOrAbsent(p.autoPan, 1), `patch ${p.id}: autoPan invalide`)
         // T.3 : pitch envelope (v4 inchangé — champ absent → défaut injecté).
-        assert(isPitchEnvValidOrAbsent(p.pitchEnv), `patch ${p.id}: pitchEnv invalide`)
+        assert(isParamEnvValidOrAbsent(p.pitchEnv, 2400), `patch ${p.id}: pitchEnv invalide`)
         // T.4 : filtre statique (v4 inchangé — champ absent → défaut injecté).
         assert(isFilterValidOrAbsent(p.filter), `patch ${p.id}: filter invalide`)
+        // T.5 : enveloppe de filtre (amount ±4800) + wah (Lfo, depth cents [0, 3600]).
+        assert(isParamEnvValidOrAbsent(p.filterEnv, 4800), `patch ${p.id}: filterEnv invalide`)
+        assert(isLfoValidOrAbsent(p.wah, 3600), `patch ${p.id}: wah invalide`)
       }
     } else {
       // v1 (legacy) : union discriminée par `mode`. Convertie en v2 à

@@ -89,6 +89,14 @@ export const PITCHENV_AMOUNT_MAX = 2400 // cents (±2 octaves), signé
 export const PITCHENV_TIME_MAX = 2000   // ms — durée du glissement vers 0
 // Plancher : en dessous de ~40 ms le glissement est inaudible (transitoire pur).
 export const PITCHENV_TIME_MIN = 40     // ms
+// iter-T phase-5.1 : enveloppe de filtre (ParamEnv → biquad.detune). Bornes propres :
+// un sweep de cutoff va plus loin qu'un pitch env (±4 octaves) et descend jusqu'à 0 ms
+// (la garde « durée nulle » du scheduler en fait un cran statique, pas un glissement).
+export const FILTERENV_AMOUNT_MAX = 4800 // cents (±4 octaves), signé
+export const FILTERENV_TIME_MAX = 2000   // ms
+export const FILTERENV_TIME_MIN = 0      // ms
+// iter-T phase-5.1 : wah (LFO de cutoff → biquad.detune). depth en CENTS (≠ vibrato 200).
+export const WAH_DEPTH_MAX = 3600 // cents (±3 octaves d'excursion de cutoff)
 export const LFO_ONSET_MAX = 2000 // ms
 /** @type {import('./types').LfoShape[]} */
 export const LFO_SHAPES = ['sine', 'triangle', 'square']
@@ -105,8 +113,9 @@ export const FILTER_Q_MIN = 0.1        // résonance linéaire (≈ neutre à 1)
 export const FILTER_Q_MAX = 20
 /** @type {import('./types').FilterType[]} */
 export const FILTER_TYPES = ['lowpass', 'highpass', 'bandpass', 'notch']
-// iter-T phase-3.5 : formes de progression du pitch envelope (orthogonales à `invert`).
-/** @type {import('./types').PitchEnvCurve[]} */
+// iter-T phase-3.5 : formes de progression d'une ParamEnv (orthogonales à `invert`).
+// Partagées par pitchEnv ET filterEnv (le nom historique est conservé).
+/** @type {import('./types').ParamEnvCurve[]} */
 export const PITCHENV_CURVES = ['linear', 'easeOut', 'expo', 'easeIn']
 
 /** @type {import('./types').Lfo} */
@@ -117,7 +126,7 @@ export const DEFAULT_TREMOLO = { enabled: false, rate: 5, depth: 0.3, onset: 0, 
 // iter-T phase-2.1 : désactivé mais musical (un auto-pan à 1 Hz s'entend
 // immédiatement) ; onset 0 aligné sur vibrato/trémolo.
 export const DEFAULT_AUTOPAN = { enabled: false, rate: 1, depth: 0.5, onset: 0, shape: 'sine' }
-/** @type {import('./types').PitchEnv} */
+/** @type {import('./types').ParamEnv} */
 // iter-T phase-3.1 : désactivé mais musical (+1 octave qui retombe en 150 ms =
 // pluck/tom immédiatement parlant).
 export const DEFAULT_PITCHENV = { enabled: false, amount: 1200, time: 150, invert: false, curve: 'linear' }
@@ -125,6 +134,13 @@ export const DEFAULT_PITCHENV = { enabled: false, amount: 1200, time: 150, inver
 // iter-T phase-4.1 : filtre désactivé mais musical (un passe-bas à 2 kHz, q neutre,
 // adoucit nettement un timbre riche dès qu'on l'active).
 export const DEFAULT_FILTER = { enabled: false, type: 'lowpass', cutoff: 2000, q: 1 }
+/** @type {import('./types').ParamEnv} */
+// iter-T phase-5.1 : enveloppe de filtre désactivée mais musicale (+2 octaves qui
+// retombent en 200 ms = le « waouw » soustractif dès qu'on l'active sur un filtre).
+export const DEFAULT_FILTERENV = { enabled: false, amount: 2400, time: 200, invert: false, curve: 'linear' }
+/** @type {import('./types').Lfo} */
+// iter-T phase-5.1 : wah désactivé mais musical (2 Hz / 1200 cents = wah-wah franc).
+export const DEFAULT_WAH = { enabled: false, rate: 2, depth: 1200, onset: 0, shape: 'sine' }
 
 const clampToRange = (v, lo, hi, fallback) => {
   const n = Number(v)
@@ -147,21 +163,29 @@ function clampLfo(raw, depthMax, fallback) {
 export function sanitizeVibrato(raw) { return clampLfo(raw, VIBRATO_DEPTH_MAX, DEFAULT_VIBRATO) }
 export function sanitizeTremolo(raw) { return clampLfo(raw, TREMOLO_DEPTH_MAX, DEFAULT_TREMOLO) }
 export function sanitizeAutoPan(raw) { return clampLfo(raw, AUTOPAN_DEPTH_MAX, DEFAULT_AUTOPAN) }
+// iter-T phase-5.1 : wah = un Lfo de cutoff, depth en cents [0, WAH_DEPTH_MAX].
+export function sanitizeWah(raw) { return clampLfo(raw, WAH_DEPTH_MAX, DEFAULT_WAH) }
 
-// iter-T phase-3.1 : pitch envelope (type frère du Lfo, champs distincts).
-// Tolérant à l'absence (champ manquant → DEFAULT_PITCHENV) ; clamps en dur.
-export function sanitizePitchEnv(raw) {
-  if (!raw || typeof raw !== 'object') return { ...DEFAULT_PITCHENV }
+// iter-T phase-3.1 (généralisé phase-5.1) : sanitize d'une ParamEnv (type frère du
+// Lfo, champs distincts). `bounds` = { amountMax, timeMin, timeMax } propres à
+// l'instance. Tolérant à l'absence (champ manquant → `fallback`) ; clamps en dur.
+function sanitizeParamEnv(raw, bounds, fallback) {
+  if (!raw || typeof raw !== 'object') return { ...fallback }
   return {
     enabled: raw.enabled === true,
-    amount: clampToRange(raw.amount, -PITCHENV_AMOUNT_MAX, PITCHENV_AMOUNT_MAX, DEFAULT_PITCHENV.amount),
-    time: clampToRange(raw.time, PITCHENV_TIME_MIN, PITCHENV_TIME_MAX, DEFAULT_PITCHENV.time),
-    // T.3bis : patch T.3 sans `invert` → false.
+    amount: clampToRange(raw.amount, -bounds.amountMax, bounds.amountMax, fallback.amount),
+    time: clampToRange(raw.time, bounds.timeMin, bounds.timeMax, fallback.time),
+    // T.3bis : patch sans `invert` → false.
     invert: raw.invert === true,
     // T.3ter : patch antérieur sans `curve` → 'linear' (règle v4 « champ absent → défaut »).
-    curve: PITCHENV_CURVES.includes(raw.curve) ? raw.curve : DEFAULT_PITCHENV.curve,
+    curve: PITCHENV_CURVES.includes(raw.curve) ? raw.curve : fallback.curve,
   }
 }
+const PITCHENV_BOUNDS = { amountMax: PITCHENV_AMOUNT_MAX, timeMin: PITCHENV_TIME_MIN, timeMax: PITCHENV_TIME_MAX }
+const FILTERENV_BOUNDS = { amountMax: FILTERENV_AMOUNT_MAX, timeMin: FILTERENV_TIME_MIN, timeMax: FILTERENV_TIME_MAX }
+export function sanitizePitchEnv(raw) { return sanitizeParamEnv(raw, PITCHENV_BOUNDS, DEFAULT_PITCHENV) }
+// iter-T phase-5.1 : enveloppe de filtre (bornes ±4800 cents, 0..2000 ms).
+export function sanitizeFilterEnv(raw) { return sanitizeParamEnv(raw, FILTERENV_BOUNDS, DEFAULT_FILTERENV) }
 
 // iter-T phase-4.1 : filtre statique (type frère, ni Lfo ni PitchEnv). Tolérant à
 // l'absence (champ manquant → DEFAULT_FILTER) ; enum type + clamps en dur.
@@ -175,15 +199,17 @@ export function sanitizeFilter(raw) {
   }
 }
 
-// Défaut + borne de profondeur d'un effet (vibrato cents 200 ; trémolo/auto-pan 0..1).
+// Défaut + borne de profondeur d'un effet LFO (vibrato/wah cents ; trémolo/auto-pan 0..1).
 function effectDefault(effect) {
   return effect === 'vibrato' ? DEFAULT_VIBRATO
     : effect === 'tremolo' ? DEFAULT_TREMOLO
+    : effect === 'wah' ? DEFAULT_WAH
     : DEFAULT_AUTOPAN
 }
 function effectDepthMax(effect) {
   return effect === 'vibrato' ? VIBRATO_DEPTH_MAX
     : effect === 'tremolo' ? TREMOLO_DEPTH_MAX
+    : effect === 'wah' ? WAH_DEPTH_MAX
     : AUTOPAN_DEPTH_MAX
 }
 
@@ -197,13 +223,16 @@ function clampModulationValue(effect, key, value) {
     if (key === 'q') return clampToRange(value, FILTER_Q_MIN, FILTER_Q_MAX, DEFAULT_FILTER.q)
     return value
   }
-  // iter-T phase-3.1 : pitch envelope = type frère (clés amount/time, pas Lfo).
-  if (effect === 'pitchEnv') {
+  // iter-T phase-3.1 / 5.1 : ParamEnv (pitchEnv | filterEnv) = type frère (clés
+  // amount/time/invert/curve, pas Lfo). Bornes propres à chaque instance.
+  if (effect === 'pitchEnv' || effect === 'filterEnv') {
+    const bounds = effect === 'pitchEnv' ? PITCHENV_BOUNDS : FILTERENV_BOUNDS
+    const fallback = effect === 'pitchEnv' ? DEFAULT_PITCHENV : DEFAULT_FILTERENV
     if (key === 'enabled') return value === true
     if (key === 'invert') return value === true
-    if (key === 'curve') return PITCHENV_CURVES.includes(value) ? value : DEFAULT_PITCHENV.curve
-    if (key === 'amount') return clampToRange(value, -PITCHENV_AMOUNT_MAX, PITCHENV_AMOUNT_MAX, DEFAULT_PITCHENV.amount)
-    if (key === 'time') return clampToRange(value, PITCHENV_TIME_MIN, PITCHENV_TIME_MAX, DEFAULT_PITCHENV.time)
+    if (key === 'curve') return PITCHENV_CURVES.includes(value) ? value : fallback.curve
+    if (key === 'amount') return clampToRange(value, -bounds.amountMax, bounds.amountMax, fallback.amount)
+    if (key === 'time') return clampToRange(value, bounds.timeMin, bounds.timeMax, fallback.time)
     return value
   }
   const fallback = effectDefault(effect)
@@ -392,7 +421,7 @@ function sanitizeColumnWidths(raw) {
 const DESIGNER_MODULE_IDS = ['canvas', 'harmonics', 'spectrogram', 'params', 'adsr', 'modulation']
 // iter-T phase-1.1 : effets éditables dans le module « Effets » (ex-Modulation).
 // Source unique de la validation d'hydratation de `designerEffectsSelected`.
-const DESIGNER_EFFECT_IDS = ['vibrato', 'tremolo', 'autoPan', 'pitchEnv', 'filter']
+const DESIGNER_EFFECT_IDS = ['vibrato', 'tremolo', 'autoPan', 'pitchEnv', 'filter', 'filterEnv', 'wah']
 function sanitizeDesignerCollapsed(raw) {
   const out = { canvas: false, harmonics: false, spectrogram: false, params: false, adsr: false, modulation: false }
   if (raw && typeof raw === 'object') {
@@ -449,6 +478,9 @@ export const DEFAULT_EDITOR = {
   pitchEnv: { ...DEFAULT_PITCHENV },
   // iter-T phase-4.1 : filtre statique (BiquadFilter par voix).
   filter: { ...DEFAULT_FILTER },
+  // iter-T phase-5.1 : enveloppe de filtre + wah (modulent biquad.detune).
+  filterEnv: { ...DEFAULT_FILTERENV },
+  wah: { ...DEFAULT_WAH },
   testTuningSystem: '12-TET', // '12-TET' | 'free'
   testNoteIndex: 9, // A
   testOctave: 4,
@@ -577,6 +609,9 @@ function patchMeta(p) {
     pitchEnv: sanitizePitchEnv(p.pitchEnv),
     // iter-T phase-4.1 : filtre statique (absent → DEFAULT_FILTER ; v4 inchangé).
     filter: sanitizeFilter(p.filter),
+    // iter-T phase-5.1 : enveloppe de filtre + wah (absents → défauts ; v4 inchangé).
+    filterEnv: sanitizeFilterEnv(p.filterEnv),
+    wah: sanitizeWah(p.wah),
   }
 }
 
@@ -1786,6 +1821,9 @@ export function reducer(state, action) {
         pitchEnv: sanitizePitchEnv(patchData.pitchEnv),
         // iter-T phase-4.1 : filtre statique du patch.
         filter: sanitizeFilter(patchData.filter),
+        // iter-T phase-5.1 : enveloppe de filtre + wah du patch.
+        filterEnv: sanitizeFilterEnv(patchData.filterEnv),
+        wah: sanitizeWah(patchData.wah),
       }
 
       // SAVE_PATCH non-undoable, mais on rewrite les snapshots LIBRARY
@@ -1840,6 +1878,12 @@ export function reducer(state, action) {
             autoPan: sanitizeAutoPan(patchData.autoPan),
             // iter-T phase-3.1 : pitch envelope du patch.
             pitchEnv: sanitizePitchEnv(patchData.pitchEnv),
+            // iter-T phase-4.1 : filtre statique du patch (oublié en T.4 — sans cette
+            // ligne, éditer le filtre puis « Mettre à jour » le perdait).
+            filter: sanitizeFilter(patchData.filter),
+            // iter-T phase-5.1 : enveloppe de filtre + wah du patch.
+            filterEnv: sanitizeFilterEnv(patchData.filterEnv),
+            wah: sanitizeWah(patchData.wah),
           }
         }),
       }
@@ -2305,6 +2349,8 @@ export function reducer(state, action) {
           autoPan: { ...DEFAULT_AUTOPAN },
           pitchEnv: { ...DEFAULT_PITCHENV },
           filter: { ...DEFAULT_FILTER },
+          filterEnv: { ...DEFAULT_FILTERENV },
+          wah: { ...DEFAULT_WAH },
           testTuningSystem,
           testNoteIndex,
           testOctave,
@@ -2406,6 +2452,8 @@ export function reducer(state, action) {
           autoPan: { ...DEFAULT_AUTOPAN },
           pitchEnv: { ...DEFAULT_PITCHENV },
           filter: { ...DEFAULT_FILTER },
+          filterEnv: { ...DEFAULT_FILTERENV },
+          wah: { ...DEFAULT_WAH },
           // cap & nombre d'ancres : PRÉSERVÉS (≠ Ctrl+Alt+N qui réinitialise tout).
         },
       }
@@ -2427,6 +2475,8 @@ export function reducer(state, action) {
             autoPan: { ...DEFAULT_AUTOPAN },
             pitchEnv: { ...DEFAULT_PITCHENV },
             filter: { ...DEFAULT_FILTER },
+            filterEnv: { ...DEFAULT_FILTERENV },
+            wah: { ...DEFAULT_WAH },
           },
         }
       }
@@ -2448,6 +2498,8 @@ export function reducer(state, action) {
           autoPan: sanitizeAutoPan(patch.autoPan),
           pitchEnv: sanitizePitchEnv(patch.pitchEnv),
           filter: sanitizeFilter(patch.filter),
+          filterEnv: sanitizeFilterEnv(patch.filterEnv),
+          wah: sanitizeWah(patch.wah),
           currentLens: 'free',
           // M.r.4 — le flag n'est pas persisté dans le patch : phase inconnue au
           // rechargement → false (l'utilisateur normalisera explicitement avant
