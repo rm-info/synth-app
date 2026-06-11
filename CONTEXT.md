@@ -572,8 +572,9 @@ Seuls les **placements timeline** s'appellent "clips".
   segmenté 3 courbes `IconDistort*`/`STRINGS.distortionCurves` + steppers Drive 1..50 / Mix 0..1).
   **Graphe de la courbe de transfert** (`drawDistortionGraph` : entrée x∈[−1,1] → sortie y∈[−1,1] ;
   **T.6bis** : courbe accent = **effective** `mix·f(x)+(1−mix)·x` + wet pure grisée si mix<1 ;
-  **diagonale identité pointillée**, **curseur Drive** vertical à mapping log ; statique, branche
-  rAF) — drag vertical → drive (draftMod mono-clé). **Env. drive (T.6bis)** : 9ᵉ bouton, 3ᵉ usage de
+  **diagonale identité pointillée**, **curseur Drive** vertical à mapping log + **poignée Mix**
+  (T.6ter, sur la courbe effective à x₀=−0.6, drag vertical → mix par inversion de l'interpolation,
+  hit-test 2 poignées la plus proche) ; statique, branche rAF) — draft mono-clé. **Env. drive (T.6bis)** : 9ᵉ bouton, 3ᵉ usage de
   `renderParamEnvBlock` (généralisé : `amount` = décalage de **gain** ±1, label sans cents, format 2
   décimales, drag arrondi via flag `gain` des bornes) + hint « disto désactivée » (`renderDistortion
   TargetHint`). Les sous-blocs **LFO** (vibrato/trémolo/auto-pan/wah) rendent : interrupteur on/off, switch de
@@ -2514,6 +2515,14 @@ par voix). Cadrage complet dans `archi/BACKLOG.md` (« Effets et modulations »)
   nominal) + `renderDistortionTargetHint` (« disto désactivée » + bouton « Activer la distorsion »).
   Pas de bump (`isParamEnvValidOrAbsent ±1`, absent → défaut). **Itération T feature-complete
   (9 effets sans mémoire), en attente de clôture/release.**
+- ✅ **T.6ter (phase-6.7) — poignée Mix sur le graphe disto** : rectificatif d'usage — le mix
+  devient **manipulable au geste** (et pas seulement lisible). 2ᵉ poignée **« Mix »** posée sur la
+  courbe effective à **x₀=−0.6** (loin de la poignée Drive, input ≈ +0.68) : à x₀ le point voyage
+  linéairement entre la diagonale identité (mix 0) et la wet pure (mix 1) ; drag vertical → mix =
+  inversion de `mix·f(x₀)+(1−mix)·x₀`, clampé [0,1]. **Course réduite à drive bas** (f(x₀)≈x₀),
+  assumée (les steppers restent le chemin de précision). Hit-test 2 poignées (la plus proche gagne),
+  tooltip Drive/Mix, discipline standard (draft + un dispatch `SET_EDITOR_MODULATION distortion/mix`,
+  géométrie gelée, Pointer Events + cancel). Dernier rectificatif de T avant la clôture.
 
 ✅ **Terminé**
 - **Iteration S — « Support tactile au doigt (web pur) » (close, v1.11.0)**. L'app

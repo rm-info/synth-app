@@ -883,6 +883,21 @@ Phases listées ci-dessous dans l'ordre chronologique d'implémentation.
 
 ## Historique (chronologie inverse)
 
+- **2026-06-11 — Iteration T — T.6ter (phase-6.7) : graphe disto, poignée Mix** (`feat(iter-T/
+  phase-6.7)` + doc). Rectificatif d'usage sur T.6bis : la courbe effective rendait le mix visible,
+  mais l'intention était aussi de le rendre **manipulable au geste** (comme tout paramètre graphé du
+  module). **2ᵉ poignée « Mix »** sur le graphe de transfert, posée **sur la courbe effective** à une
+  abscisse fixe **x₀=−0.6** (côté négatif, loin de la poignée Drive à input ≈ +0.68 → les deux ne se
+  gênent jamais). Manipulation **directe** : à x₀ la courbe effective vaut `mix·f(x₀)+(1−mix)·x₀`, le
+  point voyage linéairement entre la diagonale identité (mix 0) et la wet pure (mix 1) ; drag vertical
+  → `mix` = inversion de cette interpolation (`(yOut−x₀)/(f(x₀)−x₀)`, clampé [0,1]). **Course réduite
+  à drive faible assumée** (quand f(x₀)≈x₀ la poignée bouge peu — fidèle à l'audio ; dénominateur
+  ≈ 0 → poignée figée, garde ; les steppers restent le chemin de précision, pas de compensation).
+  `distortionHandlePositions` (Drive + Mix) + hit-test « la plus proche gagne » ; `applyModDrag`
+  branche `mix` (inverse de `yOf`, géométrie gelée `marginT`/`mixUsableH`/`mixX0`/`mixF0`) ; tooltip
+  dynamique Drive/Mix ; discipline standard (draft local + un dispatch `SET_EDITOR_MODULATION
+  distortion/mix`, Pointer Events + capture + `pointercancel`). `DIST_MIX_X0`. Effet désactivé →
+  poignée absente comme Drive. **Dernier rectificatif de T avant le prompt de clôture.**
 - **2026-06-11 — Iteration T — T.6bis (phase-6.4→6.6) : disto vivante (mix lisible + enveloppe
   de drive)** (`feat(iter-T/phase-6.4..6.6)` + doc). Suite de T.6 sur deux constats : le mix
   n'était pas lisible au graphe, et une disto **statique** (entrée à niveau constant) équivaut
