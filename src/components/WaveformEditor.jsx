@@ -684,12 +684,16 @@ function distortionGeometry(cssW, cssH) {
   return { marginL, marginT, usableW, usableH, xOf, yOf, xInputOf, yOutOf }
 }
 
-// T.6.8 — position 2D de la poignée au point caractéristique. x = x_c(curve, drive) ;
-// l'ordonnée voyage linéairement entre la diagonale (y = x_c, mix 0) et le sommet
-// (y = 1, mix 1) : y = x_c + mix·(1 − x_c).
+// T.6.8/6.9 — position 2D de la poignée au point caractéristique x = x_c(curve, drive),
+// l'ordonnée voyageant linéairement de la diagonale (y = x_c, mix 0) à `top` (mix 1) :
+// y = x_c + mix·(top − x_c). fold : `top = f(x_c)` → la poignée vit SUR la courbe
+// effective au point de distance max [y = mix·f(x_c) + (1−mix)·x_c]. hard/soft : `top = 1`
+// (l'angle des tangentes ; = f(x_c) pour hard, l'asymptote au-dessus de la courbe pour soft).
 function distortionHandle(distortion, g) {
-  const xc = distortionCharacteristicX(distortion.curve, distortion.drive)
-  const yVal = xc + distortion.mix * (1 - xc)
+  const { curve, drive, mix } = distortion
+  const xc = distortionCharacteristicX(curve, drive)
+  const top = curve === 'fold' ? distortionTransfer('fold', drive, xc) : 1
+  const yVal = xc + mix * (top - xc)
   return { xc, x: g.xOf(Math.max(-1, Math.min(1, xc))), y: g.yOf(Math.max(-1, Math.min(1, yVal))) }
 }
 
@@ -4340,9 +4344,10 @@ function WaveformEditor({
     const hd = distortionHandle(distortion, g)
     return { hit: Math.hypot(x - hd.x, y - hd.y) < LFO_HIT_RADIUS, g, hd }
   }
-  // Curseur → (drive, mix) via la géométrie GELÉE. drive = inversion de x_c (clamp 1..50,
-  // arrondi entier) ; mix = inversion linéaire (y − x_c)/(1 − x_c), clampé [0,1] ; garde si
-  // x_c ≈ 1 (dénominateur ~0 : mode dur/replié à drive→1) → mix inchangé pendant le geste.
+  // Curseur → (drive, mix) via la géométrie GELÉE. drive = inversion de x_c (FLOAT brut,
+  // clamp 1..50, drag fluide) ; mix = inversion linéaire (y − x_c)/(top − x_c) clampé [0,1],
+  // top = f(x_c) en fold (jamais ≈ x_c : le dénominateur ne s'annule pas), 1 sinon. La garde
+  // ne protège donc plus que hard à drive→1 (x_c → 1, dénominateur ~0) → mix inchangé.
   const applyDistortionDrag = (e) => {
     const fg = distortionDragGeomRef.current
     if (!fg) return
@@ -4350,11 +4355,12 @@ function WaveformEditor({
     const x = e.clientX - rect.left
     const y = e.clientY - rect.top
     const xInput = Math.max(1e-4, Math.min(1, fg.g.xInputOf(x)))
-    const drive = Math.round(distortionDriveForX(fg.curve, xInput))
+    const drive = distortionDriveForX(fg.curve, xInput)
     const xc = distortionCharacteristicX(fg.curve, drive)
+    const top = fg.curve === 'fold' ? distortionTransfer('fold', drive, xc) : 1
     const yOut = fg.g.yOutOf(y)
     let mix = fg.mix
-    if (Math.abs(1 - xc) >= 1e-6) mix = (yOut - xc) / (1 - xc)
+    if (Math.abs(top - xc) >= 1e-6) mix = (yOut - xc) / (top - xc)
     mix = Math.round(Math.max(0, Math.min(1, mix)) * 100) / 100
     setDraftDistortionPoint({ drive, mix })
   }
@@ -4946,7 +4952,7 @@ function WaveformEditor({
                 min={DISTORTION_DRIVE_MIN}
                 max={DISTORTION_DRIVE_MAX}
                 parse={parseLfoNum}
-                format={(v) => String(Math.round(v))}
+                format={(v) => String(Math.round(v * 10) / 10)}
                 showSteppers
                 step={1}
                 shiftStep={5}

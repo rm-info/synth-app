@@ -43,34 +43,48 @@ export function distortionCurveTable(curve, drive) {
 const DRIVE_MIN = 1
 const DRIVE_MAX = 50
 
-// iter-T phase-6.8 — abscisse du POINT CARACTÉRISTIQUE de la courbe (lieu d'écart
-// maximal à la diagonale, où l'on pose la poignée 2D). x_c DÉCROÎT quand le drive
-// monte (gauche = drive ↑). hard : l'angle d'écrêtage (x_c = 1/k) ; fold : le 1ᵉʳ
-// sommet de la sinusoïde (x_c = 1/k) ; soft : l'intersection de la tangente à
-// l'origine et de l'asymptote y=1 (x_c = tanh(k)/k, hors courbe mais dans sa région).
-export function distortionCharacteristicX(curve, drive) {
-  if (curve === 'soft') return Math.tanh(drive) / drive
-  return 1 / drive // hard, fold
+// x_c du mode FOLD (iter-T phase-6.9) : point où l'écart à la diagonale sin(kπx/2) − x
+// est MAXIMAL (dérivée nulle → cos(kπx/2) = 2/kπ), soit x_c = (2/kπ)·arccos(2/kπ).
+//   k=1   → x_c ≈ 0.561, écart ≈ 0.21 (la poignée n'est jamais coincée dans l'angle (1,1)) ;
+//   k → ∞ → x_c → 1/k    (le 1ᵉʳ sommet : on retrouve l'ancien comportement là où il valait) ;
+//   strictement DÉCROISSANT en k sur [1,50] → inversible par dichotomie.
+const foldCharacteristicX = (k) => {
+  const u = 2 / (k * Math.PI)
+  return u * Math.acos(u)
 }
 
-// Inversion de x_c → drive, clampé [1, 50]. Analytique pour hard/fold (k = 1/x),
-// DICHOTOMIE pour soft (x_c(k) = tanh(k)/k strictement décroissant sur [1,50] →
-// ~24 itérations). Mapping naturellement log-perceptuel (1/k comprime les hauts drives).
-export function distortionDriveForX(curve, x) {
-  if (curve === 'soft') {
-    const xMax = Math.tanh(DRIVE_MIN) / DRIVE_MIN // k=1 → plus grand x_c
-    const xMin = Math.tanh(DRIVE_MAX) / DRIVE_MAX // k=50 → plus petit x_c
-    const xc = Math.max(xMin, Math.min(xMax, x))
-    let lo = DRIVE_MIN, hi = DRIVE_MAX
-    for (let i = 0; i < 24; i++) {
-      const mid = (lo + hi) / 2
-      // x_c décroît avec k : si x_c(mid) > cible, il faut un k plus grand.
-      if (Math.tanh(mid) / mid > xc) lo = mid
-      else hi = mid
-    }
-    return (lo + hi) / 2
+// iter-T phase-6.8/6.9 — abscisse du POINT CARACTÉRISTIQUE de la courbe (lieu d'écart
+// maximal à la diagonale, où l'on pose la poignée 2D). x_c DÉCROÎT quand le drive monte
+// (gauche = drive ↑). hard : l'angle d'écrêtage (x_c = 1/k) ; soft : l'intersection de la
+// tangente à l'origine et de l'asymptote y=1 (x_c = tanh(k)/k, hors courbe mais dans sa
+// région) ; fold : le point de distance max à la diagonale (cf. foldCharacteristicX).
+export function distortionCharacteristicX(curve, drive) {
+  if (curve === 'soft') return Math.tanh(drive) / drive
+  if (curve === 'fold') return foldCharacteristicX(drive)
+  return 1 / drive // hard
+}
+
+// Inverse une x_c(k) STRICTEMENT DÉCROISSANTE sur [1,50] (soft, fold) → drive par
+// dichotomie (~24 itérations, ±1e-5). Cible clampée aux x_c des bornes.
+function bisectDrive(xcOf, x) {
+  const xc = Math.max(xcOf(DRIVE_MAX), Math.min(xcOf(DRIVE_MIN), x)) // k=50 plus petit, k=1 plus grand
+  let lo = DRIVE_MIN, hi = DRIVE_MAX
+  for (let i = 0; i < 24; i++) {
+    const mid = (lo + hi) / 2
+    if (xcOf(mid) > xc) lo = mid // x_c décroît avec k : x_c(mid) trop haut → il faut un k plus grand
+    else hi = mid
   }
-  const k = 1 / Math.max(1e-6, x) // hard/fold : x_c = 1/k
+  return (lo + hi) / 2
+}
+
+// Inversion de x_c → drive (FLOAT brut, clampé [1, 50] ; le drive est continu, plus
+// d'arrondi). Analytique pour hard (k = 1/x) ; même petite routine de dichotomie pour
+// soft et fold (x_c décroissant). Mapping naturellement log-perceptuel (les hauts drives
+// se compriment côté gauche).
+export function distortionDriveForX(curve, x) {
+  if (curve === 'soft') return bisectDrive((k) => Math.tanh(k) / k, x)
+  if (curve === 'fold') return bisectDrive(foldCharacteristicX, x)
+  const k = 1 / Math.max(1e-6, x) // hard : x_c = 1/k
   return Math.max(DRIVE_MIN, Math.min(DRIVE_MAX, k))
 }
 

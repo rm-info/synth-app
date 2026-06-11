@@ -2385,15 +2385,15 @@ export function reducer(state, action) {
       return { ...state, editor: { ...state.editor, filter: next } }
     }
     case 'SET_EDITOR_DISTORTION_POINT': {
-      // iter-T phase-6.8 : commit ATOMIQUE de la poignée 2D du graphe de transfert
+      // iter-T phase-6.8/6.9 : commit ATOMIQUE de la poignée 2D du graphe de transfert
       // (drive horizontal + mix vertical) en UN seul cran d'undo. Frère de
       // SET_EDITOR_FILTER_POINT ; distinct de SET_EDITOR_MODULATION (mono-clé : switch
-      // de courbe / steppers).
+      // de courbe / steppers). Drive = FLOAT continu (plus d'arrondi entier : k est continu).
       const { drive, mix } = action.payload
       const cur = state.editor.distortion
       const next = {
         ...cur,
-        drive: Math.round(clampToRange(drive, DISTORTION_DRIVE_MIN, DISTORTION_DRIVE_MAX, cur.drive)),
+        drive: clampToRange(drive, DISTORTION_DRIVE_MIN, DISTORTION_DRIVE_MAX, cur.drive),
         mix: clampToRange(mix, 0, 1, cur.mix),
       }
       if (next.drive === cur.drive && next.mix === cur.mix) return state
