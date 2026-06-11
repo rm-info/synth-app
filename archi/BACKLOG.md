@@ -1395,7 +1395,8 @@ audio en donne un avant-goût), LFO sur le cap d'harmoniques, « fall »
 de hauteur déclenché au release (chute type cuivres — ancrage sur
 `releaseStart`, identifié en T.3bis), **keytracking du cutoff** (le
 cutoff suit la hauteur de la note — classique synthé, identifié en
-T.4)…
+T.4), **drive modulable** (enveloppe/LFO sur un gain d'entrée du
+WaveShaper — `curve` n'est pas un AudioParam, identifié en T.6)…
 
 **Effets de mixage** (par piste) :
 - **Pan stéréo statique** : `StereoPannerNode`. (L'auto-pan T.2 ouvre
