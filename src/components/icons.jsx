@@ -106,6 +106,44 @@ export function IconCurveEaseIn(props) {
   )
 }
 
+// iter-T phase-4.3 — types de filtre (switch segmenté du panneau Filtre). Chaque
+// glyphe schématise la RÉPONSE EN FRÉQUENCE du type (grave à gauche, aigu à
+// droite), exactement la forme que dessine le graphe : plat puis chute (passe-bas),
+// montée puis plat (passe-haut), bosse (passe-bande), creux (coupe-bande). Rien
+// d'approprié dans Lucide.
+export function IconFilterLowpass(props) {
+  // Plat à gauche, roll-off à droite.
+  return (
+    <svg {...lucideProps(props)}>
+      <path d="M3 7 L 12 7 C 16 7 16 18 21 18" />
+    </svg>
+  )
+}
+export function IconFilterHighpass(props) {
+  // Montée à gauche, plat à droite (miroir du passe-bas).
+  return (
+    <svg {...lucideProps(props)}>
+      <path d="M3 18 C 8 18 8 7 12 7 L 21 7" />
+    </svg>
+  )
+}
+export function IconFilterBandpass(props) {
+  // Bosse centrée : ne laisse passer qu'une bande.
+  return (
+    <svg {...lucideProps(props)}>
+      <path d="M3 18 C 9 18 9 6 12 6 C 15 6 15 18 21 18" />
+    </svg>
+  )
+}
+export function IconFilterNotch(props) {
+  // Creux centré : coupe une bande étroite (miroir du passe-bande).
+  return (
+    <svg {...lucideProps(props)}>
+      <path d="M3 7 C 9 7 9 18 12 18 C 15 18 15 7 21 7" />
+    </svg>
+  )
+}
+
 // Crête (peak hold du spectrogramme) : un mini-spectre de barres verticales de
 // hauteurs variées, chacune coiffée d'un court rectangle horizontal détaché — la
 // « crête maintenue » au-dessus de la barre courante. Visuellement une série de

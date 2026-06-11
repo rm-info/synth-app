@@ -108,6 +108,14 @@ const fr = {
     easeIn: 'Accélérée',
   },
 
+  // iter-T phase-4.3 : types de filtre (switch segmenté du panneau Filtre).
+  filterTypes: {
+    lowpass: 'Passe-bas',
+    highpass: 'Passe-haut',
+    bandpass: 'Passe-bande',
+    notch: 'Coupe-bande',
+  },
+
   // Presets de formes d'onde (mode dessin).
   presets: {
     sine: 'Sinusoïde',

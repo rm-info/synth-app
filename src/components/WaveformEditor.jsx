@@ -1,7 +1,8 @@
 import { useRef, useState, useCallback, useEffect, useImperativeHandle, useMemo } from 'react'
 import { Plus, Save, SaveAll, Undo2, Redo2, Sliders, X, Lock, Spline, AlignEndHorizontal, Sigma, Waves, ChartSpline, Activity, SlidersHorizontal, FlipVertical2 } from 'lucide-react'
 import { IconDoux, IconAnguleux, IconSine, IconTriangleWave, IconSquareWave,
-  IconCurveLinear, IconCurveEaseOut, IconCurveExpo, IconCurveEaseIn } from './icons'
+  IconCurveLinear, IconCurveEaseOut, IconCurveExpo, IconCurveEaseIn,
+  IconFilterLowpass, IconFilterHighpass, IconFilterBandpass, IconFilterNotch } from './icons'
 import { pointsToPeriodicWave, MIN_ATTACK, MIN_RELEASE, HARMONIC_COUNT, harmonicsToPoints, canonicalToBars, createMasterBus } from '../audio'
 import { applyModulation, pitchProgression } from '../lib/modulation'
 import { configureBiquad } from '../lib/filter'
@@ -11,6 +12,7 @@ import {
   DEFAULT_VIBRATO, DEFAULT_TREMOLO, DEFAULT_AUTOPAN, DEFAULT_PITCHENV, DEFAULT_FILTER,
   LFO_RATE_MIN, LFO_RATE_MAX, VIBRATO_DEPTH_MAX, TREMOLO_DEPTH_MAX, AUTOPAN_DEPTH_MAX, LFO_ONSET_MAX, LFO_SHAPES,
   PITCHENV_AMOUNT_MAX, PITCHENV_TIME_MAX, PITCHENV_TIME_MIN, PITCHENV_CURVES,
+  FILTER_CUTOFF_MIN, FILTER_CUTOFF_MAX, FILTER_Q_MIN, FILTER_Q_MAX, FILTER_TYPES,
 } from '../reducer'
 import useWindowSize from '../hooks/useWindowSize'
 import FreqInput from './FreqInput'
@@ -227,6 +229,19 @@ const PITCH_CURVE_META = {
   expo: { Icon: IconCurveExpo, label: STRINGS.pitchCurves.expo },
   easeIn: { Icon: IconCurveEaseIn, label: STRINGS.pitchCurves.easeIn },
 }
+
+// iter-T phase-4.3 : switch segmenté des 4 types de filtre (glyphe de réponse +
+// libellé FR). Tooltips = libellés (Passe-bas / Passe-haut / Passe-bande / Coupe-bande).
+const FILTER_TYPE_META = {
+  lowpass: { Icon: IconFilterLowpass, label: STRINGS.filterTypes.lowpass },
+  highpass: { Icon: IconFilterHighpass, label: STRINGS.filterTypes.highpass },
+  bandpass: { Icon: IconFilterBandpass, label: STRINGS.filterTypes.bandpass },
+  notch: { Icon: IconFilterNotch, label: STRINGS.filterTypes.notch },
+}
+// Pas multiplicatif des steppers de Fréquence : 2^(1/12) = un demi-ton, Shift = une
+// octave (×2). Pas musicaux, pédagogiquement cohérents, utilisables sur 20–20 000 Hz.
+const FILTER_FREQ_STEP = Math.pow(2, 1 / 12)
+const FILTER_FREQ_SHIFT = 2
 
 // Parse permissif d'un nombre (virgule = point) pour les NumberInput de modulation.
 function parseLfoNum(raw) {
@@ -544,6 +559,15 @@ function pitchEnvEqual(a, b) {
     && (da.invert ?? false) === (db.invert ?? false)
     && (da.curve ?? 'linear') === (db.curve ?? 'linear')
 }
+// T.4 : égalité d'un filtre statique (champs enabled/type/cutoff/q).
+function filterEqual(a, b) {
+  const da = a ?? {}
+  const db = b ?? {}
+  return (da.enabled ?? false) === (db.enabled ?? false)
+    && (da.type ?? 'lowpass') === (db.type ?? 'lowpass')
+    && da.cutoff === db.cutoff
+    && da.q === db.q
+}
 
 function patchFieldsEqual(a, b) {
   if (!a || !b) return false
@@ -557,9 +581,10 @@ function patchFieldsEqual(a, b) {
   // itération P : modulations LFO (font partie de l'identité du patch).
   if (!lfoEqual(a.vibrato, b.vibrato)) return false
   if (!lfoEqual(a.tremolo, b.tremolo)) return false
-  // itération T : auto-pan + pitch envelope.
+  // itération T : auto-pan + pitch envelope + filtre statique.
   if (!lfoEqual(a.autoPan, b.autoPan)) return false
   if (!pitchEnvEqual(a.pitchEnv, b.pitchEnv)) return false
+  if (!filterEqual(a.filter, b.filter)) return false
   if ((a.cap ?? HARMONIC_COUNT) !== (b.cap ?? HARMONIC_COUNT)) return false
   if ((a.interpolation ?? 'soft') !== (b.interpolation ?? 'soft')) return false
   const aan = a.anchors ?? []
@@ -589,6 +614,11 @@ function clonePitchEnv(env, fallback) {
   const src = env ?? fallback
   return { enabled: src.enabled, amount: src.amount, time: src.time, invert: src.invert ?? false, curve: src.curve ?? 'linear' }
 }
+// T.4 : clone défensif d'un filtre statique.
+function cloneFilter(f, fallback) {
+  const src = f ?? fallback
+  return { enabled: src.enabled, type: src.type ?? 'lowpass', cutoff: src.cutoff, q: src.q }
+}
 
 function snapshotPatchFields(editor) {
   return {
@@ -607,6 +637,7 @@ function snapshotPatchFields(editor) {
     tremolo: cloneLfo(editor.tremolo, DEFAULT_TREMOLO),
     autoPan: cloneLfo(editor.autoPan, DEFAULT_AUTOPAN),
     pitchEnv: clonePitchEnv(editor.pitchEnv, DEFAULT_PITCHENV),
+    filter: cloneFilter(editor.filter, DEFAULT_FILTER),
   }
 }
 
@@ -627,6 +658,7 @@ function patchToReference(patch) {
     tremolo: cloneLfo(patch.tremolo, DEFAULT_TREMOLO),
     autoPan: cloneLfo(patch.autoPan, DEFAULT_AUTOPAN),
     pitchEnv: clonePitchEnv(patch.pitchEnv, DEFAULT_PITCHENV),
+    filter: cloneFilter(patch.filter, DEFAULT_FILTER),
   }
 }
 
@@ -2083,9 +2115,10 @@ function WaveformEditor({
     // itération P : modulations LFO du patch.
     vibrato: cloneLfo(vibrato, DEFAULT_VIBRATO),
     tremolo: cloneLfo(tremolo, DEFAULT_TREMOLO),
-    // itération T : auto-pan + pitch envelope.
+    // itération T : auto-pan + pitch envelope + filtre statique.
     autoPan: cloneLfo(autoPan, DEFAULT_AUTOPAN),
     pitchEnv: clonePitchEnv(pitchEnv, DEFAULT_PITCHENV),
+    filter: cloneFilter(filter, DEFAULT_FILTER),
     attack,
     hold,
     decay,
@@ -3781,6 +3814,7 @@ function WaveformEditor({
       { id: 'tremolo', label: 'Trémolo', enabled: tremolo.enabled },
       { id: 'autoPan', label: 'Auto-pan', enabled: autoPan.enabled },
       { id: 'pitchEnv', label: 'Hauteur', enabled: pitchEnv.enabled },
+      { id: 'filter', label: 'Filtre', enabled: filter.enabled },
     ]
     return effects.map((eff) => {
       const selected = effectsSelected === eff.id
@@ -4058,6 +4092,88 @@ function WaveformEditor({
       )
     }
 
+    // T.4 — panneau Filtre : interrupteur on/off + switch segmenté 4 types +
+    // 2 NumberInput (Fréquence à steppers MULTIPLICATIFS, Résonance additive).
+    // Le graphe de réponse est ajouté en phase 4.4 entre le head et les contrôles.
+    const renderFilterBlock = () => {
+      const enabled = filter.enabled
+      const hidden = effectsSelected !== 'filter'
+      const set = (key, value) => editorActions.setModulation('filter', key, value)
+      return (
+        <div className={`we-lfo-block${enabled ? ' is-enabled' : ''}${hidden ? ' is-hidden' : ''}`} key="filter">
+          <div className="we-lfo-head">
+            <label className="we-lfo-switch">
+              <input
+                type="checkbox"
+                className="we-lfo-switch-input"
+                checked={enabled}
+                onChange={(e) => set('enabled', e.target.checked)}
+              />
+              <span className="we-lfo-switch-track" aria-hidden="true">
+                <span className="we-lfo-switch-thumb" />
+              </span>
+              <span className="we-lfo-switch-label">Filtre</span>
+            </label>
+            <div className="we-lfo-head-controls">
+              <div className="spline-interp-toggle we-lfo-shape" role="group" aria-label="Type de filtre">
+                {FILTER_TYPES.map((ty) => {
+                  const { Icon, label } = FILTER_TYPE_META[ty]
+                  return (
+                    <button
+                      key={ty}
+                      type="button"
+                      className={`icon-btn${filter.type === ty ? ' is-active' : ''}`}
+                      onClick={() => set('type', ty)}
+                      disabled={!enabled}
+                      title={label}
+                      aria-label={label}
+                      aria-pressed={filter.type === ty}
+                    ><Icon size={16} /></button>
+                  )
+                })}
+              </div>
+            </div>
+          </div>
+          <div className="we-lfo-controls we-lfo-controls--two">
+            <div className="we-lfo-control">
+              <span>Fréquence (Hz)</span>
+              <NumberInput
+                value={filter.cutoff}
+                onChange={(v) => set('cutoff', v)}
+                min={FILTER_CUTOFF_MIN}
+                max={FILTER_CUTOFF_MAX}
+                parse={parseLfoNum}
+                format={(v) => String(Math.round(v))}
+                showSteppers
+                stepFactor={FILTER_FREQ_STEP}
+                shiftFactor={FILTER_FREQ_SHIFT}
+                className="adsr-value-input"
+                disabled={!enabled}
+                ariaLabel="Fréquence de coupure du filtre en hertz"
+              />
+            </div>
+            <div className="we-lfo-control">
+              <span>Résonance</span>
+              <NumberInput
+                value={filter.q}
+                onChange={(v) => set('q', v)}
+                min={FILTER_Q_MIN}
+                max={FILTER_Q_MAX}
+                parse={parseLfoNum}
+                format={(v) => String(Math.round(v * 10) / 10)}
+                showSteppers
+                step={0.1}
+                shiftStep={1}
+                className="adsr-value-input"
+                disabled={!enabled}
+                ariaLabel="Résonance du filtre"
+              />
+            </div>
+          </div>
+        </div>
+      )
+    }
+
     return (
       <div className="we-modulation-area" data-anchor="designer-modulation">
         <header className="we-area-header">
@@ -4080,6 +4196,7 @@ function WaveformEditor({
           {renderLfoBlock('tremolo')}
           {renderLfoBlock('autoPan')}
           {renderPitchEnvBlock()}
+          {renderFilterBlock()}
         </div>
       </div>
     )

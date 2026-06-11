@@ -36,8 +36,15 @@ function clamp(v, min, max) {
  * Clic chevron = ±step (commit immédiat) ; appui maintenu = un cran tout de
  * suite puis auto-répétition accélérée après ~300 ms (120 ms → ×0.85 → 30 ms),
  * arrêt au relâchement / sortie / borne atteinte. Shift = shiftStep.
+ *
+ * Pas MULTIPLICATIFS (iter-T phase-4.3) — props optionnelles `stepFactor` /
+ * `shiftFactor`. Quand `stepFactor` est fourni, le chevron ×/÷ le facteur au lieu
+ * d'additionner `step` : indispensable sur une plage géométrique (cutoff 20–20 000
+ * Hz, où un pas fixe est inutilisable). Pas musicaux suggérés : `stepFactor`
+ * 2^(1/12) (un demi-ton), `shiftFactor` 2 (une octave). Saisie clavier libre
+ * inchangée. Sans `stepFactor`, comportement additif strictement identique.
  */
-function NumberInput({ value, onChange, min, max, parse, format, className, ariaLabel, disabled, showSteppers, step = 1, shiftStep = 10 }) {
+function NumberInput({ value, onChange, min, max, parse, format, className, ariaLabel, disabled, showSteppers, step = 1, shiftStep = 10, stepFactor, shiftFactor }) {
   const fmt = format ?? String
   const parser = parse ?? defaultParse
   const [text, setText] = useState(fmt(value))
@@ -87,11 +94,21 @@ function NumberInput({ value, onChange, min, max, parse, format, className, aria
     if (clamped !== value) onChange(clamped)
   }
 
-  // Applique un cran ±delta clampé. Renvoie true si la valeur a bougé (false =
-  // borne atteinte → l'auto-répétition s'arrête).
-  const stepBy = (delta) => {
+  // Applique un cran clampé selon la direction (`dir` ±1) et l'état Shift. En mode
+  // multiplicatif (`stepFactor`), le cran ×/÷ le facteur depuis la base courante
+  // (recalculé à chaque tick → progression géométrique) ; sinon ±step additif.
+  // Renvoie true si la valeur a bougé (false = borne atteinte → l'auto-répétition
+  // s'arrête).
+  const stepBy = (dir, shift) => {
     const base = liveValueRef.current
-    const next = clamp(base + delta, min, max)
+    let next
+    if (stepFactor) {
+      const factor = shift ? (shiftFactor ?? stepFactor) : stepFactor
+      next = dir > 0 ? base * factor : base / factor
+    } else {
+      next = base + dir * (shift ? shiftStep : step)
+    }
+    next = clamp(next, min, max)
     if (next === base) return false
     liveValueRef.current = next
     setText(fmt(next))
@@ -106,11 +123,11 @@ function NumberInput({ value, onChange, min, max, parse, format, className, aria
     }
   }
 
-  const startRepeat = (delta) => {
-    stepBy(delta) // cran immédiat
+  const startRepeat = (dir, shift) => {
+    stepBy(dir, shift) // cran immédiat
     let interval = 120
     const tick = () => {
-      if (!stepBy(delta)) { stopRepeat(); return }
+      if (!stepBy(dir, shift)) { stopRepeat(); return }
       repeatTimerRef.current = setTimeout(tick, interval)
       interval = Math.max(30, interval * 0.85)
     }
@@ -120,7 +137,7 @@ function NumberInput({ value, onChange, min, max, parse, format, className, aria
   const handleChevronDown = (e, dir) => {
     if (disabled) return
     e.preventDefault() // pas de vol de focus / sélection texte
-    startRepeat(dir * (e.shiftKey ? shiftStep : step))
+    startRepeat(dir, e.shiftKey)
   }
 
   const handleKeyDown = (e) => {
@@ -133,7 +150,7 @@ function NumberInput({ value, onChange, min, max, parse, format, className, aria
       e.target.blur()
     } else if (showSteppers && !disabled && (e.key === 'ArrowUp' || e.key === 'ArrowDown')) {
       e.preventDefault() // ne pas déplacer le curseur texte
-      stepBy((e.key === 'ArrowUp' ? 1 : -1) * (e.shiftKey ? shiftStep : step))
+      stepBy(e.key === 'ArrowUp' ? 1 : -1, e.shiftKey)
     }
   }
 
