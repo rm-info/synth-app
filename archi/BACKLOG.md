@@ -2,11 +2,45 @@
 
 > Suivi des idées, pistes et dettes techniques reportées.
 > Tenu par l'archi. Source de vérité pour ce qui n'est pas encore planifié.
-> Dernière mise à jour : 2026-06-08.
+> Dernière mise à jour : 2026-06-12.
 
-> Note : itérations G-O closes (O = Ergonomie & responsive du Designer, release
-> v1.7.0 ; cf. CONTEXT.md). **Entre deux itérations** : prochaine non cadrée
-> (« Monde B » pressenti). Voir « Backlog général » plus bas.
+> Note : itération T close (Effets sans mémoire, release v1.12.0,
+> 2026-06-12 ; cf. CONTEXT.md). **Prochaine itération : documentation
+> utilisateur** (décision 2026-06-12, cadrage à venir — cf. entrée
+> ci-dessous).
+
+---
+
+## Prochaine itération (U) : documentation utilisateur — DÉCIDÉE, à cadrer
+
+Décision utilisateur (2026-06-12, au déploiement de v1.12.0) : la
+prochaine itération porte sur la **documentation utilisateur**.
+Périmètre à cadrer en début de session dédiée. Candidats naturels :
+
+- **Documenter le module Effets** (9 effets par patch livrés en P+T) :
+  articles dans l'onglet Documentation — quoi, pourquoi, comment ça
+  sonne ; les notions DSP en jeu (non-linéarité, résonance, enveloppes
+  vs LFO) en vulgarisation + maths exactes.
+- **Compléter les stubs de l'iter L** (`about.md`, `why-12-notes.md`,
+  `_renderer-test.md` à retirer — cf. carte des contenus L plus bas).
+- Passe sur **Raccourcis (Ctrl+K)** et **Tour guidé (Ctrl+J)** : à jour
+  des nouveautés O→T (module Effets notamment).
+- Rappel frontière des rôles : la **prose est du domaine writer** —
+  l'archi cadre, audite et briefe (faits, contraintes, structure),
+  le writer rédige. Prompts distincts dev (intégration TOC/ancres) /
+  writer (contenus).
+
+## Bibliothèque : anomalies sur petit écran — À QUALIFIER
+
+Constat utilisateur (2026-06-12, v1.12.0) : **anomalies constatées sur
+petit écran** dans la Bibliothèque. Symptômes précis à collecter avant
+cadrage (repro, tailles d'écran, mode Tiles/liste, popover vs onglet
+plein ?). Contexte : l'onglet Bibliothèque multi-mode date de l'iter K
+(2026-05-26) — **antérieur** aux refontes petit écran du Designer
+(R, v1.10.0) et au support tactile app-wide (S, v1.11.0) ; il n'a
+jamais eu sa propre passe responsive/tactile. Probable chantier
+« responsive Bibliothèque » à part entière, à instruire avec une
+liste d'anomalies datée.
 
 ---
 
