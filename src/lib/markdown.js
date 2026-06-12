@@ -1,8 +1,9 @@
 // src/lib/markdown.js — Renderer Markdown maison (iter-L phase-2.2).
 //
 // Sous-ensemble V1 :
-//   blocs : H1-H4, paragraphe, liste ordonnée/non-ordonnée (1 niveau
-//           d'imbrication simple), code block, blockquote.
+//   blocs : H1-H4 (id explicite optionnel `{#id}`, iter-U), paragraphe,
+//           liste ordonnée/non-ordonnée (1 niveau d'imbrication simple),
+//           code block, blockquote, accordéon <Details> (iter-U, récursif).
 //   inlines : gras (**), italique (*), code inline (`), lien externe
 //             [label](href), image ![alt](src), <DocLink target="...">
 //             label</DocLink> (parsé, rendu inerte en L.2).
@@ -177,6 +178,28 @@ export function parseMarkdown(source) {
         i++ // skip closing $$
       }
       blocks.push({ type: 'math', inline: false, mathAst: parseMath(acc.join(' ').trim()) })
+      continue
+    }
+
+    // Bloc accordéon <Details title="..."> … </Details> (iter-U phase-1.2).
+    // Tag bloc custom (équivalent block-level de DocLink). Le contenu est
+    // re-parsé RÉCURSIVEMENT comme des blocs markdown normaux : paragraphes,
+    // listes, code, math $…$/$$…$$, images, DocLink, liens doc: — tout le V1.
+    // Convention : balises ouvrante et fermante sur leurs propres lignes.
+    // `title` absent → libellé « Détails ». PAS d'imbrication Details dans
+    // Details (non supporté) : la collecte s'arrête au PREMIER </Details>, un
+    // accordéon imbriqué romprait l'appariement — ne pas en écrire.
+    if (line.startsWith('<Details')) {
+      const open = line.match(/^<Details(?:\s+title="([^"]*)")?\s*>/)
+      const title = open && open[1] ? open[1] : 'Détails'
+      const inner = []
+      i++ // saute la ligne d'ouverture
+      while (i < lines.length && lines[i].trim() !== '</Details>') {
+        inner.push(lines[i])
+        i++
+      }
+      i++ // saute </Details>
+      blocks.push({ type: 'details', title, children: parseMarkdown(inner.join('\n')) })
       continue
     }
 

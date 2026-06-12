@@ -1,5 +1,5 @@
 import { createContext, Fragment, useContext, useMemo } from 'react'
-import { ArrowUpRight } from 'lucide-react'
+import { ArrowUpRight, ChevronRight } from 'lucide-react'
 import { parseMarkdown } from '../lib/markdown'
 import './MarkdownRenderer.css'
 
@@ -55,6 +55,22 @@ function renderBlock(node, key) {
       // Formule en bloc (centrée). Le mathAst est déjà construit au parse.
       // displayMode=true : pilote le layout empilé du `\sum` (cf. renderSum).
       return <div key={key} className="md-math md-math-block">{renderMath(node.mathAst, true)}</div>
+    case 'details':
+      // Accordéon (iter-U phase-1.2) : <details>/<summary> natif (toggle +
+      // accessibilité gratuits), replié par défaut. Contenu = blocs markdown
+      // récursifs (renderBlock), donc tout le V1 marche dedans (formules
+      // incluses). Le chevron pivote via CSS sur details[open].
+      return (
+        <details key={key} className="md-details">
+          <summary className="md-details-summary">
+            <ChevronRight className="md-details-chevron" size={15} strokeWidth={2.2} aria-hidden="true" />
+            <span className="md-details-title">{node.title}</span>
+          </summary>
+          <div className="md-details-body">
+            {node.children.map((child, j) => renderBlock(child, j))}
+          </div>
+        </details>
+      )
     default:
       return null
   }

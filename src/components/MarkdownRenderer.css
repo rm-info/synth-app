@@ -117,6 +117,56 @@
   white-space: pre;
 }
 
+/* Accordéon <Details> (iter-U phase-1.2) — élément natif <details>/<summary>,
+   replié par défaut. Fond légèrement distinct + chevron qui pivote à
+   l'ouverture. Couleurs via variables sémantiques → cohérent clair/sombre. */
+.markdown-renderer .md-details {
+  margin: 1.2em 0;
+  border: 1px solid var(--surface-border);
+  border-radius: 6px;
+  background: var(--surface-bg);
+  overflow: hidden;
+}
+.markdown-renderer .md-details-summary {
+  display: flex;
+  align-items: center;
+  gap: 0.5em;
+  padding: 0.55em 0.8em;
+  cursor: pointer;
+  user-select: none;
+  color: var(--text-strong);
+  font-weight: 600;
+  font-size: 0.92rem;
+  list-style: none; /* masque le triangle natif (Firefox) */
+}
+/* Masque le marqueur natif (WebKit) — on fournit notre propre chevron. */
+.markdown-renderer .md-details-summary::-webkit-details-marker {
+  display: none;
+}
+.markdown-renderer .md-details-summary:hover {
+  background: var(--accent-bg-faint);
+}
+.markdown-renderer .md-details-chevron {
+  flex: 0 0 auto;
+  color: var(--text-secondary);
+  transition: transform 0.18s ease;
+}
+.markdown-renderer .md-details[open] .md-details-chevron {
+  transform: rotate(90deg);
+}
+/* Corps : séparé du résumé par un filet, padding aéré. Les marges des blocs
+   internes (1er/dernier) sont rabotées pour coller au cadre. */
+.markdown-renderer .md-details-body {
+  padding: 0.4em 0.9em 0.7em;
+  border-top: 1px solid var(--surface-border);
+}
+.markdown-renderer .md-details-body > :first-child {
+  margin-top: 0;
+}
+.markdown-renderer .md-details-body > :last-child {
+  margin-bottom: 0;
+}
+
 /* Liens */
 .markdown-renderer .md-link {
   color: var(--accent);
