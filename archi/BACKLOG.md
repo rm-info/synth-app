@@ -1352,28 +1352,14 @@ suffisent pour 80% du catalogue).
 trémolo (LFO sommé sur `gain.gain`), édition visuelle des LFO (graphe
 temporel à poignées). Détail = git + CONTEXT-ARCHIVE.
 
-**Itération T cadrée (2026-06-10) — « tour complet des effets sans
-mémoire »** : tout ce qui s'intègre au cycle de vie actuel (chaîne
-jetable par note, zéro queue) avant le chantier des effets à mémoire.
-Décisions de cadrage :
-- **UI** : grille 3×2 conservée. Module Modulation renommé **« Effets »**
-  (label seul, id `'modulation'` et clés persistées inchangés). Barre de
-  titre = boutons toggle (un par effet) via `OverflowToolbar` ; **pastille
-  colorée** = effet activé (indicateur pur), **highlight** = en édition ;
-  **clic = édition seule** (l'on/off reste l'interrupteur du panneau,
-  tactile-safe) ; pastille agrégée sur le trigger `⋯` si un effet actif
-  déborde dans le tiroir. Corps = **un effet à la fois**, pleine largeur.
-- **Tout par patch**, persisté dans `Patch` + `.osa` v4 (bump unique en
-  T.2, défauts injectés pour les champs absents).
-- **Distorsion par voix** (waveshaping, pas d'intermodulation entre
-  notes) : c'est la variante compatible avec l'archi jetable ; la disto
-  « sur la somme » appartiendrait au chantier nœuds persistants.
-- Phases : **T.1** refonte module « Effets » + switcher header (UI pure)
-  → **T.2** auto-pan (LFO → `StereoPannerNode.pan`) → **T.3** pitch
-  envelope (enveloppe → `osc.detune`) → **T.4** filtre statique
-  (`BiquadFilterNode` par voix : type LP/HP/BP/notch, cutoff, Q) →
-  **T.5** enveloppe de filtre + wah (LFO → cutoff) → **T.6** distorsion
-  (`WaveShaperNode` : drive, courbe soft/hard/fold).
+✅ **Itération T livrée (v1.12.0, 2026-06-12) — « tour complet des
+effets sans mémoire »** : module « Effets » à switcher header (un
+panneau à la fois, pastille activé / highlight édition), puis **9
+effets par patch** — vibrato, trémolo (iter P), auto-pan, pitch env
+(Inverser + 4 formes), filtre + enveloppe + wah, disto vivante (mix,
+env. drive, poignée 2D Drive/Mix au point caractéristique, drive
+continu). `.osa` v4 (bump unique, champs absents → défauts). Détail =
+git + CONTEXT-ARCHIVE.
 
 **Gros chantier suivant — effets à mémoire** (delay-based, *par patch*
 via bus d'effet partagé persistant, et/ou *par piste*) :
