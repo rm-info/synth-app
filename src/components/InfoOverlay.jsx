@@ -6,6 +6,11 @@ import { matchesShortcut } from '../lib/shortcuts'
 import { STRINGS } from '../lib/strings'
 import './InfoOverlay.css'
 
+// Marge (px) à partir d'un bord du viewport en deçà de laquelle un badge
+// s'ancre sur ce bord et déploie son libellé vers l'INTÉRIEUR (au lieu de
+// grandir symétriquement et déborder). ≳ demi-largeur d'une pastille déployée.
+const EDGE_REGION = 140
+
 // Mode « Documentation interactive » (Info / Ctrl+I, iter-U phase-2.2).
 // Calqué sur ShortcutsOverlay : backdrop plein écran, badges positionnés sur
 // les ancres via getAnchoredPosition. Différences : identité bleue (≠ jaune
@@ -94,6 +99,17 @@ function InfoOverlay({ isOpen, onClose, onNavigate, state }) {
     onNavigate?.(articleId, fragment)
   }
 
+  // Zone horizontale d'un badge → bord ancré + sens de déploiement du libellé.
+  // Droite : on fixe `right` au centre de l'ancre (déploie vers la gauche) ;
+  // gauche : on fixe `left` (déploie vers la droite) ; centre : translate
+  // symétrique. Évite le débordement hors champ près des bords.
+  const vw = window.innerWidth
+  const placeBadge = (cx, cy) => {
+    if (cx > vw - EDGE_REGION) return { zone: 'right', style: { right: `${vw - cx}px`, top: `${cy}px` } }
+    if (cx < EDGE_REGION) return { zone: 'left', style: { left: `${cx}px`, top: `${cy}px` } }
+    return { zone: 'center', style: { left: `${cx}px`, top: `${cy}px` } }
+  }
+
   return (
     <div
       className="info-overlay"
@@ -116,19 +132,23 @@ function InfoOverlay({ isOpen, onClose, onNavigate, state }) {
           {STRINGS.infoMode.comingSoon}
         </div>
       ) : (
-        badges.map(({ id, label, doc, cx, cy }) => (
-          <button
-            type="button"
-            key={id}
-            className="info-overlay-badge"
-            style={{ left: `${cx}px`, top: `${cy}px` }}
-            onClick={(e) => handleBadgeClick(e, doc)}
-            title={`Documentation : ${label}`}
-          >
-            <Info className="info-overlay-badge-icon" size={13} strokeWidth={2.2} aria-hidden="true" />
-            <span className="info-overlay-badge-label">{label}</span>
-          </button>
-        ))
+        badges.map(({ id, label, doc, cx, cy }) => {
+          const { zone, style } = placeBadge(cx, cy)
+          return (
+            <button
+              type="button"
+              key={id}
+              className={`info-overlay-badge info-overlay-badge--${zone}`}
+              style={style}
+              onClick={(e) => handleBadgeClick(e, doc)}
+              aria-label={`Documentation : ${label}`}
+              title={label}
+            >
+              <Info className="info-overlay-badge-icon" size={14} strokeWidth={2.2} aria-hidden="true" />
+              <span className="info-overlay-badge-label">{label}</span>
+            </button>
+          )
+        })
       )}
     </div>
   )
