@@ -5,30 +5,54 @@
 > Dernière mise à jour : 2026-06-12.
 
 > Note : itération T close (Effets sans mémoire, release v1.12.0,
-> 2026-06-12 ; cf. CONTEXT.md). **Prochaine itération : documentation
-> utilisateur** (décision 2026-06-12, cadrage à venir — cf. entrée
-> ci-dessous).
+> 2026-06-12 ; cf. CONTEXT.md). **Itération U en cours : documentation
+> utilisateur de la Création (mode Info)** — cadrée 2026-06-12, cf.
+> entrée ci-dessous.
 
 ---
 
-## Prochaine itération (U) : documentation utilisateur — DÉCIDÉE, à cadrer
+## Itération U (en cours) : documentation utilisateur de la Création — CADRÉE 2026-06-12
 
-Décision utilisateur (2026-06-12, au déploiement de v1.12.0) : la
-prochaine itération porte sur la **documentation utilisateur**.
-Périmètre à cadrer en début de session dédiée. Candidats naturels :
+Vision : un **mode Info** (bouton icône Info dans le header entre
+Raccourcis et Tour, raccourci **Ctrl+I** — libre, même preventDefault
+que Ctrl+K/J) calqué sur l'overlay Raccourcis : chaque **contrôle
+logique visible** de l'onglet Création porte un overlay cliquable qui
+bascule vers le paragraphe dédié de l'onglet Documentation. Paragraphe =
+raison d'être accessible + accordéon « sous le capot » (formules, DSP)
++ illustrations SVG éventuelles + liens de retour `DocLink` (highlight
+existant).
 
-- **Documenter le module Effets** (9 effets par patch livrés en P+T) :
-  articles dans l'onglet Documentation — quoi, pourquoi, comment ça
-  sonne ; les notions DSP en jeu (non-linéarité, résonance, enveloppes
-  vs LFO) en vulgarisation + maths exactes.
-- **Compléter les stubs de l'iter L** (`about.md`, `why-12-notes.md`,
-  `_renderer-test.md` à retirer — cf. carte des contenus L plus bas).
-- Passe sur **Raccourcis (Ctrl+K)** et **Tour guidé (Ctrl+J)** : à jour
-  des nouveautés O→T (module Effets notamment).
-- Rappel frontière des rôles : la **prose est du domaine writer** —
-  l'archi cadre, audite et briefe (faits, contraintes, structure),
-  le writer rédige. Prompts distincts dev (intégration TOC/ancres) /
-  writer (contenus).
+Décisions de cadrage actées :
+- **Granularité = contrôle logique** (un graphe = un overlay, pas une
+  poignée = un overlay ; le paragraphe détaille les poignées).
+- **Un article par module** (~8 : toolbar, bibliothèque/patches, Forme
+  d'onde, Harmoniques, Spectrogramme, Instrument, Enveloppe, Effets) ;
+  `guide-designer.md` reste le survol narratif et pointe vers eux.
+- **Navigation = bascule d'onglet** Documentation (réutilise DocLink /
+  highlightElement / sessionStorage doc) — pas de panneau in-situ.
+- **Ids de headings explicites `{#id}`** (pas d'auto-slug : les ids
+  doivent survivre aux reformulations de titres par le writer).
+- **Frontière des rôles** : dev pose structure + squelettes, **writer
+  peuple la prose** (prompts distincts).
+
+Phases :
+- **U.1** — socle renderer/doc : `{#id}` + liens profonds
+  `doc:article#fragment` (scroll + flash), bloc accordéon `<Details>`,
+  images SVG `public/docs/`, `_renderer-test.md` recréé.
+  → `archi/U1-prompt.md`.
+- **U.2** — mode Info : bouton + Ctrl+I + overlay (sibling de
+  ShortcutsOverlay, mêmes ancres `getAnchoredPosition`) + registre
+  déclaratif ancre → `article#fragment` (moule SHORTCUTS), amorcé sur
+  les ancres existantes.
+- **U.3** — couverture : pose des `data-anchor` manquants sur la
+  Création + articles squelettes par module + registre complet.
+- **U.4** — peuplement (writer, brief séparé).
+- **Ensuite** : mise à jour du **Tour guidé** (2ᵉ gros morceau, U.5+ ou
+  itération V) ; passe sur l'article généré Raccourcis au passage.
+
+Reportés dans l'itération, non perdus :
+- **Compléter les stubs de l'iter L** (`about.md`, `why-12-notes.md`) —
+  writer, peut s'adosser à U.4.
 
 ## Bibliothèque : anomalies sur petit écran — QUALIFIÉ (1 symptôme)
 
