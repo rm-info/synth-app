@@ -36,14 +36,16 @@ Décisions de cadrage actées :
   peuple la prose** (prompts distincts).
 
 Phases :
-- **U.1** — socle renderer/doc : `{#id}` + liens profonds
-  `doc:article#fragment` (scroll + flash), bloc accordéon `<Details>`,
-  images SVG `public/docs/`, `_renderer-test.md` recréé.
-  → `archi/U1-prompt.md`.
+- **U.1** — ✅ **livrée** (2026-06-12, commits 4a75bf6→b238067) : `{#id}`
+  + liens profonds `doc:article#fragment` (scroll + flash, nonce
+  one-shot vs restauration session), bloc accordéon `<Details>`, images
+  SVG `public/docs/`, `_renderer-test.md` recréé ; point d'entrée
+  externe `navigateToDoc(articleId, fragment)` (App.jsx).
 - **U.2** — mode Info : bouton + Ctrl+I + overlay (sibling de
   ShortcutsOverlay, mêmes ancres `getAnchoredPosition`) + registre
-  déclaratif ancre → `article#fragment` (moule SHORTCUTS), amorcé sur
-  les ancres existantes.
+  déclaratif `lib/docTargets.js` ancre → `article#fragment` (moule
+  SHORTCUTS), amorcé sur les ~15 ancres `designer-*` existantes →
+  sections `{#id}` de guide-designer.md. → `archi/U2-prompt.md`.
 - **U.3** — couverture : pose des `data-anchor` manquants sur la
   Création + articles squelettes par module + registre complet.
 - **U.4** — peuplement (writer, brief séparé).
