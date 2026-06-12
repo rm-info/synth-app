@@ -1030,6 +1030,10 @@ export function buildInitialState() {
     // iter-L phase-1.6 : overlay raccourcis (Ctrl+K). State runtime, non
     // persisté (toujours fermé au boot). Toggle via SET_SHORTCUTS_OVERLAY.
     shortcutsOverlayOpen: false,
+    // iter-U phase-2.1 : mode Info / documentation interactive (Ctrl+I).
+    // Même nature que shortcutsOverlayOpen : volatile, non persisté (fermé au
+    // boot), hors undo. Mutuellement exclusif avec l'overlay raccourcis.
+    infoOverlayOpen: false,
 
     // iter-L phase-4 : Tour guidé. State volatile — jamais persisté (absent
     // du JSON.stringify localStorage) et hors historique undo (les actions
@@ -2637,7 +2641,14 @@ export function reducer(state, action) {
     case 'SET_SHORTCUTS_OVERLAY': {
       const next = !!action.payload
       if (state.shortcutsOverlayOpen === next) return state
-      return { ...state, shortcutsOverlayOpen: next }
+      // Exclusion mutuelle (iter-U phase-2.1) : ouvrir Raccourcis ferme Info.
+      return { ...state, shortcutsOverlayOpen: next, infoOverlayOpen: next ? false : state.infoOverlayOpen }
+    }
+    case 'SET_INFO_OVERLAY': {
+      const next = !!action.payload
+      if (state.infoOverlayOpen === next) return state
+      // Exclusion mutuelle (iter-U phase-2.1) : ouvrir Info ferme Raccourcis.
+      return { ...state, infoOverlayOpen: next, shortcutsOverlayOpen: next ? false : state.shortcutsOverlayOpen }
     }
 
     // iter-L phase-4 : actions du Tour guidé. Le snapshot est capturé une

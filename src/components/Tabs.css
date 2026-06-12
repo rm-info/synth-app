@@ -111,6 +111,7 @@
    Calqué sur .theme-toggle pour cohérence visuelle. État actif quand
    overlay ouvert (highlight accent). */
 .shortcuts-toggle,
+.info-toggle,
 .tour-toggle {
   display: flex;
   align-items: center;
@@ -128,12 +129,14 @@
   flex-shrink: 0;
 }
 .shortcuts-toggle:hover,
+.info-toggle:hover,
 .tour-toggle:hover {
   background: var(--hover-bg);
   color: var(--accent);
   border-color: var(--surface-border);
 }
 .shortcuts-toggle.is-active,
+.info-toggle.is-active,
 .tour-toggle.is-active {
   background: var(--accent-bg-medium);
   color: var(--accent);
@@ -177,6 +180,7 @@
    ils dictaient la hauteur de la barre via align-items:stretch. */
 .tabs-compact-nav .theme-toggle,
 .tabs-compact-nav .shortcuts-toggle,
+.tabs-compact-nav .info-toggle,
 .tabs-compact-nav .tour-toggle {
   margin: 0;
   width: 26px;

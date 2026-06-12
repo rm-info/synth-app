@@ -19,6 +19,15 @@ const fr = {
     documentation: 'Documentation',
   },
 
+  // Mode « Documentation interactive » (Info, Ctrl+I — iter-U phase-2).
+  infoMode: {
+    buttonTitle: 'Documentation interactive (Ctrl+I)',
+    buttonAriaOpen: 'Fermer la documentation interactive',
+    buttonAriaClosed: 'Documentation interactive',
+    trayLabel: 'Documentation interactive',
+    comingSoon: 'La documentation interactive arrive bientôt pour cet onglet.',
+  },
+
   // Transport (lecture / arrêt / export).
   transport: {
     playLabel: '▶ Lire',

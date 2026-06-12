@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback } from 'react'
 import { X } from 'lucide-react'
-import { SHORTCUTS, getAnchor } from '../lib/shortcuts'
+import { SHORTCUTS, getAnchor, matchesShortcut } from '../lib/shortcuts'
 import { getAnchoredPosition, getAnchoredKeyPositions } from '../lib/getAnchoredPosition'
 import { getKeyboardMap, getTuningSystem } from '../lib/tuningSystems'
 import { xEdoShiftedKeyboardMapForN } from '../lib/xEdoLayouts'
@@ -162,6 +162,11 @@ function ShortcutsOverlay({ isOpen, onClose, state }) {
       const isModifierOnly = e.key === 'Shift' || e.key === 'Control'
         || e.key === 'Alt' || e.key === 'Meta' || e.key === 'AltGraph'
       if (isModifierOnly) return
+      // iter-U phase-2.1 : laisser passer Ctrl+I (bascule vers le mode Info).
+      // On NE capture PAS cette combinaison → elle bulle jusqu'au handler App
+      // qui ouvre Info (le reducer ferme alors Raccourcis). Toute autre touche
+      // ferme comme avant.
+      if (matchesShortcut(e, 'global-info')) return
       e.preventDefault()
       e.stopPropagation()
       e.stopImmediatePropagation?.()

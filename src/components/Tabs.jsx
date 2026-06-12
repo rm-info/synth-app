@@ -1,7 +1,7 @@
 // lucide-react est déjà utilisée par App.jsx (ChevronLeft/Right, Library, Play, etc.) ;
 // on s'appuie sur la même dépendance pour les icônes de toggle thème +
 // bouton raccourcis (Keyboard, iter-L phase-1.6).
-import { Moon, Sun, Keyboard, Compass, Menu } from 'lucide-react'
+import { Moon, Sun, Keyboard, Compass, Menu, Info } from 'lucide-react'
 import { STRINGS } from '../lib/strings'
 import OverflowToolbar from './OverflowToolbar'
 import './Tabs.css'
@@ -21,7 +21,7 @@ const TABS = [
 // Source de vérité : `version` de package.json.
 const APP_VERSION = typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : 'dev'
 
-function Tabs({ activeTab, onChange, theme, onToggleTheme, shortcutsOverlayOpen, onToggleShortcuts, tourActive, onToggleTour, isMobile }) {
+function Tabs({ activeTab, onChange, theme, onToggleTheme, shortcutsOverlayOpen, onToggleShortcuts, infoOverlayOpen, onToggleInfo, tourActive, onToggleTour, isMobile }) {
   const isLight = theme === 'light'
   const themeLabel = isLight ? 'Passer en mode sombre' : 'Passer en mode clair'
 
@@ -65,6 +65,21 @@ function Tabs({ activeTab, onChange, theme, onToggleTheme, shortcutsOverlayOpen,
       <Keyboard size={16} strokeWidth={1.8} />
     </button>
   )
+  // iter-U phase-2.1 : bouton Info = toggle mode documentation interactive (Ctrl+I).
+  // Entre Raccourcis et Tour ; même facture que ses voisins (is-active si ouvert).
+  const infoBtn = (
+    <button
+      type="button"
+      className={`info-toggle${infoOverlayOpen ? ' is-active' : ''}`}
+      onClick={onToggleInfo}
+      aria-label={infoOverlayOpen ? STRINGS.infoMode.buttonAriaOpen : STRINGS.infoMode.buttonAriaClosed}
+      aria-pressed={!!infoOverlayOpen}
+      title={STRINGS.infoMode.buttonTitle}
+      data-anchor="header-info-button"
+    >
+      <Info size={16} strokeWidth={1.8} />
+    </button>
+  )
   // iter-L phase-4.4 : bouton Compass = démarre la visite guidée de l'onglet actif.
   const tourBtn = (
     <button
@@ -99,6 +114,7 @@ function Tabs({ activeTab, onChange, theme, onToggleTheme, shortcutsOverlayOpen,
       { id: 'documentation', bar: tabButton(tabId('documentation')), tray: tabButton(tabId('documentation')) },
       { id: 'theme', bar: themeBtn, tray: <>{themeBtn}{trayLabel(themeLabel)}</> },
       { id: 'shortcuts', bar: shortcutsBtn, tray: <>{shortcutsBtn}{trayLabel('Raccourcis')}</> },
+      { id: 'info', bar: infoBtn, tray: <>{infoBtn}{trayLabel(STRINGS.infoMode.trayLabel)}</> },
       { id: 'tour', bar: tourBtn, tray: <>{tourBtn}{trayLabel('Visite guidée')}</> },
       // R.3.rectif.1b : la version est un item en dernière position (index le plus
       // élevé = premier à déborder) — inline tant qu'il y a la place, sinon elle
@@ -147,6 +163,7 @@ function Tabs({ activeTab, onChange, theme, onToggleTheme, shortcutsOverlayOpen,
       </div>
       {themeBtn}
       {shortcutsBtn}
+      {infoBtn}
       {tourBtn}
       <div className="tabs-version" title={`Version ${APP_VERSION}`}>
         v{APP_VERSION}

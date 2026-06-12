@@ -127,7 +127,7 @@ function App() {
     recentPatchIds, theme,
     patchCounter, clipCounter, folderCounter, trackCounter,
     clipboard, measureClipboard, bibClipboard, history, notification,
-    pendingDeleteWarning, shortcutsOverlayOpen, tour,
+    pendingDeleteWarning, shortcutsOverlayOpen, infoOverlayOpen, tour,
   } = state
 
   const editorRef = useRef(null)
@@ -228,6 +228,30 @@ function App() {
     window.addEventListener('keydown', handler)
     return () => window.removeEventListener('keydown', handler)
   }, [shortcutsOverlayOpen, setShortcutsOverlay])
+
+  // iter-U phase-2.1 : Ctrl+I toggle mode Info (documentation interactive).
+  // Mêmes exclusions que Ctrl+K (champ de saisie, modale ouverte). L'exclusion
+  // mutuelle avec l'overlay Raccourcis est portée par le reducer (ouvrir l'un
+  // ferme l'autre). preventDefault impératif (Firefox réserve Ctrl+I).
+  const setInfoOverlay = useCallback((open) => {
+    dispatch({ type: 'SET_INFO_OVERLAY', payload: open })
+  }, [])
+
+  useEffect(() => {
+    const handler = (e) => {
+      if (!matchesShortcut(e, 'global-info')) return
+      const target = e.target
+      const tag = target?.tagName
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return
+      if (target?.isContentEditable) return
+      if (document.querySelector('.modal-backdrop, .confirm-dialog-backdrop, .save-dialog-backdrop, .delete-warning-backdrop')) return
+      if (tour.active) return
+      e.preventDefault()
+      setInfoOverlay(!infoOverlayOpen)
+    }
+    window.addEventListener('keydown', handler)
+    return () => window.removeEventListener('keydown', handler)
+  }, [infoOverlayOpen, tour.active, setInfoOverlay])
 
   // iter-L phase-4.4 : Ctrl/Cmd+J démarre la visite guidée de l'onglet actif.
   // preventDefault impératif (Ctrl+J = ouvre les téléchargements sur Firefox/
@@ -2189,6 +2213,8 @@ function App() {
         onToggleTheme={() => dispatch({ type: 'SET_THEME', payload: theme === 'light' ? 'dark' : 'light' })}
         shortcutsOverlayOpen={shortcutsOverlayOpen}
         onToggleShortcuts={() => setShortcutsOverlay(!shortcutsOverlayOpen)}
+        infoOverlayOpen={infoOverlayOpen}
+        onToggleInfo={() => setInfoOverlay(!infoOverlayOpen)}
         tourActive={tour.active}
         onToggleTour={() => dispatch(tour.active ? { type: 'END_TOUR' } : { type: 'START_TOUR', payload: activeTab })}
         isMobile={isMobile}

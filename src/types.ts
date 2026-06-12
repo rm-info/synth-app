@@ -435,6 +435,7 @@ export interface AppState {
 
   selectedTrackId: string | null
   shortcutsOverlayOpen: boolean
+  infoOverlayOpen: boolean
   tour: TourState
 
   zoomH: number
@@ -678,6 +679,7 @@ export type ActionBody =
   | { type: 'SET_THEME'; payload: Theme }
   | { type: 'SELECT_CLIPS'; payload: string[] }
   | { type: 'SET_SHORTCUTS_OVERLAY'; payload: boolean }
+  | { type: 'SET_INFO_OVERLAY'; payload: boolean }
   | { type: 'START_TOUR'; payload: TabId }
   | { type: 'TOUR_GOTO'; payload: number }
   | { type: 'TOUR_NEXT' }

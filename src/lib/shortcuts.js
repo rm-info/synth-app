@@ -155,6 +155,14 @@ export const SHORTCUTS = [
     anchor: 'header-shortcuts-button',
   },
   {
+    id: 'global-info',
+    contexts: ['global'],
+    label: 'Documentation interactive',
+    description: "Ouvre le mode documentation interactive : des badges cliquables sur chaque contrôle documenté de l'onglet actif mènent au paragraphe correspondant.",
+    keys: { primary: 'Ctrl/Cmd+I', alternative: null, display: 'Ctrl+I' },
+    anchor: 'header-info-button',
+  },
+  {
     id: 'global-undo',
     contexts: ['global'],
     label: 'Annuler',
