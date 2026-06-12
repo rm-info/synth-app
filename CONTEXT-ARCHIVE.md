@@ -883,6 +883,43 @@ Phases listées ci-dessous dans l'ordre chronologique d'implémentation.
 
 ## Historique (chronologie inverse)
 
+- **2026-06-12 — Iteration U — phase U.3 (couverture complète mode Info : Création + Bibliothèque)**
+  (`feat(iter-U/phase-3.1→3.3)` + doc). Le mode Info couvre désormais tout l'onglet
+  Création, contrôle logique par contrôle logique, plus la Bibliothèque partagée.
+  **Aucun changement de modèle métier, d'audio ni du parser markdown.** **Trois
+  sous-commits** :
+  - **3.1 — articles squelettes « La Création en détail ».** 7 fichiers
+    `src/docs/articles/creation-*.md` (atelier, forme-onde, harmoniques,
+    spectrogramme, instrument, enveloppe, effets) + nouvelle section `DOC_TOC` après
+    « Prise en main ». Format : titre + ligne « *Version provisoire — rédaction en
+    cours.* » (retirée en U.4), un heading `{#id}` stable par contrôle, 1-3 phrases
+    factuelles (bornes/unités/défauts **vérifiés dans le code** : cap 1-256, ancres
+    4-32, fréquence libre 16-32768 Hz, LFO 0,1-20 Hz, vibrato 0-200 cents, wah
+    0-3600 cents, pitchEnv ±2400, filterEnv ±4800, filtre 20-20000 Hz / Q 0,1-20,
+    drive 1-50…), bloc `<Details>` « Sous le capot » optionnel, lien retour
+    `<DocLink target="designer:…">`. Prose pédagogique = writer U.4.
+  - **3.2 — `data-anchor` manquants (~18).** Barre d'outils (`designer-patch-name`,
+    `designer-equalize-button`, `designer-module-switcher`), `designer-miniplayer`,
+    headers Forme d'onde (lens/interp/anchor-count/normalize/smooth), Harmoniques
+    (cap-stepper), Spectro (mode/db/peakhold sur les boutons partagés bar/tray),
+    Enveloppe (view-toggle), Instrument (visual-cues, free-frequency dans un
+    conteneur `.we-free-freq`), et **9 sous-blocs Effets** via `EFFECT_ANCHORS`
+    (`designer-effect-*` ; un seul visible → un seul badge, qui suit `effectsSelected`).
+    Pattern OverflowToolbar respecté (ancre sur l'item, résolution de l'instance
+    visible par `getAnchoredPosition`). **`designer-modulation` relogé** de la zone
+    Effets vers son `<header>` (sinon le badge du switcher recouvrait celui du
+    panneau visible, leurs centres coïncidant).
+  - **3.3 — `DOC_TARGETS` complet (56 cibles) + remap + Bibliothèque.** Remap des 16
+    entrées U.2 (qui pointaient `guide-designer`) vers les articles `creation-*` par
+    module ; `guide-designer` **strictement inchangé** (diff vide ; ses `{#id}` U.2
+    restent sans consommateur — couture writer U.4). Entrées Bibliothèque : 13 ancres
+    `library-*` (+ undo/redo) en `contexts: ['library','designer']` (PatchBank partagé
+    sidebar Création / onglet Bibliothèque) → `guide-bibliotheque` ; 6 `{#id}` ajoutés
+    à ses headings (suffixes invisibles, **prose intacte**) ; undo/redo sans fragment.
+    L'onglet Bibliothèque a maintenant ses badges (plus de message « bientôt »).
+    **Auto-contrôle vert** : chaque `doc:` du registre résout vers un `{#id}` réel,
+    chaque ancre du registre existe dans le source, chaque DocLink de retour pointe
+    une ancre réelle. tsc/lint/build propres. Reste U.4 (prose writer) + Tour (U.5+).
 - **2026-06-12 — Iteration U — phase U.2 (mode Info : Ctrl+I, overlay, registre)**
   (`feat(iter-U/phase-2.1→2.2)` + doc). Boucle complète du mode « documentation
   interactive », amorcée sur les ancres Designer existantes. **Aucun changement de

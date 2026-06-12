@@ -44,13 +44,15 @@ framework UI (CSS manuscrit), pas de routing, pas de backend.
 | T | Effets sans mémoire : module Effets (9 effets par patch), auto-pan, pitch env (Inverser + 4 formes), filtre + env + wah, disto vivante (env. drive, poignée 2D) — .osa v4 — v1.12.0 | 2026-06-12 |
 
 **État courant** : **Iteration U « Documentation utilisateur de la Création »**
-en cours — **phases U.1 + U.2 livrées**. U.1 = socle renderer doc (ids de titre
+en cours — **phases U.1 → U.3 livrées**. U.1 = socle renderer doc (ids de titre
 `{#id}`, liens profonds `doc:article#fragment` scroll + flash, accordéon `<Details>`,
 images SVG `public/docs/`). U.2 = **mode Info** (bouton header + **Ctrl+I**, overlay
 de badges cliquables sur les contrôles documentés visibles, registre déclaratif
-`DOC_TARGETS` amorcé sur les ancres Designer → `guide-designer.md`). Suite : U.3
-couverture complète (ancres Création manquantes + articles par module), U.4 prose
-writer. Iteration T « Effets sans mémoire » **close** (release **v1.12.0**, 2026-06-12).
+`DOC_TARGETS`). U.3 = **couverture complète de la Création** : ~18 `data-anchor`
+manquants posés, 7 articles squelettes par module (section TOC « La Création en
+détail »), `DOC_TARGETS` complet (56 cibles, remap des 16 entrées U.2 vers les
+articles par module + entrées Bibliothèque partagées). Suite : U.4 prose writer.
+Iteration T « Effets sans mémoire » **close** (release **v1.12.0**, 2026-06-12).
 Détail des itérations closes, saga et roadmaps dans `CONTEXT-ARCHIVE.md`.
 
 > **Structure des fichiers de contexte.** Ce `CONTEXT.md` est le **brief
@@ -112,7 +114,7 @@ synth-app/
     │   ├── folderNames.js    # nextAvailableFolderName partagé (extraction H.1.4)
     │   ├── bibTransfer.js               # wouldCreateCycle + duplicateItemsToFolder (K.1.7)
     │   ├── shortcuts.js      # table déclarative + matchesShortcut / getAnchor (iter-L phase-1.1) ; iter-U phase-2.1 : entrée `global-info` (Ctrl+I)
-    │   ├── docTargets.js     # (iter-U phase-2.2) registre DOC_TARGETS du mode Info (moule de SHORTCUTS) : { id, contexts, anchor, label, doc:'article[#id]' } → badge cliquable → navigateToDoc ; getTargetAnchor / splitDocTarget. Amorcé sur les ancres Designer
+    │   ├── docTargets.js     # (iter-U phase-2.2 ; complété phase-3.3) registre DOC_TARGETS du mode Info (moule de SHORTCUTS) : { id, contexts, anchor, label, doc:'article[#id]' } → badge cliquable → navigateToDoc ; getTargetAnchor / splitDocTarget. 56 cibles : Création couverte module par module (articles creation-*) + Bibliothèque (library-* en contexts ['library','designer'] → guide-bibliotheque)
     │   ├── designerModules.js # (iter-O phase-5c/5d, iter-P) MODULE_META des 6 modules Designer { label, Icon Lucide } + DESIGNER_ROWS / rowSiblings (rangée haut 3 / bas 3) — source unique (headers, bande, auto-réduction)
     │   ├── filter.js         # (iter-T T.4) filtre statique : biquadQValue (piège d'unité Q — dB pour LP/HP, linéaire pour BP/notch) + configureBiquad, partagés par les 4 chemins audio ET le graphe de réponse (biquad de mesure)
     │   ├── distortion.js     # (iter-T T.6/T.6bis) distorsion par voix : distortionTransfer (soft tanh / hard clamp / fold sin, normalisées ±1→±1) + distortionCurveTable (mémo (curve,drive)) + configureShaper (oversample 4x) + connectDistortion (split wet/dry, insertion avant le filtre ; T.6bis : insère un inputGain base 1 avant le shaper quand driveEnv actif, le retourne pour l'automation) ; partagé 4 chemins audio + graphe de transfert
@@ -130,11 +132,12 @@ synth-app/
     ├── styles/               # CSS transverses non colocatées
     │   └── highlight.css     # halo flash DocLink (iter-L phase-3.1)
     ├── docs/                 # contenu de l'onglet Documentation (iter-L phase-2)
-    │   ├── index.js          # table DOC_TOC + sources .md importées via ?raw
+    │   ├── index.js          # table DOC_TOC + sources .md importées via ?raw ; iter-U phase-3.1 : section « La Création en détail » (7 articles creation-*)
     │   └── articles/         # fichiers Markdown bundled au build
     │       ├── about.md             # stub L.2.5 (rédaction confiée à writer/)
     │       ├── why-12-notes.md      # stub L.2.5 (rédaction confiée à writer/)
     │       ├── … (22 articles publiés : guides, « Comprendre », glossaires, tempéraments, Raccourcis généré, Limites connues)
+    │       ├── creation-*.md        # (iter-U phase-3.1) 7 squelettes par module de la Création (atelier/forme-onde/harmoniques/spectrogramme/instrument/enveloppe/effets) ; faits bruts, prose writer U.4
     │       └── _renderer-test.md    # (recréé iter-U phase-1.3, section TOC « Interne ») validation V1 + nouveautés U (ids {#id}, doc:#fragment, <Details>, SVG) — à retirer en fin d'itération U
     └── components/
         ├── Tabs.jsx + .css                    # bascule Bibliothèque / Designer / Composer / Documentation ; variante compacte priority-plus + hamburger sous 924×668 (iter-R phase-2.2, prop isMobile)
@@ -2449,6 +2452,27 @@ Conventions tacites. Les enfreindre sans raison crée des bugs subtils.
 **Iteration U « Documentation utilisateur de la Création »** en cours (ouverte **2026-06-12**).
 
 🚧 **En cours**
+- **U.3 — couverture complète de la Création (livrée, 2026-06-12)** : le mode Info
+  couvre désormais tout l'onglet Création, contrôle par contrôle. (1) **~18
+  `data-anchor` manquants** posés sur les contrôles logiques non encore ancrés
+  (barre d'outils : nom de patch, égaliser, switcher mobile ; mini-player ; headers
+  Forme d'onde/Harmoniques/Spectro/Enveloppe ; Instrument : repères visuels,
+  fréquence libre ; 9 sous-blocs Effets via `EFFECT_ANCHORS` — un seul visible →
+  un seul badge). `designer-modulation` relogé de la zone Effets vers son `<header>`
+  (le badge du switcher ne recouvre plus celui du panneau). (2) **7 articles
+  squelettes** par module (`src/docs/articles/creation-*.md`, section TOC « La
+  Création en détail » après « Prise en main ») : un heading `{#id}` stable par
+  contrôle, faits bruts vérifiés (bornes/unités/défauts), bloc `<Details>` « Sous le
+  capot » optionnel, lien retour `<DocLink target="designer:…">`. Prose pédagogique =
+  writer U.4. (3) **`DOC_TARGETS` complet** (56 cibles) : remap des 16 entrées U.2
+  (qui pointaient `guide-designer` — inchangé, ses `{#id}` U.2 restent sans
+  consommateur, couture writer U.4) vers les articles par module + entrées
+  **Bibliothèque** (`library-*` en `contexts: ['library','designer']`, PatchBank
+  partagé → `guide-bibliotheque`, 6 `{#id}` ajoutés à ses headings, prose intacte).
+  L'onglet Bibliothèque a maintenant ses badges (plus de message « bientôt »).
+  Auto-contrôle vert : chaque `doc:` résout, chaque ancre existe, chaque DocLink de
+  retour pointe une ancre réelle. Hors scope (→ U.4) : toute prose ; couture
+  `guide-designer` ; couverture Composition/Documentation ; Tour. tsc/lint/build OK.
 - **U.2 — mode Info (livrée, 2026-06-12)** : la **boucle complète du mode
   documentation interactive**, amorcée sur les ancres Designer. Bouton Info dans le
   header (entre Raccourcis et Tour) + **Ctrl+I** ; `InfoOverlay` pose un **badge
@@ -3403,9 +3427,15 @@ survol narratif. Navigation = **bascule d'onglet** (pas de panneau in-situ). Pro
   registre déclaratif `DOC_TARGETS` (`lib/docTargets.js`) amorcé sur les ancres
   Designer → `guide-designer.md` (9 headings dotés d'un `{#id}`). Exclusion
   mutuelle avec l'overlay Raccourcis. Couverture des autres onglets = U.3.
-- **U.3 — couverture complète** : pose des `data-anchor` manquants sur l'onglet Création
-  + articles squelettes par module + registre complet.
+- ✅ **U.3 — couverture complète (livrée)** : ~18 `data-anchor` manquants sur la
+  Création (dont 9 sous-blocs Effets via `EFFECT_ANCHORS`, `designer-modulation`
+  relogé sur le `<header>`) + 7 articles squelettes par module (section TOC « La
+  Création en détail ») + `DOC_TARGETS` complet (56 cibles : remap des 16 entrées
+  U.2 vers les articles par module + entrées Bibliothèque `['library','designer']` →
+  `guide-bibliotheque`, 6 `{#id}` posés). `guide-designer` inchangé (couture U.4).
 - **U.4 — peuplement des contenus** : **domaine writer**, hors scope dev (brief séparé).
+  Inclut la couture de `guide-designer` (porte d'entrée → articles par module) et la
+  prose des 7 squelettes `creation-*` (retrait des lignes « Version provisoire »).
 - **U.5+ / itération suivante** : mise à jour du Tour guidé.
 
 **Après U (backlog effets, non cadré)** — deux directions héritées de la clôture de T :
