@@ -41,13 +41,23 @@ Phases :
   one-shot vs restauration session), bloc accordéon `<Details>`, images
   SVG `public/docs/`, `_renderer-test.md` recréé ; point d'entrée
   externe `navigateToDoc(articleId, fragment)` (App.jsx).
-- **U.2** — mode Info : bouton + Ctrl+I + overlay (sibling de
-  ShortcutsOverlay, mêmes ancres `getAnchoredPosition`) + registre
-  déclaratif `lib/docTargets.js` ancre → `article#fragment` (moule
-  SHORTCUTS), amorcé sur les ~15 ancres `designer-*` existantes →
-  sections `{#id}` de guide-designer.md. → `archi/U2-prompt.md`.
-- **U.3** — couverture : pose des `data-anchor` manquants sur la
-  Création + articles squelettes par module + registre complet.
+- **U.2** — ✅ **livrée** (2026-06-12, commits 97e2dee→91c3108) : bouton
+  Info + Ctrl+I (entrée SHORTCUTS), `infoOverlayOpen` volatile,
+  `InfoOverlay` + registre `lib/docTargets.js` (16 entrées →
+  guide-designer `{#id}`). Corrections notables : badges passés en
+  **pastille icône-seule au repos, libellé au survol/focus + ancrage
+  anti-débordement par zone** (edeb35d — c'est ce qui rend la densité
+  U.3 viable) ; sonde rAF de scrollToFragment robuste à StrictMode
+  (91c3108) ; warn DEV fragment introuvable (ca7c05a).
+- **U.3** — couverture : 7 articles squelettes section TOC « La
+  Création en détail » (faits dev, prose writer en U.4, ligne
+  « version provisoire »), ~18 `data-anchor` nouveaux (pattern item
+  OverflowToolbar = précédent designer-presets-button), registre
+  complet ~45 entrées + **remap** des 16 entrées U.2 hors de
+  guide-designer (qui redevient survol narratif, couture writer U.4) +
+  bonus Bibliothèque (`library-*` → guide-bibliotheque `{#id}`,
+  contexts partagés). Inventaire : 78 contrôles logiques, 34 ancrés.
+  → `archi/U3-prompt.md`.
 - **U.4** — peuplement (writer, brief séparé).
 - **Ensuite** : mise à jour du **Tour guidé** (2ᵉ gros morceau, U.5+ ou
   itération V) ; passe sur l'article généré Raccourcis au passage.
