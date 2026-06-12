@@ -1,0 +1,110 @@
+/* iter-U phase-2.2 : overlay « Documentation interactive » (mode Info, Ctrl+I).
+   Calqué sur ShortcutsOverlay, mais identité BLEUE (≠ jaune raccourcis) pour
+   qu'on sache d'un coup d'œil dans quel mode on est. Badges = vrais <button>
+   centrés sur leur ancre ; clic = saut vers le paragraphe doc dédié. */
+
+.info-overlay {
+  position: fixed;
+  inset: 0;
+  /* Voile légèrement bleuté = signature visuelle du mode Info. */
+  background: rgba(20, 40, 80, 0.42);
+  z-index: 9000;
+  cursor: zoom-out; /* clic backdrop = fermer */
+}
+
+.info-overlay-close {
+  position: fixed;
+  top: 14px;
+  right: 14px;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: var(--surface-elevated);
+  border: 1px solid var(--surface-border-strong);
+  color: var(--text-primary);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+  z-index: 9100;
+}
+.info-overlay-close:hover {
+  background: var(--surface-bg);
+}
+
+/* Message central quand l'onglet n'a encore aucune cible (registre non peuplé
+   pour cet onglet). Le mode reste découvrable partout (pas de bouton désactivé). */
+.info-overlay-empty {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  max-width: 80vw;
+  padding: 14px 22px;
+  background: var(--surface-elevated);
+  border: 1px solid var(--surface-border-strong);
+  border-radius: 8px;
+  color: var(--text-primary);
+  font-size: 0.9rem;
+  text-align: center;
+  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.45);
+  z-index: 9050;
+}
+
+/* Badge cliquable centré sur l'ancre (left/top = centre, posés inline par React ;
+   translate recentre). Bleu plein + texte blanc → lisible sur les deux thèmes,
+   sans dépendre de currentColor. Hover/focus : légère élévation + agrandissement
+   qui invitent au clic. */
+.info-overlay-badge {
+  position: fixed;
+  transform: translate(-50%, -50%);
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35em;
+  max-width: 220px;
+  padding: 5px 11px;
+  background: #2f6fed;
+  color: #fff;
+  border: 1px solid rgba(255, 255, 255, 0.28);
+  border-radius: 999px;
+  font-family: system-ui, -apple-system, sans-serif;
+  font-size: 0.8rem;
+  font-weight: 600;
+  line-height: 1.2;
+  white-space: nowrap;
+  cursor: pointer;
+  box-shadow: 0 1px 5px rgba(0, 0, 0, 0.4);
+  z-index: 9001;
+  transition: transform 0.14s ease-out, background 0.14s, box-shadow 0.14s;
+}
+.info-overlay-badge:hover,
+.info-overlay-badge:focus-visible {
+  background: #4a86ff;
+  transform: translate(-50%, -50%) scale(1.07);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.5);
+  outline: none;
+  z-index: 9100;
+}
+.info-overlay-badge:focus-visible {
+  outline: 2px solid #cfe0ff;
+  outline-offset: 2px;
+}
+.info-overlay-badge-icon {
+  flex: 0 0 auto;
+  opacity: 0.92;
+}
+.info-overlay-badge-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .info-overlay-badge {
+    transition: background 0.14s;
+  }
+  .info-overlay-badge:hover,
+  .info-overlay-badge:focus-visible {
+    transform: translate(-50%, -50%);
+  }
+}

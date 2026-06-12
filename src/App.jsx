@@ -21,6 +21,7 @@ import SavePatchDialog from './components/SavePatchDialog'
 import DeleteUsageWarningDialog from './components/DeleteUsageWarningDialog'
 import ConfirmDialog from './components/ConfirmDialog'
 import ShortcutsOverlay from './components/ShortcutsOverlay'
+import InfoOverlay from './components/InfoOverlay'
 import DocumentationTab from './components/DocumentationTab'
 import { DOC_TOC } from './docs/index.js'
 import Tour from './components/Tour'
@@ -2222,6 +2223,12 @@ function App() {
       <ShortcutsOverlay
         isOpen={shortcutsOverlayOpen}
         onClose={() => setShortcutsOverlay(false)}
+        state={state}
+      />
+      <InfoOverlay
+        isOpen={infoOverlayOpen}
+        onClose={() => setInfoOverlay(false)}
+        onNavigate={navigateToDoc}
         state={state}
       />
 

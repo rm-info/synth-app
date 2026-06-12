@@ -24,7 +24,7 @@ rappel théorique, vois *Son* et *Forme d'onde* au
 [Ce que tu entends quand tu dessines une forme d'onde](doc:comprendre-forme-onde)
 pour le « pourquoi ».
 
-## La lentille Forme d'onde
+## La lentille Forme d'onde {#lentille-forme-onde}
 
 La zone de gauche montre une *période* de l'onde. Tu l'édites de deux
 façons exclusives, choisies par le sélecteur **Libre / Ancres** dans
@@ -56,7 +56,7 @@ continue de moduler la forme. Ton dessin garde sa personnalité même
 après que tu l'édites par ancres. Vois *Ancre* et *Résidu* au
 [glossaire technique](doc:glossaire-technique).
 
-## La lentille Harmoniques
+## La lentille Harmoniques {#lentille-harmoniques}
 
 La zone du milieu affiche, en barres, l'intensité de chaque
 *harmonique* de la forme courante. Tu peux les modifier au
@@ -82,7 +82,7 @@ c'est seulement le tracé qui peut changer d'allure. Vois *Normalisation*,
 *Phase* et *Harmonique* au
 [glossaire technique](doc:glossaire-technique).
 
-## La lentille Spectrogramme
+## La lentille Spectrogramme {#lentille-spectrogramme}
 
 La zone de droite est une lentille en **lecture seule** : elle observe,
 elle ne s'édite pas. Elle déploie le *spectre* du son sur un axe de
@@ -125,7 +125,7 @@ nombre de barres affichées au milieu. Vois
 *Cap (plafond d'harmoniques)* au
 [glossaire technique](doc:glossaire-technique).
 
-## L'enveloppe AHDSR
+## L'enveloppe AHDSR {#enveloppe-ahdsr}
 
 <DocLink target="designer:designer-adsr">L'enveloppe</DocLink> règle le
 volume du son au fil du temps, en cinq phases : attaque, maintien
@@ -133,14 +133,14 @@ volume du son au fil du temps, en cinq phases : attaque, maintien
 elle qui distingue une cloche d'un coup d'archet. Le détail de chaque
 phase est au [glossaire technique](doc:glossaire-technique).
 
-## L'amplitude
+## L'amplitude {#amplitude}
 
 Le <DocLink target="designer:designer-amplitude">réglage
 d'amplitude</DocLink> fixe le niveau général du patch — son volume avant
 que l'enveloppe ne le module. Utile pour équilibrer plusieurs sons entre
 eux.
 
-## Choisir le système musical
+## Choisir le système musical {#choisir-systeme-musical}
 
 <DocLink target="designer:designer-system-selector">Le sélecteur de
 système</DocLink> décide comment l'octave est découpée : la gamme à
@@ -153,7 +153,7 @@ C'est la porte d'entrée vers tout l'univers décrit dans
 > cette documentation, elle, parle en solfège. La correspondance :
 > do = C, ré = D, mi = E, fa = F, sol = G, la = A, si = B.
 
-## Tester au clavier
+## Tester au clavier {#tester-au-clavier}
 
 <DocLink target="designer:designer-keyboard">Le clavier de test</DocLink>
 joue les notes du système courant, à la souris ou aux touches de ton
@@ -162,7 +162,7 @@ d'octave</DocLink> avec PageUp / PageDown, et maintiens Espace pour
 activer <DocLink target="designer:designer-sustain-pastille">la pédale de
 sustain</DocLink> : les notes tenues ne s'éteignent qu'au relâchement.
 
-## La barre du haut
+## La barre du haut {#barre-du-haut}
 
 Au-dessus des trois zones, un bandeau réunit les outils qui agissent sur
 l'ensemble du patch :
@@ -181,7 +181,7 @@ l'ensemble du patch :
   Harmoniques large, Spectrogramme large — plus un toggle **Dimension
   auto** qui élargit la zone que tu es en train d'éditer.
 
-## Enregistrer
+## Enregistrer {#enregistrer}
 
 Quand le son te plaît, sauvegarde-le : Ctrl+S met à jour le patch
 courant, tandis que <DocLink target="designer:designer-save-as-button">Sauvegarder
