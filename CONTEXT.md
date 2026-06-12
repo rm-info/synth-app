@@ -43,11 +43,13 @@ framework UI (CSS manuscrit), pas de routing, pas de backend.
 | S | Support tactile : Pointer Events app-wide (tracé · clavier polyphonique · poignées · Timeline), touch-action chirurgical, shell non-scrollable + PWA légère standalone ; durcissement audio (master headroom-bas + soft-clip filet, déclic MIN_RELEASE/ATTACK, buffer mobile, export normalisé) — v1.11.0 | 2026-06-09 |
 | T | Effets sans mémoire : module Effets (9 effets par patch), auto-pan, pitch env (Inverser + 4 formes), filtre + env + wah, disto vivante (env. drive, poignée 2D) — .osa v4 — v1.12.0 | 2026-06-12 |
 
-**État courant** : **entre deux itérations**. Iteration T « Effets sans mémoire »
-**close** (release **v1.12.0**, 2026-06-12) : 9 effets sans mémoire par patch (vibrato,
-trémolo, auto-pan, hauteur, filtre, env. filtre, wah, disto, env. drive), module Effets à
-switcher (un panneau à la fois), `.osa` v4. Détail des phases T.1→T.6.9, saga et roadmap
-dans `CONTEXT-ARCHIVE.md`.
+**État courant** : **Iteration U « Documentation utilisateur de la Création »**
+en cours — **phase U.1 livrée** (socle renderer doc : ids de titre `{#id}`, liens
+profonds `doc:article#fragment` avec scroll + flash, accordéon `<Details>`, images
+SVG `public/docs/`, article de test renderer recréé). Suite : U.2 mode Info (bouton +
+Ctrl+I + overlay + registre), U.3 couverture, U.4 prose writer. Iteration T « Effets
+sans mémoire » **close** (release **v1.12.0**, 2026-06-12). Détail des itérations closes,
+saga et roadmaps dans `CONTEXT-ARCHIVE.md`.
 
 > **Structure des fichiers de contexte.** Ce `CONTEXT.md` est le **brief
 > vivant** : état présent, modèle de données, composants, architecture,
@@ -77,6 +79,8 @@ les assembler en compositions musicales sur une timeline, exporter en WAV.
 ```
 synth-app/
 ├── CONTEXT.md                # ce fichier
+├── public/
+│   └── docs/                # (iter-U phase-1.3) illustrations SVG des articles (servi tel quel /docs/nom.svg, dev + build) ; sinusoide-annotee.svg = SVG de démo
 ├── index.html
 ├── package.json
 ├── vite.config.js
@@ -112,7 +116,7 @@ synth-app/
     │   ├── modulation.js     # (iter-P/T) applyModulation : branche vibrato/trémolo/auto-pan/pitch-env/env-filtre/wah (osc.detune & biquad.detune cents sommés / gain.gain sommé / panner.pan stéréo / automation de base osc.detune & biquad.detune) sur un couple (osc, gain[, panner][, biquad]) existant ; helper partagé des 4 chemins. scheduleParamEnv(param, env, startTime) = automation d'enveloppe (4 formes) partagée osc.detune (pitch T.3) ET biquad.detune (filtre T.5) ; biquad absent → env-filtre + wah no-ops
     │   ├── getAnchoredPosition.js # résolution viewport rect d'un [data-anchor] (iter-L phase-1.5)
     │   ├── highlightElement.js # halo temporaire ancré (DocLink), retry RAF (iter-L phase-3.1)
-    │   ├── markdown.js       # parser Markdown maison + AST, délègue le math à mathParse (iter-L phase-2.2 / R.1)
+    │   ├── markdown.js       # parser Markdown maison + AST, délègue le math à mathParse (iter-L phase-2.2 / R.1) ; iter-U phase-1 : id explicite `{#id}` sur headings (kebab, pas d'auto-slug) + bloc accordéon `<Details>` (contenu re-parsé récursivement, pas d'imbrication)
     │   ├── mathParse.js      # sous-parser math récursif ($…$, $$…$$ → mathAst), \sum à bornes (iter-L phase-R.1 / iter-M phase-5a.1)
     │   ├── spline.js         # (iter-M M.3) splineSoft Catmull-Rom périodique / splineHard polyligne → points ; fitAnchorsToCurve = pose des ancres par Douglas-Peucker à compte fixe (iter-N N.2) ; warpResidualForAnchorMove = warp horizontal du résidu au drag d'ancre, support local + wrap (iter-N N.3)
     │   ├── presets.js        # (iter-M M.4) bibliothèque code-only de timbres harmoniques (TIMBRE_PRESETS + anchorCount N.5c). N.5c : carré/scie/triangle retirés (→ BASE_WAVEFORMS) ; restent flûte/orgue/cuivre + inattendus
@@ -127,7 +131,8 @@ synth-app/
     │   └── articles/         # fichiers Markdown bundled au build
     │       ├── about.md             # stub L.2.5 (rédaction confiée à writer/)
     │       ├── why-12-notes.md      # stub L.2.5 (rédaction confiée à writer/)
-    │       └── _renderer-test.md    # validation visuelle des features V1 + math L.R (à retirer en L.5)
+    │       ├── … (22 articles publiés : guides, « Comprendre », glossaires, tempéraments, Raccourcis généré, Limites connues)
+    │       └── _renderer-test.md    # (recréé iter-U phase-1.3, section TOC « Interne ») validation V1 + nouveautés U (ids {#id}, doc:#fragment, <Details>, SVG) — à retirer en fin d'itération U
     └── components/
         ├── Tabs.jsx + .css                    # bascule Bibliothèque / Designer / Composer / Documentation ; variante compacte priority-plus + hamburger sous 924×668 (iter-R phase-2.2, prop isMobile)
         ├── PatchBank.jsx + .css               # banque de patches partagée
@@ -168,8 +173,8 @@ synth-app/
         ├── ConfirmDialog.jsx + .css          # modal confirmation générique (K.2.f16)
         ├── RecentPatchesList.jsx + .css      # LRU 10 derniers patches Composer (K.2.f11)
         ├── ShortcutsOverlay.jsx + .css       # overlay raccourcis "lever le voile" Ctrl+K (iter-L phase-1.5)
-        ├── DocumentationTab.jsx + .css       # layout TOC + zone contenu de l'onglet Documentation (iter-L phase-2.3)
-        ├── MarkdownRenderer.jsx + .css       # rendu AST Markdown maison → JSX + DocLink/doc: actifs via MarkdownNavContext + rendu math sup/sub/frac/sum, displayMode (iter-L phase-2.2 / 3.2-3.3 / R.2 / iter-M phase-5a.2)
+        ├── DocumentationTab.jsx + .css       # layout TOC + zone contenu de l'onglet Documentation (iter-L phase-2.3) ; iter-U phase-1.1 : scroll vers fragment `doc:#id` (sonde RAF bornée + flash doc-highlight-flash, prime sur la restauration de scroll session via nonce consommé une fois)
+        ├── MarkdownRenderer.jsx + .css       # rendu AST Markdown maison → JSX + DocLink/doc: actifs via MarkdownNavContext + rendu math sup/sub/frac/sum, displayMode (iter-L phase-2.2 / 3.2-3.3 / R.2 / iter-M phase-5a.2) ; iter-U phase-1 : id sur headings, fragment `doc:#id` (onDocNav(articleId, fragment)), accordéon `<details>`/`<summary>` (chevron pivotant), .md-image centré
         ├── ShortcutsReference.jsx + .css     # article généré "Raccourcis clavier" depuis SHORTCUTS (iter-L phase-2.4)
         └── Tour.jsx + .css                   # moteur du Tour guidé : spotlight + bulle + progress bar (iter-L phase-4)
 ```
@@ -1780,6 +1785,22 @@ Choix non évidents pris pour de bonnes raisons. À ne pas remettre en question
   font. Défaut null = rendu inerte → le renderer reste réutilisable hors
   onglet Documentation. Validation des cibles en runtime (warn dev), pas
   au build (un linter d'articles pourra venir si le volume L.5 le justifie).
+  **Extension iter-U phase-1.1 : liens profonds `doc:article-id#heading-id`**.
+  `DocNavLink` parse le fragment (split sur `#`) et appelle
+  `onDocNav(articleId, fragment)`. Le handler `doc:` est **remonté dans
+  `App.navigateToDoc(articleId, fragment)`** — **point d'entrée UNIQUE et
+  réutilisable** (liens markdown ET, dès U.2, le mode Info qui basculera
+  d'onglet depuis l'extérieur). Le fragment est une **intention de navigation
+  transitoire** (state React `docFragmentRequest = { articleId, fragment,
+  nonce }`, hors reducer — pas de persistance ; le nonce force la
+  ré-exécution même article/fragment identiques). `DocumentationTab` scrolle
+  vers le heading `#id` par une **sonde RAF bornée** (le contenu d'article
+  monte de façon asynchrone au switch), même esprit que `highlightElement`,
+  avec flash `doc-highlight-flash` réutilisé. **Le fragment prime sur la
+  restauration de scroll session** (pas de course visible) ; le nonce est
+  **consommé une fois** → un retour ultérieur sur l'article par le TOC rend
+  ses droits à la restauration. Fragment introuvable après le délai → haut
+  d'article, zéro erreur.
 - **Tour guidé = 3e consommateur de `getAnchoredPosition` (iter-L phase-4)** :
   `src/components/Tour.jsx` réutilise la même résolution d'ancre que
   l'overlay raccourcis et `highlightElement`, et le même RAF borné pour le
@@ -2399,7 +2420,20 @@ Conventions tacites. Les enfreindre sans raison crée des bugs subtils.
 
 ## État actuel
 
-**Entre deux itérations** (depuis la clôture de T, **2026-06-12**). Aucun chantier ouvert.
+**Iteration U « Documentation utilisateur de la Création »** en cours (ouverte **2026-06-12**).
+
+🚧 **En cours**
+- **U.1 — socle renderer/doc (livrée, 2026-06-12)** : tout ce qui manquait au système de
+  documentation pour accueillir le mode Info. Chantier confiné au markdown et à l'onglet
+  Documentation (ni modèle, ni reducer, ni audio, ni onglet Création touchés). Trois
+  nouveautés parser/renderer : (1) **id de titre explicite** `## Titre {#mon-id}` (kebab,
+  retiré du texte affiché, pas d'auto-slug — les ids survivent aux reformulations writer
+  U.4) ; (2) **liens profonds** `doc:article#fragment` (scroll vers le heading + flash,
+  fragment prime sur la restauration de scroll, point d'entrée externe `navigateToDoc`
+  réutilisable par le futur mode Info) ; (3) **accordéon `<Details>`** (contenu re-parsé
+  récursivement, replié par défaut). Plus la convention **images SVG `public/docs/`** +
+  SVG de démo, et l'**article de test renderer** recréé. Régression parser = nulle (22
+  articles publiés inchangés). Reste U.2→U.5 (cf. Roadmap).
 
 ✅ **Terminé**
 - **Iteration T — « Effets sans mémoire » (close, v1.12.0)**. Tour complet des effets
@@ -3311,12 +3345,29 @@ Conventions tacites. Les enfreindre sans raison crée des bugs subtils.
 > Détail des roadmaps des itérations livrées (A→M) → `CONTEXT-ARCHIVE.md`.
 > Ci-dessous : l'itération en cours, puis le backlog général (non planifié).
 
-### Entre deux itérations (depuis la clôture de T, 2026-06-12)
+### Iteration U « Documentation utilisateur de la Création » (en cours)
 
-Iteration T « Effets sans mémoire » **livrée** (v1.12.0) — détail roadmap (T.1→T.6.9)
-déplacé dans `CONTEXT-ARCHIVE.md` (« Roadmaps des itérations closes »). **Aucune
-itération cadrée.** Deux directions pour la suite :
+Objectif : un **mode Info** (bouton Info dans le header, entre Raccourcis et Tour,
+**Ctrl+I**) qui pose un overlay cliquable sur chaque contrôle logique de l'onglet
+Création ; le clic bascule sur l'onglet Documentation, sur le **paragraphe dédié** au
+contrôle. Granularité = **contrôle logique** (un graphe = un overlay). Structure doc =
+**un article par module** dans une nouvelle section TOC, `guide-designer.md` restant le
+survol narratif. Navigation = **bascule d'onglet** (pas de panneau in-situ). Prose =
+**writer** (U.4).
 
+- ✅ **U.1 — socle renderer/doc (livrée)** : ids de titre `{#id}` (kebab, pas d'auto-slug),
+  liens profonds `doc:article#fragment` (scroll RAF borné + flash, point d'entrée externe
+  `App.navigateToDoc`), accordéon `<Details>` (contenu re-parsé récursivement, replié par
+  défaut), images SVG `public/docs/` + `.md-image` centré, `_renderer-test.md` recréé
+  (section TOC « Interne », à retirer en fin d'itération U).
+- **U.2 — mode Info** : bouton + Ctrl+I, composant overlay, registre déclaratif
+  ancre → paragraphe, amorcé sur les ancres existantes.
+- **U.3 — couverture complète** : pose des `data-anchor` manquants sur l'onglet Création
+  + articles squelettes par module + registre complet.
+- **U.4 — peuplement des contenus** : **domaine writer**, hors scope dev (brief séparé).
+- **U.5+ / itération suivante** : mise à jour du Tour guidé.
+
+**Après U (backlog effets, non cadré)** — deux directions héritées de la clôture de T :
 - **Petits « inattendus » sans mémoire** (compatibles chaîne jetable par note, zéro
   queue) : ring modulation, FM / cross-mod, **LFO sur le drive** de disto, **pitch
   « fall » au release**, **keytracking du cutoff**, courbure continue draggable du

@@ -883,6 +883,39 @@ Phases listées ci-dessous dans l'ordre chronologique d'implémentation.
 
 ## Historique (chronologie inverse)
 
+- **2026-06-12 — Iteration U — ouverture + phase U.1 (socle renderer doc)**
+  (`feat(iter-U/phase-1.1→1.3)` + doc). Ouverture de l'itération « Documentation
+  utilisateur de la Création » (mode Info à venir en U.2). U.1 = tout ce qui manquait au
+  système de doc, **confiné au markdown + onglet Documentation** (ni modèle, ni reducer, ni
+  audio, ni onglet Création touchés). **Trois sous-commits** :
+  - **1.1 — ids `{#id}` + liens profonds `doc:article#fragment`.** Parser : extraction du
+    suffixe pandoc `{#mon-id}` (kebab `[a-z0-9-]+`) → champ `id` du noeud heading (null si
+    absent, **pas d'auto-slug** : les ids du futur registre Info doivent survivre aux
+    reformulations writer en U.4). Renderer : `id` posé sur `<hN>` seulement quand explicite.
+    `DocNavLink` parse le fragment (split sur `#`) → `onDocNav(articleId, fragment)`. Le
+    handler `doc:` est **remonté dans `App.navigateToDoc(articleId, fragment)`** — point
+    d'entrée UNIQUE réutilisable (liens markdown + futur mode Info U.2, qui basculera d'onglet
+    depuis l'extérieur). Fragment = intention transitoire (state React `docFragmentRequest =
+    {articleId, fragment, nonce}`, hors reducer ; nonce force la ré-exécution). `Documentation
+    Tab` scrolle vers le heading par une **sonde RAF bornée** (montage async de l'article au
+    switch), flash `doc-highlight-flash` réutilisé. **Le fragment prime sur la restauration de
+    scroll session** ; nonce **consommé une fois** → un retour TOC ultérieur rend ses droits à
+    la restauration. Cas même-article = scroll fluide sans reset ; fragment introuvable → haut
+    d'article, zéro erreur.
+  - **1.2 — accordéon `<Details>`.** Tag bloc custom `<Details title="…">…</Details>` (balises
+    sur leurs propres lignes). Contenu re-parsé **récursivement** comme des blocs markdown
+    normaux (paragraphes, listes, code, math `$$…$$`, images, DocLink, liens `doc:`) — tout le
+    V1 marche dedans, formules incluses. `title` absent → « Détails ». **Pas d'imbrication**
+    (collecte jusqu'au 1er `</Details>`, documenté). Rendu `<details>`/`<summary>` natif (toggle
+    + a11y gratuits), replié par défaut, chevron Lucide pivotant via CSS, fond distinct +
+    variables sémantiques (clair/sombre).
+  - **1.3 — images SVG + article de test.** Convention : SVG dans `public/docs/`, référencés en
+    URL absolue `/docs/nom.svg` (articles importés en `?raw`, Vite ne réécrit pas les chemins ;
+    `public/` servi tel quel en dev ET build — vérifié). `.md-image` bloc centré. SVG de démo
+    sobre (sinusoïde annotée, fond transparent, tons médians lisibles deux thèmes).
+    `_renderer-test.md` recréé (entrée TOC section « Interne », à retirer en fin d'itération U) :
+    couverture V1 + les trois nouveautés. **Régression parser nulle** (lint/typecheck/build OK,
+    22 articles publiés inchangés).
 - **2026-06-12 — Iteration T — clôture + release v1.12.0** (`feat(v1.12.0)` + `docs`).
   Itération « Effets sans mémoire » complète (T.1→T.6.9, **9 effets par patch**). **Bump de
   version seul** (toutes les features déjà sur `main`, livrées au fil des phases ;
