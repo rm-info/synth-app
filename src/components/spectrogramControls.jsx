@@ -20,6 +20,7 @@ export function buildSpectrogramHeaderItems({ mode, dbScale, peakHold, onToggleM
       title="Mode Direct (analyse temps réel)"
       aria-label={STRINGS.spectro.live}
       aria-pressed={mode === 'live'}
+      data-anchor="designer-spectro-mode"
     ><Radio size={16} /></button>
   )
   const dbBtn = (
@@ -29,6 +30,7 @@ export function buildSpectrogramHeaderItems({ mode, dbScale, peakHold, onToggleM
       className={`spectrogram-toggle${dbScale ? ' is-active' : ''}`}
       title="Échelle décibels"
       aria-pressed={dbScale}
+      data-anchor="designer-spectro-db"
     >dB</button>
   )
   const peakBtn = (
@@ -39,6 +41,7 @@ export function buildSpectrogramHeaderItems({ mode, dbScale, peakHold, onToggleM
       title="Maintenir les crêtes (mode Direct)"
       aria-label={STRINGS.spectro.peak}
       aria-pressed={peakHold}
+      data-anchor="designer-spectro-peakhold"
     ><IconCrete size={16} /></button>
   )
   return [

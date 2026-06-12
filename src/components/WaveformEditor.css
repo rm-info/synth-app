@@ -670,6 +670,15 @@
   height: 6px;
 }
 
+/* iter-U phase-3.2 : conteneur ancrable (data-anchor designer-free-frequency)
+   groupant l'input + le slider de fréquence libre. Reprend l'empilement vertical
+   et le gap 8px que le control-group appliquait quand ils étaient frères directs. */
+.we-free-freq {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
 .freq-label {
   display: inline-flex;
   align-items: center;

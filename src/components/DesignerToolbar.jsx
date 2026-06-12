@@ -56,6 +56,7 @@ function DesignerToolbar({ patchLabel, onPresets, onReset, onEqualizeWidths, col
         aria-label={equalizeLabel}
         aria-pressed={allEqual}
         onClick={onEqualizeWidths}
+        data-anchor="designer-equalize-button"
       ><Table size={18} style={{ transform: 'rotate(90deg)' }} /></button>
     )
     // iter-O phase-5d : toggle Auto-réduction — item indépendant. Actif si activé OU
@@ -104,7 +105,7 @@ function DesignerToolbar({ patchLabel, onPresets, onReset, onEqualizeWidths, col
   return (
     <div className="designer-toolbar">
       <div className="designer-toolbar-left">
-        <span className="we-sound-tag">{patchLabel}</span>
+        <span className="we-sound-tag" data-anchor="designer-patch-name">{patchLabel}</span>
         {onPresets && (
           <button
             type="button"
@@ -130,7 +131,7 @@ function DesignerToolbar({ patchLabel, onPresets, onReset, onEqualizeWidths, col
         <span className="designer-toolbar-divider" aria-hidden="true" />
       )}
       {showMobileSwitcher && (
-        <div className="designer-module-switcher" role="group" aria-label="Modules du Designer">
+        <div className="designer-module-switcher" role="group" aria-label="Modules du Designer" data-anchor="designer-module-switcher">
           {mobileModuleIds.map((id) => {
             const meta = MODULE_META[id]
             if (!meta) return null

@@ -21,7 +21,7 @@ function MiniPlayer({
   const progress = Math.max(0, Math.min(100, cursorPos * 100))
 
   return (
-    <div className="mini-player">
+    <div className="mini-player" data-anchor="designer-miniplayer">
       <button
         type="button"
         className={`mini-play-btn ${isPlaying ? 'playing' : ''}`}

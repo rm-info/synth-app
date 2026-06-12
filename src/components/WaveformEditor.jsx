@@ -519,6 +519,22 @@ const PARAM_ENV_BOUNDS = {
   driveEnv: { amountMax: DRIVEENV_AMOUNT_MAX, timeMax: DRIVEENV_TIME_MAX, timeMin: DRIVEENV_TIME_MIN, gain: true },
 }
 
+// iter-U phase-3.2 : ancre du mode Info posée sur la racine de chaque sous-bloc
+// Effets. Un seul est visible à la fois (`effectsSelected` → les autres sont en
+// display:none, filtrés par getAnchoredPosition) → un seul badge, qui suit l'effet
+// édité. Clés audio internes → suffixes kebab des `{#id}` de creation-effets.
+const EFFECT_ANCHORS = {
+  vibrato: 'designer-effect-vibrato',
+  tremolo: 'designer-effect-tremolo',
+  autoPan: 'designer-effect-auto-pan',
+  pitchEnv: 'designer-effect-pitch-env',
+  filter: 'designer-effect-filter',
+  filterEnv: 'designer-effect-filter-env',
+  wah: 'designer-effect-wah',
+  distortion: 'designer-effect-distortion',
+  driveEnv: 'designer-effect-drive-env',
+}
+
 // === Graphe de réponse en fréquence du filtre (T.4) ===
 //
 // X log 20 Hz–20 kHz (repères 100 / 1k / 10k), Y en dB (magnitude → 20·log10),
@@ -3150,11 +3166,12 @@ function WaveformEditor({
         aria-pressed={lensActive}
         aria-label={STRINGS.editor.lensSwitchLabel}
         title={lensActive ? STRINGS.editor.lensToggleActiveTitle : STRINGS.editor.lensToggleInactiveTitle}
+        data-anchor="designer-lens-toggle"
       ><Spline size={18} /></button>
     )
     // iter-O phase-1.2 : stepper ▴▾ (4..32, ±1, Shift=±10, appui maintenu).
     const anchorReadout = (
-      <span className="we-anchor-count-readout">
+      <span className="we-anchor-count-readout" data-anchor="designer-anchor-count">
         <NumberInput
           value={anchorCount}
           onChange={(v) => editorActions.setAnchorCount(v)}
@@ -3179,7 +3196,7 @@ function WaveformEditor({
     )
     // iter-M phase-r.2.6.2 : toggle Doux/Anguleux (SVG custom). Désactivé en Libre.
     const interpToggle = (
-      <div className="spline-interp-toggle" role="group" aria-label={STRINGS.editor.splineInterpolation}>
+      <div className="spline-interp-toggle" role="group" aria-label={STRINGS.editor.splineInterpolation} data-anchor="designer-interp-toggle">
         <button
           type="button"
           className={`icon-btn${interpolation !== 'hard' ? ' is-active' : ''}`}
@@ -3211,6 +3228,7 @@ function WaveformEditor({
           : 'Normaliser : redessiner le tracé comme la somme des harmoniques courantes (phase canonique)'}
         aria-label="Normaliser"
         disabled={isNormalized}
+        data-anchor="designer-normalize-button"
       ><Sigma size={18} /></button>
     )
     // iter-N phase-4 : lissages du tracé (expérimentaux, répétables).
@@ -3221,6 +3239,7 @@ function WaveformEditor({
         onClick={smoothWaveform}
         title={STRINGS.editor.smoothTitle}
         aria-label={STRINGS.editor.smooth}
+        data-anchor="designer-smooth-buttons"
       ><Waves size={18} /></button>
     )
     const tendBtn = (
@@ -3230,6 +3249,7 @@ function WaveformEditor({
         onClick={tendWaveform}
         title={STRINGS.editor.tendSplineTitle}
         aria-label={STRINGS.editor.tendSpline}
+        data-anchor="designer-smooth-buttons"
       ><ChartSpline size={18} /></button>
     )
 
@@ -3318,7 +3338,7 @@ function WaveformEditor({
   const buildHarmonicsHeaderItems = () => {
     const trayLabel = (txt) => <span className="overflow-toolbar-tray-label">{txt}</span>
     const capControl = (
-      <label className="we-cap-control" title={STRINGS.editor.harmonicCountTitle}>
+      <label className="we-cap-control" title={STRINGS.editor.harmonicCountTitle} data-anchor="designer-cap-stepper">
         <span className="we-cap-readout">
           <NumberInput
             value={definition}
@@ -3474,7 +3494,7 @@ function WaveformEditor({
         </div>
       )}
       {showCuesBar && (
-        <div className="instrument-system-field">
+        <div className="instrument-system-field" data-anchor="designer-visual-cues">
           <span className="instrument-system-field-label">Repère</span>
           <ShortLabelSelect
             ariaLabel="Repère pédagogique"
@@ -3605,29 +3625,31 @@ function WaveformEditor({
         <div className="control-group">
           {freeMode ? (
             <>
-              <div className="freq-label">
-                Fréquence libre :{' '}
-                <FreqInput
-                  value={testFrequency}
-                  onChange={editorActions.setTestFrequency}
-                  min={FREQ_MIN}
-                  max={FREQ_MAX}
-                  className="freq-input"
+              <div className="we-free-freq" data-anchor="designer-free-frequency">
+                <div className="freq-label">
+                  Fréquence libre :{' '}
+                  <FreqInput
+                    value={testFrequency}
+                    onChange={editorActions.setTestFrequency}
+                    min={FREQ_MIN}
+                    max={FREQ_MAX}
+                    className="freq-input"
+                  />
+                  <span className="freq-unit"> Hz</span>
+                </div>
+                <input
+                  type="range"
+                  min="0"
+                  max="1"
+                  step="0.001"
+                  value={freqToSlider(testFrequency)}
+                  onChange={(e) => {
+                    const hz = sliderToFreq(Number(e.target.value))
+                    setDraftFreq(Math.round(hz * 10) / 10)
+                  }}
+                  {...sliderCommitter(commitDraftFreq)}
                 />
-                <span className="freq-unit"> Hz</span>
               </div>
-              <input
-                type="range"
-                min="0"
-                max="1"
-                step="0.001"
-                value={freqToSlider(testFrequency)}
-                onChange={(e) => {
-                  const hz = sliderToFreq(Number(e.target.value))
-                  setDraftFreq(Math.round(hz * 10) / 10)
-                }}
-                {...sliderCommitter(commitDraftFreq)}
-              />
               {/* iter G phase 1.3 : bouton Test (mode Libre uniquement).
                   Calé sur testFrequency, raccourci 's'. S.2.5 : Pointer Events
                   + capture → release fiable (pointerup) ; pointercancel et
@@ -3867,7 +3889,7 @@ function WaveformEditor({
     if (!adsrCompact) return []
     const trayLabel = (txt) => <span className="overflow-toolbar-tray-label">{txt}</span>
     const viewToggle = (
-      <div className="spline-interp-toggle" role="group" aria-label="Vue de l'enveloppe">
+      <div className="spline-interp-toggle" role="group" aria-label="Vue de l'enveloppe" data-anchor="designer-adsr-view-toggle">
         <button
           type="button"
           className={`icon-btn${adsrView === 'graph' ? ' is-active' : ''}`}
@@ -4500,7 +4522,7 @@ function WaveformEditor({
       // canvas, on le repeint au switch (cf. boucle rAF gatée sur effectsSelected).
       const hidden = effect !== effectsSelected
       return (
-        <div className={`we-lfo-block${enabled ? ' is-enabled' : ''}${hidden ? ' is-hidden' : ''}`} key={effect}>
+        <div className={`we-lfo-block${enabled ? ' is-enabled' : ''}${hidden ? ' is-hidden' : ''}`} key={effect} data-anchor={EFFECT_ANCHORS[effect]}>
           <div className="we-lfo-head">
             <label className="we-lfo-switch">
               <input
@@ -4660,7 +4682,7 @@ function WaveformEditor({
       // Hint « cible désactivée » : filterEnv → filtre off ; driveEnv → disto off.
       const targetHint = isPitch ? null : isDrive ? renderDistortionTargetHint() : renderFilterTargetHint()
       return (
-        <div className={`we-lfo-block${enabled ? ' is-enabled' : ''}${hidden ? ' is-hidden' : ''}`} key={effect}>
+        <div className={`we-lfo-block${enabled ? ' is-enabled' : ''}${hidden ? ' is-hidden' : ''}`} key={effect} data-anchor={EFFECT_ANCHORS[effect]}>
           <div className="we-lfo-head">
             <label className="we-lfo-switch">
               <input
@@ -4782,7 +4804,7 @@ function WaveformEditor({
       const hidden = effectsSelected !== 'filter'
       const set = (key, value) => editorActions.setModulation('filter', key, value)
       return (
-        <div className={`we-lfo-block${enabled ? ' is-enabled' : ''}${hidden ? ' is-hidden' : ''}`} key="filter">
+        <div className={`we-lfo-block${enabled ? ' is-enabled' : ''}${hidden ? ' is-hidden' : ''}`} key="filter" data-anchor={EFFECT_ANCHORS.filter}>
           <div className="we-lfo-head">
             <label className="we-lfo-switch">
               <input
@@ -4886,7 +4908,7 @@ function WaveformEditor({
       const hidden = effectsSelected !== 'distortion'
       const set = (key, value) => editorActions.setModulation('distortion', key, value)
       return (
-        <div className={`we-lfo-block${enabled ? ' is-enabled' : ''}${hidden ? ' is-hidden' : ''}`} key="distortion">
+        <div className={`we-lfo-block${enabled ? ' is-enabled' : ''}${hidden ? ' is-hidden' : ''}`} key="distortion" data-anchor={EFFECT_ANCHORS.distortion}>
           <div className="we-lfo-head">
             <label className="we-lfo-switch">
               <input
@@ -4984,8 +5006,13 @@ function WaveformEditor({
     }
 
     return (
-      <div className="we-modulation-area" data-anchor="designer-modulation">
-        <header className="we-area-header">
+      <div className="we-modulation-area">
+        {/* iter-U phase-3.2 : l'ancre Info du module Effets vit sur le HEADER (le
+            switcher du header → #choisir-un-effet), pas sur toute la zone : sinon
+            son badge centré recouvrirait celui du panneau d'effet visible
+            (designer-effect-*). Le header est toujours rendu (desktop in-body ET
+            mobile, où la rangée d'effets est seulement relogée ailleurs). */}
+        <header className="we-area-header" data-anchor="designer-modulation">
           <div className="we-header-left">
             <MODULE_META.modulation.Icon className="we-area-icon" size={15} aria-hidden="true" />
             <h3 className="we-area-title" title="Effets">Effets</h3>
