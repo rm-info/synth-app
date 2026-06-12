@@ -31,7 +31,9 @@ function renderBlock(node, key) {
   switch (node.type) {
     case 'heading': {
       const Tag = `h${node.level}`
-      return <Tag key={key} className={`md-h md-h${node.level}`}>{node.children.map(renderInline)}</Tag>
+      // `id` posé seulement quand explicite (`{#id}`, iter-U phase-1.1) —
+      // cible des liens profonds `doc:article#id`. null → attribut absent.
+      return <Tag key={key} id={node.id || undefined} className={`md-h md-h${node.level}`}>{node.children.map(renderInline)}</Tag>
     }
     case 'paragraph':
       return <p key={key} className="md-p">{node.children.map(renderInline)}</p>
@@ -217,12 +219,17 @@ function DocLinkAnchor({ node }) {
   )
 }
 
-// Lien interne doc→doc (scheme `doc:article-id`, L.3.3) : change l'article
-// courant sans quitter l'onglet Documentation. Rendu comme un lien normal
-// (c'est un hyperlien classique, pas un saut vers l'UI). Inerte sans provider.
+// Lien interne doc→doc (scheme `doc:article-id`, L.3.3 ; fragment U.1) :
+// change l'article courant sans quitter l'onglet Documentation. Avec un
+// fragment `doc:article-id#heading-id` (iter-U phase-1.1), scrolle en plus
+// vers le heading ciblé. Rendu comme un lien normal (c'est un hyperlien
+// classique, pas un saut vers l'UI). Inerte sans provider.
 function DocNavLink({ node }) {
   const { onDocNav } = useContext(MarkdownNavContext)
-  const articleId = node.href.slice(4)
+  const raw = node.href.slice(4)
+  const hash = raw.indexOf('#')
+  const articleId = hash === -1 ? raw : raw.slice(0, hash)
+  const fragment = hash === -1 ? null : raw.slice(hash + 1)
   return (
     <a
       href="#"
@@ -230,7 +237,7 @@ function DocNavLink({ node }) {
       data-docnav-target={articleId}
       onClick={(e) => {
         e.preventDefault()
-        onDocNav?.(articleId)
+        onDocNav?.(articleId, fragment)
       }}
     >
       {node.children.map(renderInline)}

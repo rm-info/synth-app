@@ -27,12 +27,18 @@ import './DocumentationTab.css'
 // quand la TOC est encore vide).
 const SCROLL_SAVE_DEBOUNCE_MS = 200
 const SHORTCUTS_ARTICLE_ID = 'shortcuts'
+// Liens profonds (iter-U phase-1.1) : sonde du heading ciblé + flash.
+const FRAGMENT_FLASH_CLASS = 'doc-highlight-flash' // réutilise styles/highlight.css
+const FRAGMENT_FLASH_MS = 3600                     // = défaut highlightElement
+const FRAGMENT_MAX_WAIT_MS = 800                   // borne du retry RAF (montage async)
 
 export default function DocumentationTab({
   doc,
   sidebarCollapsed,
   sidebarWidth,
   onDocLink,
+  onDocNav,
+  fragmentRequest,
   onSetCurrentArticle,
   onSetArticleScroll,
   onToggleSidebar,
@@ -58,28 +64,60 @@ export default function DocumentationTab({
 
   const contentRef = useRef(null)
   const saveTimerRef = useRef(null)
+  // Sentinelle `undefined` : le 1er passage (mount) compte comme un
+  // changement d'article → restauration ou fragment appliqués au mount.
+  const prevArticleRef = useRef(undefined)
+  // Dernier nonce de fragment consommé : un fragment ne s'applique qu'une
+  // fois. Un retour ultérieur sur le même article par le TOC redonne donc
+  // ses droits à la restauration de scroll session (spec U.1).
+  const consumedFragNonceRef = useRef(null)
 
-  // Restaure la position de scroll au mount / switch d'article. setTimeout
-  // 0 = attendre que le DOM soit peint après le changement de contenu
-  // (sinon le scrollTop est appliqué avant le re-render).
+  // Restaure la position de scroll au mount / switch d'article, SAUF si un
+  // fragment est ciblé (`doc:article#id`, iter-U phase-1.1) : le fragment
+  // prime sur la restauration (pas de course visible entre les deux
+  // scrolls). setTimeout 0 = attendre que le DOM soit peint après le
+  // changement de contenu (sinon le scrollTop est appliqué avant le re-render).
   useEffect(() => {
     const el = contentRef.current
     if (!el) return
-    const saved = currentArticleId != null ? (scrollPositions[currentArticleId] ?? 0) : 0
+    const articleChanged = prevArticleRef.current !== currentArticleId
+    prevArticleRef.current = currentArticleId
+
     // Annule un éventuel save en cours du précédent article — la frame
     // de transition ne doit pas écraser la position que l'on s'apprête
-    // à restaurer pour le nouvel article.
+    // à restaurer (ou le fragment vers lequel on scrolle).
     if (saveTimerRef.current) {
       clearTimeout(saveTimerRef.current)
       saveTimerRef.current = null
     }
+
+    const req = fragmentRequest
+    const frag =
+      req && req.articleId === currentArticleId && req.nonce !== consumedFragNonceRef.current
+        ? req.fragment
+        : null
+
+    if (frag) {
+      consumedFragNonceRef.current = req.nonce
+      // Cross-article : repartir du haut pour ne pas exposer la position de
+      // l'article précédent le temps que la sonde trouve le heading. Même
+      // article déjà ouvert (pas de changement) : pas de reset, scroll
+      // fluide depuis la position courante.
+      if (articleChanged) el.scrollTop = 0
+      return scrollToFragment(el, frag)
+    }
+
+    // Restauration normale — uniquement sur changement d'article (un simple
+    // changement de fragmentRequest sans heading ne doit pas resetter).
+    if (!articleChanged) return
+    const saved = currentArticleId != null ? (scrollPositions[currentArticleId] ?? 0) : 0
     const id = window.setTimeout(() => { el.scrollTop = saved }, 0)
     return () => window.clearTimeout(id)
     // Volontairement on ne dépend pas de scrollPositions : la map est
     // mise à jour à chaque scroll, ce qui re-tirerait l'effet et
     // forcerait un reset visuel pendant la lecture.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentArticleId])
+  }, [currentArticleId, fragmentRequest])
 
   const handleScroll = useCallback(() => {
     if (!currentArticleId) return
@@ -126,18 +164,6 @@ export default function DocumentationTab({
   useEffect(() => {
     if (!sidebarCollapsed) setTocPopoverOpen(false)
   }, [sidebarCollapsed])
-
-  // Lien interne doc→doc (L.3.3) : ne navigue que vers un article connu
-  // de la TOC ; cible inconnue = no-op + warn dev (lien cassé dans un
-  // article). Le scroll de l'article cible repart de sa position sauvée
-  // via l'effet sur currentArticleId.
-  const onDocNav = useCallback((articleId) => {
-    if (DOC_TOC.some((e) => e.id === articleId)) {
-      onSetCurrentArticle(articleId)
-    } else if (import.meta.env.DEV) {
-      console.warn('[doc:] article inconnu:', articleId)
-    }
-  }, [onSetCurrentArticle])
 
   const pickArticleAndClose = useCallback((id) => {
     onSetCurrentArticle(id)
@@ -341,4 +367,43 @@ function renderArticle(entry, sections, onSetCurrentArticle, onDocLink, onDocNav
       <p>Type de contenu non géré : <code>{entry.type}</code>.</p>
     </div>
   )
+}
+
+// Scrolle vers le heading `#fragment` dans la zone de contenu et y pose un
+// flash de surbrillance (iter-U phase-1.1). Le contenu d'article monte de
+// façon asynchrone au switch ; on sonde donc le DOM via requestAnimationFrame,
+// borné par FRAGMENT_MAX_WAIT_MS — même esprit que highlightElement. Fragment
+// introuvable après le délai → on retombe en haut d'article, sans erreur.
+// Renvoie un cleanup (annule la sonde / le timer si l'effet se ré-exécute).
+function scrollToFragment(container, fragment) {
+  const start = performance.now()
+  let rafId = 0
+  let flashTimer = 0
+
+  const attempt = () => {
+    const el = container.querySelector(`#${CSS.escape(fragment)}`)
+    if (el) {
+      el.scrollIntoView({ block: 'start', behavior: 'smooth' })
+      // Réutilise l'animation doc-highlight-flash (styles/highlight.css) :
+      // un seul langage visuel pour « voici l'élément ciblé ».
+      el.style.setProperty('--doc-highlight-duration', `${FRAGMENT_FLASH_MS}ms`)
+      el.classList.add(FRAGMENT_FLASH_CLASS)
+      flashTimer = window.setTimeout(() => {
+        el.classList.remove(FRAGMENT_FLASH_CLASS)
+        el.style.removeProperty('--doc-highlight-duration')
+      }, FRAGMENT_FLASH_MS)
+      return
+    }
+    if (performance.now() - start < FRAGMENT_MAX_WAIT_MS) {
+      rafId = requestAnimationFrame(attempt)
+      return
+    }
+    container.scrollTop = 0 // fallback gracieux : haut d'article, zéro erreur
+  }
+
+  rafId = requestAnimationFrame(attempt)
+  return () => {
+    if (rafId) cancelAnimationFrame(rafId)
+    if (flashTimer) clearTimeout(flashTimer)
+  }
 }

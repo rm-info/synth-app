@@ -22,6 +22,7 @@ import DeleteUsageWarningDialog from './components/DeleteUsageWarningDialog'
 import ConfirmDialog from './components/ConfirmDialog'
 import ShortcutsOverlay from './components/ShortcutsOverlay'
 import DocumentationTab from './components/DocumentationTab'
+import { DOC_TOC } from './docs/index.js'
 import Tour from './components/Tour'
 import { DESIGNER_MOBILE_ORDER } from './lib/designerModules'
 import { STRINGS } from './lib/strings'
@@ -1175,6 +1176,27 @@ function App() {
     highlightElement(anchor)
   }, [setActiveTab])
 
+  // Navigation « ouvre article (+ fragment) » de l'onglet Documentation
+  // (iter-U phase-1.1). Point d'entrée UNIQUE et réutilisable : sert les
+  // liens markdown `doc:article#id` ET, dès U.2, le mode Info (bascule
+  // d'onglet depuis l'extérieur). Le fragment est une intention de
+  // navigation transitoire (one-shot, hors reducer) ; le nonce force la
+  // ré-exécution même quand article/fragment sont identiques. Article
+  // inconnu = no-op + warn dev (lien cassé dans un article).
+  const [docFragmentRequest, setDocFragmentRequest] = useState(null)
+  const docNavNonceRef = useRef(0)
+  const navigateToDoc = useCallback((articleId, fragment = null) => {
+    if (!DOC_TOC.some((e) => e.id === articleId)) {
+      if (import.meta.env.DEV) console.warn('[doc:] article inconnu:', articleId)
+      return
+    }
+    setActiveTab('documentation')
+    dispatch({ type: 'SET_CURRENT_ARTICLE', payload: articleId })
+    if (fragment) {
+      setDocFragmentRequest({ articleId, fragment, nonce: ++docNavNonceRef.current })
+    }
+  }, [setActiveTab])
+
   const handleSavePatch = useCallback(
     (patchData) => {
       const newId = `patch-${patchCounter + 1}`
@@ -2234,6 +2256,8 @@ function App() {
           sidebarCollapsed={docSidebarCollapsed}
           sidebarWidth={docSidebarWidth}
           onDocLink={handleDocLink}
+          onDocNav={navigateToDoc}
+          fragmentRequest={docFragmentRequest}
           onSetCurrentArticle={(id) => dispatch({ type: 'SET_CURRENT_ARTICLE', payload: id })}
           onSetArticleScroll={(articleId, scrollTop) => dispatch({ type: 'SET_ARTICLE_SCROLL', payload: { articleId, scrollTop } })}
           onToggleSidebar={() => dispatch({ type: 'TOGGLE_DOC_SIDEBAR' })}

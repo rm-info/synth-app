@@ -183,10 +183,22 @@ export function parseMarkdown(source) {
     // Ligne vide : séparateur de blocs.
     if (line.trim() === '') { i++; continue }
 
-    // Titre #..####
+    // Titre #..####. Suffixe d'id explicite optionnel style pandoc
+    // `## Titre {#mon-id}` (iter-U phase-1.1) : retiré du texte affiché,
+    // exposé en champ `id` du noeud (kebab-case `[a-z0-9-]+`). Pas
+    // d'auto-slug : un titre sans `{#id}` n'est pas ciblable (`id: null`) —
+    // les ids du registre Info (U.2) doivent survivre aux reformulations
+    // du writer (U.4). Pas de validation d'unicité au parse (autorat).
     const h = line.match(/^(#{1,4})\s+(.*)$/)
     if (h) {
-      blocks.push({ type: 'heading', level: h[1].length, children: parseInline(h[2]) })
+      let text = h[2]
+      let id = null
+      const idSuffix = text.match(/\s*\{#([a-z0-9-]+)\}\s*$/)
+      if (idSuffix) {
+        id = idSuffix[1]
+        text = text.slice(0, idSuffix.index).trimEnd()
+      }
+      blocks.push({ type: 'heading', level: h[1].length, id, children: parseInline(text) })
       i++
       continue
     }
