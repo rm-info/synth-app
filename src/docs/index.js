@@ -25,6 +25,16 @@ import comprendrePianoPasJusteMd from './articles/comprendre-piano-pas-juste.md?
 import guideDesignerMd from './articles/guide-designer.md?raw'
 import guideBibliothequeMd from './articles/guide-bibliotheque.md?raw'
 import guideComposerMd from './articles/guide-composer.md?raw'
+// iter-U phase-3.1 : articles par module de la Création (section « La Création
+// en détail »). Squelettes factuels (faits vérifiés dans le code) ; la prose
+// pédagogique vient en U.4 (writer).
+import creationAtelierMd from './articles/creation-atelier.md?raw'
+import creationFormeOndeMd from './articles/creation-forme-onde.md?raw'
+import creationHarmoniquesMd from './articles/creation-harmoniques.md?raw'
+import creationSpectrogrammeMd from './articles/creation-spectrogramme.md?raw'
+import creationInstrumentMd from './articles/creation-instrument.md?raw'
+import creationEnveloppeMd from './articles/creation-enveloppe.md?raw'
+import creationEffetsMd from './articles/creation-effets.md?raw'
 import limitesConnuesMd from './articles/limites-connues.md?raw'
 import glossaireTechniqueMd from './articles/glossaire-technique.md?raw'
 import glossaireMusicalMd from './articles/glossaire-musical.md?raw'
@@ -73,6 +83,55 @@ export const DOC_TOC = [
     section: 'Prise en main',
     type: 'markdown',
     source: guideComposerMd,
+  },
+  {
+    id: 'creation-atelier',
+    title: 'L\'atelier : barre d\'outils, actions, écoute',
+    section: 'La Création en détail',
+    type: 'markdown',
+    source: creationAtelierMd,
+  },
+  {
+    id: 'creation-forme-onde',
+    title: 'Le module Forme d\'onde',
+    section: 'La Création en détail',
+    type: 'markdown',
+    source: creationFormeOndeMd,
+  },
+  {
+    id: 'creation-harmoniques',
+    title: 'Le module Harmoniques',
+    section: 'La Création en détail',
+    type: 'markdown',
+    source: creationHarmoniquesMd,
+  },
+  {
+    id: 'creation-spectrogramme',
+    title: 'Le module Spectrogramme',
+    section: 'La Création en détail',
+    type: 'markdown',
+    source: creationSpectrogrammeMd,
+  },
+  {
+    id: 'creation-instrument',
+    title: 'Le module Instrument',
+    section: 'La Création en détail',
+    type: 'markdown',
+    source: creationInstrumentMd,
+  },
+  {
+    id: 'creation-enveloppe',
+    title: 'Le module Enveloppe',
+    section: 'La Création en détail',
+    type: 'markdown',
+    source: creationEnveloppeMd,
+  },
+  {
+    id: 'creation-effets',
+    title: 'Le module Effets',
+    section: 'La Création en détail',
+    type: 'markdown',
+    source: creationEffetsMd,
   },
   {
     id: 'comprendre-piano-pas-juste',
