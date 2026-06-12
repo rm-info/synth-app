@@ -44,12 +44,14 @@ framework UI (CSS manuscrit), pas de routing, pas de backend.
 | T | Effets sans mémoire : module Effets (9 effets par patch), auto-pan, pitch env (Inverser + 4 formes), filtre + env + wah, disto vivante (env. drive, poignée 2D) — .osa v4 — v1.12.0 | 2026-06-12 |
 
 **État courant** : **Iteration U « Documentation utilisateur de la Création »**
-en cours — **phase U.1 livrée** (socle renderer doc : ids de titre `{#id}`, liens
-profonds `doc:article#fragment` avec scroll + flash, accordéon `<Details>`, images
-SVG `public/docs/`, article de test renderer recréé). Suite : U.2 mode Info (bouton +
-Ctrl+I + overlay + registre), U.3 couverture, U.4 prose writer. Iteration T « Effets
-sans mémoire » **close** (release **v1.12.0**, 2026-06-12). Détail des itérations closes,
-saga et roadmaps dans `CONTEXT-ARCHIVE.md`.
+en cours — **phases U.1 + U.2 livrées**. U.1 = socle renderer doc (ids de titre
+`{#id}`, liens profonds `doc:article#fragment` scroll + flash, accordéon `<Details>`,
+images SVG `public/docs/`). U.2 = **mode Info** (bouton header + **Ctrl+I**, overlay
+de badges cliquables sur les contrôles documentés visibles, registre déclaratif
+`DOC_TARGETS` amorcé sur les ancres Designer → `guide-designer.md`). Suite : U.3
+couverture complète (ancres Création manquantes + articles par module), U.4 prose
+writer. Iteration T « Effets sans mémoire » **close** (release **v1.12.0**, 2026-06-12).
+Détail des itérations closes, saga et roadmaps dans `CONTEXT-ARCHIVE.md`.
 
 > **Structure des fichiers de contexte.** Ce `CONTEXT.md` est le **brief
 > vivant** : état présent, modèle de données, composants, architecture,
@@ -109,7 +111,8 @@ synth-app/
     │   ├── libraryTransfer.js # transformations état ↔ payload .osa
     │   ├── folderNames.js    # nextAvailableFolderName partagé (extraction H.1.4)
     │   ├── bibTransfer.js               # wouldCreateCycle + duplicateItemsToFolder (K.1.7)
-    │   ├── shortcuts.js      # table déclarative + matchesShortcut / getAnchor (iter-L phase-1.1)
+    │   ├── shortcuts.js      # table déclarative + matchesShortcut / getAnchor (iter-L phase-1.1) ; iter-U phase-2.1 : entrée `global-info` (Ctrl+I)
+    │   ├── docTargets.js     # (iter-U phase-2.2) registre DOC_TARGETS du mode Info (moule de SHORTCUTS) : { id, contexts, anchor, label, doc:'article[#id]' } → badge cliquable → navigateToDoc ; getTargetAnchor / splitDocTarget. Amorcé sur les ancres Designer
     │   ├── designerModules.js # (iter-O phase-5c/5d, iter-P) MODULE_META des 6 modules Designer { label, Icon Lucide } + DESIGNER_ROWS / rowSiblings (rangée haut 3 / bas 3) — source unique (headers, bande, auto-réduction)
     │   ├── filter.js         # (iter-T T.4) filtre statique : biquadQValue (piège d'unité Q — dB pour LP/HP, linéaire pour BP/notch) + configureBiquad, partagés par les 4 chemins audio ET le graphe de réponse (biquad de mesure)
     │   ├── distortion.js     # (iter-T T.6/T.6bis) distorsion par voix : distortionTransfer (soft tanh / hard clamp / fold sin, normalisées ±1→±1) + distortionCurveTable (mémo (curve,drive)) + configureShaper (oversample 4x) + connectDistortion (split wet/dry, insertion avant le filtre ; T.6bis : insère un inputGain base 1 avant le shaper quand driveEnv actif, le retourne pour l'automation) ; partagé 4 chemins audio + graphe de transfert
@@ -172,7 +175,8 @@ synth-app/
         ├── DeleteUsageWarningDialog.jsx + .css # modal warning patches utilisés (K.2.8)
         ├── ConfirmDialog.jsx + .css          # modal confirmation générique (K.2.f16)
         ├── RecentPatchesList.jsx + .css      # LRU 10 derniers patches Composer (K.2.f11)
-        ├── ShortcutsOverlay.jsx + .css       # overlay raccourcis "lever le voile" Ctrl+K (iter-L phase-1.5)
+        ├── ShortcutsOverlay.jsx + .css       # overlay raccourcis "lever le voile" Ctrl+K (iter-L phase-1.5) ; iter-U phase-2.1 : laisse passer Ctrl+I (switch vers Info)
+        ├── InfoOverlay.jsx + .css            # (iter-U phase-2.2) overlay « Documentation interactive » Ctrl+I : badges <button> bleus sur les ancres DOC_TARGETS visibles → navigateToDoc ; backdrop bleuté (≠ jaune raccourcis), exclusion mutuelle avec ShortcutsOverlay, message « bientôt » si onglet sans cible
         ├── DocumentationTab.jsx + .css       # layout TOC + zone contenu de l'onglet Documentation (iter-L phase-2.3) ; iter-U phase-1.1 : scroll vers fragment `doc:#id` (sonde RAF bornée + flash doc-highlight-flash, prime sur la restauration de scroll session via nonce consommé une fois)
         ├── MarkdownRenderer.jsx + .css       # rendu AST Markdown maison → JSX + DocLink/doc: actifs via MarkdownNavContext + rendu math sup/sub/frac/sum, displayMode (iter-L phase-2.2 / 3.2-3.3 / R.2 / iter-M phase-5a.2) ; iter-U phase-1 : id sur headings, fragment `doc:#id` (onDocNav(articleId, fragment)), accordéon `<details>`/`<summary>` (chevron pivotant), .md-image centré
         ├── ShortcutsReference.jsx + .css     # article généré "Raccourcis clavier" depuis SHORTCUTS (iter-L phase-2.4)
@@ -380,6 +384,8 @@ type Clip = {                     // placement timeline + hauteur
 // NON persisté (volatile) : selectedClipIds, currentPatchId, zoomH,
 // defaultClipDuration, lastAnchorClipId, composerFlash,
 // shortcutsOverlayOpen (iter-L phase-1.6, runtime uniquement),
+// infoOverlayOpen (iter-U phase-2.1, mode Info Ctrl+I, runtime — mutuellement
+//   exclusif avec shortcutsOverlayOpen, géré par le reducer),
 // tour (iter-L phase-4, runtime uniquement — un tour ne survit pas à un refresh),
 // editor.points / amplitude / ADSR / preset (vides au reload, l'éditeur
 // de patch n'est pas restauré ; seuls les champs `test*` et `visualCue*`
@@ -1831,6 +1837,26 @@ Choix non évidents pris pour de bonnes raisons. À ne pas remettre en question
   dernière étape le re-déclencherait). Là, le spotlight s'éteint (voile plein
   écran) et la bulle se centre dans le viewport. Navigation clavier ← / → en
   plus des boutons, lue via une ref synchronisée hors render.
+- **Mode Info = 4e consommateur de `getAnchoredPosition` (iter-U phase-2)** :
+  `src/components/InfoOverlay.jsx` (Ctrl+I) pose un **badge `<button>` cliquable
+  sur chaque contrôle documenté visible** de l'onglet actif, et le clic mène au
+  paragraphe doc dédié via `navigateToDoc` (machinerie U.1, zéro code côté
+  arrivée). **Symétrie avec l'overlay raccourcis** (Ctrl+K) : même résolution
+  d'ancre, même posture « ancre absente / rect dégénéré = pas de badge » (module
+  replié, tiroir `⋯`, mobile → masqués gratuitement). Deux divergences voulues :
+  identité **bleue** (≠ jaune raccourcis) pour distinguer le mode d'un coup
+  d'œil, et badges = **vrais boutons focusables** (Tab/Entrée gratuits) plutôt
+  que la mécanique rest→hover de l'overlay raccourcis (inutile ici). **Registre
+  déclaratif `lib/docTargets.js`** (`DOC_TARGETS`, moule de `SHORTCUTS`) :
+  `{ id, contexts, anchor, label, doc:'article[#id]' }` — `contexts` multi-onglets
+  by design, `doc` sans fragment légal (section pas encore écrite). Découplage :
+  ajouter une cible = une entrée + (au besoin) un `{#id}` sur un heading, sans
+  toucher au composant. **Exclusion mutuelle Info ↔ Raccourcis portée par le
+  reducer** (`SET_INFO_OVERLAY`/`SET_SHORTCUTS_OVERLAY` : ouvrir l'un ferme
+  l'autre) ; le *switch* clavier marche parce que **chaque overlay laisse passer
+  la combinaison de l'autre** (ne la capture pas → elle bulle jusqu'au handler
+  App qui ouvre l'overlay concurrent). État `infoOverlayOpen` volatile, hors undo,
+  comme `shortcutsOverlayOpen`.
 - **Posture mode note : possession totale du clavier
   alphanumérique (F.7.5)** : hors form-field et hors raccourcis OS
   (Ctrl/Alt/Meta), le mode note "possède" l'ensemble fixe
@@ -2423,6 +2449,18 @@ Conventions tacites. Les enfreindre sans raison crée des bugs subtils.
 **Iteration U « Documentation utilisateur de la Création »** en cours (ouverte **2026-06-12**).
 
 🚧 **En cours**
+- **U.2 — mode Info (livrée, 2026-06-12)** : la **boucle complète du mode
+  documentation interactive**, amorcée sur les ancres Designer. Bouton Info dans le
+  header (entre Raccourcis et Tour) + **Ctrl+I** ; `InfoOverlay` pose un **badge
+  cliquable** sur chaque contrôle documenté **visible** de l'onglet actif (filtre
+  `getAnchoredPosition` : modules repliés / tiroir `⋯` / mobile masqués
+  gratuitement) ; clic = bascule sur le paragraphe doc dédié (`navigateToDoc`,
+  machinerie U.1). Registre déclaratif `lib/docTargets.js` (`DOC_TARGETS`, moule de
+  `SHORTCUTS`, 16 entrées Designer → sections de `guide-designer.md`). 9 `{#id}`
+  posés sur les headings existants (prose intacte). État volatile `infoOverlayOpen`,
+  exclusion mutuelle avec l'overlay Raccourcis (reducer). Identité bleue distincte,
+  thèmes OK. Hors scope (→ U.3) : ancres Création manquantes, articles par module,
+  couverture Composition/Bibliothèque/Documentation.
 - **U.1 — socle renderer/doc (livrée, 2026-06-12)** : tout ce qui manquait au système de
   documentation pour accueillir le mode Info. Chantier confiné au markdown et à l'onglet
   Documentation (ni modèle, ni reducer, ni audio, ni onglet Création touchés). Trois
@@ -3360,8 +3398,11 @@ survol narratif. Navigation = **bascule d'onglet** (pas de panneau in-situ). Pro
   `App.navigateToDoc`), accordéon `<Details>` (contenu re-parsé récursivement, replié par
   défaut), images SVG `public/docs/` + `.md-image` centré, `_renderer-test.md` recréé
   (section TOC « Interne », à retirer en fin d'itération U).
-- **U.2 — mode Info** : bouton + Ctrl+I, composant overlay, registre déclaratif
-  ancre → paragraphe, amorcé sur les ancres existantes.
+- ✅ **U.2 — mode Info (livrée)** : bouton header + **Ctrl+I**, `InfoOverlay`
+  (badges `<button>` bleus cliquables sur les contrôles documentés visibles),
+  registre déclaratif `DOC_TARGETS` (`lib/docTargets.js`) amorcé sur les ancres
+  Designer → `guide-designer.md` (9 headings dotés d'un `{#id}`). Exclusion
+  mutuelle avec l'overlay Raccourcis. Couverture des autres onglets = U.3.
 - **U.3 — couverture complète** : pose des `data-anchor` manquants sur l'onglet Création
   + articles squelettes par module + registre complet.
 - **U.4 — peuplement des contenus** : **domaine writer**, hors scope dev (brief séparé).

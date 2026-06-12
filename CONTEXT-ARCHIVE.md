@@ -883,6 +883,37 @@ Phases listées ci-dessous dans l'ordre chronologique d'implémentation.
 
 ## Historique (chronologie inverse)
 
+- **2026-06-12 — Iteration U — phase U.2 (mode Info : Ctrl+I, overlay, registre)**
+  (`feat(iter-U/phase-2.1→2.2)` + doc). Boucle complète du mode « documentation
+  interactive », amorcée sur les ancres Designer existantes. **Aucun changement de
+  modèle métier, d'audio ni de persistance** (état du mode volatile, comme
+  `shortcutsOverlayOpen`). **Deux sous-commits** :
+  - **2.1 — bouton Info + Ctrl+I + état.** Bouton Info (icône Lucide) dans le header
+    entre Raccourcis et Tour (desktop + relogement OverflowToolbar mobile, même ordre
+    relatif), `data-anchor="header-info-button"`, libellés `strings.js` (`infoMode`).
+    Entrée `SHORTCUTS` **`global-info`** (Ctrl/Cmd+I, moule de `global-shortcuts`) →
+    badge overlay Raccourcis + ligne article généré gratuits. État **`infoOverlayOpen`**
+    volatile (non persisté, hors undo) + action `SET_INFO_OVERLAY` ; **exclusion
+    mutuelle portée par le reducer** (ouvrir l'un ferme l'autre — types.ts : champ
+    `AppState` + union `Action`). Handler Ctrl+I dans App (mêmes exclusions que Ctrl+K :
+    champ de saisie, modale, Tour ; `preventDefault` Firefox). `ShortcutsOverlay` modifié
+    pour **laisser passer Ctrl+I** (bulle → App → switch).
+  - **2.2 — InfoOverlay + registre DOC_TARGETS.** Registre déclaratif
+    `lib/docTargets.js` (moule de `SHORTCUTS`) : 16 entrées Designer
+    (`{ id, contexts, anchor, label, doc:'article[#id]' }`), `doc` sans fragment légal
+    (module Effets → section en U.3). Helpers `getTargetAnchor` / `splitDocTarget`.
+    **9 `{#id}` posés sur les headings existants de `guide-designer.md`** — suffixes
+    invisibles au rendu, **aucune modification de prose** (frontière writer respectée).
+    Composant **`InfoOverlay`** calqué sur `ShortcutsOverlay` (backdrop fixed, RAF
+    repositionnement, fermeture clavier capture) mais : badges = **vrais `<button>`
+    bleus** (Tab/Entrée gratuits) centrés sur chaque ancre **visible** (filtre
+    `getAnchoredPosition` → repliés/tiroir/mobile masqués), identité **bleue** (≠ jaune
+    raccourcis), clic = `onClose` + **`navigateToDoc(articleId, fragment)`** (zéro code
+    côté arrivée, machinerie U.1). Exempte Ctrl+K (switch vers Raccourcis). Onglet sans
+    cible (Composition/Bibliothèque/Documentation) → message « bientôt » central (mode
+    découvrable partout, pas de bouton désactivé). 4ᵉ consommateur de
+    `getAnchoredPosition` (après overlay raccourcis, `highlightElement`, Tour). Reste
+    U.3 (couverture exhaustive Création) + U.4 (prose writer).
 - **2026-06-12 — Iteration U — ouverture + phase U.1 (socle renderer doc)**
   (`feat(iter-U/phase-1.1→1.3)` + doc). Ouverture de l'itération « Documentation
   utilisateur de la Création » (mode Info à venir en U.2). U.1 = tout ce qui manquait au
