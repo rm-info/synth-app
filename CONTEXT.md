@@ -16,7 +16,7 @@ persistance localStorage (clé `synth-app-state`). **TypeScript incrémental**
 lib audio, pas de state manager (un `useReducer` global dans `App.jsx`), pas de
 framework UI (CSS manuscrit), pas de routing, pas de backend.
 
-**Version courante : v1.11.0** (2026-06-09).
+**Version courante : v1.12.0** (2026-06-12).
 
 **Itérations livrées** (détail complet dans `CONTEXT-ARCHIVE.md`) :
 
@@ -41,39 +41,13 @@ framework UI (CSS manuscrit), pas de routing, pas de backend.
 | Q | Désencombrement Designer : retrait auto-sizing + bouton « Égaliser » deux rangées + fix taille boutons spectro — v1.9.1 | 2026-06-07 |
 | R | Refonte petit écran Designer : switcher de modules (un module plein cadre), top header priority-plus + hamburger, gate orientation-aware 300/500 + densification < 700×500, correctifs mobile (R.3.rectif) ; R.4 (orientation) annulée — v1.10.0 | 2026-06-08 |
 | S | Support tactile : Pointer Events app-wide (tracé · clavier polyphonique · poignées · Timeline), touch-action chirurgical, shell non-scrollable + PWA légère standalone ; durcissement audio (master headroom-bas + soft-clip filet, déclic MIN_RELEASE/ATTACK, buffer mobile, export normalisé) — v1.11.0 | 2026-06-09 |
+| T | Effets sans mémoire : module Effets (9 effets par patch), auto-pan, pitch env (Inverser + 4 formes), filtre + env + wah, disto vivante (env. drive, poignée 2D) — .osa v4 — v1.12.0 | 2026-06-12 |
 
-**État courant** : **Iteration T « Effets sans mémoire » en cours** (sur la base
-v1.11.0). **T.1** (socle UI pur, module « Effets » + switcher header) → **T.2** (auto-pan,
-1ᵉʳ effet **stéréo**, `StereoPannerNode` conditionnel, **`.osa` `OSA_VERSION = 4`** =
-seul bump de l'itération) → **T.3 livrée** (pitch envelope) : 1ʳᵉ modulation **non-LFO** —
-`Patch`/`Editor` += **`pitchEnv {enabled, amount cents signé, time ms, invert, curve}`**,
-**automation de la valeur de base d'`osc.detune`** (aucun nœud ; le vibrato, branche
-entrante, s'y **somme** → coexistence par construction) sur les 4 chemins, 4ᵉ bouton
-« Hauteur » + panneau (graphe d'enveloppe à 2 poignées). **T.3bis** : mode **Inverser**
-(part de la note → s'en éloigne, y reste). **T.3ter** : **4 formes de progression**
-(`curve` Linéaire/Décélérée/Exponentielle/Accélérée) via **`setValueCurveAtTime`** (64 pts
-pour les formes non linéaires) — orthogonal à `invert`. → **T.4 livrée** (filtre statique) :
-1ᵉʳ **`BiquadFilterNode` par voix** (`filter {enabled, type LP/HP/BP/notch, cutoff, q linéaire}`,
-insertion **VCO→VCF→VCA** conditionnelle, **mapping Q** dB↔linéaire partagé audio/graphe via
-`lib/filter.js`) + 1ᵉʳ **graphe de réponse en fréquence** à poignée 2D (`getFrequencyResponse`).
-→ **T.5 livrée** (enveloppe de filtre + wah) : **clé archi = `biquad.detune` est en cents**, comme
-l'oscillateur → l'env de filtre **réutilise le pitch env** et le wah **réutilise le vibrato**, appliqués
-à `biquad.detune` (no-op si filtre off). `PitchEnv` **généralisé en `ParamEnv`** (type partagé) ;
-`Patch`/`Editor` += **`filterEnv: ParamEnv`** (amount ±4800 cents, time 0..2000) + **`wah: Lfo`**
-(depth cents 0..3600). Helper audio partagé **`scheduleParamEnv`** (osc.detune ET biquad.detune).
-→ **T.6 livrée** (distorsion — dernière phase) : **`WaveShaperNode` 4x par voix**, inséré **AVANT
-le filtre** (`osc → shaper → biquad → gain` ; logique soustractive — on enrichit le spectre, le
-filtre le dompte). `Patch`/`Editor` += **`distortion {enabled, curve soft/hard/fold, drive 1..50,
-mix 0..1}`** ; courbes de transfert normalisées ±1→±1 (`lib/distortion.js`, mémo + helper partagé
-audio/graphe) ; **mix** = split wet/dry ; 8ᵉ bouton « Disto » + panneau (switch 3 courbes, graphe
-de transfert à poignée Drive log). → **T.6bis livrée** (disto vivante) : graphe = courbe **effective**
-`mix·f(x)+(1−mix)·x` (+ wet pure grisée si mix<1) ; **`driveEnv: ParamEnv`** (3ᵉ instance, `amount` =
-décalage de **gain** ±1) module un **gain d'entrée du shaper** (`scheduleParamEnv(inputGain.gain,
-base 1)` — la courbe du WaveShaper n'étant pas un AudioParam, on module le niveau d'entrée) ;
-défaut **invert** = « ampli » (attaque saturée → s'éclaircit) ; 9ᵉ bouton « Env. drive » + hint disto
-off. **Itération T feature-complete (9 effets sans mémoire), en attente de clôture/release.** **Pas de
-bump** (champs absents → défauts injectés, v4 inchangé). Dernière release :
-**v1.11.0** (Iteration S). Détail S.1→S.audio.5 et arc audio dans `CONTEXT-ARCHIVE.md`.
+**État courant** : **entre deux itérations**. Iteration T « Effets sans mémoire »
+**close** (release **v1.12.0**, 2026-06-12) : 9 effets sans mémoire par patch (vibrato,
+trémolo, auto-pan, hauteur, filtre, env. filtre, wah, disto, env. drive), module Effets à
+switcher (un panneau à la fois), `.osa` v4. Détail des phases T.1→T.6.9, saga et roadmap
+dans `CONTEXT-ARCHIVE.md`.
 
 > **Structure des fichiers de contexte.** Ce `CONTEXT.md` est le **brief
 > vivant** : état présent, modèle de données, composants, architecture,
@@ -1289,20 +1263,23 @@ Choix non évidents pris pour de bonnes raisons. À ne pas remettre en question
   **outil système** ou rien — jamais sharp/resvg/… en douce. Tant qu'aucun
   rasteriseur n'est dispo, le manifest reste **SVG-only** (PNG iOS/maskable en
   dette BACKLOG, icône iOS générique assumée).
-- **Modulations par patch via helper partagé sur les 4 chemins (iter-P ; auto-pan
-  T.2 ; pitch env T.3)** : le vibrato, le trémolo, l'auto-pan (LFO) **et l'enveloppe
-  de hauteur** (non-LFO) sont **par patch** (pas par clip — pas de champ de modulation
-  sur `Clip`). Un **helper unique**
+- **Modulations par patch via helper partagé sur les 4 chemins + insertion
+  conditionnelle des nœuds par l'appelant (iter-P ; effets T.2→T.6)** : vibrato, trémolo,
+  auto-pan (LFO), enveloppes de hauteur/filtre/drive (`ParamEnv`), wah et distorsion sont
+  **par patch** (pas par clip — pas de champ de modulation sur `Clip`). Un **helper unique**
   `lib/modulation.js` (`applyModulation`) est câblé sur les **4 chemins de synthèse**
   (lecture timeline, export WAV, preview clavier, preview note libre) —
   `scheduleOneClip` et `scheduleAllClips` étant du code dupliqué, le helper partagé
   est la seule défense contre la divergence one/all (régression classique documentée).
-  Le helper **n'alloue jamais** osc/gain/panner et ne les connecte pas à `dest` :
-  il ne fait qu'**ajouter des branches** ; l'appelant possède la chaîne principale
-  (y compris le `StereoPannerNode` de l'auto-pan, qu'il **insère** conditionnellement)
-  et stoppe/déconnecte les nœuds LFO + le panner symétriquement à l'`osc` (cleanup
-  programmé via `stopTime` pour timeline/export, manuel au release pour les previews
-  qui sustainent indéfiniment).
+  Le helper **n'alloue jamais** la chaîne porteuse (osc/gain) et ne la connecte pas à
+  `dest` : il ne fait qu'**ajouter des branches**. L'appelant possède la chaîne principale
+  et **insère conditionnellement** les nœuds **structurels** des effets — `StereoPannerNode`
+  (auto-pan, si `depth>0`), `BiquadFilterNode` (filtre, si `enabled`), `WaveShaper` + gains
+  wet/dry (disto, si `mix>0`), `inputGain` du shaper (env. drive, si activée) : **chaîne
+  bit-identique** quand l'effet est off (aucun nœud créé, aucune coloration résiduelle). Il
+  stoppe/déconnecte les nœuds LFO **et** ces nœuds insérés symétriquement à l'`osc` (cleanup
+  via le tableau `mod`, programmé par `stopTime` pour timeline/export, manuel au release pour
+  les previews qui sustainent indéfiniment).
 - **Detune (cents) pour le vibrato / addition sur `gain.gain` pour le trémolo
   (iter-P)** : le vibrato module `osc.detune` (en **cents**) et **non**
   `osc.frequency` — indépendant de la note (même intervalle de vibrato à toute
@@ -1341,6 +1318,30 @@ Choix non évidents pris pour de bonnes raisons. À ne pas remettre en question
   animation** (rien ne boucle) ; sa **poignée 2D** (cutoff log horizontal, q log vertical)
   commit en **un cran d'undo** via une action dédiée `SET_EDITOR_FILTER_POINT` (frère du
   `MOVE_SPLINE_ANCHOR`), les contrôles discrets restant en `SET_EDITOR_MODULATION`.
+- **« Ce qu'on voit = ce qu'on entend » = principe structurel, pas une coïncidence
+  (iter-T, étendu sur toute la famille d'effets)** : chaque **lib feuille** expose **une
+  seule** fonction de calcul, appelée **à l'identique** par l'**audio** et par le **graphe**
+  du panneau — `lib/filter.js` (`configureBiquad` audio + biquad de mesure du graphe),
+  `lib/distortion.js` (`distortionTransfer` pour la table du WaveShaper ET le tracé de la
+  courbe **effective** `mix·f(x)+(1−mix)·x` ; `distortionCharacteristicX`/`distortionDriveForX`
+  pour poser/inverser la poignée 2D), `pitchProgression` de `lib/modulation.js` (la même `p(t)`
+  pour `setValueCurveAtTime` et pour le graphe d'enveloppe). Conséquence : **aucune
+  réimplémentation parallèle** qui pourrait diverger entre le son et son dessin. Toute nouvelle
+  visualisation d'effet doit suivre la règle (la lib calcule, l'UI ne fait que tracer).
+- **`ParamEnv` = enveloppe AD réutilisée sur tout AudioParam, en cents ou en gain
+  (iter-T T.3→T.6bis)** : le pitch env a été **généralisé** en type `ParamEnv {enabled,
+  amount, time, invert, curve}`, réutilisé tel quel pour l'**enveloppe de filtre**
+  (`filterEnv` → `biquad.detune`, amount ±4800 **cents**) et l'**enveloppe de drive**
+  (`driveEnv` → `inputGain.gain`, amount = décalage de **gain** ±1). Ce qui rend la
+  réutilisation possible : **`biquad.detune` est en cents comme `osc.detune`** → la même
+  automation sert l'oscillateur et le filtre. **Un seul** helper audio
+  `scheduleParamEnv(param, env, startTime, base)` porte les 4 formes de progression + le
+  mode Inverser ; `base` (0 cents par défaut, **1** pour le gain du shaper, dont la courbe
+  n'est pas un `AudioParam` → on module le **niveau d'entrée**) décale l'enveloppe autour de
+  sa valeur nominale. Côté UI, **un seul** `renderParamEnvBlock(effect)` rend les 3 panneaux,
+  paramétré par bornes (`PARAM_ENV_BOUNDS`) et unité (cents vs gain). On a **délibérément
+  gardé `Lfo` et `ParamEnv` distincts** (modulation cyclique vs enveloppe one-shot, sémantiques
+  différentes) : mutualisation **au sein** de chaque famille, pas entre elles.
 - **Steppers multiplicatifs opt-in du `NumberInput` (iter-T T.4)** : sur une plage
   **géométrique** (cutoff 20–20 000 Hz) un pas additif fixe est inutilisable. Prop opt-in
   `stepFactor`/`shiftFactor` → le chevron **×/÷** le facteur au lieu d'additionner `step`
@@ -2015,7 +2016,13 @@ Choix non évidents pris pour de bonnes raisons. À ne pas remettre en question
 - **Validation strict-strict des fichiers `.osa`** — un seul champ
   malformé = rejet complet. Pas de tolérance partielle. Raison :
   un fichier partiellement importé est une banque dans un état
-  indéterminé, source de bugs subtils plus tard.
+  indéterminé, source de bugs subtils plus tard. **Complément :
+  absent ≠ malformé.** Un champ **absent** est licite et reçoit son
+  **défaut injecté** à l'hydratation (`isXValidOrAbsent` : ok si
+  absent, strict si présent) — c'est cette règle qui a permis aux
+  **6 effets de l'itération T** de s'ajouter avec **un seul bump**
+  (`OSA_VERSION = 4`, posé en T.2), les patches v1→v3 se chargeant
+  sans migration dédiée. Le malformé fait rejet ; l'absent prend le défaut.
 - **Pas de compression du localStorage** (décision *contre*) — on
   compresse au transport (`.osa`), pas au stockage actif. Le path
   chaud localStorage doit rester synchrone et bon marché. Si la
@@ -2392,164 +2399,19 @@ Conventions tacites. Les enfreindre sans raison crée des bugs subtils.
 
 ## État actuel
 
-🚧 **En cours — Iteration T « Effets sans mémoire »** (cadrée 2026-06-10). Tour
-complet des effets qui s'intègrent au cycle de vie audio actuel (chaîne jetable par
-note, zéro queue) avant le chantier des effets à mémoire. Phases : **T.1** refonte
-module « Effets » + switcher header (UI pure) → **T.2** auto-pan (`StereoPannerNode`,
-bump `.osa` v4) → **T.3** pitch envelope → **T.4** filtre statique (`BiquadFilterNode`
-par voix) → **T.5** enveloppe de filtre + wah → **T.6** distorsion (`WaveShaperNode`
-par voix). Cadrage complet dans `archi/BACKLOG.md` (« Effets et modulations »).
-- ✅ **T.1 (socle UI pur)** — le 6ᵉ module **Modulation → « Effets »** (label seul,
-  id `'modulation'` inchangé, aucune migration). Corps **un effet à la fois** pleine
-  largeur (l'autre sous-bloc monté/masqué, repeint au switch ; rAF sur le seul graphe
-  visible). Barre de titre = **boutons toggle** par effet (`OverflowToolbar`,
-  `buildEffectsHeaderItems` partagé desktop/mobile) : **highlight** = en édition,
-  **pastille accent** = activé (indicateur pur), clic = édition seule ; **badge
-  agrégé** sur le tiroir `⋯` (nouvelle prop opt-in `triggerBadge` d'`OverflowToolbar`).
-  Nouvel état UI **`designerEffectsSelected`** (persisté, hors undo) +
-  `SET_DESIGNER_EFFECTS_SELECTED`. **Aucun changement audio / modèle / `.osa`.**
-- ✅ **T.2 (auto-pan, `.osa` v4)** — 1ᵉʳ effet **stéréo**. `Patch`/`Editor` += **`autoPan:
-  Lfo`** (`DEFAULT_AUTOPAN` rate:1 depth:0.5 ; depth 0..1 = excursion symétrique G↔D).
-  Audio : `applyModulation` += params `panner`/`autoPan` → branche LFO sur `panner.pan` ;
-  l'**appelant** insère un `StereoPannerNode` **seulement si `enabled && depth>0`**
-  (sinon chaîne mono bit-identique) sur les **4 chemins** ; cleanup via le tableau `mod`,
-  signature scheduler += autoPan. UI : 3ᵉ bouton **« Auto-pan »** + panneau identique
-  (graphe LFO à **étiquettes G/D**, D haut / G bas = signe de `pan`). **`.osa`
-  `OSA_VERSION = 4`** (accepte v1→v4, `autoPan` absent → défaut injecté) — **seul bump
-  de l'itération T** (T.3→T.6 ajouteront leurs champs dans v4). `sanitizeAutoPan`,
-  `AUTOPAN_DEPTH_MAX`, `autoPanCanvasRef`.
-- ✅ **T.3 (pitch envelope)** — 1ʳᵉ modulation **non-LFO**. `Patch`/`Editor` += **`pitchEnv`**
-  (type frère : `{enabled, amount cents signé ±2400, time ms 40..2000}` ; `DEFAULT_PITCHENV`
-  false/1200/150). Audio : `applyModulation` += `pitchEnv` → **automation de la valeur de
-  base d'`osc.detune`** (`setValueAtTime(amount)` → `linearRampToValueAtTime(0, time)`),
-  **aucun nœud**, guard `amount≠0 && time>0` (sinon chaîne identique) ; **coexistence
-  vibrato par construction** (somme base automatisée + branche entrante) ; 4 chemins +
-  signature scheduler. UI : 4ᵉ bouton **« Hauteur »** + panneau « Enveloppe de hauteur »
-  (2 inputs départ/durée, **pas de switch de forme**, graphe d'enveloppe à 2 poignées
-  Départ/Arrivée, **sans animation**). **Pas de bump `.osa`** (v4 inchangé,
-  `isPitchEnvValidOrAbsent`, absent → défaut). `sanitizePitchEnv`, `PITCHENV_AMOUNT_MAX/
-  TIME_MIN/MAX`, `drawPitchEnvGraph` (axe x **racine carrée**, plancher 40 ms),
-  `pitchEnvCanvasRef`.
-- ✅ **T.3bis / T.3.4 (pitch envelope — mode Inverser)** — `pitchEnv += invert:boolean`
-  (défaut false). Audio : miroir de l'automation (`0 → amount` au lieu de `amount → 0`),
-  la note **reste** décalée de `amount` (l'`AudioParam` tient sa dernière valeur —
-  sirène/bend, **assumé**). UI : toggle **« Inverser »** (`FlipVertical2`) dans le head ;
-  **graphe miroir** (part de la médiane → s'éloigne vers `amount` → plateau) ; poignée
-  verticale **à droite sur le plateau** en inversé ; tooltips/label **Cible/Durée**. Signature scheduler
-  += invert. Pas de bump (`invert` absent → false).
-- ✅ **T.3ter / T.3.5 (pitch envelope — 4 formes de progression)** — `pitchEnv +=
-  curve:'linear'|'easeOut'|'expo'|'easeIn'` (défaut `'linear'`). Progression normalisée
-  `p(t)∈[0,1]` **orthogonale à `invert`** : valeur = `départ + (arrivée−départ)·p(t)`.
-  Audio (`modulation.js`) : `pitchProgression(curve, t)` partagée ; `linear` = chemin
-  historique (linearRamp), formes non linéaires = **un seul** `setValueCurveAtTime` (64 pts)
-  — **PAS `exponentialRampToValueAtTime`** (ne traverse pas zéro). 4 chemins, signature
-  scheduler += curve. UI : **switch segmenté 4 positions** (idiome LFO, `PITCH_CURVE_META`,
-  glyphes SVG `IconCurve*`, libellés `STRINGS.pitchCurves` Linéaire/Décélérée/Exponentielle/
-  Accélérée) groupé à droite du head avec Inverser ; le graphe applique la **vraie** `p(t)`
-  (même fonction que l'audio). Pas de bump (`curve` absent → `'linear'`). `PITCHENV_CURVES`.
-- ✅ **T.4 (filtre statique)** — 1ᵉʳ `BiquadFilterNode` dans la chaîne de voix + 1ᵉʳ
-  **graphe fréquentiel** du module Effets. `Patch`/`Editor` += **`filter` `{enabled,
-  type:'lowpass'|'highpass'|'bandpass'|'notch', cutoff Hz 20..20000, q linéaire 0.1..20}`**
-  (`DEFAULT_FILTER` false/lowpass/2000/1). Audio (`lib/filter.js`) : insertion
-  conditionnelle **VCO→VCF→VCA** — `osc → biquad → gain` **seulement si `enabled`**
-  (sinon chaîne bit-identique), 4 chemins, cleanup via le tableau `mod` (comme le panner),
-  signature scheduler += filtre. **Piège d'unité `Q`** : `biquadQValue` convertit le `q`
-  linéaire du modèle → **dB** pour LP/HP (`20·log10(q)`), **linéaire** pour BP/notch ;
-  `configureBiquad` partagé par l'audio ET le graphe. UI : 5ᵉ bouton **« Filtre »** +
-  panneau (interrupteur + switch segmenté 4 types `IconFilter*`/`STRINGS.filterTypes` + 2
-  `NumberInput` Fréquence à **steppers multiplicatifs** / Résonance). **Graphe de réponse
-  en fréquence** (`drawFilterGraph` : X log 20 Hz–20 kHz repères 100/1k/10k, Y dB −30..+30,
-  0 dB accentué, ~128 pts via `getFrequencyResponse` sur un **biquad de mesure** jamais
-  connecté, **même mapping Q** → colle au son) à **poignée 2D unique** au cutoff (horizontal
-  log → cutoff, vertical log → q ; **draft + commit atomique `SET_EDITOR_FILTER_POINT`**,
-  un undo/geste ; **aucune animation**, branche statique de la boucle rAF). `NumberInput`
-  += prop opt-in `stepFactor`/`shiftFactor` (chevron ×/÷, 2^(1/12) demi-ton, Shift octave).
-  Pas de bump `.osa` (v4 inchangé, `isFilterValidOrAbsent`, absent → défaut). `sanitizeFilter`,
-  `FILTER_CUTOFF/Q/TYPES`, `filterCanvasRef`.
-- ✅ **T.5 (enveloppe de filtre + wah)** — le filtre statique gagne ses 2 modulations
-  classiques. **Clé archi** : `BiquadFilterNode` a un **`detune` en cents**, comme l'osc →
-  l'env de filtre **réutilise le pitch env** et le wah **réutilise le vibrato**, appliqués à
-  `biquad.detune` (composent par construction comme pitch env + vibrato sur osc.detune). Modèle :
-  `PitchEnv` **généralisé en `ParamEnv`** (type partagé, simple renommage) ; `Patch`/`Editor` +=
-  **`filterEnv: ParamEnv`** (amount ±4800 cents, time 0..2000) + **`wah: Lfo`** (depth cents 0..3600).
-  `DEFAULT_FILTERENV` false/2400/200, `DEFAULT_WAH` false/2/1200. Audio : extraction de
-  **`scheduleParamEnv(param, env, startTime)`** (helper partagé osc.detune + biquad.detune, 1 seule
-  implémentation des 4 formes) ; `applyModulation` += `biquad`/`filterEnv`/`wah` ; wah = branche LFO
-  sur `biquad.detune` ; **no-op si pas de biquad** (filtre off) ; 4 chemins + signature scheduler.
-  Cutoff effectif clampé [0, Nyquist] par la spec → sweeps extrêmes sûrs. UI : 2 boutons header
-  **« Env. filtre »**/**« Wah »** (7 boutons, OverflowToolbar absorbe), panneaux clones (graphe
-  d'enveloppe/LFO généralisés par bornes `PARAM_ENV_BOUNDS` ; `renderParamEnvBlock(effect)`) +
-  **hint « filtre désactivé — cet effet est muet »** + bouton inline « Activer le filtre »
-  (undoable). Pas de bump `.osa` (v4 inchangé, `isParamEnvValidOrAbsent(v, amountMax)`, absent →
-  défaut). Au passage : **fix `UPDATE_PATCH` persiste enfin `filter`** (oubli T.4). `sanitizeFilterEnv`/
-  `sanitizeWah`, `FILTERENV_*`/`WAH_DEPTH_MAX`, `filterEnvCanvasRef`/`wahCanvasRef`.
-- ✅ **T.6 (distorsion — dernière phase, v4 inchangé)** : **`WaveShaperNode` 4x par voix**,
-  waveshaping par voix (pas d'intermodulation entre notes — la variante « somme par patch »
-  appartient au futur chantier des nœuds persistants). `Patch`/`Editor` += **`distortion {enabled,
-  curve 'soft'|'hard'|'fold', drive 1..50, mix 0..1}`** (`DEFAULT_DISTORTION` false/soft/5/1).
-  Audio (`lib/distortion.js`) : `distortionTransfer` (soft `tanh(kx)/tanh(k)` / hard `clamp(kx)` /
-  fold `sin(kx·π/2)`, **normalisées ±1→±1**) + `distortionCurveTable` (mémo dernière (curve,drive),
-  table 2048 pts) + `configureShaper` (**oversample 4x** anti-alias) + `connectDistortion`
-  (helper de câblage : split wet/dry `osc → shaper → wetGain` + `osc → dryGain`, sommés). **Position
-  AVANT le filtre** : `osc → shaper → biquad → gain → [panner]` (logique soustractive — on enrichit
-  le spectre, le filtre/l'env de filtre/le wah le sculptent). Insertion conditionnelle (`enabled &&
-  mix>0`, sinon bit-identique), 4 chemins (filtre découplé `biquad→gain`) + signature scheduler
-  (`sigOfDistortion`), cleanup via `mod`. UI : 8ᵉ bouton **« Disto »** + panneau (switch 3 courbes
-  `IconDistort*` + steppers Drive/Mix) + **graphe de la courbe de transfert** (`drawDistortionGraph` :
-  x∈[−1,1]→y∈[−1,1], diagonale identité pointillée, **curseur Drive** vertical log, statique) —
-  drag vertical → drive (draftMod mono-clé). Pas de bump (`isDistortionValidOrAbsent`, absent →
-  défaut). `sanitizeDistortion`, `DISTORTION_DRIVE_MIN/MAX`/`DISTORTION_CURVES`, `distortionCanvasRef`.
-- ✅ **T.6bis (disto vivante : mix lisible + enveloppe de drive, v4 inchangé)** — deux constats
-  d'usage : le mix n'était pas lisible au graphe, et une disto **statique** (entrée à niveau constant)
-  équivaut pour une note tenue à redessiner la forme d'onde → il faut que **quelque chose varie à
-  travers la non-linéarité**. 3 sous-commits. **6.4** : `drawDistortionGraph` trace la courbe
-  **effective** `mix·f(x)+(1−mix)·x` en accent (se couche vers la diagonale quand mix baisse) + la
-  **wet pure** `f(x)` en gris discret quand mix<1. **6.5** : `driveEnv: ParamEnv` (3ᵉ instance du
-  type T.5 ; `amount` = décalage de **gain** ±1, `DEFAULT_DRIVEENV` false/−0.8/300/**invert**/linear
-  = comportement « ampli » : attaque saturée → s'éclaircit vers 1+amount=0.2). Audio : la courbe d'un
-  WaveShaper n'étant PAS un AudioParam, on module le **niveau d'entrée** — `scheduleParamEnv(param,
-  env, startTime, base=0)` gagne un `base` (0 cents / 1 gain) ; `connectDistortion` insère un
-  `inputGain` (base 1) **avant le shaper** quand `driveEnv.enabled` (dry = signal pur, pré-inputGain)
-  et le retourne ; `applyModulation` += `inputGain`/`driveEnv` → `scheduleParamEnv(inputGain.gain,
-  driveEnv, base 1)` (normal : part de 1+amount → 1 ; invert : 1 → 1+amount et y reste). 4 chemins +
-  signature scheduler. `sanitizeDriveEnv`, `DRIVEENV_*`, `osaFormat`/`libraryTransfer`. **6.6** : 9ᵉ
-  bouton « Env. drive » ; `renderParamEnvBlock` généralisé pour driveEnv (unité **gain** : label sans
-  cents, format 2 décimales, step 0.05/0.25, drag arrondi via flag `gain` des bornes ; médiane = drive
-  nominal) + `renderDistortionTargetHint` (« disto désactivée » + bouton « Activer la distorsion »).
-  Pas de bump (`isParamEnvValidOrAbsent ±1`, absent → défaut). **Itération T feature-complete
-  (9 effets sans mémoire), en attente de clôture/release.**
-- ✅ **T.6ter (phase-6.7) — poignée Mix sur le graphe disto** : rectificatif d'usage — le mix
-  devient **manipulable au geste** (et pas seulement lisible). 2ᵉ poignée **« Mix »** posée sur la
-  courbe effective à **x₀=−0.6** (loin de la poignée Drive, input ≈ +0.68) : à x₀ le point voyage
-  linéairement entre la diagonale identité (mix 0) et la wet pure (mix 1) ; drag vertical → mix =
-  inversion de `mix·f(x₀)+(1−mix)·x₀`, clampé [0,1]. **Course réduite à drive bas** (f(x₀)≈x₀),
-  assumée (les steppers restent le chemin de précision). Hit-test 2 poignées (la plus proche gagne),
-  tooltip Drive/Mix, discipline standard (draft + un dispatch `SET_EDITOR_MODULATION distortion/mix`,
-  géométrie gelée, Pointer Events + cancel).
-- ✅ **T.6quater (phase-6.8) — poignée 2D unique au point caractéristique** : remplace les poignées
-  Drive (T.6, drag vertical ≠ effet visuel) et Mix (T.6ter, cas mort au croisement `f(x₀)=x₀`). UNE
-  poignée 2D posée au **point caractéristique** `x_c(curve, drive)` (lieu d'écart max à la diagonale) :
-  `hard`/`fold` = l'angle/le 1ᵉʳ sommet (x_c=1/k), `soft` = l'intersection tangente-origine × asymptote
-  y=1 (x_c=tanh(k)/k). x_c **décroît** avec le drive → gauche = drive ↑ (genou/plis resserrés), le
-  piège du croisement disparaît par construction. **Horizontal → drive** (inversion de x_c : analytique
-  hard/fold `k=1/x`, **dichotomie** soft, `lib/distortion.js`), **vertical → mix** `(y−x_c)/(1−x_c)`
-  (garde si x_c≈1). Drag libre 2D (style P1/P2 AHDSR), **commit atomique `SET_EDITOR_DISTORTION_POINT`**
-  (drive+mix, un undo) ; guides du point pendant le drag (tangentes hard/soft, verticale fold) ;
-  steppers conservés. Cas limites assumés (hard/fold drive→1 : course mix→0). Dernier rectificatif
-  de T avant la clôture.
-- ✅ **T.6quinquies (phase-6.9) — drive continu + point de distance max en replié** : affine la
-  poignée 2D (T.6quater). **(1) Drive float** dans les 3 modes : suppression de l'arrondi entier
-  (k est continu) au reducer (`SET_EDITOR_DISTORTION_POINT` brut), au drag (`distortionDriveForX`
-  écrit le float) et au format `NumberInput` (affichage arrondi à 0.1 ; steppers ±1/±5 inchangés).
-  Le cache `(curve, drive)`, `clampToRange` et `isNumberInRange` (.osa) acceptaient déjà le float —
-  round-trip d'un drive décimal préservé. **(2) Fold : nouvelle abscisse** `x_c=(2/kπ)·arccos(2/kπ)`
-  (point où `sin(kπx/2)−x` est maximal, remplace le sommet `1/k`) : à drive 1, x_c≈0.561 (écart 0.21,
-  plus de poignée morte/demi-morte dans l'angle (1,1)) ; à drive élevé, x_c→1/k (continuité). Inversion
-  par **dichotomie** (`bisectDrive` partagé avec la douce, x_c décroissant). Poignée **sur la courbe
-  effective** : `y=mix·f(x_c)+(1−mix)·x_c`, dénominateur `f(x_c)−x_c` jamais nul → la garde résiduelle
-  ne protège plus que hard à drive→1. Dure/douce : placement inchangé.
+**Entre deux itérations** (depuis la clôture de T, **2026-06-12**). Aucun chantier ouvert.
 
 ✅ **Terminé**
+- **Iteration T — « Effets sans mémoire » (close, v1.12.0)**. Tour complet des effets
+  qui s'intègrent au cycle de vie audio **sans mémoire** (chaîne jetable par note, zéro
+  queue) avant le futur chantier des effets à mémoire. **9 effets par patch** dans le
+  module Effets à switcher header (un panneau plein cadre à la fois) : vibrato/trémolo
+  (iter P), **auto-pan**, **pitch env** (Inverser + 4 formes de progression), **filtre
+  statique**, **env. filtre**, **wah**, **disto** (courbe effective + env. drive + poignée
+  2D unique au point caractéristique, drive continu). Un seul bump format **`.osa` v4**
+  (champ absent → défaut injecté). Décisions structurantes consolidées plus bas (helper
+  partagé par lib audio/graphe, insertion conditionnelle des nœuds, ParamEnv généralisé).
+  Détail par-phase T.1→T.6.9, saga et leçons dans `CONTEXT-ARCHIVE.md`.
 - **Iteration S — « Support tactile au doigt (web pur) » (close, v1.11.0)**. L'app
   se **dessine et se joue au doigt** ; un **durcissement audio** a émergé en cours de
   route. Détail par-phase S.1→S.audio.5 + arc audio dans `CONTEXT-ARCHIVE.md`.
@@ -3449,66 +3311,19 @@ par voix). Cadrage complet dans `archi/BACKLOG.md` (« Effets et modulations »)
 > Détail des roadmaps des itérations livrées (A→M) → `CONTEXT-ARCHIVE.md`.
 > Ci-dessous : l'itération en cours, puis le backlog général (non planifié).
 
-### Iteration T « Effets sans mémoire » (cadrée 2026-06-10, en cours)
+### Entre deux itérations (depuis la clôture de T, 2026-06-12)
 
-Tour complet des effets/modulations qui s'intègrent au **cycle de vie audio actuel**
-(chaîne jetable par note, zéro queue) avant le gros chantier des effets à mémoire
-(delay-based). Tout **par patch**, persisté dans `Patch` + `.osa` **v4** (bump unique
-en T.2, défauts injectés pour les champs absents). Distorsion **par voix**
-(waveshaping, compatible archi jetable). Grille 3×2 conservée. Cadrage complet :
-`archi/BACKLOG.md` (« Effets et modulations »).
+Iteration T « Effets sans mémoire » **livrée** (v1.12.0) — détail roadmap (T.1→T.6.9)
+déplacé dans `CONTEXT-ARCHIVE.md` (« Roadmaps des itérations closes »). **Aucune
+itération cadrée.** Deux directions pour la suite :
 
-- ✅ **T.1 — refonte module « Effets » + switcher header (UI pure)** : module
-  Modulation renommé « Effets » (label seul) ; corps un effet à la fois (l'autre
-  monté/masqué, repeint au switch, rAF sur le seul graphe visible) ; rangée de
-  boutons toggle en barre de titre via `OverflowToolbar` (highlight = en édition,
-  pastille accent = activé, clic = édition seule, badge agrégé tiroir via
-  `triggerBadge`) ; relogement mobile via `buildEffectsHeaderItems` ; état UI
-  `designerEffectsSelected` persisté hors undo. **Aucun changement audio/modèle/`.osa`.**
-- ✅ **T.2 — auto-pan (LFO → `StereoPannerNode.pan`, `.osa` v4)** : 1ᵉʳ effet stéréo.
-  `Patch`/`Editor` += `autoPan: Lfo` (depth 0..1 = excursion symétrique) ; panner inséré
-  par l'appelant **uniquement si `enabled && depth>0`** (chaîne mono inchangée sinon) sur
-  les 4 chemins, `applyModulation` ne fait qu'ajouter la branche LFO ; 3ᵉ bouton + panneau
-  (graphe à étiquettes G/D). **`OSA_VERSION = 4`** (bump unique de l'itération, accepte v1→v4).
-- ✅ **T.3 — pitch envelope (enveloppe → `osc.detune`, v4 inchangé)** : 1ʳᵉ modulation
-  non-LFO. `Patch`/`Editor` += `pitchEnv {enabled, amount cents signé, time ms, invert}` ;
-  automation de la valeur de base d'`osc.detune` (aucun nœud ; somme avec le vibrato par
-  construction) sur les 4 chemins ; 4ᵉ bouton « Hauteur » + panneau enveloppe à 2 poignées
-  (sans animation). Pas de bump (`pitchEnv` absent → défaut injecté). **T.3bis** : mode
-  **« Inverser »** (part de la note, s'éloigne vers `amount` et y reste) — toggle + graphe
-  miroir. **T.3ter** : **4 formes de progression** (`curve`, `setValueCurveAtTime`).
-- ✅ **T.4 — filtre statique (`BiquadFilterNode` par voix, v4 inchangé)** : 1ᵉʳ filtre +
-  1ᵉʳ graphe fréquentiel. `Patch`/`Editor` += `filter {enabled, type LP/HP/BP/notch, cutoff,
-  q linéaire}` ; insertion **VCO→VCF→VCA** conditionnelle (4 chemins), **mapping Q** dB↔linéaire
-  partagé audio/graphe (`lib/filter.js`) ; 5ᵉ bouton « Filtre » + panneau (switch 4 types,
-  steppers Fréquence **multiplicatifs**) + **graphe de réponse** (`getFrequencyResponse`,
-  biquad de mesure) à poignée 2D (commit atomique `SET_EDITOR_FILTER_POINT`). `NumberInput`
-  += `stepFactor`. Pas de bump (`filter` absent → défaut). **Keytracking du cutoff → backlog.**
-- ✅ **T.5 — enveloppe de filtre + wah (→ `biquad.detune`, v4 inchangé)** : `biquad.detune`
-  est en cents comme l'osc → l'env de filtre **réutilise le pitch env** et le wah **réutilise
-  le vibrato**, sur `biquad.detune` (no-op si filtre off). `PitchEnv` généralisé en **`ParamEnv`**
-  (type partagé) ; `Patch`/`Editor` += `filterEnv: ParamEnv` (amount ±4800) + `wah: Lfo` (depth
-  cents 0..3600). Helper audio partagé **`scheduleParamEnv`** (4 formes, osc + biquad). 2 boutons
-  header « Env. filtre »/« Wah » (panneaux clones, graphe généralisé par bornes) + **hint « filtre
-  désactivé » + bouton « Activer le filtre »**. Au passage : fix `UPDATE_PATCH` persiste `filter`.
-- ✅ **T.6 — distorsion (`WaveShaperNode` 4x par voix, v4 inchangé)** : `distortion {enabled,
-  curve soft/hard/fold, drive 1..50, mix wet/dry}` ; courbes de transfert normalisées ±1→±1
-  (`lib/distortion.js`, mémo + helper audio/graphe) ; inséré **AVANT le filtre** (logique
-  soustractive) ; split wet/dry ; 8ᵉ bouton « Disto » + panneau (switch 3 courbes + graphe de
-  transfert à poignée Drive log). **Hors scope** : disto « sur la somme » par patch (→ effets à
-  mémoire), drive modulable (noté backlog « inattendus »). **Itération T complète (8 effets).**
-- ✅ **T.6bis — disto vivante (mix lisible + enveloppe de drive, v4 inchangé)** : (a) le graphe
-  trace la courbe **effective** `mix·f(x)+(1−mix)·x` (+ wet pure grisée si mix<1) ; (b) `driveEnv:
-  ParamEnv` (3ᵉ instance, `amount` = décalage de **gain** ±1) module un **gain d'entrée du shaper**
-  (`scheduleParamEnv(inputGain.gain, base 1)`, la courbe du WaveShaper n'étant pas un AudioParam) ;
-  défaut **invert** (« ampli » : attaque saturée → s'éclaircit) ; 9ᵉ bouton « Env. drive » + hint
-  disto off. LFO sur le drive → backlog « inattendus ».
-
-**Itération T feature-complete** (T.1→T.6bis, 9 effets) — en attente de clôture/release (version + déplacement
-de la roadmap vers l'archive, à la main de l'archi).
-
-Gros chantier **suivant** : effets **à mémoire** (delay/écho, reverb, chorus) via bus
-d'effet persistant par patch et/ou par piste — hors itération T (cf. `archi/BACKLOG.md`).
+- **Petits « inattendus » sans mémoire** (compatibles chaîne jetable par note, zéro
+  queue) : ring modulation, FM / cross-mod, **LFO sur le drive** de disto, **pitch
+  « fall » au release**, **keytracking du cutoff**, courbure continue draggable du
+  pitch env… Entrées détaillées au backlog général ci-dessous + `archi/BACKLOG.md`.
+- **Gros chantier : effets à mémoire** (delay/écho, reverb, chorus) — rupture avec
+  l'archi jetable actuelle : exige des **nœuds persistants** + bus d'effet par patch
+  et/ou par piste + gestion de queues. Cf. `archi/BACKLOG.md`.
 
 **Dettes & limitations ouvertes par S** :
 - **Icônes PWA PNG** (apple-touch 180 / maskable 512) — manifest SVG-only en
