@@ -398,7 +398,12 @@ function scrollToFragment(container, fragment) {
       rafId = requestAnimationFrame(attempt)
       return
     }
-    container.scrollTop = 0 // fallback gracieux : haut d'article, zéro erreur
+    // Fragment jamais résolu après le délai → repli en haut d'article. Warn DEV
+    // (comme highlightElement) : un heading sans `{#id}` rendu, ou — cause la
+    // plus fréquente en dev — du contenu `?raw` périmé (rechargement complet
+    // requis). Distingue « introuvable » de « trouvé mais pas scrollé ».
+    if (import.meta.env.DEV) console.warn('[doc:] fragment introuvable:', fragment)
+    container.scrollTop = 0
   }
 
   rafId = requestAnimationFrame(attempt)
