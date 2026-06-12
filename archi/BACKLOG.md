@@ -30,17 +30,28 @@ Périmètre à cadrer en début de session dédiée. Candidats naturels :
   le writer rédige. Prompts distincts dev (intégration TOC/ancres) /
   writer (contenus).
 
-## Bibliothèque : anomalies sur petit écran — À QUALIFIER
+## Bibliothèque : anomalies sur petit écran — QUALIFIÉ (1 symptôme)
 
-Constat utilisateur (2026-06-12, v1.12.0) : **anomalies constatées sur
-petit écran** dans la Bibliothèque. Symptômes précis à collecter avant
-cadrage (repro, tailles d'écran, mode Tiles/liste, popover vs onglet
-plein ?). Contexte : l'onglet Bibliothèque multi-mode date de l'iter K
-(2026-05-26) — **antérieur** aux refontes petit écran du Designer
-(R, v1.10.0) et au support tactile app-wide (S, v1.11.0) ; il n'a
-jamais eu sa propre passe responsive/tactile. Probable chantier
-« responsive Bibliothèque » à part entière, à instruire avec une
-liste d'anomalies datée.
+Constat utilisateur (2026-06-12, v1.12.0, post-déploiement prod) :
+**sous 900px de large, le bloc Bibliothèque se réduit à ~250px de
+haut**.
+
+**Diagnostic (archi, 2026-06-12)** : collision d'héritage.
+`PatchBank.css` porte une règle `@media (max-width: 900px)` qui
+bascule `.sound-bank-panel` en « bandeau horizontal » `max-height:
+180px` (+ `.sound-bank-list` en row/wrap). Écrite pour la **sidebar**
+banque de patches (bien avant l'iter K), elle s'applique aussi à
+l'onglet Bibliothèque plein écran qui réutilise ces classes
+(`PatchBank` partagé) → l'onglet entier est écrasé en bandeau.
+
+**Deux niveaux de réponse possibles** :
+- *Quick fix* : scoper la règle à l'usage sidebar (sélecteur de
+  contexte ou prop/classe dédiée), l'onglet plein écran y échappe.
+  Faisable en un petit prompt indépendant, sans attendre le chantier.
+- *Chantier complet* : passe responsive/tactile de la Bibliothèque
+  (l'onglet date de l'iter K, antérieur aux refontes R/S — jamais eu
+  sa propre passe ; vérifier aussi Tiles/liste, popover, lasso au
+  doigt déjà backloggé).
 
 ---
 
