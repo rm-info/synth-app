@@ -67,10 +67,15 @@ export default function DocumentationTab({
   // Sentinelle `undefined` : le 1er passage (mount) compte comme un
   // changement d'article → restauration ou fragment appliqués au mount.
   const prevArticleRef = useRef(undefined)
-  // Dernier nonce de fragment consommé : un fragment ne s'applique qu'une
-  // fois. Un retour ultérieur sur le même article par le TOC redonne donc
-  // ses droits à la restauration de scroll session (spec U.1).
-  const consumedFragNonceRef = useRef(null)
+  // Dernier nonce de fragment SERVI. Double rôle : (1) dédup — un fragment ne
+  // s'applique qu'une fois, un retour ultérieur sur le même article par le TOC
+  // redonne ses droits à la restauration de scroll (spec U.1) ; (2) token de
+  // supersession — une sonde n'agit que si son nonce est toujours celui-ci
+  // (clics rapides → la sonde périmée s'auto-annule). Ce token est ce qui rend
+  // la sonde robuste à React.StrictMode (double-invoke effet→cleanup→effet) :
+  // on n'annule plus la sonde au cleanup (le 2e invoke la tuerait), elle se
+  // garde elle-même.
+  const servicedFragNonceRef = useRef(null)
 
   // Restaure la position de scroll au mount / switch d'article, SAUF si un
   // fragment est ciblé (`doc:article#id`, iter-U phase-1.1) : le fragment
@@ -93,18 +98,23 @@ export default function DocumentationTab({
 
     const req = fragmentRequest
     const frag =
-      req && req.articleId === currentArticleId && req.nonce !== consumedFragNonceRef.current
+      req && req.articleId === currentArticleId && req.nonce !== servicedFragNonceRef.current
         ? req.fragment
         : null
 
     if (frag) {
-      consumedFragNonceRef.current = req.nonce
+      servicedFragNonceRef.current = req.nonce
       // Cross-article : repartir du haut pour ne pas exposer la position de
       // l'article précédent le temps que la sonde trouve le heading. Même
       // article déjà ouvert (pas de changement) : pas de reset, scroll
       // fluide depuis la position courante.
       if (articleChanged) el.scrollTop = 0
-      return scrollToFragment(el, frag)
+      // PAS de cleanup qui annule la sonde : sous StrictMode, le double-invoke
+      // tuerait le scroll légitime. La sonde s'auto-annule via le token de
+      // nonce (supersession) + isConnected (démontage). On ne retourne donc
+      // pas de cleanup ici.
+      scrollToFragment(el, frag, () => servicedFragNonceRef.current === req.nonce)
+      return
     }
 
     // Restauration normale — uniquement sur changement d'article (un simple
@@ -372,15 +382,19 @@ function renderArticle(entry, sections, onSetCurrentArticle, onDocLink, onDocNav
 // Scrolle vers le heading `#fragment` dans la zone de contenu et y pose un
 // flash de surbrillance (iter-U phase-1.1). Le contenu d'article monte de
 // façon asynchrone au switch ; on sonde donc le DOM via requestAnimationFrame,
-// borné par FRAGMENT_MAX_WAIT_MS — même esprit que highlightElement. Fragment
-// introuvable après le délai → on retombe en haut d'article, sans erreur.
-// Renvoie un cleanup (annule la sonde / le timer si l'effet se ré-exécute).
-function scrollToFragment(container, fragment) {
+// borné par FRAGMENT_MAX_WAIT_MS — même esprit que highlightElement.
+//
+// `isCurrent()` = la sonde n'agit que tant que sa requête est la plus récente
+// (token de nonce côté appelant). Avec le garde `container.isConnected`, la
+// sonde s'AUTO-annule (supersession par un clic plus récent, démontage de
+// l'onglet) — donc on ne dépend PAS d'un cleanup d'effet qui l'annulerait, ce
+// qui la rend robuste au double-invoke React.StrictMode (cf. l'effet appelant).
+// Fragment jamais résolu après le délai → repli en haut d'article + warn DEV.
+function scrollToFragment(container, fragment, isCurrent) {
   const start = performance.now()
-  let rafId = 0
-  let flashTimer = 0
 
   const attempt = () => {
+    if (!container.isConnected || !isCurrent()) return // démonté / superseded
     const el = container.querySelector(`#${CSS.escape(fragment)}`)
     if (el) {
       el.scrollIntoView({ block: 'start', behavior: 'smooth' })
@@ -388,27 +402,21 @@ function scrollToFragment(container, fragment) {
       // un seul langage visuel pour « voici l'élément ciblé ».
       el.style.setProperty('--doc-highlight-duration', `${FRAGMENT_FLASH_MS}ms`)
       el.classList.add(FRAGMENT_FLASH_CLASS)
-      flashTimer = window.setTimeout(() => {
+      window.setTimeout(() => {
         el.classList.remove(FRAGMENT_FLASH_CLASS)
         el.style.removeProperty('--doc-highlight-duration')
       }, FRAGMENT_FLASH_MS)
       return
     }
     if (performance.now() - start < FRAGMENT_MAX_WAIT_MS) {
-      rafId = requestAnimationFrame(attempt)
+      requestAnimationFrame(attempt)
       return
     }
-    // Fragment jamais résolu après le délai → repli en haut d'article. Warn DEV
-    // (comme highlightElement) : un heading sans `{#id}` rendu, ou — cause la
-    // plus fréquente en dev — du contenu `?raw` périmé (rechargement complet
-    // requis). Distingue « introuvable » de « trouvé mais pas scrollé ».
+    // Heading jamais trouvé : warn DEV (comme highlightElement) — heading sans
+    // `{#id}` rendu, ou contenu `?raw` périmé (rechargement complet requis).
     if (import.meta.env.DEV) console.warn('[doc:] fragment introuvable:', fragment)
     container.scrollTop = 0
   }
 
-  rafId = requestAnimationFrame(attempt)
-  return () => {
-    if (rafId) cancelAnimationFrame(rafId)
-    if (flashTimer) clearTimeout(flashTimer)
-  }
+  requestAnimationFrame(attempt)
 }
