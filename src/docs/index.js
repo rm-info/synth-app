@@ -40,6 +40,10 @@ import temperamentPelogMd from './articles/temperament-pelog.md?raw'
 import temperamentShrutisBhatkhandeMd from './articles/temperament-shrutis-bhatkhande.md?raw'
 import temperamentShrutisSarngadevaMd from './articles/temperament-shrutis-sarngadeva.md?raw'
 import temperamentXEdoMd from './articles/temperament-x-edo.md?raw'
+// Article de validation du renderer (iter-U phase-1.3) — couvre les features
+// V1 + les nouveautés U (ids {#id}, liens doc:#fragment, <Details>, SVG).
+// À retirer en fin d'itération U, comme l'édition L l'avait été en L.5.
+import rendererTestMd from './articles/_renderer-test.md?raw'
 
 export const DOC_TOC = [
   {
@@ -208,5 +212,12 @@ export const DOC_TOC = [
     section: 'Référence',
     type: 'markdown',
     source: limitesConnuesMd,
+  },
+  {
+    id: '_renderer-test',
+    title: 'Test renderer',
+    section: 'Interne',
+    type: 'markdown',
+    source: rendererTestMd,
   },
 ]
