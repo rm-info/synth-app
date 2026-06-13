@@ -44,14 +44,16 @@ framework UI (CSS manuscrit), pas de routing, pas de backend.
 | T | Effets sans mémoire : module Effets (9 effets par patch), auto-pan, pitch env (Inverser + 4 formes), filtre + env + wah, disto vivante (env. drive, poignée 2D) — .osa v4 — v1.12.0 | 2026-06-12 |
 
 **État courant** : **Iteration U « Documentation utilisateur de la Création »**
-en cours — **phases U.1 → U.3 livrées**. U.1 = socle renderer doc (ids de titre
-`{#id}`, liens profonds `doc:article#fragment` scroll + flash, accordéon `<Details>`,
-images SVG `public/docs/`). U.2 = **mode Info** (bouton header + **Ctrl+I**, overlay
-de badges cliquables sur les contrôles documentés visibles, registre déclaratif
-`DOC_TARGETS`). U.3 = **couverture complète de la Création** : ~18 `data-anchor`
-manquants posés, 7 articles squelettes par module (section TOC « La Création en
-détail »), `DOC_TARGETS` complet (56 cibles, remap des 16 entrées U.2 vers les
-articles par module + entrées Bibliothèque partagées). Suite : U.4 prose writer.
+en cours — **phases U.1 → U.3 (+ rectif U.3.r) livrées**. U.1 = socle renderer doc
+(ids de titre `{#id}`, liens profonds `doc:article#fragment` scroll + flash,
+accordéon `<Details>`, images SVG `public/docs/`). U.2 = **mode Info** (bouton
+header + **Ctrl+I**, overlay de badges cliquables sur les contrôles documentés
+visibles, registre déclaratif `DOC_TARGETS`). U.3 (+ rectif U.3.r) = **couverture
+de la Création seule** : 7 articles squelettes par module (section TOC « La
+Création en détail »), `DOC_TARGETS` recentré sur la Création (**51 cibles**,
+Bibliothèque retirée), badges Effets sur les boutons du switcher (un par effet,
+sans présélection), 5 segments AHDSR en vue sliders, pastilles **centrées** sur
+leur contrôle (libellé qui s'ouvre vers l'intérieur). Suite : U.4 prose writer.
 Iteration T « Effets sans mémoire » **close** (release **v1.12.0**, 2026-06-12).
 Détail des itérations closes, saga et roadmaps dans `CONTEXT-ARCHIVE.md`.
 
@@ -114,7 +116,7 @@ synth-app/
     │   ├── folderNames.js    # nextAvailableFolderName partagé (extraction H.1.4)
     │   ├── bibTransfer.js               # wouldCreateCycle + duplicateItemsToFolder (K.1.7)
     │   ├── shortcuts.js      # table déclarative + matchesShortcut / getAnchor (iter-L phase-1.1) ; iter-U phase-2.1 : entrée `global-info` (Ctrl+I)
-    │   ├── docTargets.js     # (iter-U phase-2.2 ; complété phase-3.3) registre DOC_TARGETS du mode Info (moule de SHORTCUTS) : { id, contexts, anchor, label, doc:'article[#id]' } → badge cliquable → navigateToDoc ; getTargetAnchor / splitDocTarget. 56 cibles : Création couverte module par module (articles creation-*) + Bibliothèque (library-* en contexts ['library','designer'] → guide-bibliotheque)
+    │   ├── docTargets.js     # (iter-U phase-2.2 → 3.3 → rectif 3.r) registre DOC_TARGETS du mode Info (moule de SHORTCUTS) : { id, contexts, anchor, label, doc:'article[#id]' } → badge cliquable → navigateToDoc ; getTargetAnchor / splitDocTarget. 51 cibles, Création SEULE (articles creation-*) ; badges Effets sur les boutons du switcher (EFFECT_ANCHORS) ; couverture Bibliothèque RETIRÉE en 3.r (recentrage)
     │   ├── designerModules.js # (iter-O phase-5c/5d, iter-P) MODULE_META des 6 modules Designer { label, Icon Lucide } + DESIGNER_ROWS / rowSiblings (rangée haut 3 / bas 3) — source unique (headers, bande, auto-réduction)
     │   ├── filter.js         # (iter-T T.4) filtre statique : biquadQValue (piège d'unité Q — dB pour LP/HP, linéaire pour BP/notch) + configureBiquad, partagés par les 4 chemins audio ET le graphe de réponse (biquad de mesure)
     │   ├── distortion.js     # (iter-T T.6/T.6bis) distorsion par voix : distortionTransfer (soft tanh / hard clamp / fold sin, normalisées ±1→±1) + distortionCurveTable (mémo (curve,drive)) + configureShaper (oversample 4x) + connectDistortion (split wet/dry, insertion avant le filtre ; T.6bis : insère un inputGain base 1 avant le shaper quand driveEnv actif, le retourne pour l'automation) ; partagé 4 chemins audio + graphe de transfert
@@ -2452,6 +2454,27 @@ Conventions tacites. Les enfreindre sans raison crée des bugs subtils.
 **Iteration U « Documentation utilisateur de la Création »** en cours (ouverte **2026-06-12**).
 
 🚧 **En cours**
+- **U.3.r — rectificatif U.3 (livrée, 2026-06-13)** : cinq corrections issues de la
+  validation. (1) **Recentrage Création** : retrait des 13 entrées `library-*` du
+  registre (l'onglet/​la sidebar Bibliothèque retombent sur « bientôt ») + retrait
+  des 6 `{#id}` de `guide-bibliotheque.md` (retour pré-U.3, diff vide). (2) **Badges
+  Effets sur le switcher** : les 9 ancres `designer-effect-*` passent du sous-bloc de
+  contenu au **bouton toggle** correspondant (un badge par effet, sans présélection) ;
+  entrée `designer-modulation` retirée du registre (attribut conservé sur le
+  `<header>`). (3) **Pastilles centrées** : `InfoOverlay` découple position de repos
+  (toujours centrée sur le contrôle) et sens d'ouverture du libellé (vers l'intérieur
+  près des bords) ; le bouton est ancré par son côté stable et grandit sans déplacer
+  l'icône. (4) **Trous Création** : `designer-system-category` (Catégorie, distinct du
+  Système — `designer-system-selector` déplacé sur le champ Système), `designer-tonic-
+  selector` (Tonique → #reperes-visuels), `designer-xedo-degrees` (degrés X-EDO,
+  **1..53** — nouvelle section #x-edo), `designer-auto-collapse` (→ #gerer-les-modules ;
+  chrome de module + repli sidebar couverts en prose, sans badge). (5) **5 segments
+  AHDSR** en vue sliders (`designer-adsr-attack/-hold/-decay/-sustain/-release` →
+  #attaque/#maintien/#declin/#soutien/#relache) ; `designer-adsr` (overview) déplacé
+  sur le canvas du graphe (résout en vue graphe seule) ; **fix mapping** :
+  `designer-sustain-pastille` (cadenas de maintien de la note, Instrument) repointé de
+  `creation-enveloppe#sustain` vers `creation-instrument#clavier`. Registre : 51 cibles,
+  tous les `doc:` résolvent ; tsc/lint/build OK. Reste U.4 (prose writer).
 - **U.3 — couverture complète de la Création (livrée, 2026-06-12)** : le mode Info
   couvre désormais tout l'onglet Création, contrôle par contrôle. (1) **~18
   `data-anchor` manquants** posés sur les contrôles logiques non encore ancrés
@@ -3428,11 +3451,17 @@ survol narratif. Navigation = **bascule d'onglet** (pas de panneau in-situ). Pro
   Designer → `guide-designer.md` (9 headings dotés d'un `{#id}`). Exclusion
   mutuelle avec l'overlay Raccourcis. Couverture des autres onglets = U.3.
 - ✅ **U.3 — couverture complète (livrée)** : ~18 `data-anchor` manquants sur la
-  Création (dont 9 sous-blocs Effets via `EFFECT_ANCHORS`, `designer-modulation`
-  relogé sur le `<header>`) + 7 articles squelettes par module (section TOC « La
-  Création en détail ») + `DOC_TARGETS` complet (56 cibles : remap des 16 entrées
-  U.2 vers les articles par module + entrées Bibliothèque `['library','designer']` →
-  `guide-bibliotheque`, 6 `{#id}` posés). `guide-designer` inchangé (couture U.4).
+  Création + 7 articles squelettes par module (section TOC « La Création en détail »)
+  + `DOC_TARGETS` complet, remap des 16 entrées U.2 vers les articles par module.
+  `guide-designer` inchangé (couture U.4).
+- ✅ **U.3.r — rectificatif (livrée)** : recentrage Création (retrait couverture
+  Bibliothèque, `guide-bibliotheque` ramené à son état pré-U.3) ; badges Effets sur
+  les boutons du switcher (un par effet, sans présélection ; `designer-modulation`
+  retiré du registre) ; pastilles Info centrées sur le contrôle au repos (sens
+  d'ouverture du libellé découplé) ; 4 trous Instrument/Atelier comblés (catégorie,
+  tonique, degrés X-EDO 1..53 + section #x-edo, auto-réduction) ; 5 segments AHDSR
+  en vue sliders + ancre overview déplacée sur le canvas + fix mapping
+  `designer-sustain-pastille` → Instrument#clavier. Registre : 51 cibles.
 - **U.4 — peuplement des contenus** : **domaine writer**, hors scope dev (brief séparé).
   Inclut la couture de `guide-designer` (porte d'entrée → articles par module) et la
   prose des 7 squelettes `creation-*` (retrait des lignes « Version provisoire »).

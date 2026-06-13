@@ -883,6 +883,50 @@ Phases listées ci-dessous dans l'ordre chronologique d'implémentation.
 
 ## Historique (chronologie inverse)
 
+- **2026-06-13 — Iteration U — phase U.3.r (rectificatif U.3 : recentrage Création, badges Effets en toolbar, placement, trous)**
+  (`fix/feat(iter-U/phase-3.r1→3.r5)` + doc). Cinq corrections indépendantes issues
+  de la validation U.3. **Aucun changement de modèle, d'audio ni du parser markdown.**
+  - **3.r1 — retrait couverture Bibliothèque.** Suppression des 13 entrées `library-*`
+    de `DOC_TARGETS` (plus aucune entrée en contexte `'library'`) → l'onglet
+    Bibliothèque ET la sidebar Bibliothèque de la Création retombent sur le message
+    « bientôt » (recentrage assumé de l'itération sur les contrôles **propres** à la
+    Création). Retrait des 6 `{#id}` de `guide-bibliotheque.md` (article ramené à son
+    état pré-U.3, diff vide). Conservés : boutons d'actions de la sidebar Création
+    (`designer-new/save/save-as-button`, `global-undo/redo-button-designer`, contexte
+    `'designer'`). `data-anchor` `library-*` de PatchBank intacts (Raccourcis/Tour).
+  - **3.r2 — badges Effets sur les boutons du switcher.** Les 9 ancres
+    `designer-effect-*` passent du sous-bloc de contenu au **bouton toggle** de
+    `buildEffectsHeaderItems` (via `EFFECT_ANCHORS[eff.id]`) → un badge par effet,
+    accessible **sans présélection** ; rendu identique bar/tray, relogé en toolbar
+    mobile. Entrée `designer-modulation` retirée du registre (le badge « Effets »
+    global chevaucherait les 9 boutons) ; `data-anchor="designer-modulation"` conservé
+    sur le `<header>` (Tour/Raccourcis). Limite assumée : un bouton débordé dans le
+    tiroir `⋯` n'a pas de badge tant qu'il est fermé (standard OverflowToolbar).
+  - **3.r3 — pastilles Info centrées au repos.** `InfoOverlay.placeBadge` découple la
+    position de repos (icône **toujours centrée** sur le contrôle, y compris aux bords)
+    du **sens d'ouverture** du libellé (vers l'intérieur près du bord droit). Le bouton
+    est ancré par son côté stable (`left`, ou `right` + `row-reverse`) et décalé d'un
+    demi-bouton (15px = bordure+padding+demi-icône) → il grandit côté libellé sans
+    déplacer l'icône. Zones `left/right/center` → `open-left/open-right` ; `EDGE_REGION`
+    ne sert plus qu'au sens.
+  - **3.r4 — trous Instrument & Atelier.** `designer-system-category` (champ Catégorie)
+    + `designer-system-selector` **déplacé** de la rangée entière au champ Système (deux
+    badges, même section #systeme-musical) ; `designer-tonic-selector` (Tonique →
+    #reperes-visuels) ; `designer-xedo-degrees` (degrés X-EDO, **1..53** d'après le code
+    — pas 1..128 — nouvelle section #x-edo, bannière de conversion documentée en prose
+    sans badge) ; `designer-auto-collapse` (toggle toolbar → #gerer-les-modules ; chrome
+    de module + repli sidebar en prose sans badge). Règle modale : `renderInstrumentControls`
+    partagé direct/modale, Info gaté modale-ouverte → pas de badge en disposition compacte.
+  - **3.r5 — 5 segments AHDSR + fixes.** Vue sliders : un badge par segment
+    (`designer-adsr-attack/-hold/-decay/-sustain/-release` → #attaque/#maintien/#declin/
+    #soutien/#relache) ; Amplitude inchangée. `designer-adsr` (overview) déplacé de
+    `we-adsr-area` au **canvas du graphe** (résout en vue graphe seule ; vue sliders →
+    canvas display:none → filtré ; non-compact = régions distinctes, pas de chevauchement).
+    **Fix mapping** : `designer-sustain-pastille` (cadenas de maintien de la note de TEST,
+    module Instrument) repointé de `creation-enveloppe#sustain` (le Soutien de
+    l'enveloppe, concept distinct) vers `creation-instrument#clavier` ; ancienne section
+    #sustain retirée (remplacée par #soutien pour le slider S). Registre final : 51 cibles,
+    tous les `doc:` résolvent ; tsc/lint/build verts.
 - **2026-06-12 — Iteration U — phase U.3 (couverture complète mode Info : Création + Bibliothèque)**
   (`feat(iter-U/phase-3.1→3.3)` + doc). Le mode Info couvre désormais tout l'onglet
   Création, contrôle logique par contrôle logique, plus la Bibliothèque partagée.
