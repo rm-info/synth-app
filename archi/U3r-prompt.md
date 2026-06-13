@@ -179,6 +179,73 @@ ancre. Chacun reçoit un badge dédié (granularité fine validée).
   (p. ex. `creation-instrument#clavier`, section qui couvre le jeu/test
   au clavier) ; le `#soutien` ci-dessus est réservé au slider S.
 
+#### 4c. Sous-contrôles des effets — sections de concept partagées
+
+Chaque panneau d'effet expose des sous-contrôles (steppers, switch de
+forme/type, graphe éditable) aujourd'hui sans ancre. On les badge, mais
+les paramètres **récurrent par famille** → une **section de concept par
+paramètre**, partagée entre tous les effets de la famille (DRY, calque
+les builders partagés `renderLfoBlock(effect)` /
+`renderParamEnvBlock(effect)`).
+
+**Familles, sous-contrôles et fragments cibles** (dans
+`creation-effets.md`) :
+
+| Famille (effets) | Sous-contrôle | Fragment partagé |
+|---|---|---|
+| **LFO** (vibrato, trémolo, auto-pan, wah) | Vitesse (rate Hz) | `#lfo-vitesse` |
+| | Profondeur (depth — unité variable) | `#lfo-profondeur` |
+| | Installation (onset ms) | `#lfo-installation` |
+| | Forme (switch sin/tri/carré) | `#lfo-forme` |
+| | Graphe LFO (poignées) | `#lfo-graphe` |
+| **Enveloppe** (hauteur, env. filtre, env. drive) | Cible (amount) | `#env-cible` |
+| | Durée (time ms) | `#env-duree` |
+| | Inverser (toggle) | `#env-inverser` |
+| | Forme (switch 4 courbes) | `#env-forme` |
+| | Graphe d'enveloppe | `#env-graphe` |
+| **Filtre** | Fréquence (cutoff) | `#filtre-frequence` |
+| | Résonance (q) | `#filtre-resonance` |
+| | Type (switch 4) | `#filtre-type` |
+| | Graphe de réponse | `#filtre-graphe` |
+| **Disto** | Drive | `#disto-drive` |
+| | Mix | `#disto-mix` |
+| | Courbe (switch 3) | `#disto-courbe` |
+| | Graphe de transfert | `#disto-graphe` |
+
+→ **18 fragments de concept** ; le writer (U.4) en rédige 18 au lieu de
+~30 redites. La note d'unité par effet (profondeur en cents pour
+vibrato/wah, 0..1 pour trémolo/auto-pan ; cible en cents pour
+hauteur/env. filtre, gain ±1 pour env. drive) est portée par la prose
+de la section partagée.
+
+**Ancres** : par (effet, sous-contrôle), distinctes mais menant au même
+fragment. Schéma `designer-fx-<effet-kebab>-<param>` (ex.
+`designer-fx-vibrato-rate`, `designer-fx-tremolo-rate`, tous deux →
+`#lfo-vitesse`). camelCase→kebab comme en §2 (autoPan→auto-pan,
+pitchEnv→pitch-env, filterEnv→filter-env, driveEnv→drive-env).
+
+- **Pose des ancres dans les builders partagés** :
+  `renderLfoBlock(effect)` et `renderParamEnvBlock(effect)` reçoivent
+  déjà `effect` → `data-anchor={`designer-fx-${kebab(effect)}-rate`}`
+  etc. (un seul point de code couvre les 4 LFO / 3 enveloppes).
+  `renderFilterBlock` / `renderDistortionBlock` sont des singletons
+  (ancres littérales).
+- **Entrées de registre** : ~43 (≈ 4×5 + 3×5 + 4 + 4). Les générer par
+  **boucles** dans `docTargets.js` (un petit builder par famille qui
+  émet les entrées effet×paramètre vers les fragments partagés) plutôt
+  que 43 entrées à la main — reste déclaratif, DRY, cohérent avec
+  l'esprit `SHORTCUTS`. Documente le générateur en commentaire.
+- **Visibilité** : un seul panneau d'effet est visible à la fois (les
+  autres `display:none`) → au plus une famille de badges de panneau
+  affichée, en plus des 9 badges de boutons. Pas de collision d'ancre
+  (chaque effet a ses propres ancres).
+- **Pas de badge** sur l'interrupteur on/off in-panel (couvert par le
+  badge du bouton d'effet → section de l'effet) ni sur les hints
+  « Activer le filtre / la disto » (transitoires, prose).
+- **Granularité graphe** : un seul badge par graphe (`#…-graphe`),
+  centré sur la surface — il documente l'édition visuelle (toutes les
+  poignées), pas une poignée = un badge.
+
 ## Découpage en sous-commits
 
 1. `fix(iter-U/phase-3.r1): retrait couverture Bibliothèque (registre +
@@ -191,7 +258,9 @@ ancre. Chacun reçoit un badge dédié (granularité fine validée).
    tonique, degrés X-EDO, auto-réduction ; affinage ancre système)`
 5. `feat(iter-U/phase-3.r5): badges des 5 segments AHDSR + découplage
    ancre overview + fix mapping sustain-pastille`
-6. `docs: CONTEXT.md — Iteration U phase 3.r (rectificatif couverture)`
+6. `feat(iter-U/phase-3.r6): sous-contrôles des effets — ancres dans les
+   builders partagés + registre généré par famille (concepts partagés)`
+7. `docs: CONTEXT.md — Iteration U phase 3.r (rectificatif couverture)`
 
 ## Comportement attendu
 
@@ -222,6 +291,12 @@ ancre. Chacun reçoit un badge dédié (granularité fine validée).
   (le graphe → `#enveloppe-ahdsr`), pas de badge de segment.
 - Pastille de maintien (cadenas, Instrument) → section Instrument
   (clavier/test), plus vers `#sustain` de l'enveloppe.
+- Effets, panneau sélectionné : badges sur ses steppers + switch de
+  forme/type + graphe, menant aux **sections de concept partagées**
+  (le « Vitesse » du Vibrato et du Trémolo ouvrent la même `#lfo-vitesse`).
+  Changer d'effet sélectionné → la famille de badges suit. Aucun badge
+  sur les panneaux masqués. Cliquer chaque sous-contrôle : fragment
+  partagé résolu, pas de warn DEV.
 - Cliquer chaque badge Création : aucun warn DEV « fragment introuvable »
   (tout `doc:` du registre résout). `npx tsc --noEmit` + lint propres.
 - `guide-bibliotheque.md` : diff = retrait des 6 `{#id}`, rien d'autre.

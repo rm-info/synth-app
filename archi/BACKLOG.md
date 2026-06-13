@@ -74,7 +74,10 @@ Phases :
   mapping `designer-sustain-pastille`** (cadenas de maintien = Instrument,
   pas le Soutien d'enveloppe). Structurels (chrome de module, repli
   sidebar) → **prose, pas de badge** (décision validée).
-  → `archi/U3r-prompt.md`.
+  **+ sous-contrôles des effets** (steppers/forme/graphe) badgés via
+  **sections de concept partagées par famille** (LFO/enveloppe/filtre/
+  disto — 18 fragments, ~43 entrées registre générées par boucle dans
+  les builders partagés ; décision validée). → `archi/U3r-prompt.md`.
 - **U.4** — peuplement (writer, brief séparé).
 - **Ensuite** : mise à jour du **Tour guidé** (2ᵉ gros morceau, U.5+ ou
   itération V) ; passe sur l'article généré Raccourcis au passage.
