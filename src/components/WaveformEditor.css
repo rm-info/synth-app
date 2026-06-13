@@ -679,6 +679,15 @@
   gap: 8px;
 }
 
+/* iter-U phase-3.r8 : conteneur ancrable (data-anchor designer-smooth-buttons) des
+   2 boutons de lissage, devenus un seul item d'OverflowToolbar. gap 8px = l'écart
+   qu'ils avaient quand ils étaient deux items distincts. */
+.we-smooth-group {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
 .freq-label {
   display: inline-flex;
   align-items: center;

@@ -3242,7 +3242,6 @@ function WaveformEditor({
         onClick={smoothWaveform}
         title={STRINGS.editor.smoothTitle}
         aria-label={STRINGS.editor.smooth}
-        data-anchor="designer-smooth-buttons"
       ><Waves size={18} /></button>
     )
     const tendBtn = (
@@ -3252,8 +3251,17 @@ function WaveformEditor({
         onClick={tendWaveform}
         title={STRINGS.editor.tendSplineTitle}
         aria-label={STRINGS.editor.tendSpline}
-        data-anchor="designer-smooth-buttons"
       ><ChartSpline size={18} /></button>
+    )
+    // iter-U phase-3.r8 : les deux boutons de lissage = UN groupe logique → un seul
+    // item d'OverflowToolbar (ils débordent ensemble, ne se séparent jamais) et une
+    // seule cible Info, le `data-anchor` posé sur le conteneur (badge centré sur la
+    // paire, pas sur un seul des deux). Avant, deux items partageaient l'ancre :
+    // getAnchoredPosition n'en résolvait qu'un → l'autre paraissait sans badge.
+    const smoothGroup = (
+      <span className="we-smooth-group" role="group" aria-label="Lissage du tracé" data-anchor="designer-smooth-buttons">
+        {smoothBtn}{tendBtn}
+      </span>
     )
 
     // Ordre visuel actuel préservé (cœur à gauche / ponctuel à droite) = ordre
@@ -3263,8 +3271,7 @@ function WaveformEditor({
       { id: 'anchors', bar: anchorBar, tray: <>{trayLabel('Ancres :')}{anchorReadout}</> },
       { id: 'interp', bar: interpToggle, tray: <>{trayLabel('Courbe :')}{interpToggle}</> },
       { id: 'normalize', bar: normalizeBtn, tray: <>{normalizeBtn}{trayLabel('Normaliser')}</> },
-      { id: 'smooth-lp', bar: smoothBtn, tray: <>{smoothBtn}{trayLabel('Lisser (passe-bas)')}</> },
-      { id: 'smooth-sp', bar: tendBtn, tray: <>{tendBtn}{trayLabel('Tendre vers la spline')}</> },
+      { id: 'smooth', bar: smoothGroup, tray: <>{smoothGroup}{trayLabel('Lissage')}</> },
     ]
 
     return items

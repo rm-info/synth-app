@@ -2375,6 +2375,7 @@ function App() {
                       disabled={clips.length === 0}
                       title={playback.isPlaying ? 'Arrêter la lecture' : 'Lire la composition'}
                       aria-label={playback.isPlaying ? STRINGS.transport.stopAria : STRINGS.transport.playAria}
+                      data-anchor="designer-miniplayer"
                     >
                       {playback.isPlaying
                         ? <Square size={14} strokeWidth={2.2} fill="currentColor" />
