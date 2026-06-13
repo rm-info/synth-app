@@ -16,14 +16,18 @@
 //                 fonction `(state) => string` pour les ancres contextuelles.
 //   - label     : libellé court du badge.
 //   - doc       : 'article-id' ou 'article-id#heading-id'. Sans fragment =
-//                 ouverture en haut d'article (ex. annuler/rétablir Bibliothèque :
-//                 pas de section dédiée).
+//                 ouverture en haut d'article (légal — peu utilisé).
 //
-// Couverture U.3 : la Création est couverte module par module par les articles
-// `creation-*` (section « La Création en détail »). Les 16 entrées amorcées en
-// U.2 (qui pointaient vers `guide-designer`) sont REMAPPÉES ici vers ces
-// articles ; `guide-designer` redevient un pur survol narratif (ses `{#id}` U.2
-// restent sans consommateur, c'est voulu — la couture viendra du writer en U.4).
+// Couverture U.3 (recentrée U.3.r) : la doc interactive de l'itération U porte
+// EXCLUSIVEMENT sur les contrôles propres à la Création, couverts module par
+// module par les articles `creation-*` (section « La Création en détail »). Les
+// 16 entrées amorcées en U.2 (qui pointaient vers `guide-designer`) ont été
+// REMAPPÉES vers ces articles ; `guide-designer` reste un pur survol narratif
+// (ses `{#id}` U.2 sans consommateur — couture writer U.4). La couverture
+// Bibliothèque (entrées `library-*`) a été RETIRÉE en U.3.r : l'onglet
+// Bibliothèque et la sidebar Bibliothèque de la Création n'affichent plus de
+// badge (l'onglet retombe sur le message « bientôt »). Une éventuelle doc de la
+// Bibliothèque sera une décision dédiée.
 // Granularité : un contrôle logique = une cible (poignées, boutons d'un même
 // groupe, états de drag → dans la prose, pas en badges séparés).
 //
@@ -350,101 +354,6 @@ export const DOC_TARGETS = [
     anchor: 'designer-effect-drive-env',
     label: 'Enveloppe de drive',
     doc: 'creation-effets#env-drive',
-  },
-
-  // ===== Bibliothèque (PatchBank, partagé sidebar Création / onglet
-  // Bibliothèque → contexts ['library', 'designer']) → guide-bibliotheque =====
-  {
-    id: 'library-item-list',
-    contexts: ['library', 'designer'],
-    anchor: 'library-item-list',
-    label: 'Liste des patches',
-    doc: 'guide-bibliotheque#tes-patches',
-  },
-  {
-    id: 'library-new-folder-button',
-    contexts: ['library', 'designer'],
-    anchor: 'library-new-folder-button',
-    label: 'Nouveau dossier',
-    doc: 'guide-bibliotheque#tes-patches',
-  },
-  {
-    id: 'library-select-all-button',
-    contexts: ['library', 'designer'],
-    anchor: 'library-select-all-button',
-    label: 'Tout sélectionner',
-    doc: 'guide-bibliotheque#tes-patches',
-  },
-  {
-    id: 'library-hierarchy-mode',
-    contexts: ['library', 'designer'],
-    anchor: 'library-hierarchy-mode',
-    label: 'Navigation',
-    doc: 'guide-bibliotheque#naviguer-deux-vues',
-  },
-  {
-    id: 'library-display-mode',
-    contexts: ['library', 'designer'],
-    anchor: 'library-display-mode',
-    label: 'Affichage',
-    doc: 'guide-bibliotheque#trois-modes-affichage',
-  },
-  {
-    id: 'library-copy-button',
-    contexts: ['library', 'designer'],
-    anchor: 'library-copy-button',
-    label: 'Copier',
-    doc: 'guide-bibliotheque#organiser',
-  },
-  {
-    id: 'library-cut-button',
-    contexts: ['library', 'designer'],
-    anchor: 'library-cut-button',
-    label: 'Couper',
-    doc: 'guide-bibliotheque#organiser',
-  },
-  {
-    id: 'library-paste-button',
-    contexts: ['library', 'designer'],
-    anchor: 'library-paste-button',
-    label: 'Coller',
-    doc: 'guide-bibliotheque#organiser',
-  },
-  {
-    id: 'library-rename-button',
-    contexts: ['library', 'designer'],
-    anchor: 'library-rename-button',
-    label: 'Renommer',
-    doc: 'guide-bibliotheque#organiser',
-  },
-  {
-    id: 'library-clipboard-chip',
-    contexts: ['library', 'designer'],
-    anchor: 'library-clipboard-chip',
-    label: 'Presse-papiers',
-    doc: 'guide-bibliotheque#organiser',
-  },
-  {
-    id: 'library-delete-button',
-    contexts: ['library', 'designer'],
-    anchor: 'library-delete-button',
-    label: 'Supprimer',
-    doc: 'guide-bibliotheque#supprimer',
-  },
-  {
-    // Annuler/Rétablir Bibliothèque : pas de section dédiée → sans fragment.
-    id: 'global-undo-button-library',
-    contexts: ['library', 'designer'],
-    anchor: 'global-undo-button-library',
-    label: 'Annuler',
-    doc: 'guide-bibliotheque',
-  },
-  {
-    id: 'global-redo-button-library',
-    contexts: ['library', 'designer'],
-    anchor: 'global-redo-button-library',
-    label: 'Rétablir',
-    doc: 'guide-bibliotheque',
   },
 ]
 
