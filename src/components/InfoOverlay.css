@@ -52,13 +52,13 @@
   z-index: 9050;
 }
 
-/* Badge cliquable ancré sur le contrôle (left/top OU right/top posés inline par
-   React selon la zone). AU REPOS : pastille icône-seule (le libellé est replié à
-   max-width:0) — compacte, ne déborde pas et limite les chevauchements entre
-   contrôles rapprochés. AU SURVOL/FOCUS : le libellé se déploie (la pastille
-   s'allonge) ; le sens de déploiement suit le bord ancré (cf. les variantes de
-   zone ci-dessous) pour rester dans le champ. Bleu plein + texte blanc → lisible
-   sur les deux thèmes sans dépendre de currentColor. */
+/* Badge cliquable ancré sur le contrôle. AU REPOS : pastille icône-seule (le
+   libellé est replié à max-width:0) — compacte, **toujours centrée sur le
+   contrôle** quelle que soit la proximité d'un bord. AU SURVOL/FOCUS : le libellé
+   se déploie (la pastille s'allonge) ; le sens de déploiement suit le bord (cf.
+   --open-left/--open-right) pour rester dans le champ, **sans déplacer l'icône**
+   (le bouton est ancré par son côté fixe et grandit vers l'intérieur). Bleu plein
+   + texte blanc → lisible sur les deux thèmes sans dépendre de currentColor. */
 .info-overlay-badge {
   position: fixed;
   display: inline-flex;
@@ -79,11 +79,18 @@
   z-index: 9001;
   transition: background 0.14s, box-shadow 0.14s;
 }
-/* Ancrage par zone (cf. placeBadge) : le bord fixé reste collé au contrôle, la
-   pastille s'allonge vers l'espace libre. Centre = symétrique. */
-.info-overlay-badge--center { transform: translate(-50%, -50%); }
-.info-overlay-badge--left,
-.info-overlay-badge--right { transform: translateY(-50%); }
+/* Centrage de l'icône sur (cx, cy) découplé du sens d'ouverture. On fixe le côté
+   STABLE du bouton (gauche en ouverture-droite ; droite + row-reverse en
+   ouverture-gauche) et on décale d'un demi-bouton au repos : 15px = bordure(1) +
+   padding(7) + demi-icône(7). Le bouton grandit alors du côté du libellé, l'icône
+   ne bouge pas. */
+.info-overlay-badge--open-right {
+  transform: translate(-15px, -50%);
+}
+.info-overlay-badge--open-left {
+  flex-direction: row-reverse;
+  transform: translate(15px, -50%);
+}
 
 .info-overlay-badge:hover,
 .info-overlay-badge:focus-visible {
@@ -99,20 +106,29 @@
   flex: 0 0 auto;
   opacity: 0.95;
 }
-/* Libellé replié au repos, révélé au survol/focus (l'« agrandissement » demandé). */
+/* Libellé replié au repos, révélé au survol/focus (l'« agrandissement » demandé).
+   La marge interne (entre icône et texte) est posée du bon côté selon le sens
+   d'ouverture (row-reverse en ouverture-gauche). */
 .info-overlay-badge-label {
   max-width: 0;
-  margin-left: 0;
+  margin: 0;
   overflow: hidden;
   opacity: 0;
   text-overflow: ellipsis;
-  transition: max-width 0.16s ease-out, margin-left 0.16s ease-out, opacity 0.14s;
+  transition: max-width 0.16s ease-out, margin 0.16s ease-out, opacity 0.14s;
 }
 .info-overlay-badge:hover .info-overlay-badge-label,
 .info-overlay-badge:focus-visible .info-overlay-badge-label {
   max-width: 240px;
-  margin-left: 6px;
   opacity: 1;
+}
+.info-overlay-badge--open-right:hover .info-overlay-badge-label,
+.info-overlay-badge--open-right:focus-visible .info-overlay-badge-label {
+  margin-left: 6px;
+}
+.info-overlay-badge--open-left:hover .info-overlay-badge-label,
+.info-overlay-badge--open-left:focus-visible .info-overlay-badge-label {
+  margin-right: 6px;
 }
 
 @media (prefers-reduced-motion: reduce) {

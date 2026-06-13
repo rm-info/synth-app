@@ -99,15 +99,16 @@ function InfoOverlay({ isOpen, onClose, onNavigate, state }) {
     onNavigate?.(articleId, fragment)
   }
 
-  // Zone horizontale d'un badge → bord ancré + sens de déploiement du libellé.
-  // Droite : on fixe `right` au centre de l'ancre (déploie vers la gauche) ;
-  // gauche : on fixe `left` (déploie vers la droite) ; centre : translate
-  // symétrique. Évite le débordement hors champ près des bords.
+  // La pastille (icône au repos) est TOUJOURS centrée sur le contrôle : on fixe le
+  // côté qui ne bouge pas et le CSS décale d'un demi-bouton pour que le centre de
+  // l'icône tombe sur (cx, cy). Seul le SENS de déploiement du libellé au
+  // survol/focus dépend de la proximité d'un bord — près du bord droit il s'ouvre
+  // vers la gauche (le bouton grandit côté intérieur sans pousser l'icône),
+  // ailleurs vers la droite. `EDGE_REGION` ne sert plus qu'à ce choix.
   const vw = window.innerWidth
   const placeBadge = (cx, cy) => {
-    if (cx > vw - EDGE_REGION) return { zone: 'right', style: { right: `${vw - cx}px`, top: `${cy}px` } }
-    if (cx < EDGE_REGION) return { zone: 'left', style: { left: `${cx}px`, top: `${cy}px` } }
-    return { zone: 'center', style: { left: `${cx}px`, top: `${cy}px` } }
+    if (cx > vw - EDGE_REGION) return { dir: 'left', style: { right: `${vw - cx}px`, top: `${cy}px` } }
+    return { dir: 'right', style: { left: `${cx}px`, top: `${cy}px` } }
   }
 
   return (
@@ -133,12 +134,12 @@ function InfoOverlay({ isOpen, onClose, onNavigate, state }) {
         </div>
       ) : (
         badges.map(({ id, label, doc, cx, cy }) => {
-          const { zone, style } = placeBadge(cx, cy)
+          const { dir, style } = placeBadge(cx, cy)
           return (
             <button
               type="button"
               key={id}
-              className={`info-overlay-badge info-overlay-badge--${zone}`}
+              className={`info-overlay-badge info-overlay-badge--open-${dir}`}
               style={style}
               onClick={(e) => handleBadgeClick(e, doc)}
               aria-label={`Documentation : ${label}`}
