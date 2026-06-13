@@ -58,6 +58,15 @@ Phases :
   bonus Bibliothèque (`library-*` → guide-bibliotheque `{#id}`,
   contexts partagés). Inventaire : 78 contrôles logiques, 34 ancrés.
   → `archi/U3-prompt.md`.
+- **U.3.r** — rectificatif validation : (1) **retrait Bibliothèque**
+  (hors scope — mauvais arbitrage archi en U.3 ; registre + `{#id}`
+  guide-bibliotheque revertés) ; (2) **badges Effets sur les 9 boutons
+  du switcher** (plus de présélection + clic canvas ; ancres déplacées
+  header, entrée `designer-modulation` retirée) ; (3) **badges centrés
+  au repos** (découplage position/sens d'ouverture du libellé — fin du
+  décalage aux bords) ; (4) **4 trous Création comblés** (catégorie
+  système, tonique repères, degrés X-EDO, auto-réduction ; bannière
+  X-EDO en prose). → `archi/U3r-prompt.md`.
 - **U.4** — peuplement (writer, brief séparé).
 - **Ensuite** : mise à jour du **Tour guidé** (2ᵉ gros morceau, U.5+ ou
   itération V) ; passe sur l'article généré Raccourcis au passage.
