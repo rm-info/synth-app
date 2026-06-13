@@ -52,10 +52,17 @@ export function getAnchoredPosition(anchorId) {
   // iter-O phase-6.2 : ignorer les clones inertes des *ghost rows* d'OverflowToolbar
   // (visibility:hidden → getBoundingClientRect renvoie un rect NON nul mais
   // l'élément n'est pas vu ; sans ce filtre, l'ancre se résout sur le ghost,
-  // mal placé). Désormais 5 headers passent leurs contrôles dans un OverflowToolbar,
-  // donc un data-anchor peut s'y retrouver dupliqué.
+  // mal placé). Désormais plusieurs headers passent leurs contrôles dans un
+  // OverflowToolbar, donc un data-anchor peut s'y retrouver dupliqué.
   const visible = [...all].filter((el) => window.getComputedStyle(el).visibility !== 'hidden')
-  const candidates = visible.length ? visible : [...all]
+  // iter-U phase-3.r6 : si TOUTES les instances sont des ghosts (visibility:hidden)
+  // — cas d'un bouton PARQUÉ dans le tiroir `⋯` fermé — il n'y a rien d'affiché :
+  // on retourne « introuvable » au lieu de retomber sur `[...all]`, ce qui
+  // ressuscitait le ghost et collait le badge près du `⋯`. Les éléments simplement
+  // hors-viewport, eux, ne sont PAS visibility:hidden → ils restent dans `visible`
+  // et le fallback plus bas renvoie quand même leur rect (scroll-to DocLink/Tour).
+  if (visible.length === 0) return emptyResult()
+  const candidates = visible
 
   for (const el of candidates) {
     const rect = el.getBoundingClientRect()
