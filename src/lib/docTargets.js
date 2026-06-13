@@ -282,16 +282,12 @@ export const DOC_TARGETS = [
   },
 
   // ===== creation-effets =====
-  {
-    // Le switcher du header (ancre sur le <header> du module Effets).
-    id: 'designer-modulation',
-    contexts: ['designer'],
-    anchor: 'designer-modulation',
-    label: 'Effets',
-    doc: 'creation-effets#choisir-un-effet',
-  },
-  // Les 9 sous-blocs : un seul visible à la fois (effectsSelected) → un seul
-  // badge, qui suit l'effet édité (les autres sont en display:none, filtrés).
+  // U.3.r2 : un badge par effet, posé sur le BOUTON du switcher (header du module
+  // Effets), accessible sans présélection. Plus de badge « Effets » global
+  // (designer-modulation retiré du registre — l'attribut reste sur le <header>
+  // pour Tour/Raccourcis). Limite assumée : un bouton débordé dans le tiroir `⋯`
+  // (colonne étroite) n'a pas de badge tant que le tiroir est fermé — comportement
+  // standard de tout item OverflowToolbar (un badge par bouton VISIBLE).
   {
     id: 'designer-effect-vibrato',
     contexts: ['designer'],

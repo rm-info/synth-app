@@ -519,10 +519,13 @@ const PARAM_ENV_BOUNDS = {
   driveEnv: { amountMax: DRIVEENV_AMOUNT_MAX, timeMax: DRIVEENV_TIME_MAX, timeMin: DRIVEENV_TIME_MIN, gain: true },
 }
 
-// iter-U phase-3.2 : ancre du mode Info posée sur la racine de chaque sous-bloc
-// Effets. Un seul est visible à la fois (`effectsSelected` → les autres sont en
-// display:none, filtrés par getAnchoredPosition) → un seul badge, qui suit l'effet
-// édité. Clés audio internes → suffixes kebab des `{#id}` de creation-effets.
+// iter-U phase-3.2 → 3.r2 : ancre du mode Info de chaque effet. Désormais posée
+// sur le BOUTON du switcher (header du module Effets, buildEffectsHeaderItems) —
+// un badge par bouton, accessible sans présélection ; le bouton est rendu à
+// l'identique en bar/tray, getAnchoredPosition résout l'instance visible (pattern
+// OverflowToolbar). Plus sur les sous-blocs de contenu (ça imposait de
+// sélectionner l'effet d'abord). Clés audio camelCase → suffixes kebab des `{#id}`
+// de creation-effets.
 const EFFECT_ANCHORS = {
   vibrato: 'designer-effect-vibrato',
   tremolo: 'designer-effect-tremolo',
@@ -4462,6 +4465,7 @@ function WaveformEditor({
           onClick={() => onSetEffectsSelected(eff.id)}
           aria-pressed={selected}
           title={`Éditer ${eff.label}`}
+          data-anchor={EFFECT_ANCHORS[eff.id]}
         >
           <span className="we-effect-btn-label">{eff.label}</span>
           {eff.enabled && <span className="we-effect-dot" aria-hidden="true" />}
@@ -4522,7 +4526,7 @@ function WaveformEditor({
       // canvas, on le repeint au switch (cf. boucle rAF gatée sur effectsSelected).
       const hidden = effect !== effectsSelected
       return (
-        <div className={`we-lfo-block${enabled ? ' is-enabled' : ''}${hidden ? ' is-hidden' : ''}`} key={effect} data-anchor={EFFECT_ANCHORS[effect]}>
+        <div className={`we-lfo-block${enabled ? ' is-enabled' : ''}${hidden ? ' is-hidden' : ''}`} key={effect}>
           <div className="we-lfo-head">
             <label className="we-lfo-switch">
               <input
@@ -4682,7 +4686,7 @@ function WaveformEditor({
       // Hint « cible désactivée » : filterEnv → filtre off ; driveEnv → disto off.
       const targetHint = isPitch ? null : isDrive ? renderDistortionTargetHint() : renderFilterTargetHint()
       return (
-        <div className={`we-lfo-block${enabled ? ' is-enabled' : ''}${hidden ? ' is-hidden' : ''}`} key={effect} data-anchor={EFFECT_ANCHORS[effect]}>
+        <div className={`we-lfo-block${enabled ? ' is-enabled' : ''}${hidden ? ' is-hidden' : ''}`} key={effect}>
           <div className="we-lfo-head">
             <label className="we-lfo-switch">
               <input
@@ -4804,7 +4808,7 @@ function WaveformEditor({
       const hidden = effectsSelected !== 'filter'
       const set = (key, value) => editorActions.setModulation('filter', key, value)
       return (
-        <div className={`we-lfo-block${enabled ? ' is-enabled' : ''}${hidden ? ' is-hidden' : ''}`} key="filter" data-anchor={EFFECT_ANCHORS.filter}>
+        <div className={`we-lfo-block${enabled ? ' is-enabled' : ''}${hidden ? ' is-hidden' : ''}`} key="filter">
           <div className="we-lfo-head">
             <label className="we-lfo-switch">
               <input
@@ -4908,7 +4912,7 @@ function WaveformEditor({
       const hidden = effectsSelected !== 'distortion'
       const set = (key, value) => editorActions.setModulation('distortion', key, value)
       return (
-        <div className={`we-lfo-block${enabled ? ' is-enabled' : ''}${hidden ? ' is-hidden' : ''}`} key="distortion" data-anchor={EFFECT_ANCHORS.distortion}>
+        <div className={`we-lfo-block${enabled ? ' is-enabled' : ''}${hidden ? ' is-hidden' : ''}`} key="distortion">
           <div className="we-lfo-head">
             <label className="we-lfo-switch">
               <input
@@ -5007,11 +5011,11 @@ function WaveformEditor({
 
     return (
       <div className="we-modulation-area">
-        {/* iter-U phase-3.2 : l'ancre Info du module Effets vit sur le HEADER (le
-            switcher du header → #choisir-un-effet), pas sur toute la zone : sinon
-            son badge centré recouvrirait celui du panneau d'effet visible
-            (designer-effect-*). Le header est toujours rendu (desktop in-body ET
-            mobile, où la rangée d'effets est seulement relogée ailleurs). */}
+        {/* iter-U phase-3.r2 : plus d'entrée DOC_TARGETS pour le module Effets — le
+            badge « Effets » global est remplacé par un badge par bouton d'effet
+            (data-anchor sur les boutons du switcher, buildEffectsHeaderItems). On
+            conserve `data-anchor="designer-modulation"` sur le header (peut servir
+            Tour/Raccourcis), mais il n'est plus consommé par le mode Info. */}
         <header className="we-area-header" data-anchor="designer-modulation">
           <div className="we-header-left">
             <MODULE_META.modulation.Icon className="we-area-icon" size={15} aria-hidden="true" />
