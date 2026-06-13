@@ -3938,7 +3938,7 @@ function WaveformEditor({
     const liveValue = (key) => ({ attack, hold, decay, sustain, release }[key])
 
     const renderMsSlider = (key, label) => (
-      <div className="adsr-slider">
+      <div className="adsr-slider" data-anchor={`designer-adsr-${key}`}>
         <label htmlFor={`adsr-${key}`}>
           <span>{label}</span>
           <NumberInput
@@ -3969,7 +3969,7 @@ function WaveformEditor({
     )
 
     const renderSustainSlider = () => (
-      <div className="adsr-slider">
+      <div className="adsr-slider" data-anchor="designer-adsr-sustain">
         <label htmlFor="adsr-sustain">
           <span>{STRINGS.adsr.sustain}</span>
           <NumberInput
@@ -4036,7 +4036,6 @@ function WaveformEditor({
     return (
       <div
         className={`we-adsr-area${adsrCompact ? ' is-compact' : ''} view-${adsrView === 'sliders' ? 'sliders' : 'graph'}`}
-        data-anchor="designer-adsr"
         ref={attachAdsrArea}
       >
         <header className="we-area-header">
@@ -4055,6 +4054,7 @@ function WaveformEditor({
             <canvas
               ref={adsrCanvasRef}
               className="adsr-canvas"
+              data-anchor="designer-adsr"
               style={{
                 cursor: draggingHandle ? 'grabbing' : (hover ? 'grab' : 'default'),
               }}

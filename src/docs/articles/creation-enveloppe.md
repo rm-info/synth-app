@@ -7,9 +7,11 @@ temps, de l'attaque à l'extinction.
 
 ## L'enveloppe AHDSR {#enveloppe-ahdsr}
 
-L'enveloppe se règle en cinq temps : **Attack** (montée), **Hold**
-(plateau au sommet), **Decay** (descente), **Sustain** (niveau tenu) et
-**Release** (extinction). Les quatre durées vont de 0 à 1000 ms.
+L'enveloppe se règle en cinq temps : **Attaque** (montée), **Maintien**
+(plateau au sommet), **Déclin** (descente), **Soutien** (niveau tenu) et
+**Relâche** (extinction). Le graphe en donne la vue d'ensemble, à poignées ;
+les sections suivantes détaillent chaque segment (réglable au curseur en
+vue sliders).
 
 *→ <DocLink target="designer:designer-adsr">Voir dans l'app</DocLink>*
 
@@ -19,13 +21,40 @@ Règle le volume global du patch, de 0 à 1.
 
 *→ <DocLink target="designer:designer-amplitude">Voir dans l'app</DocLink>*
 
-## Le maintien (sustain) {#sustain}
+## Attaque {#attaque}
 
-Le niveau de sustain, de 0 à 1, est la valeur tenue tant que la note
-dure, après l'attaque et le decay. Sur le graphe, une pastille permet
-de l'ajuster directement.
+Durée de la montée du volume, de 0 (silence) au sommet, après le
+déclenchement de la note. De 0 à 1000 ms.
 
-*→ <DocLink target="designer:designer-sustain-pastille">Voir dans l'app</DocLink>*
+*→ <DocLink target="designer:designer-adsr-attack">Voir dans l'app</DocLink>*
+
+## Maintien {#maintien}
+
+Durée du plateau tenu au sommet, entre l'attaque et le déclin. De 0 à
+1000 ms.
+
+*→ <DocLink target="designer:designer-adsr-hold">Voir dans l'app</DocLink>*
+
+## Déclin {#declin}
+
+Durée de la descente du sommet jusqu'au niveau de soutien. De 0 à
+1000 ms.
+
+*→ <DocLink target="designer:designer-adsr-decay">Voir dans l'app</DocLink>*
+
+## Soutien {#soutien}
+
+Niveau tenu tant que la note dure, après l'attaque et le déclin. De 0 à 1.
+(Un niveau, pas une durée.)
+
+*→ <DocLink target="designer:designer-adsr-sustain">Voir dans l'app</DocLink>*
+
+## Relâche {#relache}
+
+Durée de l'extinction, du niveau de soutien jusqu'au silence, après le
+relâchement de la note. De 0 à 1000 ms.
+
+*→ <DocLink target="designer:designer-adsr-release">Voir dans l'app</DocLink>*
 
 ## Les vues {#vues}
 

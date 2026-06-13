@@ -248,6 +248,17 @@ export const DOC_TARGETS = [
     doc: 'creation-instrument#clavier',
   },
   {
+    // Cadenas de maintien de la note de TEST (module Instrument, près du clavier).
+    // U.3.r5 : repointé vers Instrument#clavier — c'est le maintien de la note
+    // jouée, PAS le Soutien de l'enveloppe (deux concepts distincts ; le slider S
+    // a sa propre cible #soutien).
+    id: 'designer-sustain-pastille',
+    contexts: ['designer'],
+    anchor: 'designer-sustain-pastille',
+    label: 'Maintien de la note',
+    doc: 'creation-instrument#clavier',
+  },
+  {
     id: 'designer-octave-selector',
     contexts: ['designer'],
     anchor: 'designer-octave-selector',
@@ -288,6 +299,9 @@ export const DOC_TARGETS = [
 
   // ===== creation-enveloppe =====
   {
+    // Overview du graphe (ancre posée sur le canvas) : ne résout qu'en vue graphe ;
+    // en vue sliders le canvas est display:none → filtré, ce sont les 5 segments
+    // ci-dessous qui portent les badges.
     id: 'designer-adsr',
     contexts: ['designer'],
     anchor: 'designer-adsr',
@@ -301,12 +315,41 @@ export const DOC_TARGETS = [
     label: 'Amplitude',
     doc: 'creation-enveloppe#amplitude',
   },
+  // Les 5 segments réglables, exposés en VUE SLIDERS uniquement (granularité fine).
   {
-    id: 'designer-sustain-pastille',
+    id: 'designer-adsr-attack',
     contexts: ['designer'],
-    anchor: 'designer-sustain-pastille',
+    anchor: 'designer-adsr-attack',
+    label: 'Attaque',
+    doc: 'creation-enveloppe#attaque',
+  },
+  {
+    id: 'designer-adsr-hold',
+    contexts: ['designer'],
+    anchor: 'designer-adsr-hold',
     label: 'Maintien',
-    doc: 'creation-enveloppe#sustain',
+    doc: 'creation-enveloppe#maintien',
+  },
+  {
+    id: 'designer-adsr-decay',
+    contexts: ['designer'],
+    anchor: 'designer-adsr-decay',
+    label: 'Déclin',
+    doc: 'creation-enveloppe#declin',
+  },
+  {
+    id: 'designer-adsr-sustain',
+    contexts: ['designer'],
+    anchor: 'designer-adsr-sustain',
+    label: 'Soutien',
+    doc: 'creation-enveloppe#soutien',
+  },
+  {
+    id: 'designer-adsr-release',
+    contexts: ['designer'],
+    anchor: 'designer-adsr-release',
+    label: 'Relâche',
+    doc: 'creation-enveloppe#relache',
   },
   {
     id: 'designer-adsr-view-toggle',

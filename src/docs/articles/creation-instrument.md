@@ -32,9 +32,13 @@ de basculer sur le layout dédié. Cette bannière n'a pas de badge propre
 
 Le clavier de test joue le son à la hauteur choisie. Sa disposition
 s'adapte au système musical (clavier de piano, grilles à degrés égaux,
-grilles de shrutis…).
+grilles de shrutis…). Un **cadenas de maintien** laisse la note de test
+sonner en continu (sans rester appuyé) — pratique pour régler le timbre à
+l'oreille. À ne pas confondre avec le **Soutien** de l'enveloppe, qui est
+un niveau.
 
-*→ <DocLink target="designer:designer-keyboard">Voir dans l'app</DocLink>*
+*→ Voir dans l'app : <DocLink target="designer:designer-keyboard">clavier</DocLink>
+· <DocLink target="designer:designer-sustain-pastille">maintien de la note</DocLink>*
 
 ## Les octaves {#octaves}
 
