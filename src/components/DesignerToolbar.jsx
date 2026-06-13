@@ -75,6 +75,7 @@ function DesignerToolbar({ patchLabel, onPresets, onReset, onEqualizeWidths, col
         aria-pressed={acActive}
         disabled={autoCollapseForced}
         onClick={onToggleAutoCollapse}
+        data-anchor="designer-auto-collapse"
       ><FoldHorizontal size={18} /></button>
     )
     // R.3.rectif.7 : en intermédiaire 924–1100, `autoCollapseForced` est vrai →

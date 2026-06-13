@@ -13,7 +13,20 @@ temps : une catégorie (moderne, historique, théorique) puis un système
 précis. Les réglages fins propres à un système se font dans une fenêtre
 dédiée.
 
-*→ <DocLink target="designer:designer-system-selector">Voir dans l'app</DocLink>*
+*→ Voir dans l'app : <DocLink target="designer:designer-system-category">catégorie</DocLink>
+· <DocLink target="designer:designer-system-selector">système</DocLink>*
+
+## Les degrés X-EDO {#x-edo}
+
+Quand le système **X-EDO** est choisi, un champ de degrés apparaît : il
+fixe en combien de parts égales l'octave est divisée, de 1 à 53.
+
+Quand le nombre de degrés vaut 12 ou 24, une bannière signale que le
+système **correspond à 12-TET** (ou au **24-TET équipartite**) et propose
+de basculer sur le layout dédié. Cette bannière n'a pas de badge propre
+(contrôle contextuel transitoire).
+
+*→ <DocLink target="designer:designer-xedo-degrees">Voir dans l'app</DocLink>*
 
 ## Le clavier {#clavier}
 
@@ -32,9 +45,12 @@ Sélectionne l'octave du clavier de test, de 0 à 10.
 ## Les repères visuels {#reperes-visuels}
 
 Surligne sur le clavier les degrés d'une gamme ou d'un accord, à partir
-d'une tonique choisie — une aide pédagogique pour situer les notes.
+d'une tonique choisie — une aide pédagogique pour situer les notes. Le
+choix du **repère** (gamme/accord) et celui de la **tonique** sont deux
+champs distincts ; la tonique n'apparaît que lorsqu'un repère est actif.
 
-*→ <DocLink target="designer:designer-visual-cues">Voir dans l'app</DocLink>*
+*→ Voir dans l'app : <DocLink target="designer:designer-visual-cues">repère</DocLink>
+· <DocLink target="designer:designer-tonic-selector">tonique</DocLink>*
 
 ## Le mode Libre {#mode-libre}
 

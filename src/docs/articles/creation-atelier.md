@@ -84,6 +84,11 @@ progression indique le temps écoulé sur la durée totale.
 
 Chaque module porte, en coin, ses commandes de fenêtre : **Réduire**
 (le module se replie en bande verticale) et **Agrandir / Restaurer**
-(le module occupe tout le cadre, puis revient). Une option
-d'auto-réduction peut replier les autres modules d'une rangée quand on
-en ouvre un.
+(le module occupe tout le cadre, puis revient). Ces commandes existent sur
+chacun des six modules ; la sidebar de gauche se replie de son côté via son
+chevron. Ces contrôles n'ont pas de badge propre — ils se documentent ici.
+
+L'**auto-réduction**, dans la barre d'outils, replie automatiquement les
+autres modules d'une rangée quand on en ouvre un.
+
+*→ <DocLink target="designer:designer-auto-collapse">Voir dans l'app</DocLink>*

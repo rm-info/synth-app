@@ -115,6 +115,16 @@ export const DOC_TARGETS = [
     label: 'Écouter',
     doc: 'creation-atelier#ecouter',
   },
+  {
+    // Auto-réduction des modules (toggle toolbar). Le chrome de chaque module
+    // (Réduire/Agrandir) et le repli de la sidebar sont couverts EN PROSE de la
+    // même section, sans badge (chromes = 6 instances, pas de cible unique).
+    id: 'designer-auto-collapse',
+    contexts: ['designer'],
+    anchor: 'designer-auto-collapse',
+    label: 'Auto-réduction',
+    doc: 'creation-atelier#gerer-les-modules',
+  },
 
   // ===== creation-forme-onde =====
   {
@@ -208,11 +218,27 @@ export const DOC_TARGETS = [
 
   // ===== creation-instrument =====
   {
+    // Catégorie & Système : deux dropdowns distincts (deux badges), même section.
+    id: 'designer-system-category',
+    contexts: ['designer'],
+    anchor: 'designer-system-category',
+    label: 'Catégorie',
+    doc: 'creation-instrument#systeme-musical',
+  },
+  {
     id: 'designer-system-selector',
     contexts: ['designer'],
     anchor: 'designer-system-selector',
     label: 'Système musical',
     doc: 'creation-instrument#systeme-musical',
+  },
+  {
+    // Visible uniquement si le système actif est X-EDO.
+    id: 'designer-xedo-degrees',
+    contexts: ['designer'],
+    anchor: 'designer-xedo-degrees',
+    label: 'Degrés X-EDO',
+    doc: 'creation-instrument#x-edo',
   },
   {
     id: 'designer-keyboard',
@@ -233,6 +259,15 @@ export const DOC_TARGETS = [
     contexts: ['designer'],
     anchor: 'designer-visual-cues',
     label: 'Repères visuels',
+    doc: 'creation-instrument#reperes-visuels',
+  },
+  {
+    // Tonique des repères : partage la section de son voisin Repères (visible si
+    // les repères sont actifs ; deux badges, même fragment).
+    id: 'designer-tonic-selector',
+    contexts: ['designer'],
+    anchor: 'designer-tonic-selector',
+    label: 'Tonique',
     doc: 'creation-instrument#reperes-visuels',
   },
   {

@@ -3453,8 +3453,8 @@ function WaveformEditor({
   // dédié pour pouvoir être masqué par CSS @media < 1170px (le label
   // wrappait à 2 lignes sur sidebar étroite).
   const renderInstrumentControls = () => (
-    <div className="instrument-system-row" data-anchor="designer-system-selector">
-      <div className="instrument-system-field">
+    <div className="instrument-system-row">
+      <div className="instrument-system-field" data-anchor="designer-system-category">
         <span className="instrument-system-field-label">Catégorie</span>
         <ShortLabelSelect
           ariaLabel="Catégorie de système musical"
@@ -3472,7 +3472,7 @@ function WaveformEditor({
           }}
         />
       </div>
-      <div className="instrument-system-field">
+      <div className="instrument-system-field" data-anchor="designer-system-selector">
         <span className="instrument-system-field-label">
           Système<span className="instrument-label-extension"> musical</span>
         </span>
@@ -3491,6 +3491,7 @@ function WaveformEditor({
         <div
           className="instrument-system-field instrument-xedo-field"
           title={`Nombre de degrés du système X-EDO — flèches haut/bas pour ±1, +Shift pour ±5. Fourchette ${X_EDO_MIN}-${X_EDO_MAX}.`}
+          data-anchor="designer-xedo-degrees"
         >
           <span className="instrument-system-field-label">X</span>
           <XEdoInput value={xEdoN} onChange={editorActions.setXEdoN} className="xedo-input-designer" />
@@ -3512,7 +3513,7 @@ function WaveformEditor({
         </div>
       )}
       {showCuesBar && visualCuePattern !== 'none' && cueTonicMax > 0 && (
-        <div className="instrument-system-field instrument-tonic-field">
+        <div className="instrument-system-field instrument-tonic-field" data-anchor="designer-tonic-selector">
           <span className="instrument-system-field-label">Tonique</span>
           <ShortLabelSelect
             ariaLabel="Degré tonique"
