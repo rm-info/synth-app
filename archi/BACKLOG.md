@@ -66,7 +66,15 @@ Phases :
   au repos** (découplage position/sens d'ouverture du libellé — fin du
   décalage aux bords) ; (4) **4 trous Création comblés** (catégorie
   système, tonique repères, degrés X-EDO, auto-réduction ; bannière
-  X-EDO en prose). → `archi/U3r-prompt.md`.
+  X-EDO en prose). Audit au sol approfondi : **+5 badges segments AHDSR**
+  (Attaque/Maintien/Déclin/Soutien/Relâche, vue sliders ; granularité
+  fine validée), **affinage ancre Catégorie/Système** (l'ancre couvrait
+  toute la rangée → 2 badges distincts), **découplage ancre overview
+  Enveloppe** (graphe-only, sinon superposition en vue sliders), **fix
+  mapping `designer-sustain-pastille`** (cadenas de maintien = Instrument,
+  pas le Soutien d'enveloppe). Structurels (chrome de module, repli
+  sidebar) → **prose, pas de badge** (décision validée).
+  → `archi/U3r-prompt.md`.
 - **U.4** — peuplement (writer, brief séparé).
 - **Ensuite** : mise à jour du **Tour guidé** (2ᵉ gros morceau, U.5+ ou
   itération V) ; passe sur l'article généré Raccourcis au passage.

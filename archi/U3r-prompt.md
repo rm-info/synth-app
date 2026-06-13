@@ -100,9 +100,11 @@ Retours de validation U.3. Quatre corrections, indépendantes :
   s'ouvre vers l'intérieur sans jamais sortir du champ ni recouvrir le
   bord. `EDGE_REGION` ne sert plus qu'à choisir le sens d'ouverture.
 
-### 4. Trous de couverture Création (4 contrôles)
+### 4. Trous de couverture Création
 
 Poser l'ancre + l'entrée de registre + le heading squelette d'article.
+
+#### 4a. Contrôles Instrument & Atelier (4)
 
 | Contrôle | Fichier (approx.) | Nouvelle ancre | `doc` |
 |---|---|---|---|
@@ -111,12 +113,16 @@ Poser l'ancre + l'entrée de registre + le heading squelette d'article.
 | **Degrés X-EDO** (NumberInput 1..128, visible si système x-edo) | WaveformEditor.jsx ~3493 | `designer-xedo-degrees` | `creation-instrument#x-edo` |
 | **Auto-réduction des modules** (toggle FoldHorizontal) | DesignerToolbar.jsx ~70 | `designer-auto-collapse` | `creation-atelier#gerer-les-modules` |
 
-- **Catégorie** et **Tonique** partagent le fragment de leur voisin
-  (système / repères) — deux badges, même section, pattern déjà en
-  place (undo/redo, free-frequency/test). Vérifie que l'ancre
-  `designer-system-category` est bien posée sur le dropdown **Catégorie**
-  et reste **distincte** de `designer-system-selector` (le dropdown
-  Système).
+- **Affinage ancre Catégorie/Système** : aujourd'hui
+  `data-anchor="designer-system-selector"` est sur **toute la rangée**
+  `instrument-system-row` (WaveformEditor.jsx ~3453), qui contient
+  **les deux** dropdowns Catégorie + Système → un seul badge centré sur
+  la rangée. **Déplace** `designer-system-selector` sur le **champ
+  Système** (`instrument-system-field` du Système, ~3472) et pose
+  `designer-system-category` sur le **champ Catégorie** (~3454) → deux
+  badges distincts, même fragment `#systeme-musical`.
+- **Tonique** partage le fragment de son voisin Repères
+  (`#reperes-visuels`) — deux badges, même section (pattern undo/redo).
 - **Degrés X-EDO** : nouvelle section `## … {#x-edo}` dans
   `creation-instrument.md`. Dans sa prose squelette (faits bruts),
   mentionner aussi la **bannière de conversion X-EDO** (« correspond à
@@ -125,13 +131,53 @@ Poser l'ancre + l'entrée de registre + le heading squelette d'article.
   hints « Activer le filtre » des effets), elle se documente dans cette
   section.
 - **Auto-réduction** : la section `#gerer-les-modules` de
-  `creation-atelier.md` existe déjà (prévue « sans badge » en U.3 pour
-  réduire/agrandir/maximiser) — elle gagne maintenant **ce** badge.
-  Compléter son squelette avec le fait de l'auto-réduction.
+  `creation-atelier.md` documente la gestion des modules. Elle couvre
+  **en prose** (sans badge — décision validée) le **chrome de module**
+  (Réduire / Agrandir-Restaurer, sur chacun des 6 modules) et le
+  **repli de la sidebar** Création (chevron). Elle gagne **un badge** :
+  l'**auto-réduction** (toggle de la toolbar). Complète le squelette en
+  conséquence.
 - Respecter la **règle modale** : en disposition compacte, Catégorie/
   Système/X-EDO/Tonique sont relogés dans une modale → pas de badge
   dans ce cas (le mode Info est gaté modale-ouverte), doc en prose de
   la section parente. Ne pose pas d'ancres dédiées dans la modale.
+
+#### 4b. Segments de l'enveloppe AHDSR (5)
+
+La vue **sliders** de l'Enveloppe expose 5 segments réglables sans
+ancre. Chacun reçoit un badge dédié (granularité fine validée).
+
+| Contrôle | Ancre | `doc` |
+|---|---|---|
+| **Attaque** (slider A) | `designer-adsr-attack` | `creation-enveloppe#attaque` |
+| **Maintien** (slider H, plateau) | `designer-adsr-hold` | `creation-enveloppe#maintien` |
+| **Déclin** (slider D) | `designer-adsr-decay` | `creation-enveloppe#declin` |
+| **Soutien** (slider S, niveau) | `designer-adsr-sustain` | `creation-enveloppe#soutien` |
+| **Relâche** (slider R) | `designer-adsr-release` | `creation-enveloppe#relache` |
+
+- Ancres posées sur chaque `.adsr-slider` (WaveformEditor.jsx, fonctions
+  `renderAdsrSlider`/`renderSustainSlider` ~3940-3996). `Amplitude`
+  garde son badge existant (`designer-amplitude`).
+- **Visibilité** : ces sliders n'existent qu'en **vue sliders**
+  (`adsrView==='sliders'`). En **vue graphe**, ils ne sont pas rendus →
+  pas de badge (filtre `getAnchoredPosition`), et c'est le graphe qui
+  porte l'overview.
+- **Découpler l'ancre overview** : `designer-adsr` est aujourd'hui sur
+  `we-adsr-area` (englobe les deux vues) → en vue sliders, son badge se
+  superposerait aux 6 badges de segments. **Déplace** `designer-adsr`
+  sur le **canvas du graphe** (vue graphe uniquement) pour qu'il ne
+  résolve qu'en vue graphe ; son fragment reste
+  `creation-enveloppe#enveloppe-ahdsr` (l'overview du graphe). Vérifie
+  que la vue inactive est en `display:none` (rect nul → filtrée).
+- **Anomalie de mapping à corriger** (repérée à l'audit) : la pastille
+  `designer-sustain-pastille` (le **cadenas de maintien de la note de
+  test**, dans le module **Instrument** près du clavier, WaveformEditor.jsx
+  ~3738) pointe aujourd'hui vers `creation-enveloppe#sustain` — c'est le
+  **Soutien de l'enveloppe**, un concept **différent** (niveau de
+  l'enveloppe vs maintien de la note jouée). Repointe
+  `designer-sustain-pastille` vers une cible Instrument cohérente
+  (p. ex. `creation-instrument#clavier`, section qui couvre le jeu/test
+  au clavier) ; le `#soutien` ci-dessus est réservé au slider S.
 
 ## Découpage en sous-commits
 
@@ -141,9 +187,11 @@ Poser l'ancre + l'entrée de registre + le heading squelette d'article.
    (ancres déplacées header, entrée designer-modulation retirée)`
 3. `fix(iter-U/phase-3.r3): badges Info centrés sur le contrôle au repos
    (découplage position / sens d'ouverture du libellé)`
-4. `feat(iter-U/phase-3.r4): couverture des 4 contrôles Création
-   manquants (catégorie, tonique, degrés X-EDO, auto-réduction)`
-5. `docs: CONTEXT.md — Iteration U phase 3.r (rectificatif couverture)`
+4. `feat(iter-U/phase-3.r4): couverture Instrument & Atelier (catégorie,
+   tonique, degrés X-EDO, auto-réduction ; affinage ancre système)`
+5. `feat(iter-U/phase-3.r5): badges des 5 segments AHDSR + découplage
+   ancre overview + fix mapping sustain-pastille`
+6. `docs: CONTEXT.md — Iteration U phase 3.r (rectificatif couverture)`
 
 ## Comportement attendu
 
@@ -163,7 +211,17 @@ Poser l'ancre + l'entrée de registre + le heading squelette d'article.
   Système ; badge sur **Tonique** (si repères actifs) → section Repères ;
   badge sur **Degrés X-EDO** (si système X-EDO) → section X-EDO. Bannière
   X-EDO : pas de badge, couverte en prose.
-- Atelier : badge sur **Auto-réduction** → `#gerer-les-modules`.
+- Atelier : badge sur **Auto-réduction** → `#gerer-les-modules`. Chrome
+  de module (réduire/agrandir/maximiser) et repli de la sidebar :
+  **aucun badge**, couverts en prose dans cette section.
+- Instrument : **deux** badges distincts Catégorie / Système (plus un
+  seul badge centré sur la rangée).
+- Enveloppe, **vue sliders** : badges Amplitude + **Attaque / Maintien /
+  Déclin / Soutien / Relâche** (6 au total), chacun vers sa section ;
+  **pas** de badge overview superposé. **Vue graphe** : un seul badge
+  (le graphe → `#enveloppe-ahdsr`), pas de badge de segment.
+- Pastille de maintien (cadenas, Instrument) → section Instrument
+  (clavier/test), plus vers `#sustain` de l'enveloppe.
 - Cliquer chaque badge Création : aucun warn DEV « fragment introuvable »
   (tout `doc:` du registre résout). `npx tsc --noEmit` + lint propres.
 - `guide-bibliotheque.md` : diff = retrait des 6 `{#id}`, rien d'autre.
