@@ -2666,6 +2666,12 @@ export function reducer(state, action) {
         docSidebarCollapsed: state.docSidebarCollapsed,
         composerBankCollapsed: state.composerBankCollapsed,
         composerAsideCollapsed: state.composerAsideCollapsed,
+        // iter-U phase-5.1 : la révélation de module (REVEAL_DESIGNER_MODULE)
+        // mute l'état de repli/maximisation/switcher de la Création au fil des
+        // étapes ; on capture l'état initial pour le restaurer à END_TOUR.
+        designerCollapsed: state.designerCollapsed,
+        maximized: state.maximized,
+        designerMobileModule: state.designerMobileModule,
       }
       return {
         ...state,
@@ -2707,6 +2713,11 @@ export function reducer(state, action) {
         docSidebarCollapsed: snap.docSidebarCollapsed,
         composerBankCollapsed: snap.composerBankCollapsed,
         composerAsideCollapsed: snap.composerAsideCollapsed,
+        // iter-U phase-5.1 : restaure l'état des modules Création muté par la
+        // révélation progressive. Champs absents des snapshots pré-5.1 (??).
+        designerCollapsed: snap.designerCollapsed ?? state.designerCollapsed,
+        maximized: snap.maximized ?? null,
+        designerMobileModule: snap.designerMobileModule ?? state.designerMobileModule,
       } : {}
       return {
         ...state,
@@ -2885,6 +2896,32 @@ export function reducer(state, action) {
       if (!DESIGNER_MODULE_IDS.includes(action.payload)) return state
       if (state.designerMobileModule === action.payload) return state
       return { ...state, designerMobileModule: action.payload }
+    }
+    // iter-U phase-5.1 : garantit la VISIBILITÉ d'un module ciblé par une étape
+    // du Tour guidé, quel que soit le format. Idempotent (réutilisable à chaque
+    // (ré)activation d'étape). Trois leviers, no-op si déjà satisfait :
+    //   - bande desktop : déplie le module s'il est replié ;
+    //   - desktop maximisé : sort de la maximisation d'un AUTRE module (qui le
+    //     masquerait) ; un module déjà maximisé reste plein écran (visible) ;
+    //   - mobile (switcher) : l'amène en plein cadre (designerMobileModule).
+    // L'état initial est snapshotté à START_TOUR et restauré à END_TOUR. La
+    // politique d'auto-réduction est edge-triggered (au franchissement de
+    // largeur) : un dépli manuel ici tient tant que la fenêtre ne bouge pas.
+    case 'REVEAL_DESIGNER_MODULE': {
+      const id = action.payload
+      if (!DESIGNER_MODULE_IDS.includes(id)) return state
+      const needUnfold = state.designerCollapsed[id]
+      const needUnmax = state.maximized !== null && state.maximized !== id
+      const needMobile = state.designerMobileModule !== id
+      if (!needUnfold && !needUnmax && !needMobile) return state
+      return {
+        ...state,
+        designerCollapsed: needUnfold
+          ? { ...state.designerCollapsed, [id]: false }
+          : state.designerCollapsed,
+        maximized: needUnmax ? null : state.maximized,
+        designerMobileModule: id,
+      }
     }
     // iter-T phase-1.1 : effet en cours d'édition dans le module « Effets »
     // (panneau affiché). Exclusif, toujours exactement un. Clic sur l'actif =

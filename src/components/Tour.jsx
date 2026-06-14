@@ -54,11 +54,12 @@ function openSidebarIfCollapsed(sidebarId, dispatch, collapse) {
 
 // Disponibilité statique d'une étape : pilote la progress bar et la
 // navigation Précédent/Suivant. Une étape est disponible si son ancre existe
-// dans le DOM, OU si elle déclare une sidebar (qu'on saura déplier pour la
-// révéler). Les ancres absentes sans sidebar (clip témoin inexistant,
-// presse-papier vide, bouton conditionnel) sont silencieusement omises.
+// dans le DOM, OU si elle déclare une sidebar / un module à révéler (qu'on
+// saura déplier ou amener en plein cadre avant de pointer). Les ancres absentes
+// sans sidebar ni revealModule (clip témoin inexistant, presse-papier vide,
+// bouton conditionnel) sont silencieusement omises.
 function isStepAvailable(step) {
-  if (step.sidebar) return true
+  if (step.sidebar || step.revealModule) return true
   return !!document.querySelector(`[data-anchor="${step.anchor}"]`)
 }
 
@@ -190,6 +191,13 @@ function Tour({
         composerBank: composerBankCollapsed,
         composerAside: composerAsideCollapsed,
       })
+    }
+    // iter-U phase-5.1 : révèle le module ciblé (déplié en bande, sorti d'une
+    // maximisation concurrente, ou amené plein cadre en mobile) avant la sonde.
+    // L'action est idempotente et no-op si le module est déjà visible ; le
+    // probe RAF ci-dessous attend que l'ancre nouvellement montée apparaisse.
+    if (rawStep.revealModule) {
+      dispatch({ type: 'REVEAL_DESIGNER_MODULE', payload: rawStep.revealModule })
     }
     let raf
     let startTs = null

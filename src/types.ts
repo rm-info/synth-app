@@ -341,6 +341,12 @@ export interface TourSnapshot {
   docSidebarCollapsed: boolean
   composerBankCollapsed: boolean
   composerAsideCollapsed: boolean
+  // iter-U phase-5.1 : état des modules Création muté par la révélation
+  // progressive d'étape (REVEAL_DESIGNER_MODULE), restauré à END_TOUR.
+  // Optionnels (rétro-compat des snapshots capturés avant 5.1).
+  designerCollapsed?: DesignerCollapsed
+  maximized?: DesignerModuleId | null
+  designerMobileModule?: DesignerModuleId
 }
 
 export interface TourState {
@@ -725,6 +731,9 @@ export type ActionBody =
   | { type: 'SET_DESIGNER_AUTO_COLLAPSE'; payload: boolean }
   // iter-R phase-1.1 : sélectionne le module plein cadre en petit écran (switcher).
   | { type: 'SET_DESIGNER_MOBILE_MODULE'; payload: DesignerModuleId }
+  // iter-U phase-5.1 : révèle un module ciblé par une étape du Tour guidé
+  // (déplié / sorti de maximisation concurrente / amené plein cadre en mobile).
+  | { type: 'REVEAL_DESIGNER_MODULE'; payload: DesignerModuleId }
   // iter-T phase-1.1 : sélectionne l'effet édité dans le module « Effets ».
   | { type: 'SET_DESIGNER_EFFECTS_SELECTED'; payload: DesignerEffectId }
   // iter-P phase-6.1 : remplace l'état replié des 6 modules en bloc (auto-collapse
