@@ -105,9 +105,17 @@ Phases :
   (unité profondeur par effet, piège Q dB/linéaire) rendus fidèlement.
 
 > **Jalon : documentation interactive de la Création COMPLÈTE & PEUPLÉE**
-> (U.1→U.4). Reste de l'itération U / suite : **2ᵉ gros morceau — mise à
-> jour du Tour de découverte** (Création), + passe sur l'article généré
-> Raccourcis (Ctrl+I déjà présent via SHORTCUTS).
+> (U.1→U.4).
+
+- **U.5** — mise à jour du **Tour de découverte** (Création). Cadré
+  2026-06-15 : **rampe d'accueil resserrée** (~12 étapes, chaque étape →
+  section `creation-*#fragment` via navigateToDoc, pont final vers
+  Ctrl+I) ; **étape Effets unique avec révélation moteur** (nouveau champ
+  `revealModule` + snapshot étendu à `designerCollapsed`/`maximized`/
+  `designerMobileModule`, restauré à END_TOUR). Le tour designer.js (9
+  étapes, iter-L) est obsolète (aucune ancre morte mais module Effets +
+  lentilles + presets + spectro non couverts). Tour & Info complémentaires
+  (narratif vs référence), pas de doublon. → `archi/U5-prompt.md`.
 - **Ensuite** : mise à jour du **Tour guidé** (2ᵉ gros morceau, U.5+ ou
   itération V) ; passe sur l'article généré Raccourcis au passage.
 
