@@ -883,6 +883,33 @@ Phases listées ci-dessous dans l'ordre chronologique d'implémentation.
 
 ## Historique (chronologie inverse)
 
+- **2026-06-14 — Iteration U — phase U.3.s (sous-contrôles des effets : badges via sections de concept partagées)**
+  (`feat(iter-U/phase-3.s1→3.s2)` + doc). Les sous-contrôles à l'intérieur d'un
+  panneau d'effet (steppers de paramètres, switch de forme/type, toggle Inverser,
+  graphe éditable) gagnent un badge. **Aucun changement de modèle, d'audio ni du
+  parser markdown.** **Décision d'archi (2026-06-13)** : sections de concept
+  **partagées par famille** (DRY) — un paramètre récurrent est documenté une seule
+  fois et tous les effets de la famille y pointent. **Deux sous-commits** :
+  - **3.s1 — 18 fragments de concept** ajoutés à `creation-effets.md` (partie « Les
+    réglages, famille par famille ») : famille **LFO** (vibrato/trémolo/auto-pan/wah)
+    → `#lfo-vitesse`/`#lfo-profondeur`/`#lfo-installation`/`#lfo-forme`/`#lfo-graphe` ;
+    **Enveloppe** (hauteur/env. filtre/env. drive) → `#env-cible`/`#env-duree`/
+    `#env-inverser`/`#env-forme`/`#env-graphe` ; **Filtre** → `#filtre-frequence`/
+    `#filtre-resonance`/`#filtre-type`/`#filtre-graphe` ; **Disto** → `#disto-drive`/
+    `#disto-mix`/`#disto-courbe`/`#disto-graphe`. Faits bruts + note d'unité par effet
+    quand elle varie (profondeur LFO cents|0..1 ; cible env cents|gain) ; prose U.4.
+  - **3.s2 — ancres + registre généré.** Schéma `designer-fx-<effet-kebab>-<param>`
+    posé dans les **builders partagés** : `renderLfoBlock` et `renderParamEnvBlock`
+    via le helper `fxAnchor(effect, param)` (un seul point de code couvre les 4 / 3
+    effets de la famille) ; `renderFilterBlock`/`renderDistortionBlock` en littéraux.
+    Sur les `we-lfo-control` (steppers), le `we-lfo-shape` (switch), le bouton
+    Inverser, le `we-lfo-canvas-wrap` (un seul badge graphe/panneau). PAS de badge
+    sur l'on/off in-panel (déjà couvert par le bouton d'effet) ni les hints
+    d'activation. Registre : ~43 entrées **générées par boucle de famille**
+    (`buildFxTargets` + `FX_FAMILIES`/`FX_KEBAB`, esprit `SHORTCUTS`) → fragments de
+    concept partagés ; les mêmes ancres sont émises des deux côtés (UI / registre).
+    Panneaux masqués (display:none) → pas de badge (getAnchoredPosition). Total
+    registre : **94 cibles** ; tous les `doc:` résolvent ; tsc/lint/build verts.
 - **2026-06-13 — Iteration U — phase U.3.r (rectificatif U.3 : recentrage Création, badges Effets en toolbar, placement, trous)**
   (`fix/feat(iter-U/phase-3.r1→3.r5)` + doc). Cinq corrections indépendantes issues
   de la validation U.3. **Aucun changement de modèle, d'audio ni du parser markdown.**

@@ -44,16 +44,17 @@ framework UI (CSS manuscrit), pas de routing, pas de backend.
 | T | Effets sans mémoire : module Effets (9 effets par patch), auto-pan, pitch env (Inverser + 4 formes), filtre + env + wah, disto vivante (env. drive, poignée 2D) — .osa v4 — v1.12.0 | 2026-06-12 |
 
 **État courant** : **Iteration U « Documentation utilisateur de la Création »**
-en cours — **phases U.1 → U.3 (+ rectif U.3.r) livrées**. U.1 = socle renderer doc
-(ids de titre `{#id}`, liens profonds `doc:article#fragment` scroll + flash,
-accordéon `<Details>`, images SVG `public/docs/`). U.2 = **mode Info** (bouton
-header + **Ctrl+I**, overlay de badges cliquables sur les contrôles documentés
-visibles, registre déclaratif `DOC_TARGETS`). U.3 (+ rectif U.3.r) = **couverture
-de la Création seule** : 7 articles squelettes par module (section TOC « La
-Création en détail »), `DOC_TARGETS` recentré sur la Création (**51 cibles**,
-Bibliothèque retirée), badges Effets sur les boutons du switcher (un par effet,
-sans présélection), 5 segments AHDSR en vue sliders, pastilles **centrées** sur
-leur contrôle (libellé qui s'ouvre vers l'intérieur). Suite : U.4 prose writer.
+en cours — **phases U.1 → U.3 (+ rectifs U.3.r, U.3.s) livrées**. U.1 = socle
+renderer doc (ids de titre `{#id}`, liens profonds `doc:article#fragment` scroll +
+flash, accordéon `<Details>`, images SVG `public/docs/`). U.2 = **mode Info**
+(bouton header + **Ctrl+I**, overlay de badges cliquables sur les contrôles
+documentés visibles, registre déclaratif `DOC_TARGETS`). U.3 (+ rectifs) =
+**couverture de la Création seule** : 7 articles squelettes par module (section TOC
+« La Création en détail »), badges Effets sur les boutons du switcher, 5 segments
+AHDSR, pastilles **centrées** sur leur contrôle. U.3.s ajoute les **sous-contrôles
+des effets** (steppers/switchs/graphes) via des **sections de concept partagées par
+famille** (DRY : le « Vitesse » de tous les LFO → `#lfo-vitesse`). `DOC_TARGETS` =
+**94 cibles** (51 + 43 générées par famille). Suite : U.4 prose writer.
 Iteration T « Effets sans mémoire » **close** (release **v1.12.0**, 2026-06-12).
 Détail des itérations closes, saga et roadmaps dans `CONTEXT-ARCHIVE.md`.
 
@@ -116,7 +117,7 @@ synth-app/
     │   ├── folderNames.js    # nextAvailableFolderName partagé (extraction H.1.4)
     │   ├── bibTransfer.js               # wouldCreateCycle + duplicateItemsToFolder (K.1.7)
     │   ├── shortcuts.js      # table déclarative + matchesShortcut / getAnchor (iter-L phase-1.1) ; iter-U phase-2.1 : entrée `global-info` (Ctrl+I)
-    │   ├── docTargets.js     # (iter-U phase-2.2 → 3.3 → rectif 3.r) registre DOC_TARGETS du mode Info (moule de SHORTCUTS) : { id, contexts, anchor, label, doc:'article[#id]' } → badge cliquable → navigateToDoc ; getTargetAnchor / splitDocTarget. 51 cibles, Création SEULE (articles creation-*) ; badges Effets sur les boutons du switcher (EFFECT_ANCHORS) ; couverture Bibliothèque RETIRÉE en 3.r (recentrage)
+    │   ├── docTargets.js     # (iter-U phase-2.2 → 3.3 → rectifs 3.r/3.s) registre DOC_TARGETS du mode Info (moule de SHORTCUTS) : { id, contexts, anchor, label, doc:'article[#id]' } → badge cliquable → navigateToDoc ; getTargetAnchor / splitDocTarget. 94 cibles, Création SEULE (articles creation-*) ; badges Effets sur les boutons du switcher (EFFECT_ANCHORS) ; sous-contrôles d'effets designer-fx-<effet>-<param> GÉNÉRÉS par famille (buildFxTargets/FX_FAMILIES) → fragments de concept partagés ; Bibliothèque RETIRÉE en 3.r
     │   ├── designerModules.js # (iter-O phase-5c/5d, iter-P) MODULE_META des 6 modules Designer { label, Icon Lucide } + DESIGNER_ROWS / rowSiblings (rangée haut 3 / bas 3) — source unique (headers, bande, auto-réduction)
     │   ├── filter.js         # (iter-T T.4) filtre statique : biquadQValue (piège d'unité Q — dB pour LP/HP, linéaire pour BP/notch) + configureBiquad, partagés par les 4 chemins audio ET le graphe de réponse (biquad de mesure)
     │   ├── distortion.js     # (iter-T T.6/T.6bis) distorsion par voix : distortionTransfer (soft tanh / hard clamp / fold sin, normalisées ±1→±1) + distortionCurveTable (mémo (curve,drive)) + configureShaper (oversample 4x) + connectDistortion (split wet/dry, insertion avant le filtre ; T.6bis : insère un inputGain base 1 avant le shaper quand driveEnv actif, le retourne pour l'automation) ; partagé 4 chemins audio + graphe de transfert
@@ -2454,6 +2455,21 @@ Conventions tacites. Les enfreindre sans raison crée des bugs subtils.
 **Iteration U « Documentation utilisateur de la Création »** en cours (ouverte **2026-06-12**).
 
 🚧 **En cours**
+- **U.3.s — sous-contrôles des effets (livrée, 2026-06-14)** : à l'intérieur d'un
+  panneau d'effet sélectionné, les **sous-contrôles** (steppers, switch de
+  forme/type, graphe éditable, toggle Inverser) gagnent un badge. Décision archi :
+  **sections de concept partagées par famille** (DRY) — un paramètre documenté une
+  seule fois, tous les effets de la famille y pointent (le « Vitesse » du vibrato et
+  du trémolo ouvrent la **même** `#lfo-vitesse`). 18 fragments concept ajoutés à
+  `creation-effets.md` (familles LFO/Enveloppe/Filtre/Disto). Ancres
+  `designer-fx-<effet-kebab>-<param>` posées dans les **builders partagés**
+  (`renderLfoBlock`/`renderParamEnvBlock` : un point de code pour toute la famille,
+  via helper `fxAnchor` ; `renderFilterBlock`/`renderDistortionBlock` : littéraux).
+  ~43 entrées de registre **générées par boucle de famille** (`buildFxTargets` +
+  `FX_FAMILIES`, mêmes ancres des deux côtés). On ne badge ni l'on/off in-panel
+  (déjà couvert par le bouton d'effet) ni les hints d'activation ; un seul badge
+  graphe par panneau. Panneaux masqués (display:none) → pas de badge. Registre :
+  **94 cibles** ; tsc/lint/build OK, tous les `doc:` résolvent. Reste U.4 (prose).
 - **U.3.r — rectificatif U.3 (livrée, 2026-06-13)** : cinq corrections issues de la
   validation. (1) **Recentrage Création** : retrait des 13 entrées `library-*` du
   registre (l'onglet/​la sidebar Bibliothèque retombent sur « bientôt ») + retrait
@@ -3462,6 +3478,12 @@ survol narratif. Navigation = **bascule d'onglet** (pas de panneau in-situ). Pro
   tonique, degrés X-EDO 1..53 + section #x-edo, auto-réduction) ; 5 segments AHDSR
   en vue sliders + ancre overview déplacée sur le canvas + fix mapping
   `designer-sustain-pastille` → Instrument#clavier. Registre : 51 cibles.
+- ✅ **U.3.s — sous-contrôles des effets (livrée)** : badges sur les steppers/switchs/
+  graphes/toggle Inverser à l'intérieur des 9 panneaux d'effet, via 18 **sections de
+  concept partagées par famille** (LFO/Enveloppe/Filtre/Disto) dans
+  `creation-effets.md`. Ancres `designer-fx-<effet>-<param>` dans les builders
+  partagés ; ~43 entrées de registre **générées par famille** (`buildFxTargets`).
+  Registre : 94 cibles. On/off in-panel et hints non badgés ; un badge graphe/panneau.
 - **U.4 — peuplement des contenus** : **domaine writer**, hors scope dev (brief séparé).
   Inclut la couture de `guide-designer` (porte d'entrée → articles par module) et la
   prose des 7 squelettes `creation-*` (retrait des lignes « Version provisoire »).
