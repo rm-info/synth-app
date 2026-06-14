@@ -92,12 +92,15 @@ Phases :
   propre. → `archi/U3s-prompt.md`.
 
 > **Jalon : mécanique du mode Info COMPLÈTE** (U.1→U.3.s). Reste de
-> l'itération U : **U.4 = peuplement de la prose** (writer — rôle
-> distinct, brief archi à rédiger : audit des squelettes livrés + faits
-> + contraintes ; couture de guide-designer en porte d'entrée vers les
-> articles `creation-*`). Puis **2ᵉ gros morceau : mise à jour du Tour
-> de découverte** (Création), avec passe sur l'article généré Raccourcis.
-- **U.4** — peuplement (writer, brief séparé).
+> l'itération U : **U.4 = peuplement de la prose** (writer). Brief archi
+> rédigé → `archi/U4-writer-brief.md`. Puis **2ᵉ gros morceau : mise à
+> jour du Tour de découverte** (Création), avec passe sur l'article
+> généré Raccourcis.
+- **U.4** — peuplement (writer). Brief → `archi/U4-writer-brief.md` :
+  audit des 7 squelettes + **bornes exactes par module** (forme d'onde,
+  harmoniques, spectro, instrument, enveloppe, 9 effets + concepts
+  partagés) + contraintes renderer V1/style + couture de guide-designer
+  en porte d'entrée + candidats SVG.
 - **Ensuite** : mise à jour du **Tour guidé** (2ᵉ gros morceau, U.5+ ou
   itération V) ; passe sur l'article généré Raccourcis au passage.
 
