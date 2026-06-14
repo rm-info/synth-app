@@ -1,67 +1,101 @@
-// src/lib/tours/designer.js — Séquence du Tour guidé pour l'onglet Designer
-// (iter-L phase-4). Chaque étape pointe une ancre `data-anchor` ; le moteur
-// (Tour.jsx) résout la position via getAnchoredPosition et skippe les ancres
-// absentes (ex. spectrogramme masqué).
+// src/lib/tours/designer.js — Séquence du Tour guidé de l'onglet Création
+// (réécrite iter-U phase-5.3). Rampe d'accueil narrative resserrée — le
+// parcours d'un débutant : faire un son → le sculpter → l'écouter → découvrir
+// les effets → enregistrer. Le Tour ORIENTE, l'Info (Ctrl+I) DÉTAILLE : chaque
+// étape pointe la bonne section de son article `creation-*` via « En savoir
+// plus », et le tour se referme en renvoyant vers la doc interactive.
 //
-// Champs d'une étape :
-//   - anchor  : valeur data-anchor de l'élément ciblé.
-//   - title   : titre court (3-5 mots).
-//   - body    : 1-2 phrases. Premier jet dev — passe rédactionnelle à venir
-//               (cf. archi/L4-redaction-prompt.md).
-//   - article : (optionnel) id DOC_TOC pour le bouton « En savoir plus ».
-//   - sidebar : (optionnel) sidebar à déplier avant de pointer l'ancre
-//               ('designer' | 'doc' | 'composer-bank' | 'composer-aside').
+// Champs d'une étape (résolus par Tour.jsx, qui skippe les ancres absentes) :
+//   - anchor       : valeur data-anchor de l'élément ciblé.
+//   - title        : titre court (3-5 mots).
+//   - body         : 1-2 phrases au tutoiement (microcopie, pas de prose).
+//   - article      : (optionnel) 'article-id#fragment' DOC_TOC → bouton « En
+//                    savoir plus » (route via navigateToDoc : scroll + flash).
+//   - revealModule : (optionnel) module rendu visible avant de pointer
+//                    ('canvas' | 'harmonics' | 'spectrogram' | 'params' |
+//                    'adsr' | 'modulation') — déplié en bande, sorti d'une
+//                    maximisation concurrente, ou amené plein cadre en mobile.
+//   - sidebar      : (optionnel) sidebar à déplier ('designer' | …).
 
 export const designerTour = [
   {
     anchor: 'designer-waveform',
     title: 'Dessiner le timbre',
-    body: 'Trace la forme d\'onde à la souris, ou choisis un preset (sinus, carré, dent de scie…). C\'est la couleur du son.',
+    body: 'Trace la forme d\'onde à la souris : c\'est la « couleur » de ton son. Tu peux aussi partir d\'une onde classique (sinus, carré, dent de scie…).',
+    article: 'creation-forme-onde#dessiner',
+    revealModule: 'canvas',
   },
   {
-    anchor: 'designer-system-selector',
-    title: 'Le système musical',
-    body: 'Choisis comment découper l\'octave : la gamme à 12 notes habituelle, ou des tempéraments alternatifs. Plusieurs traditions coexistent.',
-    article: 'why-12-notes',
+    anchor: 'designer-lens-toggle',
+    title: 'Deux façons d\'éditer',
+    body: 'Bascule entre dessin Libre (à main levée) et mode Ancres (quelques points reliés). Deux gestes pour façonner la même onde.',
+    article: 'creation-forme-onde#libre-ancres',
+    revealModule: 'canvas',
   },
   {
-    anchor: 'designer-adsr',
-    title: 'L\'enveloppe AHDSR',
-    body: 'Sculpte le volume dans le temps : attaque, maintien, déclin, tenue, extinction. C\'est ce qui distingue une cloche d\'un coup d\'archet.',
-  },
-  {
-    anchor: 'designer-keyboard',
-    title: 'Le clavier de test',
-    body: 'Joue les notes du système courant pour écouter ton patch en direct, à la souris ou au clavier.',
-  },
-  {
-    anchor: 'designer-sustain-pastille',
-    title: 'La pédale de sustain',
-    body: 'Maintiens Espace pour prolonger les notes jouées : leur extinction est différée jusqu\'au relâchement.',
-  },
-  {
-    anchor: 'designer-octave-selector',
-    title: 'Changer d\'octave',
-    body: 'Décale l\'octave de référence du clavier de test (PageUp / PageDown).',
+    anchor: 'designer-harmonics',
+    title: 'Vu par ses harmoniques',
+    body: 'Le même son, décomposé en barres : chaque barre est une harmonique. Tire-les pour sculpter le timbre autrement.',
+    article: 'creation-harmoniques#barres-harmoniques',
+    revealModule: 'harmonics',
   },
   {
     anchor: 'designer-spectrogram',
-    title: 'Le spectrogramme',
-    body: 'Visualise le contenu harmonique du son joué : les fréquences présentes et leur intensité.',
+    title: 'Voir les fréquences',
+    body: 'Le spectrogramme affiche les fréquences réellement jouées et leur intensité — une fenêtre sur ce que tu entends.',
+    article: 'creation-spectrogramme#lire-le-spectrogramme',
+    revealModule: 'spectrogram',
   },
   {
-    // Ancre toujours présente (le bouton « Enregistrer » existe sans patch
-    // chargé, contrairement à designer-save-button qui n'apparaît qu'avec un
-    // patch courant). Évite une étape vide quand le tour démarre à froid.
+    anchor: 'designer-system-selector',
+    title: 'Choisir l\'accordage',
+    body: 'Découpe l\'octave à ta façon : la gamme à douze notes habituelle, ou des tempéraments alternatifs.',
+    article: 'creation-instrument#systeme-musical',
+    revealModule: 'params',
+  },
+  {
+    anchor: 'designer-keyboard',
+    title: 'Jouer pour écouter',
+    body: 'Joue les notes à la souris ou au clavier physique pour entendre ton timbre en direct. PageUp / PageDown changent d\'octave.',
+    article: 'creation-instrument#clavier',
+    revealModule: 'params',
+  },
+  {
+    anchor: 'designer-adsr',
+    title: 'Le volume dans le temps',
+    body: 'L\'enveloppe AHDSR sculpte l\'évolution du volume : attaque, maintien, déclin, tenue, extinction. C\'est ce qui distingue une cloche d\'un coup d\'archet.',
+    article: 'creation-enveloppe#enveloppe-ahdsr',
+    revealModule: 'adsr',
+  },
+  {
+    anchor: 'designer-modulation',
+    title: 'Une boîte à effets',
+    body: 'Vibrato, filtre, distorsion… neuf effets « sans mémoire » qui transforment le son à la volée. À explorer un par un dans le module.',
+    article: 'creation-effets#choisir-un-effet',
+    revealModule: 'modulation',
+  },
+  {
+    anchor: 'designer-presets-button',
+    title: 'Partir d\'un timbre tout fait',
+    body: 'Pas envie de tout dessiner ? Charge un timbre prêt à l\'emploi et retouche-le à ton goût.',
+    article: 'creation-atelier#timbres-presets',
+  },
+  {
+    anchor: 'designer-miniplayer',
+    title: 'Écouter la composition',
+    body: 'Le mini-lecteur joue le morceau en cours sans quitter la Création — pratique pour situer ton timbre dans la composition.',
+    article: 'creation-atelier#ecouter',
+  },
+  {
     anchor: 'designer-save-as-button',
-    title: 'Enregistrer le patch',
-    body: 'Sauvegarde ton patch dans la Bibliothèque pour le rejouer dans le Composer.',
+    title: 'Enregistrer dans la Bibliothèque',
+    body: 'Sauvegarde ton timbre pour le réutiliser et le poser sur la timeline du Composer.',
+    article: 'creation-atelier#enregistrer-sous',
     sidebar: 'designer',
   },
   {
-    anchor: 'designer-new-button',
-    title: 'Repartir de zéro',
-    body: 'Vide l\'éditeur pour commencer un nouveau patch (Ctrl+Alt+N).',
-    sidebar: 'designer',
+    anchor: 'header-info-button',
+    title: 'Le détail, à la demande',
+    body: 'Pour le détail de n\'importe quel contrôle, ouvre la doc interactive (Ctrl+I) : elle pose un repère cliquable sur chaque réglage à l\'écran.',
   },
 ]
