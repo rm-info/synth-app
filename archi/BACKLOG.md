@@ -96,11 +96,18 @@ Phases :
 > rédigé → `archi/U4-writer-brief.md`. Puis **2ᵉ gros morceau : mise à
 > jour du Tour de découverte** (Création), avec passe sur l'article
 > généré Raccourcis.
-- **U.4** — peuplement (writer). Brief → `archi/U4-writer-brief.md` :
-  audit des 7 squelettes + **bornes exactes par module** (forme d'onde,
-  harmoniques, spectro, instrument, enveloppe, 9 effets + concepts
-  partagés) + contraintes renderer V1/style + couture de guide-designer
-  en porte d'entrée + candidats SVG.
+- **U.4 livrée + validée** (commits 1887956, 3e1095a, 2026-06-14) :
+  7 articles `creation-*` peuplés + **6 SVG** (`public/docs/`), guide-
+  designer recousu en porte d'entrée (liens vers les 7 articles). Brief
+  → `archi/U4-writer-brief.md`. Validé archi : **tous les fragments
+  résolvent** (aucun badge mort, `{#id}` préservés), zéro tableau/Details
+  imbriqué, « Version provisoire » retiré, pièges factuels signalés
+  (unité profondeur par effet, piège Q dB/linéaire) rendus fidèlement.
+
+> **Jalon : documentation interactive de la Création COMPLÈTE & PEUPLÉE**
+> (U.1→U.4). Reste de l'itération U / suite : **2ᵉ gros morceau — mise à
+> jour du Tour de découverte** (Création), + passe sur l'article généré
+> Raccourcis (Ctrl+I déjà présent via SHORTCUTS).
 - **Ensuite** : mise à jour du **Tour guidé** (2ᵉ gros morceau, U.5+ ou
   itération V) ; passe sur l'article généré Raccourcis au passage.
 
