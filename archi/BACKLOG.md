@@ -85,9 +85,18 @@ Phases :
   Validé archi : 47 headings, **tous les fragments résolvent** (aucun
   badge mort). **MANQUE** : §4c (sous-contrôles des effets) ajouté au
   prompt après clôture côté dev → non implémenté.
-- **U.3.s** — rattrapage du §4c : sous-contrôles des effets (steppers/
-  forme/graphe) badgés via sections de concept partagées. Prompt
-  autonome. → `archi/U3s-prompt.md`.
+- **U.3.s livrée + validée** (commits 5d32f33→69f8c36, 2026-06-14) :
+  sous-contrôles des effets badgés via 18 sections de concept partagées
+  (`FX_FAMILIES` générant ~43 entrées). Validé archi : les 18 fragments
+  existent, le générateur les émet tous, **aucun badge mort**, `tsc`
+  propre. → `archi/U3s-prompt.md`.
+
+> **Jalon : mécanique du mode Info COMPLÈTE** (U.1→U.3.s). Reste de
+> l'itération U : **U.4 = peuplement de la prose** (writer — rôle
+> distinct, brief archi à rédiger : audit des squelettes livrés + faits
+> + contraintes ; couture de guide-designer en porte d'entrée vers les
+> articles `creation-*`). Puis **2ᵉ gros morceau : mise à jour du Tour
+> de découverte** (Création), avec passe sur l'article généré Raccourcis.
 - **U.4** — peuplement (writer, brief séparé).
 - **Ensuite** : mise à jour du **Tour guidé** (2ᵉ gros morceau, U.5+ ou
   itération V) ; passe sur l'article généré Raccourcis au passage.
