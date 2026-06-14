@@ -1,0 +1,41 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 520 240" width="520" height="240" font-family="system-ui, sans-serif" role="img" aria-label="Barres d'harmoniques d'une dent de scie : poids decroissant 1, 1/2, 1/3...">
+  <!-- Axe horizontal -->
+  <line x1="44" y1="190" x2="500" y2="190" stroke="#888ea3" stroke-width="1.2"/>
+  <!-- Axe vertical -->
+  <line x1="44" y1="190" x2="44" y2="24" stroke="#888ea3" stroke-width="1.2"/>
+  <text x="38" y="120" fill="#8a90a6" font-size="12" text-anchor="middle" transform="rotate(-90 38 120)">amplitude</text>
+
+  <!-- Barres : dent de scie, poids 1/n. Base y=190, hauteur max 150 px pour n=1 -->
+  <g fill="#5b8def">
+    <rect x="60"  y="40"    width="26" height="150"/>
+    <rect x="100" y="115"   width="26" height="75"/>
+    <rect x="140" y="140"   width="26" height="50"/>
+    <rect x="180" y="152.5" width="26" height="37.5"/>
+    <rect x="220" y="160"   width="26" height="30"/>
+    <rect x="260" y="165"   width="26" height="25"/>
+    <rect x="300" y="168.6" width="26" height="21.4"/>
+    <rect x="340" y="171.3" width="26" height="18.7"/>
+    <rect x="380" y="173.3" width="26" height="16.7"/>
+    <rect x="420" y="175"   width="26" height="15"/>
+    <rect x="460" y="176.4" width="26" height="13.6"/>
+  </g>
+
+  <!-- Numeros d'harmonique -->
+  <g fill="#6f7689" font-size="11" text-anchor="middle">
+    <text x="73"  y="206">1f</text>
+    <text x="113" y="206">2f</text>
+    <text x="153" y="206">3f</text>
+    <text x="193" y="206">4f</text>
+    <text x="233" y="206">5f</text>
+    <text x="273" y="206">6f</text>
+    <text x="313" y="206">7f</text>
+    <text x="353" y="206">8f</text>
+    <text x="393" y="206">9f</text>
+    <text x="433" y="206">10f</text>
+    <text x="473" y="206">11f</text>
+  </g>
+  <text x="270" y="228" fill="#8a90a6" font-size="12" text-anchor="middle">fréquence (multiples de la fondamentale)</text>
+
+  <!-- Etiquette fondamentale -->
+  <text x="73" y="34" fill="#c98a4a" font-size="11" text-anchor="middle">fondamentale</text>
+</svg>

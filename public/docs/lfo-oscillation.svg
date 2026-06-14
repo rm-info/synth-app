@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 520 240" width="520" height="240" font-family="system-ui, sans-serif" role="img" aria-label="Oscillation d'un LFO : vitesse (periode), profondeur (amplitude), installation (montee progressive)">
+  <!-- Axe central (valeur nominale) -->
+  <line x1="40" y1="120" x2="500" y2="120" stroke="#888ea3" stroke-width="1.2"/>
+  <text x="496" y="114" fill="#8a90a6" font-size="11" text-anchor="end">valeur nominale</text>
+  <text x="270" y="232" fill="#8a90a6" font-size="12" text-anchor="middle">temps</text>
+
+  <!-- Oscillation sinusoidale dont l'amplitude croit pendant l'installation (0..200 px) puis reste pleine -->
+  <!-- Amplitude max = 64 px. Enveloppe lineaire de 0 a x=200, puis plateau. -->
+  <path fill="none" stroke="#5b8def" stroke-width="2.4" stroke-linecap="round" d="
+    M40,120
+    L52,116 L64,109 L76,105 L88,108 L100,116 L112,123 L124,124 L136,118
+    L148,108 L160,101 L172,103 L184,114 L196,128 L208,135 L220,131
+    L232,113 L244,90 L256,77 L268,84 L280,107 L292,135 L304,151 L316,143
+    L328,113 L340,77 L352,56 L364,64 L376,99 L388,141 L400,162 L412,151
+    L424,113 L436,75 L448,56 L460,64 L472,99 L484,141 L496,162"/>
+
+  <!-- Profondeur : double fleche verticale a droite -->
+  <line x1="448" y1="120" x2="448" y2="56" stroke="#c98a4a" stroke-width="1.1" stroke-dasharray="3 3"/>
+  <path d="M444,64 L448,56 L452,64" fill="none" stroke="#c98a4a" stroke-width="1.1"/>
+  <text x="442" y="50" fill="#c98a4a" font-size="11" text-anchor="end">Profondeur</text>
+
+  <!-- Installation : crochet de 0 a x=200 -->
+  <path d="M40,40 L40,32 L200,32 L200,40" fill="none" stroke="#7aa66b" stroke-width="1.1"/>
+  <text x="120" y="26" fill="#6f8a5e" font-size="11" text-anchor="middle">Installation</text>
+
+  <!-- Vitesse : une periode marquee en bas (entre deux maxima) -->
+  <path d="M352,200 L352,192 L460,192 L460,200" fill="none" stroke="#9b6fb0" stroke-width="1.1"/>
+  <text x="406" y="216" fill="#7d5a90" font-size="11" text-anchor="middle">une période (Vitesse)</text>
+</svg>

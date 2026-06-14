@@ -1,0 +1,35 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 520 300" width="520" height="300" font-family="system-ui, sans-serif" role="img" aria-label="Courbes de transfert de la distorsion : douce (tanh), dure (ecretage), repliement (sinus)">
+  <!-- Cadre du plan entree -> sortie -->
+  <rect x="60" y="40" width="400" height="200" fill="none" stroke="#b9bed0" stroke-width="1"/>
+  <!-- Axes centraux -->
+  <line x1="60" y1="140" x2="460" y2="140" stroke="#888ea3" stroke-width="1"/>
+  <line x1="260" y1="40" x2="260" y2="240" stroke="#888ea3" stroke-width="1"/>
+  <!-- Diagonale identite (pointilles) -->
+  <line x1="60" y1="240" x2="460" y2="40" stroke="#8a90a6" stroke-width="1" stroke-dasharray="4 4"/>
+
+  <!-- Repere axes -->
+  <text x="452" y="156" fill="#8a90a6" font-size="11" text-anchor="end">entrée x</text>
+  <text x="266" y="52" fill="#8a90a6" font-size="11">sortie y</text>
+
+  <!-- Douce (tanh) -->
+  <path d="M60,240 L110,234 L160,219 L210,188 L260,140 L310,92 L360,61 L410,46 L460,40"
+        fill="none" stroke="#5b8def" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>
+  <!-- Dure (ecretage) -->
+  <path d="M60,240 L160,240 L360,40 L460,40"
+        fill="none" stroke="#c98a4a" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>
+  <!-- Repliement (sinus) -->
+  <path d="M60,140 L110,211 L160,240 L210,211 L260,140 L310,69 L360,40 L410,69 L460,140"
+        fill="none" stroke="#9b6fb0" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>
+
+  <!-- Legende -->
+  <g font-size="12">
+    <line x1="74" y1="266" x2="98" y2="266" stroke="#5b8def" stroke-width="2.4"/>
+    <text x="104" y="270" fill="#6f7689">douce</text>
+    <line x1="164" y1="266" x2="188" y2="266" stroke="#c98a4a" stroke-width="2.4"/>
+    <text x="194" y="270" fill="#6f7689">dure</text>
+    <line x1="246" y1="266" x2="270" y2="266" stroke="#9b6fb0" stroke-width="2.4"/>
+    <text x="276" y="270" fill="#6f7689">repliement</text>
+    <line x1="372" y1="266" x2="396" y2="266" stroke="#8a90a6" stroke-width="1" stroke-dasharray="4 4"/>
+    <text x="402" y="270" fill="#6f7689">identité</text>
+  </g>
+</svg>

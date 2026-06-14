@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 520 240" width="520" height="240" font-family="system-ui, sans-serif" role="img" aria-label="Une periode de forme d'onde avec le repere de niveau a plus ou moins 1">
+  <!-- Axe zero -->
+  <line x1="40" y1="120" x2="500" y2="120" stroke="#888ea3" stroke-width="1"/>
+  <!-- Reperes +1 et -1 (pointilles) -->
+  <line x1="40" y1="60" x2="500" y2="60" stroke="#c98a4a" stroke-width="1" stroke-dasharray="4 4"/>
+  <line x1="40" y1="180" x2="500" y2="180" stroke="#c98a4a" stroke-width="1" stroke-dasharray="4 4"/>
+  <text x="496" y="54" fill="#c98a4a" font-size="11" text-anchor="end">+1 (niveau de référence)</text>
+  <text x="496" y="194" fill="#c98a4a" font-size="11" text-anchor="end">−1</text>
+  <text x="36" y="124" fill="#8a90a6" font-size="11" text-anchor="end">0</text>
+
+  <!-- Forme d'onde : un creux dans les clous, une crete qui depasse +1 -->
+  <path d="M40,120
+           C 90,200 140,200 190,120
+           C 230,55 270,30 310,55
+           C 350,80 390,140 440,120
+           C 465,110 485,116 500,120"
+        fill="none" stroke="#5b8def" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>
+
+  <!-- Annotation du depassement -->
+  <text x="310" y="22" fill="#6f7689" font-size="11" text-anchor="middle">la crête peut dépasser ±1 — rien ne bloque le tracé</text>
+</svg>
