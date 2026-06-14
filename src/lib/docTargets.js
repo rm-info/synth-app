@@ -35,6 +35,72 @@
 // PresetPicker…) n'ont jamais de badge (le mode Info est gaté modale-ouverte) ;
 // ils se documentent dans la prose de leur section parente.
 
+// iter-U phase-3.s2 : sous-contrôles des effets. Générés par famille (DRY, esprit
+// SHORTCUTS) : chaque effet d'une famille porte ses propres ancres
+// `designer-fx-<effet-kebab>-<param>` (distinctes → pas de collision), mais elles
+// pointent toutes vers le MÊME fragment de concept PARTAGÉ (#lfo-vitesse, etc. dans
+// creation-effets.md). Le builder côté UI (WaveformEditor.fxAnchor) émet exactement
+// les mêmes ancres. camelCase → kebab via FX_KEBAB.
+const FX_KEBAB = {
+  vibrato: 'vibrato', tremolo: 'tremolo', autoPan: 'auto-pan', wah: 'wah',
+  pitchEnv: 'pitch-env', filterEnv: 'filter-env', driveEnv: 'drive-env',
+  filter: 'filter', distortion: 'distortion',
+}
+// [param, label, fragment] par famille.
+const FX_FAMILIES = [
+  {
+    effects: ['vibrato', 'tremolo', 'autoPan', 'wah'],
+    params: [
+      ['rate', 'Vitesse', 'lfo-vitesse'],
+      ['depth', 'Profondeur', 'lfo-profondeur'],
+      ['onset', 'Installation', 'lfo-installation'],
+      ['shape', 'Forme', 'lfo-forme'],
+      ['graph', 'Graphe', 'lfo-graphe'],
+    ],
+  },
+  {
+    effects: ['pitchEnv', 'filterEnv', 'driveEnv'],
+    params: [
+      ['amount', 'Cible', 'env-cible'],
+      ['time', 'Durée', 'env-duree'],
+      ['invert', 'Inverser', 'env-inverser'],
+      ['curve', 'Forme', 'env-forme'],
+      ['graph', 'Graphe', 'env-graphe'],
+    ],
+  },
+  {
+    effects: ['filter'],
+    params: [
+      ['cutoff', 'Fréquence', 'filtre-frequence'],
+      ['q', 'Résonance', 'filtre-resonance'],
+      ['type', 'Type', 'filtre-type'],
+      ['graph', 'Graphe', 'filtre-graphe'],
+    ],
+  },
+  {
+    effects: ['distortion'],
+    params: [
+      ['drive', 'Drive', 'disto-drive'],
+      ['mix', 'Mix', 'disto-mix'],
+      ['curve', 'Courbe', 'disto-courbe'],
+      ['graph', 'Graphe', 'disto-graphe'],
+    ],
+  },
+]
+function buildFxTargets() {
+  const out = []
+  for (const { effects, params } of FX_FAMILIES) {
+    for (const eff of effects) {
+      const kebab = FX_KEBAB[eff]
+      for (const [param, label, fragment] of params) {
+        const anchor = `designer-fx-${kebab}-${param}`
+        out.push({ id: anchor, contexts: ['designer'], anchor, label, doc: `creation-effets#${fragment}` })
+      }
+    }
+  }
+  return out
+}
+
 export const DOC_TARGETS = [
   // ===== creation-atelier : barre d'outils, actions, écoute =====
   {
@@ -429,6 +495,9 @@ export const DOC_TARGETS = [
     label: 'Enveloppe de drive',
     doc: 'creation-effets#env-drive',
   },
+
+  // Sous-contrôles des effets (générés par famille — cf. buildFxTargets ci-dessus).
+  ...buildFxTargets(),
 ]
 
 // Résout l'ancre (string) d'une entrée compte tenu du state (fonction ou

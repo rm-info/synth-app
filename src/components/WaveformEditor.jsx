@@ -538,6 +538,14 @@ const EFFECT_ANCHORS = {
   driveEnv: 'designer-effect-drive-env',
 }
 
+// iter-U phase-3.s2 : ancre Info d'un SOUS-contrôle d'effet (stepper, switch,
+// graphe), posée dans les builders partagés. Schéma designer-fx-<effet-kebab>-<param>
+// (distincte par effet pour éviter les collisions d'ancre ; le registre les mappe
+// vers des fragments de concept PARTAGÉS par famille). Le même schéma est régénéré
+// côté registre (lib/docTargets.js). camelCase → kebab : autoPan→auto-pan, etc.
+const fxAnchor = (effect, param) =>
+  `designer-fx-${effect.replace(/([A-Z])/g, '-$1').toLowerCase()}-${param}`
+
 // === Graphe de réponse en fréquence du filtre (T.4) ===
 //
 // X log 20 Hz–20 kHz (repères 100 / 1k / 10k), Y en dB (magnitude → 20·log10),
@@ -4548,7 +4556,7 @@ function WaveformEditor({
               </span>
               <span className="we-lfo-switch-label">{title}</span>
             </label>
-            <div className="spline-interp-toggle we-lfo-shape" role="group" aria-label={`Forme du ${title}`}>
+            <div className="spline-interp-toggle we-lfo-shape" role="group" aria-label={`Forme du ${title}`} data-anchor={fxAnchor(effect, 'shape')}>
               {LFO_SHAPES.map((sh) => {
                 const { Icon, label } = LFO_SHAPE_META[sh]
                 return (
@@ -4567,7 +4575,7 @@ function WaveformEditor({
             </div>
           </div>
           {isWah && renderFilterTargetHint()}
-          <div className="we-lfo-canvas-wrap">
+          <div className="we-lfo-canvas-wrap" data-anchor={fxAnchor(effect, 'graph')}>
             {/* iter-T phase-2.3 : auto-pan = 1ᵉʳ graphe dont l'axe Y n'est pas une
                 amplitude mais une POSITION stéréo (médiane = centre). Étiquettes
                 cohérentes avec le signe de pan : le LFO se somme à panner.pan
@@ -4601,7 +4609,7 @@ function WaveformEditor({
             />
           </div>
           <div className="we-lfo-controls">
-            <div className="we-lfo-control">
+            <div className="we-lfo-control" data-anchor={fxAnchor(effect, 'rate')}>
               <span>Vitesse (Hz)</span>
               <NumberInput
                 value={lfo.rate}
@@ -4618,7 +4626,7 @@ function WaveformEditor({
                 ariaLabel={`Vitesse du ${title} en Hz`}
               />
             </div>
-            <div className="we-lfo-control">
+            <div className="we-lfo-control" data-anchor={fxAnchor(effect, 'depth')}>
               <span>{isCents ? 'Profondeur (cents)' : 'Profondeur'}</span>
               <NumberInput
                 value={lfo.depth}
@@ -4635,7 +4643,7 @@ function WaveformEditor({
                 ariaLabel={`Profondeur du ${title}`}
               />
             </div>
-            <div className="we-lfo-control">
+            <div className="we-lfo-control" data-anchor={fxAnchor(effect, 'onset')}>
               <span>Installation (ms)</span>
               <NumberInput
                 value={lfo.onset}
@@ -4719,11 +4727,12 @@ function WaveformEditor({
                 title={invertTitle}
                 aria-label={`Inverser ${switchLabel.toLowerCase()}`}
                 aria-pressed={env.invert}
+                data-anchor={fxAnchor(effect, 'invert')}
               ><FlipVertical2 size={16} /></button>
               {/* T.3ter : switch segmenté des 4 formes de progression (même idiome que
                   le switch de forme des LFO). Orthogonal à Inverser : il ne change que
                   la trajectoire entre départ et arrivée. */}
-              <div className="spline-interp-toggle we-lfo-shape" role="group" aria-label="Forme de la progression">
+              <div className="spline-interp-toggle we-lfo-shape" role="group" aria-label="Forme de la progression" data-anchor={fxAnchor(effect, 'curve')}>
                 {PITCHENV_CURVES.map((cv) => {
                   const { Icon, label } = PITCH_CURVE_META[cv]
                   return (
@@ -4743,7 +4752,7 @@ function WaveformEditor({
             </div>
           </div>
           {targetHint}
-          <div className="we-lfo-canvas-wrap">
+          <div className="we-lfo-canvas-wrap" data-anchor={fxAnchor(effect, 'graph')}>
             <canvas
               className="we-lfo-canvas"
               ref={canvasRef}
@@ -4769,7 +4778,7 @@ function WaveformEditor({
             />
           </div>
           <div className="we-lfo-controls we-lfo-controls--two">
-            <div className="we-lfo-control">
+            <div className="we-lfo-control" data-anchor={fxAnchor(effect, 'amount')}>
               <span>{(env.invert ? 'Cible' : 'Départ') + startUnit}</span>
               <NumberInput
                 value={env.amount}
@@ -4786,7 +4795,7 @@ function WaveformEditor({
                 ariaLabel={startAria}
               />
             </div>
-            <div className="we-lfo-control">
+            <div className="we-lfo-control" data-anchor={fxAnchor(effect, 'time')}>
               <span>Durée (ms)</span>
               <NumberInput
                 value={env.time}
@@ -4831,7 +4840,7 @@ function WaveformEditor({
               <span className="we-lfo-switch-label">Filtre</span>
             </label>
             <div className="we-lfo-head-controls">
-              <div className="spline-interp-toggle we-lfo-shape" role="group" aria-label="Type de filtre">
+              <div className="spline-interp-toggle we-lfo-shape" role="group" aria-label="Type de filtre" data-anchor="designer-fx-filter-type">
                 {FILTER_TYPES.map((ty) => {
                   const { Icon, label } = FILTER_TYPE_META[ty]
                   return (
@@ -4850,7 +4859,7 @@ function WaveformEditor({
               </div>
             </div>
           </div>
-          <div className="we-lfo-canvas-wrap">
+          <div className="we-lfo-canvas-wrap" data-anchor="designer-fx-filter-graph">
             <canvas
               className="we-lfo-canvas"
               ref={filterCanvasRef}
@@ -4874,7 +4883,7 @@ function WaveformEditor({
             />
           </div>
           <div className="we-lfo-controls we-lfo-controls--two">
-            <div className="we-lfo-control">
+            <div className="we-lfo-control" data-anchor="designer-fx-filter-cutoff">
               <span>Fréquence (Hz)</span>
               <NumberInput
                 value={filter.cutoff}
@@ -4891,7 +4900,7 @@ function WaveformEditor({
                 ariaLabel="Fréquence de coupure du filtre en hertz"
               />
             </div>
-            <div className="we-lfo-control">
+            <div className="we-lfo-control" data-anchor="designer-fx-filter-q">
               <span>Résonance</span>
               <NumberInput
                 value={filter.q}
@@ -4935,7 +4944,7 @@ function WaveformEditor({
               <span className="we-lfo-switch-label">Distorsion</span>
             </label>
             <div className="we-lfo-head-controls">
-              <div className="spline-interp-toggle we-lfo-shape" role="group" aria-label="Courbe de distorsion">
+              <div className="spline-interp-toggle we-lfo-shape" role="group" aria-label="Courbe de distorsion" data-anchor="designer-fx-distortion-curve">
                 {DISTORTION_CURVES.map((cv) => {
                   const { Icon, label } = DISTORTION_CURVE_META[cv]
                   return (
@@ -4954,7 +4963,7 @@ function WaveformEditor({
               </div>
             </div>
           </div>
-          <div className="we-lfo-canvas-wrap">
+          <div className="we-lfo-canvas-wrap" data-anchor="designer-fx-distortion-graph">
             <canvas
               className="we-lfo-canvas"
               ref={distortionCanvasRef}
@@ -4978,7 +4987,7 @@ function WaveformEditor({
             />
           </div>
           <div className="we-lfo-controls we-lfo-controls--two">
-            <div className="we-lfo-control">
+            <div className="we-lfo-control" data-anchor="designer-fx-distortion-drive">
               <span>Drive</span>
               <NumberInput
                 value={distortion.drive}
@@ -4995,7 +5004,7 @@ function WaveformEditor({
                 ariaLabel="Drive de la distorsion"
               />
             </div>
-            <div className="we-lfo-control">
+            <div className="we-lfo-control" data-anchor="designer-fx-distortion-mix">
               <span>Mix</span>
               <NumberInput
                 value={distortion.mix}
