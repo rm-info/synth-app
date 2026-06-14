@@ -2,6 +2,7 @@ import { useEffect, useState, useCallback, useLayoutEffect, useRef } from 'react
 import { ChevronLeft, ChevronRight, X } from 'lucide-react'
 import { getAnchoredPosition } from '../lib/getAnchoredPosition'
 import { getTour, TOUR_TABS } from '../lib/tours'
+import { splitDocTarget } from '../lib/docTargets'
 import { DOC_TOC } from '../docs/index.js'
 import './Tour.css'
 
@@ -90,6 +91,7 @@ function placeBubble(rect, bubbleW, bubbleH) {
 function Tour({
   tour,
   dispatch,
+  onNavigateToDoc,
   designerSidebarCollapsed,
   docSidebarCollapsed,
   composerBankCollapsed,
@@ -236,12 +238,17 @@ function Tour({
   if (!active || !rawStep) return null
 
   // « En savoir plus » : visible si l'étape référence un article existant.
-  const articleId = rawStep.article
+  // iter-U phase-5.2 : `article` accepte 'article-id#fragment' (lien profond).
+  // On route via navigateToDoc (machinerie U.1 : bascule onglet + article +
+  // scroll/flash de la section) plutôt que par dispatchs bruts, pour atterrir
+  // sur la section exacte. Sans fragment : ouverture en haut d'article.
+  const [articleId, articleFragment] = rawStep.article
+    ? splitDocTarget(rawStep.article)
+    : [null, null]
   const hasArticle = !!articleId && DOC_TOC.some((e) => e.id === articleId)
   const goToArticle = () => {
     dispatch({ type: 'END_TOUR_NO_RESTORE' })
-    dispatch({ type: 'SET_ACTIVE_TAB', payload: 'documentation' })
-    dispatch({ type: 'SET_CURRENT_ARTICLE', payload: articleId })
+    onNavigateToDoc(articleId, articleFragment)
   }
 
   // Onglets proposés au chaînage (tous sauf celui en cours).

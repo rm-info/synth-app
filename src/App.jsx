@@ -2937,6 +2937,7 @@ function App() {
         <Tour
           tour={tour}
           dispatch={dispatch}
+          onNavigateToDoc={navigateToDoc}
           designerSidebarCollapsed={designerSidebarCollapsed}
           docSidebarCollapsed={docSidebarCollapsed}
           composerBankCollapsed={composerBankCollapsed}
