@@ -78,6 +78,16 @@ Phases :
   **sections de concept partagées par famille** (LFO/enveloppe/filtre/
   disto — 18 fragments, ~43 entrées registre générées par boucle dans
   les builders partagés ; décision validée). → `archi/U3r-prompt.md`.
+- **U.3.r livrée** (commits 78a2017→bac04e5, 2026-06-13/14) : r1 retrait
+  Biblio, r2 badges Effets sur boutons, r3 centrage badges, r4 Instrument/
+  Atelier, r5 segments AHDSR ; + correctifs dev r7 (badges fantômes du
+  tiroir ⋯) et r8 (badge Écouter survit au repli sidebar, badge Lissage).
+  Validé archi : 47 headings, **tous les fragments résolvent** (aucun
+  badge mort). **MANQUE** : §4c (sous-contrôles des effets) ajouté au
+  prompt après clôture côté dev → non implémenté.
+- **U.3.s** — rattrapage du §4c : sous-contrôles des effets (steppers/
+  forme/graphe) badgés via sections de concept partagées. Prompt
+  autonome. → `archi/U3s-prompt.md`.
 - **U.4** — peuplement (writer, brief séparé).
 - **Ensuite** : mise à jour du **Tour guidé** (2ᵉ gros morceau, U.5+ ou
   itération V) ; passe sur l'article généré Raccourcis au passage.
