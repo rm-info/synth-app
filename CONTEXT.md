@@ -44,7 +44,7 @@ framework UI (CSS manuscrit), pas de routing, pas de backend.
 | T | Effets sans mémoire : module Effets (9 effets par patch), auto-pan, pitch env (Inverser + 4 formes), filtre + env + wah, disto vivante (env. drive, poignée 2D) — .osa v4 — v1.12.0 | 2026-06-12 |
 
 **État courant** : **Iteration U « Documentation utilisateur de la Création »**
-en cours — **phases U.1 → U.3 (+ rectifs U.3.r, U.3.s) livrées**. U.1 = socle
+en cours — **phases U.1 → U.5 livrées (dont rectifs U.3.r, U.3.s)**. U.1 = socle
 renderer doc (ids de titre `{#id}`, liens profonds `doc:article#fragment` scroll +
 flash, accordéon `<Details>`, images SVG `public/docs/`). U.2 = **mode Info**
 (bouton header + **Ctrl+I**, overlay de badges cliquables sur les contrôles
@@ -54,7 +54,11 @@ documentés visibles, registre déclaratif `DOC_TARGETS`). U.3 (+ rectifs) =
 AHDSR, pastilles **centrées** sur leur contrôle. U.3.s ajoute les **sous-contrôles
 des effets** (steppers/switchs/graphes) via des **sections de concept partagées par
 famille** (DRY : le « Vitesse » de tous les LFO → `#lfo-vitesse`). `DOC_TARGETS` =
-**94 cibles** (51 + 43 générées par famille). Suite : U.4 prose writer.
+**94 cibles** (51 + 43 générées par famille). U.4 = prose writer des articles
+`creation-*` (peuplée). **U.5** met le **Tour guidé de la Création** à jour :
+rampe d'accueil resserrée (~12 étapes), **étape Effets** + révélation de module
+(`revealModule`), liens « En savoir plus » vers `article#fragment`, pont final
+vers la doc interactive (Ctrl+I).
 Iteration T « Effets sans mémoire » **close** (release **v1.12.0**, 2026-06-12).
 Détail des itérations closes, saga et roadmaps dans `CONTEXT-ARCHIVE.md`.
 
@@ -421,12 +425,15 @@ type Clip = {                     // placement timeline + hauteur
 //     (240). Persisté en localStorage.
 //   activeTab étendu à 'documentation' (4ᵉ valeur possible).
 //
-// Champ iter-L phase 4 (Tour guidé) :
+// Champ iter-L phase 4 (Tour guidé), snapshot étendu iter-U phase-5.1 :
 //   tour: { active, tabId, stepIndex, snapshot }  // visite guidée.
 //     Volatile (jamais persisté, hors undo). snapshot = { activeTab,
 //     designerSidebarCollapsed, docSidebarCollapsed, composerBankCollapsed,
-//     composerAsideCollapsed } capturé une seule fois au 1er START_TOUR,
+//     composerAsideCollapsed, designerCollapsed, maximized,
+//     designerMobileModule } capturé une seule fois au 1er START_TOUR,
 //     restauré à END_TOUR (tour « stateless du point de vue utilisateur »).
+//     Les 3 derniers champs (état des modules Création) couvrent la
+//     révélation progressive de module par étape (revealModule, U.5).
 //     stepIndex indexe les étapes brutes du tour ; le moteur Tour.jsx mappe
 //     vers la séquence effective (ancres résolvables) pour la navigation.
 //
@@ -1822,20 +1829,31 @@ Choix non évidents pris pour de bonnes raisons. À ne pas remettre en question
   capture aucun événement, donc le gel est une couche transparente distincte.
   Ça rend le snapshot/restore tractable (l'utilisateur ne peut rien muter
   pendant le tour). (b) **Snapshot unique sur toute la chaîne** capturé au 1er
-  `START_TOUR` (onglet + 4 sidebars repliables), restauré à `END_TOUR` ; le
-  chaînage entre onglets (`TOUR_CHAIN`) ne re-snapshot pas — c'est la
-  définition de « stateless du point de vue utilisateur ». Garde dédiée :
-  pendant `tour.active`, l'effet de persistance localStorage est court-circuité
-  (un refresh en plein tour ne doit pas figer une sidebar dépliée par le tour).
+  `START_TOUR` (onglet + 4 sidebars repliables + **état des modules Création** :
+  `designerCollapsed`/`maximized`/`designerMobileModule`, ajoutés U.5.1),
+  restauré à `END_TOUR` ; le chaînage entre onglets (`TOUR_CHAIN`) ne
+  re-snapshot pas — c'est la définition de « stateless du point de vue
+  utilisateur ». Garde dédiée : pendant `tour.active`, l'effet de persistance
+  localStorage est court-circuité (un refresh en plein tour ne doit pas figer
+  une sidebar dépliée par le tour).
   (c) **Tours déclaratifs par onglet** (`src/lib/tours/*.js`) : une étape =
-  `{ anchor, title, body, article?, sidebar? }`. La *séquence effective*
-  (étapes dont l'ancre est résolvable, ou révélable via `sidebar`) est calculée
-  côté `Tour.jsx` ; les ancres absentes (clip témoin inexistant, presse-papier
-  vide, bouton conditionnel) sont skippées gracieusement — pas de création de
-  contenu témoin (scope médian). Aucun ordre canonique entre tours.
-  **Contrainte d'écriture des étapes** : une étape portant `sidebar` est tenue
-  pour disponible *a priori* (la sidebar la révélera), donc son ancre **doit
-  être inconditionnellement présente** une fois la sidebar ouverte — sinon la
+  `{ anchor, title, body, article?, sidebar?, revealModule? }`. La *séquence
+  effective* (étapes dont l'ancre est résolvable, ou révélable via `sidebar` /
+  `revealModule`) est calculée côté `Tour.jsx` ; les ancres absentes (clip
+  témoin inexistant, presse-papier vide, bouton conditionnel) sont skippées
+  gracieusement — pas de création de contenu témoin (scope médian). Aucun ordre
+  canonique entre tours. **`revealModule` (U.5.1)** : pour pointer un module
+  Création repliable (`canvas`/`harmonics`/`spectrogram`/`params`/`adsr`/
+  `modulation`), l'étape déclare le module à rendre visible ; le moteur dispatch
+  `REVEAL_DESIGNER_MODULE` à l'activation (déplie en bande, sort d'une
+  maximisation concurrente, ou amène plein cadre en mobile via le switcher).
+  Idempotent, révélation **progressive** (chaque étape déplie sa cible), tout
+  est restauré à `END_TOUR` via le snapshot étendu. **`article` accepte
+  `'id#fragment'` (U.5.2)** : « En savoir plus » route via `navigateToDoc`
+  (machinerie U.1 : onglet + article + scroll/flash) → atterrissage sur la
+  section exacte. **Contrainte d'écriture des étapes** : une étape portant
+  `sidebar`/`revealModule` est tenue pour disponible *a priori* (on la
+  révélera), donc son ancre **doit être présente** une fois révélée — sinon la
   bulle reste vide sans skip (cas vécu : `designer-save-button` n'existe
   qu'avec un patch chargé ; on cible `designer-save-as-button`, toujours là).
   (d) **Panneau de fin = position virtuelle** après la dernière étape (état
@@ -2455,6 +2473,20 @@ Conventions tacites. Les enfreindre sans raison crée des bugs subtils.
 **Iteration U « Documentation utilisateur de la Création »** en cours (ouverte **2026-06-12**).
 
 🚧 **En cours**
+- **U.5 — MAJ du Tour guidé de la Création (livrée, 2026-06-15)** : le Tour Ctrl+J
+  de la Création, daté de l'itération L (9 étapes, ignorait tout M→T), devient une
+  **rampe d'accueil resserrée de 12 étapes** — parcours d'un débutant : son →
+  sculpture (harmoniques/spectro) → écoute (clavier) → enveloppe → **effets** →
+  presets/écoute → enregistrement → pont Ctrl+I. **5.1** : moteur — nouveau champ
+  d'étape `revealModule` (déplie/maximise-sort/switche le module ciblé avant de
+  pointer) + snapshot du tour étendu à `designerCollapsed`/`maximized`/
+  `designerMobileModule` (restauration progressive à `END_TOUR`). **5.2** : `article`
+  accepte `'id#fragment'` → « En savoir plus » route via `navigateToDoc` (section
+  exacte, scroll + flash). **5.3** : réécriture de `designer.js` — chaque étape
+  pointe la bonne section `creation-*`, **cœur = l'étape Effets** (révèle le module,
+  présente les neuf effets « sans mémoire ») ; l'étape finale (`header-info-button`)
+  renvoie à la doc interactive. Tours library/composer/documentation intacts ;
+  tsc/lint OK. *Passe writer de polish des `body` possible en suivi.*
 - **U.3.s — sous-contrôles des effets (livrée, 2026-06-14)** : à l'intérieur d'un
   panneau d'effet sélectionné, les **sous-contrôles** (steppers, switch de
   forme/type, graphe éditable, toggle Inverser) gagnent un badge. Décision archi :
@@ -3484,10 +3516,16 @@ survol narratif. Navigation = **bascule d'onglet** (pas de panneau in-situ). Pro
   `creation-effets.md`. Ancres `designer-fx-<effet>-<param>` dans les builders
   partagés ; ~43 entrées de registre **générées par famille** (`buildFxTargets`).
   Registre : 94 cibles. On/off in-panel et hints non badgés ; un badge graphe/panneau.
-- **U.4 — peuplement des contenus** : **domaine writer**, hors scope dev (brief séparé).
-  Inclut la couture de `guide-designer` (porte d'entrée → articles par module) et la
-  prose des 7 squelettes `creation-*` (retrait des lignes « Version provisoire »).
-- **U.5+ / itération suivante** : mise à jour du Tour guidé.
+- ✅ **U.4 — peuplement des contenus (livrée, domaine writer)** : couture de
+  `guide-designer` (porte d'entrée → articles par module) + prose des 7 articles
+  `creation-*` + schémas SVG (retrait des lignes « Version provisoire »).
+- ✅ **U.5 — MAJ du Tour guidé de la Création (livrée)** : 5.1 moteur — champ d'étape
+  `revealModule` (révélation de module avant de pointer : déplié en bande / sorti
+  d'une maximisation concurrente / plein cadre en mobile) + snapshot étendu
+  (`designerCollapsed`/`maximized`/`designerMobileModule`, restaurés à `END_TOUR`) ;
+  5.2 `article` accepte `'id#fragment'` (« En savoir plus » via `navigateToDoc` →
+  section exacte) ; 5.3 réécriture de `designer.js` en rampe d'accueil de **12 étapes**
+  (étape Effets + pont final Ctrl+I). Le Tour **oriente**, l'Info **détaille**.
 
 **Après U (backlog effets, non cadré)** — deux directions héritées de la clôture de T :
 - **Petits « inattendus » sans mémoire** (compatibles chaîne jetable par note, zéro
