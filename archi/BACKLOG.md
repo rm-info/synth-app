@@ -2,149 +2,58 @@
 
 > Suivi des idées, pistes et dettes techniques reportées.
 > Tenu par l'archi. Source de vérité pour ce qui n'est pas encore planifié.
-> Dernière mise à jour : 2026-06-12.
+> Dernière mise à jour : 2026-09-21.
 
-> Note : itération T close (Effets sans mémoire, release v1.12.0,
-> 2026-06-12 ; cf. CONTEXT.md). **Itération U en cours : documentation
-> utilisateur de la Création (mode Info)** — cadrée 2026-06-12, cf.
-> entrée ci-dessous.
+> Note : itération U close (Documentation utilisateur de la Création,
+> release v1.13.0, 2026-09-21 ; cf. CONTEXT.md). **Entre deux
+> itérations** — aucune itération cadrée. Passe de correctifs post-U
+> livrée le même jour (cf. « Bugs connus » et « Petites bricoles »),
+> **à valider en navigateur**.
 
 ---
 
-## Itération U (en cours) : documentation utilisateur de la Création — CADRÉE 2026-06-12
+## Itération U (Documentation utilisateur de la Création) — livrée 2026-09-21 (v1.13.0)
 
-Vision : un **mode Info** (bouton icône Info dans le header entre
-Raccourcis et Tour, raccourci **Ctrl+I** — libre, même preventDefault
-que Ctrl+K/J) calqué sur l'overlay Raccourcis : chaque **contrôle
-logique visible** de l'onglet Création porte un overlay cliquable qui
-bascule vers le paragraphe dédié de l'onglet Documentation. Paragraphe =
-raison d'être accessible + accordéon « sous le capot » (formules, DSP)
-+ illustrations SVG éventuelles + liens de retour `DocLink` (highlight
-existant).
+Mode Info (Ctrl+I) : badge cliquable sur chaque contrôle logique visible
+de la Création → paragraphe dédié de l'onglet Documentation. Registre
+`DOC_TARGETS` (94 cibles, dont ~43 générées par famille d'effets), ids
+de titre explicites `{#id}`, liens profonds `doc:article#fragment`,
+`<Details>`, SVG `public/docs/`, 7 articles `creation-*` peuplés (writer),
+`guide-designer` en porte d'entrée, Tour Création refait (12 étapes,
+`revealModule`). Détail par-phase = git + `CONTEXT-ARCHIVE.md` ; prompts
+= `archi/U*-prompt.md`, `archi/U4-writer-brief.md`.
 
-Décisions de cadrage actées :
-- **Granularité = contrôle logique** (un graphe = un overlay, pas une
-  poignée = un overlay ; le paragraphe détaille les poignées).
-- **Un article par module** (~8 : toolbar, bibliothèque/patches, Forme
-  d'onde, Harmoniques, Spectrogramme, Instrument, Enveloppe, Effets) ;
-  `guide-designer.md` reste le survol narratif et pointe vers eux.
-- **Navigation = bascule d'onglet** Documentation (réutilise DocLink /
-  highlightElement / sessionStorage doc) — pas de panneau in-situ.
-- **Ids de headings explicites `{#id}`** (pas d'auto-slug : les ids
-  doivent survivre aux reformulations de titres par le writer).
-- **Frontière des rôles** : dev pose structure + squelettes, **writer
-  peuple la prose** (prompts distincts).
-
-Phases :
-- **U.1** — ✅ **livrée** (2026-06-12, commits 4a75bf6→b238067) : `{#id}`
-  + liens profonds `doc:article#fragment` (scroll + flash, nonce
-  one-shot vs restauration session), bloc accordéon `<Details>`, images
-  SVG `public/docs/`, `_renderer-test.md` recréé ; point d'entrée
-  externe `navigateToDoc(articleId, fragment)` (App.jsx).
-- **U.2** — ✅ **livrée** (2026-06-12, commits 97e2dee→91c3108) : bouton
-  Info + Ctrl+I (entrée SHORTCUTS), `infoOverlayOpen` volatile,
-  `InfoOverlay` + registre `lib/docTargets.js` (16 entrées →
-  guide-designer `{#id}`). Corrections notables : badges passés en
-  **pastille icône-seule au repos, libellé au survol/focus + ancrage
-  anti-débordement par zone** (edeb35d — c'est ce qui rend la densité
-  U.3 viable) ; sonde rAF de scrollToFragment robuste à StrictMode
-  (91c3108) ; warn DEV fragment introuvable (ca7c05a).
-- **U.3** — couverture : 7 articles squelettes section TOC « La
-  Création en détail » (faits dev, prose writer en U.4, ligne
-  « version provisoire »), ~18 `data-anchor` nouveaux (pattern item
-  OverflowToolbar = précédent designer-presets-button), registre
-  complet ~45 entrées + **remap** des 16 entrées U.2 hors de
-  guide-designer (qui redevient survol narratif, couture writer U.4) +
-  bonus Bibliothèque (`library-*` → guide-bibliotheque `{#id}`,
-  contexts partagés). Inventaire : 78 contrôles logiques, 34 ancrés.
-  → `archi/U3-prompt.md`.
-- **U.3.r** — rectificatif validation : (1) **retrait Bibliothèque**
-  (hors scope — mauvais arbitrage archi en U.3 ; registre + `{#id}`
-  guide-bibliotheque revertés) ; (2) **badges Effets sur les 9 boutons
-  du switcher** (plus de présélection + clic canvas ; ancres déplacées
-  header, entrée `designer-modulation` retirée) ; (3) **badges centrés
-  au repos** (découplage position/sens d'ouverture du libellé — fin du
-  décalage aux bords) ; (4) **4 trous Création comblés** (catégorie
-  système, tonique repères, degrés X-EDO, auto-réduction ; bannière
-  X-EDO en prose). Audit au sol approfondi : **+5 badges segments AHDSR**
-  (Attaque/Maintien/Déclin/Soutien/Relâche, vue sliders ; granularité
-  fine validée), **affinage ancre Catégorie/Système** (l'ancre couvrait
-  toute la rangée → 2 badges distincts), **découplage ancre overview
-  Enveloppe** (graphe-only, sinon superposition en vue sliders), **fix
-  mapping `designer-sustain-pastille`** (cadenas de maintien = Instrument,
-  pas le Soutien d'enveloppe). Structurels (chrome de module, repli
-  sidebar) → **prose, pas de badge** (décision validée).
-  **+ sous-contrôles des effets** (steppers/forme/graphe) badgés via
-  **sections de concept partagées par famille** (LFO/enveloppe/filtre/
-  disto — 18 fragments, ~43 entrées registre générées par boucle dans
-  les builders partagés ; décision validée). → `archi/U3r-prompt.md`.
-- **U.3.r livrée** (commits 78a2017→bac04e5, 2026-06-13/14) : r1 retrait
-  Biblio, r2 badges Effets sur boutons, r3 centrage badges, r4 Instrument/
-  Atelier, r5 segments AHDSR ; + correctifs dev r7 (badges fantômes du
-  tiroir ⋯) et r8 (badge Écouter survit au repli sidebar, badge Lissage).
-  Validé archi : 47 headings, **tous les fragments résolvent** (aucun
-  badge mort). **MANQUE** : §4c (sous-contrôles des effets) ajouté au
-  prompt après clôture côté dev → non implémenté.
-- **U.3.s livrée + validée** (commits 5d32f33→69f8c36, 2026-06-14) :
-  sous-contrôles des effets badgés via 18 sections de concept partagées
-  (`FX_FAMILIES` générant ~43 entrées). Validé archi : les 18 fragments
-  existent, le générateur les émet tous, **aucun badge mort**, `tsc`
-  propre. → `archi/U3s-prompt.md`.
-
-> **Jalon : mécanique du mode Info COMPLÈTE** (U.1→U.3.s). Reste de
-> l'itération U : **U.4 = peuplement de la prose** (writer). Brief archi
-> rédigé → `archi/U4-writer-brief.md`. Puis **2ᵉ gros morceau : mise à
-> jour du Tour de découverte** (Création), avec passe sur l'article
-> généré Raccourcis.
-- **U.4 livrée + validée** (commits 1887956, 3e1095a, 2026-06-14) :
-  7 articles `creation-*` peuplés + **6 SVG** (`public/docs/`), guide-
-  designer recousu en porte d'entrée (liens vers les 7 articles). Brief
-  → `archi/U4-writer-brief.md`. Validé archi : **tous les fragments
-  résolvent** (aucun badge mort, `{#id}` préservés), zéro tableau/Details
-  imbriqué, « Version provisoire » retiré, pièges factuels signalés
-  (unité profondeur par effet, piège Q dB/linéaire) rendus fidèlement.
-
-> **Jalon : documentation interactive de la Création COMPLÈTE & PEUPLÉE**
-> (U.1→U.4).
-
-- **U.5** — mise à jour du **Tour de découverte** (Création). Cadré
-  2026-06-15 : **rampe d'accueil resserrée** (~12 étapes, chaque étape →
-  section `creation-*#fragment` via navigateToDoc, pont final vers
-  Ctrl+I) ; **étape Effets unique avec révélation moteur** (nouveau champ
-  `revealModule` + snapshot étendu à `designerCollapsed`/`maximized`/
-  `designerMobileModule`, restauré à END_TOUR). Le tour designer.js (9
-  étapes, iter-L) est obsolète (aucune ancre morte mais module Effets +
-  lentilles + presets + spectro non couverts). Tour & Info complémentaires
-  (narratif vs référence), pas de doublon. → `archi/U5-prompt.md`.
-- **Ensuite** : mise à jour du **Tour guidé** (2ᵉ gros morceau, U.5+ ou
-  itération V) ; passe sur l'article généré Raccourcis au passage.
-
-Reportés dans l'itération, non perdus :
+Restes, non cadrés :
+- **Couverture du mode Info hors Création** (Composition, Bibliothèque,
+  Documentation : message « bientôt » aujourd'hui). La Bibliothèque avait
+  été couverte en U.3 puis retirée en U.3.r (hors scope de U).
+- **Passe writer de polish des `body` du Tour Création**.
 - **Compléter les stubs de l'iter L** (`about.md`, `why-12-notes.md`) —
-  writer, peut s'adosser à U.4.
+  writer. `about.md` porte encore l'ancien nom « Synth App ».
+- **Passe sur l'article généré Raccourcis** : la table source a été
+  réalignée (post-U qw.3) ; reste `SECTION_INTRO.Global`
+  (`ShortcutsReference.jsx`) qui dit « Création et Composition » alors que
+  Ctrl+K/I/J/Z valent aussi en Bibliothèque/Documentation.
 
-## Bibliothèque : anomalies sur petit écran — QUALIFIÉ (1 symptôme)
+---
 
-Constat utilisateur (2026-06-12, v1.12.0, post-déploiement prod) :
-**sous 900px de large, le bloc Bibliothèque se réduit à ~250px de
-haut**.
+## Bibliothèque : passe responsive/tactile — à cadrer
 
-**Diagnostic (archi, 2026-06-12)** : collision d'héritage.
-`PatchBank.css` porte une règle `@media (max-width: 900px)` qui
-bascule `.sound-bank-panel` en « bandeau horizontal » `max-height:
-180px` (+ `.sound-bank-list` en row/wrap). Écrite pour la **sidebar**
-banque de patches (bien avant l'iter K), elle s'applique aussi à
-l'onglet Bibliothèque plein écran qui réutilise ces classes
-(`PatchBank` partagé) → l'onglet entier est écrasé en bandeau.
+Le symptôme qualifié le 2026-06-12 (onglet écrasé en bandeau ~250 px sous
+900 px de large) est **corrigé (post-U qw.1, 2026-09-21), à valider en
+navigateur** : la règle `@media (max-width: 900px)` de `PatchBank.css`
+datait de l'iter A (banque en sidebar) et n'avait plus d'autre cible que
+l'onglet plein écran — `PatchBank` n'est monté que là, les sidebars
+montent `PatchPicker`/`RecentPatchesList`. Règle supprimée.
 
-**Deux niveaux de réponse possibles** :
-- *Quick fix* : scoper la règle à l'usage sidebar (sélecteur de
-  contexte ou prop/classe dédiée), l'onglet plein écran y échappe.
-  Faisable en un petit prompt indépendant, sans attendre le chantier.
-- *Chantier complet* : passe responsive/tactile de la Bibliothèque
-  (l'onglet date de l'iter K, antérieur aux refontes R/S — jamais eu
-  sa propre passe ; vérifier aussi Tiles/liste, popover, lasso au
-  doigt déjà backloggé).
+Reste le **chantier complet** : l'onglet date de l'iter K, antérieur aux
+refontes R/S, et n'a jamais eu sa propre passe responsive/tactile
+(Tiles/liste, popover, lasso au doigt déjà backloggé).
+
+Nettoyage adjacent repéré : `App.css`
+`.designer-library-popover > .sound-bank-panel` est mort (le popover monte
+un `PatchPicker`) ; commentaires périmés « PatchBank.headerExtra »
+(`App.css`, `App.jsx`) et « sidebar Composer resizable » (`PatchBank.css`).
 
 ---
 
@@ -833,23 +742,34 @@ doc.
 Correctifs/améliorations légers, à piocher entre deux grosses
 itérations. Faible coût, faible risque.
 
-- **Icônes undo/redo Composer** : différentes de celles des autres
-  onglets (Designer, Bibliothèque). Harmoniser sur un seul jeu
-  d'icônes ⟲/⟳ cohérent partout. (relevé 2026-05-28)
+- **Glyphes Unicode restants dans l'UI** (règle : Lucide, jamais
+  d'Unicode). Undo/redo du Composer traités (post-U qw.2). Restent : `×`
+  (Timeline ×2, PresetPicker, Toast, PatchBank), `▶` / `📁` / `📋`
+  (PatchBank, PatchPicker, SavePatchDialog), `▴▾` (PropertiesPanel,
+  SavePatchDialog), `⚠` (SavePatchDialog, DeleteUsageWarningDialog),
+  `♩ ½ ♪` (Toolbar), `⎵` (ShortcutsOverlay), `→` (Tour, PatchBank).
+  (relevé 2026-09-21)
 - **Indicateur "patch modifié non sauvegardé" (Designer)** : quand
   le patch courant est dirty (édité mais pas enregistré), le
   signaler visuellement — dans le PatchPicker et/ou sur le
-  `we-sound-tag`. Évite de perdre des modifs sans s'en rendre
-  compte. (relevé 2026-05-28)
+  `we-sound-tag`. **Aucun signal visuel n'existe aujourd'hui** : le
+  dirty n'est calculé qu'à la demande (refs) pour deux confirms modaux.
+  **Préalable** : fiabiliser `isDirty` (cf. « Bugs connus »). Puis
+  dériver un booléen au render, le passer à `DesignerToolbar` via le
+  render-prop ; pour le PatchPicker, le remonter à `App.jsx`.
+  (relevé 2026-05-28, audité 2026-09-21)
 - **Marges autour des canvas éditables (Designer)** : ajouter une
   petite marge interne autour des canvas de la forme d'onde ET de
   l'enveloppe, pour que (1) les tracés ne sortent pas du cadre et
   (2) le drag de dessin ne se perde pas quand la souris frôle les
   bordures. (relevé 2026-05-28)
-- **Nommage "On_Synth_App"** : remplacer "Synth App" par
-  "On_Synth_App" partout, **via une constante** unique (titre,
-  exports, métadonnées…) plutôt que des littéraux dispersés.
-  (relevé 2026-05-28)
+- **Nommage "On_Synth_App"** : largement fait en littéraux (`index.html`,
+  manifest, `Tabs.jsx`, `TooSmallGate.jsx`, README). **Pas de constante**
+  (4 littéraux JS/JSX ; `index.html`/manifest ne peuvent pas la consommer
+  sans plugin Vite — à arbitrer). Restent à l'ancien nom : défaut d'export
+  `synth-app-bibliotheque-…` (`App.jsx`) et `about.md` (writer). Ne
+  **jamais** renommer les clés localStorage `synth-app-state` /
+  `synth-app-doc-session`, ni `package.json` `name`. (audité 2026-09-21)
 
 ---
 
@@ -1550,34 +1470,45 @@ territoire AM/effets spéciaux)…
 
 ## Bugs connus non résolus
 
-- **Ctrl+D déclenche parfois le bookmark navigateur** malgré
-  `preventDefault` (reproduction intermittente, mode opératoire à
-  documenter quand observé). NOTE_GUARD_KEYS de F.7.5 ne couvre pas
-  KeyD car le shortcut est Ctrl+D et on laisse passer Ctrl/Meta —
-  c'est un cas spécifique qui demanderait une exception ciblée.
-- **Dezoom molette Composer — petits sauts brefs de recalage**
-  (régression observée post-L.1, à confirmer). Symptôme : un
-  scroll molette de dezoom produit des micro-sauts de la timeline
-  pendant l'animation, comme si la position scrollLeft était
-  recalculée et appliquée légèrement à côté pendant un frame ou
-  deux. Si on scroll cran par cran (un Δzoom à la fois), la
-  position finale est correcte mais le saut transitoire reste
-  visible. Piste : ordre de mise à jour entre `setZoom(newZoom)`
-  et l'ajustement de `scrollLeft` (qui doit compenser pour garder
-  le point sous la souris fixe). Possible interaction avec les
-  re-renders introduits en L.1 ou les follow-ups overlay. À
-  diagnostiquer avant fix.
-- **Définitions des raccourcis incorrectes/incomplètes dans
-  `src/lib/shortcuts.js`** (signalé post-L.2, à auditer). Au
-  moins quelques entrées de la table déclarative ne reflètent
-  pas fidèlement le comportement réel (libellé, description,
-  conditions d'activation). Impact : la page Raccourcis
-  auto-générée et l'overlay raccourcis affichent des infos
-  inexactes. Mode opératoire : passer la table en revue contre
-  les handlers réels (et le rapport L.0
-  `archi/L0-audit-raccourcis.md`), corriger les écarts. Pas
-  bloquant pour la livraison V1 doc — à traiter en fin de L
-  ou en hotfix dédié.
+- **Transposition ↑/↓ des clips fausse hors 12-TET** (`App.jsx`,
+  handler flèches, relevé 2026-09-21) : `midi = (octave+1)*12 + noteIndex`
+  puis `% 12` pour **tout** clip dont le système n'est pas `free` (la
+  variable s'appelle `twelveTet` mais le filtre ne teste que `!== 'free'`).
+  Hauteur corrompue en 24-TET, shrutis, slendro, pelog, X-EDO ; Shift+↑/↓
+  (±12) faux pour la même raison. L'entrée `composer-pitch-arrow` de la
+  table dit « 12-TET uniquement » : c'est le handler qui doit s'y conformer.
+- **Suppr / Échap sans filtre d'onglet** (`App.jsx`, relevé 2026-09-21) :
+  Delete/Backspace supprime les clips sélectionnés et Échap les
+  désélectionne quel que soit l'onglet ; `SET_ACTIVE_TAB` ne vide pas
+  `selectedClipIds`. Avec une sélection laissée en Composition, Suppr en
+  Création supprime des clips invisibles — et retire en plus une ancre
+  spline dans le même appui (`SplineEditor` écoute aussi sur `window`).
+- **`isDirty` du Designer suspect** (lecture statique, **à confirmer à la
+  main** : charger un patch, ne rien toucher, en ouvrir un autre — si le
+  confirm apparaît, c'est confirmé). Le snapshot comparé
+  (`WaveformEditor.jsx`) n'inclut ni `canonical`/`cap` ni les champs
+  d'effets de l'iter T, alors que `patchFieldsEqual` et les références les
+  comparent → faux positifs après chargement, faux négatifs après
+  enregistrement. Correctif probable : construire le snapshot via
+  `snapshotPatchFields(editor)`.
+- **Mineur — note bloquée possible en mode Libre hors AZERTY/QWERTY** :
+  keyup en `e.code === 'KeyS'` vs keydown en `e.key === 's'`
+  (`WaveformEditor.jsx`).
+
+Corrigés le 2026-09-21 (post-U), **à valider en navigateur** avant de
+retirer d'ici :
+- **Ctrl+D ouvrait les favoris** (qw.4) — le `preventDefault` n'était pas
+  atteint hors Composition, sans sélection, ou focus sur un select/slider.
+  NB : Ctrl+D = split ÷2 (pas « dupliquer »), `NOTE_GUARD_KEYS` hors de
+  cause. Tester : Composition sans sélection ; autres onglets ; juste après
+  un slider de piste ; champ texte (comportement navigateur conservé).
+- **Dezoom molette Composer, micro-sauts** (qw.5) — rAF non ordonné vs
+  commit React, remplacé par `useLayoutEffect([zoomH])` (+ zoom rectangle
+  Alt+drag). Tester en build prod : dezoom rapide au milieu / en fin de
+  timeline / près de 0, butées min/max, Alt+drag en fin de timeline.
+- **Table `src/lib/shortcuts.js`** (qw.3) — réalignée sur les handlers
+  (Ctrl+J ajouté, descriptions corrigées). `archi/L0-audit-raccourcis.md`
+  cité ici auparavant **n'existe pas** dans le dépôt.
 
 (Note : l'ancienne entrée "Firefox raccourcis pendant drag (en cours
 de fix en phase 7.1)" référençait le QuickFind sur ' / Digit4 et ses
