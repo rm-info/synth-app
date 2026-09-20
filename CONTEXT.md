@@ -16,7 +16,7 @@ persistance localStorage (clé `synth-app-state`). **TypeScript incrémental**
 lib audio, pas de state manager (un `useReducer` global dans `App.jsx`), pas de
 framework UI (CSS manuscrit), pas de routing, pas de backend.
 
-**Version courante : v1.12.0** (2026-06-12).
+**Version courante : v1.13.0** (2026-09-21).
 
 **Itérations livrées** (détail complet dans `CONTEXT-ARCHIVE.md`) :
 
@@ -42,24 +42,11 @@ framework UI (CSS manuscrit), pas de routing, pas de backend.
 | R | Refonte petit écran Designer : switcher de modules (un module plein cadre), top header priority-plus + hamburger, gate orientation-aware 300/500 + densification < 700×500, correctifs mobile (R.3.rectif) ; R.4 (orientation) annulée — v1.10.0 | 2026-06-08 |
 | S | Support tactile : Pointer Events app-wide (tracé · clavier polyphonique · poignées · Timeline), touch-action chirurgical, shell non-scrollable + PWA légère standalone ; durcissement audio (master headroom-bas + soft-clip filet, déclic MIN_RELEASE/ATTACK, buffer mobile, export normalisé) — v1.11.0 | 2026-06-09 |
 | T | Effets sans mémoire : module Effets (9 effets par patch), auto-pan, pitch env (Inverser + 4 formes), filtre + env + wah, disto vivante (env. drive, poignée 2D) — .osa v4 — v1.12.0 | 2026-06-12 |
+| U | Documentation utilisateur de la Création : mode Info (Ctrl+I, badges cliquables → paragraphe doc, registre `DOC_TARGETS` 94 cibles), 7 articles par module, liens profonds `doc:article#fragment`, Tour Création à jour — v1.13.0 | 2026-09-21 |
 
-**État courant** : **Iteration U « Documentation utilisateur de la Création »**
-en cours — **phases U.1 → U.5 livrées (dont rectifs U.3.r, U.3.s)**. U.1 = socle
-renderer doc (ids de titre `{#id}`, liens profonds `doc:article#fragment` scroll +
-flash, accordéon `<Details>`, images SVG `public/docs/`). U.2 = **mode Info**
-(bouton header + **Ctrl+I**, overlay de badges cliquables sur les contrôles
-documentés visibles, registre déclaratif `DOC_TARGETS`). U.3 (+ rectifs) =
-**couverture de la Création seule** : 7 articles squelettes par module (section TOC
-« La Création en détail »), badges Effets sur les boutons du switcher, 5 segments
-AHDSR, pastilles **centrées** sur leur contrôle. U.3.s ajoute les **sous-contrôles
-des effets** (steppers/switchs/graphes) via des **sections de concept partagées par
-famille** (DRY : le « Vitesse » de tous les LFO → `#lfo-vitesse`). `DOC_TARGETS` =
-**94 cibles** (51 + 43 générées par famille). U.4 = prose writer des articles
-`creation-*` (peuplée). **U.5** met le **Tour guidé de la Création** à jour :
-rampe d'accueil resserrée (~12 étapes), **étape Effets** + révélation de module
-(`revealModule`), liens « En savoir plus » vers `article#fragment`, pont final
-vers la doc interactive (Ctrl+I).
-Iteration T « Effets sans mémoire » **close** (release **v1.12.0**, 2026-06-12).
+**État courant** : **entre deux itérations**. Iteration U « Documentation
+utilisateur de la Création » **close** (release **v1.13.0**, 2026-09-21), suivie
+d'une passe de correctifs post-U à valider en navigateur (cf. `## État actuel`).
 Détail des itérations closes, saga et roadmaps dans `CONTEXT-ARCHIVE.md`.
 
 > **Structure des fichiers de contexte.** Ce `CONTEXT.md` est le **brief
@@ -144,8 +131,7 @@ synth-app/
     │       ├── about.md             # stub L.2.5 (rédaction confiée à writer/)
     │       ├── why-12-notes.md      # stub L.2.5 (rédaction confiée à writer/)
     │       ├── … (22 articles publiés : guides, « Comprendre », glossaires, tempéraments, Raccourcis généré, Limites connues)
-    │       ├── creation-*.md        # (iter-U phase-3.1) 7 squelettes par module de la Création (atelier/forme-onde/harmoniques/spectrogramme/instrument/enveloppe/effets) ; faits bruts, prose writer U.4
-    │       └── _renderer-test.md    # (recréé iter-U phase-1.3, section TOC « Interne ») validation V1 + nouveautés U (ids {#id}, doc:#fragment, <Details>, SVG) — à retirer en fin d'itération U
+    │       └── creation-*.md        # (iter-U phase-3.1) 7 articles par module de la Création (atelier/forme-onde/harmoniques/spectrogramme/instrument/enveloppe/effets) ; prose writer U.4
     └── components/
         ├── Tabs.jsx + .css                    # bascule Bibliothèque / Designer / Composer / Documentation ; variante compacte priority-plus + hamburger sous 924×668 (iter-R phase-2.2, prop isMobile)
         ├── PatchBank.jsx + .css               # banque de patches partagée
@@ -1031,13 +1017,21 @@ Seuls les **placements timeline** s'appellent "clips".
 - Clips : position absolue, snap 16ᵉ, drag/resize/duplication, multi-sélection
   (rectangle, Ctrl+clic, Shift+drag). Clic droit clip = retirer.
 - Grille : lignes absolues, subdivision adaptative (noire/croche/double/triple),
-  Ctrl+molette zoom centré souris. Numéros de mesure sticky top.
+  Ctrl+molette zoom centré souris. Numéros de mesure sticky top. Le recalage de
+  `scrollLeft` après un changement de zoom (molette, rectangle Alt+drag) passe par
+  `pendingZoomScrollRef` + `useLayoutEffect([zoomH])` — **jamais** par un
+  `requestAnimationFrame`, non ordonné par rapport au commit React (micro-sauts).
 - Menu contextuel : clic droit zone vide = "Coller ici" (avec surbrillance
   pistes cibles), clic droit mesure = CRUD mesure. Échap ferme le menu.
 - Curseur de lecture + visualiseur oscilloscope persistant.
 
-### `PatchBank.jsx` (partagé Designer & Composer)
-- Liste verticale de chips (responsive : bandeau horizontal en <900px).
+### `PatchBank.jsx` (onglet Bibliothèque)
+- **Monté uniquement dans l'onglet Bibliothèque plein écran** (`App.jsx`,
+  `library-tab-content`) ; les sidebars/popovers Designer et Composer montent
+  `PatchPicker` / `RecentPatchesList` (classes et CSS propres). L'ancien bandeau
+  horizontal < 900 px (héritage sidebar iter A) a été supprimé (post-U qw.1).
+  *Les puces Designer/Composer ci-dessous datent d'avant l'iter K — à ré-auditer.*
+- Liste verticale de chips.
 - Drag → payload `text/plain` = patchId (drop sur Timeline).
 - **Designer** : clic charge le patch dans l'éditeur ; double-clic = renommer
   inline ; pas de bouton ✎. × supprime.
@@ -2470,105 +2464,27 @@ Conventions tacites. Les enfreindre sans raison crée des bugs subtils.
 
 ## État actuel
 
-**Iteration U « Documentation utilisateur de la Création »** en cours (ouverte **2026-06-12**).
-
-🚧 **En cours**
-- **U.5 — MAJ du Tour guidé de la Création (livrée, 2026-06-15)** : le Tour Ctrl+J
-  de la Création, daté de l'itération L (9 étapes, ignorait tout M→T), devient une
-  **rampe d'accueil resserrée de 12 étapes** — parcours d'un débutant : son →
-  sculpture (harmoniques/spectro) → écoute (clavier) → enveloppe → **effets** →
-  presets/écoute → enregistrement → pont Ctrl+I. **5.1** : moteur — nouveau champ
-  d'étape `revealModule` (déplie/maximise-sort/switche le module ciblé avant de
-  pointer) + snapshot du tour étendu à `designerCollapsed`/`maximized`/
-  `designerMobileModule` (restauration progressive à `END_TOUR`). **5.2** : `article`
-  accepte `'id#fragment'` → « En savoir plus » route via `navigateToDoc` (section
-  exacte, scroll + flash). **5.3** : réécriture de `designer.js` — chaque étape
-  pointe la bonne section `creation-*`, **cœur = l'étape Effets** (révèle le module,
-  présente les neuf effets « sans mémoire ») ; l'étape finale (`header-info-button`)
-  renvoie à la doc interactive. Tours library/composer/documentation intacts ;
-  tsc/lint OK. *Passe writer de polish des `body` possible en suivi.*
-- **U.3.s — sous-contrôles des effets (livrée, 2026-06-14)** : à l'intérieur d'un
-  panneau d'effet sélectionné, les **sous-contrôles** (steppers, switch de
-  forme/type, graphe éditable, toggle Inverser) gagnent un badge. Décision archi :
-  **sections de concept partagées par famille** (DRY) — un paramètre documenté une
-  seule fois, tous les effets de la famille y pointent (le « Vitesse » du vibrato et
-  du trémolo ouvrent la **même** `#lfo-vitesse`). 18 fragments concept ajoutés à
-  `creation-effets.md` (familles LFO/Enveloppe/Filtre/Disto). Ancres
-  `designer-fx-<effet-kebab>-<param>` posées dans les **builders partagés**
-  (`renderLfoBlock`/`renderParamEnvBlock` : un point de code pour toute la famille,
-  via helper `fxAnchor` ; `renderFilterBlock`/`renderDistortionBlock` : littéraux).
-  ~43 entrées de registre **générées par boucle de famille** (`buildFxTargets` +
-  `FX_FAMILIES`, mêmes ancres des deux côtés). On ne badge ni l'on/off in-panel
-  (déjà couvert par le bouton d'effet) ni les hints d'activation ; un seul badge
-  graphe par panneau. Panneaux masqués (display:none) → pas de badge. Registre :
-  **94 cibles** ; tsc/lint/build OK, tous les `doc:` résolvent. Reste U.4 (prose).
-- **U.3.r — rectificatif U.3 (livrée, 2026-06-13)** : cinq corrections issues de la
-  validation. (1) **Recentrage Création** : retrait des 13 entrées `library-*` du
-  registre (l'onglet/​la sidebar Bibliothèque retombent sur « bientôt ») + retrait
-  des 6 `{#id}` de `guide-bibliotheque.md` (retour pré-U.3, diff vide). (2) **Badges
-  Effets sur le switcher** : les 9 ancres `designer-effect-*` passent du sous-bloc de
-  contenu au **bouton toggle** correspondant (un badge par effet, sans présélection) ;
-  entrée `designer-modulation` retirée du registre (attribut conservé sur le
-  `<header>`). (3) **Pastilles centrées** : `InfoOverlay` découple position de repos
-  (toujours centrée sur le contrôle) et sens d'ouverture du libellé (vers l'intérieur
-  près des bords) ; le bouton est ancré par son côté stable et grandit sans déplacer
-  l'icône. (4) **Trous Création** : `designer-system-category` (Catégorie, distinct du
-  Système — `designer-system-selector` déplacé sur le champ Système), `designer-tonic-
-  selector` (Tonique → #reperes-visuels), `designer-xedo-degrees` (degrés X-EDO,
-  **1..53** — nouvelle section #x-edo), `designer-auto-collapse` (→ #gerer-les-modules ;
-  chrome de module + repli sidebar couverts en prose, sans badge). (5) **5 segments
-  AHDSR** en vue sliders (`designer-adsr-attack/-hold/-decay/-sustain/-release` →
-  #attaque/#maintien/#declin/#soutien/#relache) ; `designer-adsr` (overview) déplacé
-  sur le canvas du graphe (résout en vue graphe seule) ; **fix mapping** :
-  `designer-sustain-pastille` (cadenas de maintien de la note, Instrument) repointé de
-  `creation-enveloppe#sustain` vers `creation-instrument#clavier`. Registre : 51 cibles,
-  tous les `doc:` résolvent ; tsc/lint/build OK. Reste U.4 (prose writer).
-- **U.3 — couverture complète de la Création (livrée, 2026-06-12)** : le mode Info
-  couvre désormais tout l'onglet Création, contrôle par contrôle. (1) **~18
-  `data-anchor` manquants** posés sur les contrôles logiques non encore ancrés
-  (barre d'outils : nom de patch, égaliser, switcher mobile ; mini-player ; headers
-  Forme d'onde/Harmoniques/Spectro/Enveloppe ; Instrument : repères visuels,
-  fréquence libre ; 9 sous-blocs Effets via `EFFECT_ANCHORS` — un seul visible →
-  un seul badge). `designer-modulation` relogé de la zone Effets vers son `<header>`
-  (le badge du switcher ne recouvre plus celui du panneau). (2) **7 articles
-  squelettes** par module (`src/docs/articles/creation-*.md`, section TOC « La
-  Création en détail » après « Prise en main ») : un heading `{#id}` stable par
-  contrôle, faits bruts vérifiés (bornes/unités/défauts), bloc `<Details>` « Sous le
-  capot » optionnel, lien retour `<DocLink target="designer:…">`. Prose pédagogique =
-  writer U.4. (3) **`DOC_TARGETS` complet** (56 cibles) : remap des 16 entrées U.2
-  (qui pointaient `guide-designer` — inchangé, ses `{#id}` U.2 restent sans
-  consommateur, couture writer U.4) vers les articles par module + entrées
-  **Bibliothèque** (`library-*` en `contexts: ['library','designer']`, PatchBank
-  partagé → `guide-bibliotheque`, 6 `{#id}` ajoutés à ses headings, prose intacte).
-  L'onglet Bibliothèque a maintenant ses badges (plus de message « bientôt »).
-  Auto-contrôle vert : chaque `doc:` résout, chaque ancre existe, chaque DocLink de
-  retour pointe une ancre réelle. Hors scope (→ U.4) : toute prose ; couture
-  `guide-designer` ; couverture Composition/Documentation ; Tour. tsc/lint/build OK.
-- **U.2 — mode Info (livrée, 2026-06-12)** : la **boucle complète du mode
-  documentation interactive**, amorcée sur les ancres Designer. Bouton Info dans le
-  header (entre Raccourcis et Tour) + **Ctrl+I** ; `InfoOverlay` pose un **badge
-  cliquable** sur chaque contrôle documenté **visible** de l'onglet actif (filtre
-  `getAnchoredPosition` : modules repliés / tiroir `⋯` / mobile masqués
-  gratuitement) ; clic = bascule sur le paragraphe doc dédié (`navigateToDoc`,
-  machinerie U.1). Registre déclaratif `lib/docTargets.js` (`DOC_TARGETS`, moule de
-  `SHORTCUTS`, 16 entrées Designer → sections de `guide-designer.md`). 9 `{#id}`
-  posés sur les headings existants (prose intacte). État volatile `infoOverlayOpen`,
-  exclusion mutuelle avec l'overlay Raccourcis (reducer). Identité bleue distincte,
-  thèmes OK. Hors scope (→ U.3) : ancres Création manquantes, articles par module,
-  couverture Composition/Bibliothèque/Documentation.
-- **U.1 — socle renderer/doc (livrée, 2026-06-12)** : tout ce qui manquait au système de
-  documentation pour accueillir le mode Info. Chantier confiné au markdown et à l'onglet
-  Documentation (ni modèle, ni reducer, ni audio, ni onglet Création touchés). Trois
-  nouveautés parser/renderer : (1) **id de titre explicite** `## Titre {#mon-id}` (kebab,
-  retiré du texte affiché, pas d'auto-slug — les ids survivent aux reformulations writer
-  U.4) ; (2) **liens profonds** `doc:article#fragment` (scroll vers le heading + flash,
-  fragment prime sur la restauration de scroll, point d'entrée externe `navigateToDoc`
-  réutilisable par le futur mode Info) ; (3) **accordéon `<Details>`** (contenu re-parsé
-  récursivement, replié par défaut). Plus la convention **images SVG `public/docs/`** +
-  SVG de démo, et l'**article de test renderer** recréé. Régression parser = nulle (22
-  articles publiés inchangés). Reste U.2→U.5 (cf. Roadmap).
+**Iteration U close (release v1.13.0, 2026-09-21) — entre deux itérations.** La
+Création est documentée contrôle par contrôle depuis l'app (mode Info), les articles
+par module sont peuplés, le Tour guidé est à jour. Une passe de **correctifs post-U**
+(Bibliothèque < 900 px, icônes undo/redo Composer, table des raccourcis, Ctrl+D,
+dezoom molette) est livrée mais **pas encore validée en navigateur** (cf. Roadmap).
 
 ✅ **Terminé**
+- **Iteration U — « Documentation utilisateur de la Création » (close, v1.13.0)**.
+  **Mode Info** (bouton header + **Ctrl+I**, exclusion mutuelle avec l'overlay
+  Raccourcis) : `InfoOverlay` pose un badge cliquable, centré sur chaque contrôle
+  documenté **visible** de la Création ; clic = bascule sur le paragraphe dédié de
+  l'onglet Documentation (`navigateToDoc`). Registre déclaratif `lib/docTargets.js`
+  (`DOC_TARGETS`, **94 cibles** : 51 + 43 générées par famille d'effets via
+  `buildFxTargets`). Côté doc : ids de titre explicites `{#id}`, liens profonds
+  `doc:article#fragment` (scroll + flash), `<Details>`, images SVG `public/docs/` ;
+  **7 articles `creation-*`** (section TOC « La Création en détail ») dont les
+  sections de concept **partagées par famille** de `creation-effets.md` ;
+  `guide-designer` = porte d'entrée. **Tour Création** : 12 étapes, `revealModule`,
+  « En savoir plus » vers `article#fragment`, pont final Ctrl+I. Les autres onglets
+  n'ont pas de couverture Info. Détail par-phase, saga et leçons dans
+  `CONTEXT-ARCHIVE.md`.
 - **Iteration T — « Effets sans mémoire » (close, v1.12.0)**. Tour complet des effets
   qui s'intègrent au cycle de vie audio **sans mémoire** (chaîne jetable par note, zéro
   queue) avant le futur chantier des effets à mémoire. **9 effets par patch** dans le
@@ -3475,57 +3391,21 @@ Conventions tacites. Les enfreindre sans raison crée des bugs subtils.
 
 ## Roadmap & Backlog
 
-> Détail des roadmaps des itérations livrées (A→M) → `CONTEXT-ARCHIVE.md`.
-> Ci-dessous : l'itération en cours, puis le backlog général (non planifié).
+> Détail des roadmaps des itérations livrées (A→U) → `CONTEXT-ARCHIVE.md`.
+> Ci-dessous : l'itération en cours (ou l'entre-deux), puis le backlog général (non planifié).
 
-### Iteration U « Documentation utilisateur de la Création » (en cours)
+### Entre deux itérations (depuis la clôture de U, 2026-09-21)
 
-Objectif : un **mode Info** (bouton Info dans le header, entre Raccourcis et Tour,
-**Ctrl+I**) qui pose un overlay cliquable sur chaque contrôle logique de l'onglet
-Création ; le clic bascule sur l'onglet Documentation, sur le **paragraphe dédié** au
-contrôle. Granularité = **contrôle logique** (un graphe = un overlay). Structure doc =
-**un article par module** dans une nouvelle section TOC, `guide-designer.md` restant le
-survol narratif. Navigation = **bascule d'onglet** (pas de panneau in-situ). Prose =
-**writer** (U.4).
+Aucune itération cadrée. Détail de la roadmap U → `CONTEXT-ARCHIVE.md`.
 
-- ✅ **U.1 — socle renderer/doc (livrée)** : ids de titre `{#id}` (kebab, pas d'auto-slug),
-  liens profonds `doc:article#fragment` (scroll RAF borné + flash, point d'entrée externe
-  `App.navigateToDoc`), accordéon `<Details>` (contenu re-parsé récursivement, replié par
-  défaut), images SVG `public/docs/` + `.md-image` centré, `_renderer-test.md` recréé
-  (section TOC « Interne », à retirer en fin d'itération U).
-- ✅ **U.2 — mode Info (livrée)** : bouton header + **Ctrl+I**, `InfoOverlay`
-  (badges `<button>` bleus cliquables sur les contrôles documentés visibles),
-  registre déclaratif `DOC_TARGETS` (`lib/docTargets.js`) amorcé sur les ancres
-  Designer → `guide-designer.md` (9 headings dotés d'un `{#id}`). Exclusion
-  mutuelle avec l'overlay Raccourcis. Couverture des autres onglets = U.3.
-- ✅ **U.3 — couverture complète (livrée)** : ~18 `data-anchor` manquants sur la
-  Création + 7 articles squelettes par module (section TOC « La Création en détail »)
-  + `DOC_TARGETS` complet, remap des 16 entrées U.2 vers les articles par module.
-  `guide-designer` inchangé (couture U.4).
-- ✅ **U.3.r — rectificatif (livrée)** : recentrage Création (retrait couverture
-  Bibliothèque, `guide-bibliotheque` ramené à son état pré-U.3) ; badges Effets sur
-  les boutons du switcher (un par effet, sans présélection ; `designer-modulation`
-  retiré du registre) ; pastilles Info centrées sur le contrôle au repos (sens
-  d'ouverture du libellé découplé) ; 4 trous Instrument/Atelier comblés (catégorie,
-  tonique, degrés X-EDO 1..53 + section #x-edo, auto-réduction) ; 5 segments AHDSR
-  en vue sliders + ancre overview déplacée sur le canvas + fix mapping
-  `designer-sustain-pastille` → Instrument#clavier. Registre : 51 cibles.
-- ✅ **U.3.s — sous-contrôles des effets (livrée)** : badges sur les steppers/switchs/
-  graphes/toggle Inverser à l'intérieur des 9 panneaux d'effet, via 18 **sections de
-  concept partagées par famille** (LFO/Enveloppe/Filtre/Disto) dans
-  `creation-effets.md`. Ancres `designer-fx-<effet>-<param>` dans les builders
-  partagés ; ~43 entrées de registre **générées par famille** (`buildFxTargets`).
-  Registre : 94 cibles. On/off in-panel et hints non badgés ; un badge graphe/panneau.
-- ✅ **U.4 — peuplement des contenus (livrée, domaine writer)** : couture de
-  `guide-designer` (porte d'entrée → articles par module) + prose des 7 articles
-  `creation-*` + schémas SVG (retrait des lignes « Version provisoire »).
-- ✅ **U.5 — MAJ du Tour guidé de la Création (livrée)** : 5.1 moteur — champ d'étape
-  `revealModule` (révélation de module avant de pointer : déplié en bande / sorti
-  d'une maximisation concurrente / plein cadre en mobile) + snapshot étendu
-  (`designerCollapsed`/`maximized`/`designerMobileModule`, restaurés à `END_TOUR`) ;
-  5.2 `article` accepte `'id#fragment'` (« En savoir plus » via `navigateToDoc` →
-  section exacte) ; 5.3 réécriture de `designer.js` en rampe d'accueil de **12 étapes**
-  (étape Effets + pont final Ctrl+I). Le Tour **oriente**, l'Info **détaille**.
+**Restes de U (non cadrés)** : couverture du **mode Info** pour les onglets
+Composition / Bibliothèque / Documentation (message « bientôt » aujourd'hui) ; passe
+writer de polish des `body` du Tour Création.
+
+**À valider en navigateur (correctifs post-U du 2026-09-21, livrés sans test visuel)** :
+Bibliothèque sous 900 px ; icônes undo/redo du Composer (centrage, disabled) ; Ctrl+D
+sans sélection / hors Composition / focus sur un slider ; Ctrl+molette et Alt+drag
+(dezoom près de la fin de timeline, butées min/max).
 
 **Après U (backlog effets, non cadré)** — deux directions héritées de la clôture de T :
 - **Petits « inattendus » sans mémoire** (compatibles chaîne jetable par note, zéro
@@ -3571,6 +3451,33 @@ effets temporels par piste, mixage/pan…) **non cadrée** ; « Monde B » inhar
   `AUTO_COLLAPSE_DEFAULT_WIDTH`, container-query) pour réglage ultérieur.
 
 ### Backlog général (à caser quand pertinent)
+
+- **(post-U, 2026-09-21) Bugs de handler relevés par l'audit des raccourcis** (non
+  corrigés, à cadrer) : (1) `App.jsx` ↑/↓ et Shift+↑/↓ sur clips — transposition
+  calculée en MIDI 12-TET pour **tout** système non `free` → hauteur corrompue en
+  24-TET / shrutis / slendro / pelog / X-EDO ; (2) `App.jsx` Suppr/Backspace et Échap
+  agissent sur `selectedClipIds` **sans filtre d'onglet** (`SET_ACTIVE_TAB` ne vide
+  pas la sélection) → Suppr en Création supprime des clips invisibles, et peut
+  retirer une ancre spline dans le même appui ; (3) mineur : keyup du test mode
+  Libre en `e.code === 'KeyS'` vs keydown en `e.key === 's'`.
+- **(post-U) Détection `isDirty` du Designer suspecte** (lecture statique, à confirmer
+  à la main) : le snapshot comparé dans `WaveformEditor.jsx` n'inclut ni
+  `canonical`/`cap` ni les champs d'effets de l'iter T, alors que `patchFieldsEqual`
+  et les références les comparent → faux positifs après chargement d'un patch, faux
+  négatifs après enregistrement. **Préalable** à l'indicateur « patch modifié non
+  sauvegardé » (aucun signal visuel n'existe aujourd'hui).
+- **(post-U) Glyphes Unicode restants dans l'UI** (règle : Lucide) : `×` (Timeline,
+  PresetPicker, Toast, PatchBank), `▶`/`📁`/`📋` (PatchBank, PatchPicker,
+  SavePatchDialog), `▴▾` (PropertiesPanel, SavePatchDialog), `⚠` (dialogs), `♩ ½ ♪`
+  (Toolbar), `⎵` (ShortcutsOverlay), `→` (Tour, PatchBank).
+- **(post-U) Nom d'app** : pas de constante ; restent à l'ancien nom le défaut
+  d'export `synth-app-bibliotheque-…` (`App.jsx`) et `about.md` (writer). Les clés
+  localStorage `synth-app-*` ne se renomment **jamais**.
+- **(post-U) Code mort** : `App.css` `.designer-library-popover > .sound-bank-panel`
+  (le popover monte un `PatchPicker`) + commentaires périmés « PatchBank.headerExtra »
+  / « sidebar Composer resizable ». `SECTION_INTRO.Global` de `ShortcutsReference.jsx`
+  dit « Création et Composition » alors que Ctrl+K/I/J/Z valent aussi ailleurs.
+
 
 - **(iter-T, T.4) Keytracking du cutoff** : faire suivre la fréquence de coupure du
   filtre à la hauteur de la note jouée (classique synthé — le timbre reste constant
@@ -3662,8 +3569,6 @@ effets temporels par piste, mixage/pan…) **non cadrée** ; « Monde B » inhar
   ronde pointée, double-pointées)
 - Pause/reprise de lecture + curseur de lecture déplaçable par clic
   sur la timeline
-- Bug intermittent : Ctrl+D déclenche parfois le bookmark navigateur
-  malgré preventDefault (mode opératoire à reproduire)
 - DynamicsCompressorNode sur master bus (protection clipping quand
   plusieurs pistes jouent simultanément, identifié en C.2)
 - Loop : marqueurs de boucle, activation, affichage (rendu possible
