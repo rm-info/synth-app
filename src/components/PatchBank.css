@@ -372,24 +372,6 @@
   color: var(--accent);
 }
 
-/* Responsive : sur petit écran, la sidebar bascule en bandeau horizontal */
-@media (max-width: 900px) {
-  .sound-bank-panel {
-    max-width: none;
-    width: 100%;
-    height: auto;
-    max-height: 180px;
-  }
-  .sound-bank-list {
-    flex-direction: row;
-    flex-wrap: wrap;
-    overflow-y: visible;
-  }
-  .sound-bank-list .sound-chip {
-    flex: 0 0 auto;
-  }
-}
-
 .bib-context-backdrop {
   position: fixed;
   inset: 0;
