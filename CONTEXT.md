@@ -3402,10 +3402,10 @@ Aucune itération cadrée. Détail de la roadmap U → `CONTEXT-ARCHIVE.md`.
 Composition / Bibliothèque / Documentation (message « bientôt » aujourd'hui) ; passe
 writer de polish des `body` du Tour Création.
 
-**À valider en navigateur (correctifs post-U du 2026-09-21, livrés sans test visuel)** :
-Bibliothèque sous 900 px ; icônes undo/redo du Composer (centrage, disabled) ; Ctrl+D
-sans sélection / hors Composition / focus sur un slider ; Ctrl+molette et Alt+drag
-(dezoom près de la fin de timeline, butées min/max).
+**Recette visuelle en attente** : tout ce qui est livré sans validation en navigateur
+est listé dans **`RECETTE.md`** (racine) — checklists par lot + diagnostics à confirmer
+à la main. Lot ouvert : clôture U + correctifs post-U (2026-09-21). Toute livraison
+non vérifiée à l'écran y ajoute ses points.
 
 **Après U (backlog effets, non cadré)** — deux directions héritées de la clôture de T :
 - **Petits « inattendus » sans mémoire** (compatibles chaîne jetable par note, zéro
