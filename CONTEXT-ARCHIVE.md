@@ -4280,7 +4280,7 @@ Phases listées ci-dessous dans l'ordre chronologique d'implémentation.
 ### Itération E (Patches vs Notes) — clôturée 2026-04-22
 
 - ✅ **Phase 1** (2026-04-19) — Refonte modèle : patches remplacent sounds,
-  notes portées par les clips. Commit unique. Voir section État actuel.
+  notes portées par les clips. Commit unique. Voir « État actuel — détail par-phase déplacé du brief » en fin de ce fichier.
 - ✅ **Phase 2** (2026-04-19) — Affichage note dans les clips, édition
   via Properties (mini-clavier + octave), flèches clavier pour ajuster
   note/position. 3 sous-commits (2.1, 2.2, 2.3).
@@ -6287,3 +6287,899 @@ guidé de la Création à niveau (12 étapes, `revealModule`, pont final vers Ct
 **Hors périmètre, reste ouvert** : couverture du mode Info pour les onglets
 Composition, Bibliothèque et Documentation (message « bientôt ») ; passe writer de
 polish des `body` du Tour.
+
+## État actuel — détail par-phase déplacé du brief (S→A, déplacé le 2026-09-21)
+
+> Texte sorti **tel quel** de la section `## État actuel` de `CONTEXT.md` lors du
+> recadrage du 2026-09-21 (le brief n'en garde qu'un paragraphe par itération). C'est
+> une **photo d'époque** : certains passages décrivent un état depuis remplacé
+> (auto-sizing retiré en Q, dialogs « Convertir vers… » supprimés en M.r, patch typé par
+> `mode` remplacé par le modèle canonique, layouts `grid-5`/`grid-7`/`grid-31` absorbés
+> par `grid-x-edo` en F.8, accordéon mobile remplacé par le switcher en R, `mousedown` →
+> Pointer Events en S). L'état présent fait foi dans `CONTEXT.md`.
+
+- **Iteration S — « Support tactile au doigt (web pur) » (close, v1.11.0)**. L'app
+  se **dessine et se joue au doigt** ; un **durcissement audio** a émergé en cours de
+  route. Détail par-phase S.1→S.audio.5 + arc audio dans `CONTEXT-ARCHIVE.md`.
+  Symboles nouveaux : `createMasterBus`, `normalizePeak`, `MASTER_HEADROOM`,
+  `MIN_RELEASE`, `EXPORT_PEAK_TARGET`, `public/manifest.webmanifest`.
+  - **Entrée Pointer Events unique** (souris+tactile+stylet, **pas de détection
+    mobile**) sur **toutes** les surfaces de manipulation directe : canvas Forme
+    d'onde Libre, `SplineEditor` (ancres), barres Harmoniques, poignées AHDSR/LFO,
+    bouton Test, resizers (`SidebarResizer`/`PopupResizer`), séparateurs
+    `DesignerColumns`, **Timeline** (clips drag/resize/scrub). `setPointerCapture`
+    au down (le geste survit à la sortie de l'élément) + `onPointerCancel` partout.
+    `touch-action:none` **ciblé** sur les surfaces migrées, **pas** sur les
+    conteneurs scrollables ; **Timeline** en `pan-x pan-y` (scroll préservé).
+  - **Clavier polyphonique** (`usePointerKeyHandler` : `Map<pointerId,idx>` +
+    ref-count) sur les 5 layouts — plusieurs doigts = accord ; moteur audio déjà
+    polyphonique, migration couche d'entrée pure. **Garde mono-pointeur** « premier
+    pointeur gagne » sur les surfaces **mono-valeur** (canvas/barres/ancres : deux
+    doigts ne tracent plus deux fois). **Lasso = souris-seule** (conflit scroll/
+    sélection sur zone vide, assumé) ; reorder de piste idem.
+  - **Shell non-scrollable** : `html/body{overflow:hidden;overscroll-behavior:none}`,
+    `#root` hauteur fixe, `100dvh` stable → fin du pull-to-refresh / bascule barre
+    d'URL / reflow canvas ; verrou sur le **scroll de page seul** (modales, listes,
+    Documentation gardent leur `overflow-y`). Safe-area `viewport-fit=cover` +
+    `env(safe-area-inset-top)`. **PWA légère** standalone : `manifest.webmanifest`
+    SVG-only + métas iOS/theme-color. **Dette** : icônes PNG apple-touch/maskable
+    (pas de rasteriseur, zéro dépendance — décision archi, backlog) ; service worker
+    non posé (surface minimale).
+  - **Audio (arc S.audio.2→5)** : `MASTER_HEADROOM` **bas** (~0.1) → la polyphonie
+    dense (~12 notes) reste **propre par défaut**, la **loudness se récupère au
+    volume appareil** en live ; **soft-clip `WaveShaper`** memory-less en **filet**
+    (knee 0.9, `oversample 4x`) — remplace l'ex-`DynamicsCompressor` qui **pompait**
+    sur les accords battants ; **analyser en amont** du bus → spectrogramme honnête.
+    Déclic : planchers `MIN_RELEASE`/`MIN_ATTACK` (+ fade au stop). Anti-underrun
+    mobile : `latencyHint` numérique (buffer élargi). **Export `normalizePeak`**
+    (~ -1 dBFS, `EXPORT_PEAK_TARGET`) avant l'encodage WAV → fichier fort & propre
+    sans distorsion. `createMasterBus` **partagé** preview/lecture/export ; master
+    **fixe** (pas d'UI). **Live ≠ export sur le NIVEAU, volontairement.**
+- **Iteration R — « Refonte petit écran du Designer » (close, v1.10.0)**. État
+  présent du Designer **sous le plancher accordéon** après l'itération (détail
+  par-phase R.1→R.3.rectif dans `CONTEXT-ARCHIVE.md`). Composants impactés :
+  `TooSmallGate`, `Tabs` (variante compacte) ; champ persisté nouveau
+  **`designerMobileModule`** ; nouvelle prop **`closeOnSelect`** sur `OverflowToolbar`.
+  - **Plancher de résolution** = `TooSmallGate`, **orientation-aware 300/500**
+    (`min(w,h) ≥ 300` ET `max(w,h) ≥ 500` → 300×500 portrait ET 500×300 paysage
+    passent). Sous ~700, l'**UX tactile fine** (dessin au doigt, poignées) reste une
+    **limitation assumée** — à la souris (fenêtre desktop rétrécie) c'est le cas
+    d'usage visé ; le confort tactile est renvoyé à l'**itération S**.
+  - **Designer < 924×668** = **switcher de modules** : un seul module **plein cadre**
+    (`designerMobileModule` persisté, ∈ les 6 ids, défaut `'canvas'` ; les 6 corps
+    restent **montés en permanence** — contrainte canvas/RO, masqués en `display:none`).
+    Les **contrôles de header du module actif** sont **relogés** dans la
+    `DesignerToolbar` (2ᵉ `OverflowToolbar`, trop-plein → `…`). Toolbar **wrappable**
+    (`flex-wrap`) : patch / Presets / Effacer / switcher **jamais masqués** (passent à
+    la ligne), nom du patch en ellipsis.
+  - **Top header < 924×668** = **priority-plus + hamburger** (`Menu`) : titre
+    tronquable à gauche, onglets + auxiliaires dans un `OverflowToolbar`, trop-plein
+    dans le tiroir ; version d'app **inline → tiroir** (jamais perdue) ; barre
+    **amincie** (~28px) ; **`closeOnSelect`** = le tiroir se ferme à la sélection.
+  - **Densification CSS < 700×500** (paddings/textes resserrés, modales capées au
+    viewport) ; **marge gauche du layout mobile = 0** ; module **Instrument mobile
+    aligné sur l'intermédiaire desktop** (système `[⚙]` + octave stepper `▴▾` dans le
+    header, corps sans bouton full-width ni rangée d'octaves) ; **« Égaliser » masqué**
+    en intermédiaire 924–1100 (inutile sous auto-réduction forcée) ; fix débordement
+    du module **Modulation** à hauteur de viewport rare (graphes LFO rabotés).
+  - **Desktop ≥ 924×668 strictement inchangé.**
+- **Iteration P — « Effets & modulations : vibrato & trémolo (LFO par patch) »
+  (close, v1.8.0)**. Première itération de la section « Effets et modulations ».
+  Détail par phase P.1→P.4 dans `CONTEXT-ARCHIVE.md`.
+  - **P.1 — Fondation typée** : type `Lfo` symétrique vibrato/trémolo
+    (enabled/rate/depth/onset/shape), `Patch`/`Editor` += vibrato/tremolo,
+    constantes + défauts + bornes (clampées partout), action paramétrée unique
+    `SET_EDITOR_MODULATION` (undoable), hydratation/payload/dirty check/reset,
+    migration localStorage + `.osa` `OSA_VERSION 3` (accepte v1/v2/v3).
+  - **P.2 — Helper audio + 4 chemins** : `lib/modulation.js` (`applyModulation`)
+    branché sur lecture timeline, export WAV, preview clavier, preview note libre
+    (helper partagé = pas de divergence one/all) ; vibrato → `osc.detune` (cents),
+    trémolo → `gain.gain` (sommé) ; onset + extinction propre au release ; cleanup
+    symétrique des nœuds LFO partout où l'`osc` est stoppé.
+  - **P.3 — 6ᵉ module Designer « Modulation »** : rangée du bas à 3 cellules,
+    persistance `designerCollapsed.modulation` ; 2 sous-blocs (interrupteur,
+    switch de forme en icônes, 3 steppers) + mini-courbe LFO animée gatée (1 rAF
+    par module, pause au repli/maximize, audit perf N.1).
+  - **P.4 — Re-schedule live + clôture** : `sigOf` étendu (vibrato/trémolo) →
+    édition live audible pendant la lecture ; bump v1.8.0.
+- **Iteration O — « Ergonomie & responsive du Designer » (close, v1.7.0)**. État
+  présent du Designer après l'itération (détail par phase O.1→O.6 dans
+  `CONTEXT-ARCHIVE.md`). Tout est scopé Designer, calibré jusqu'au plancher
+  accordéon (924×668) ; sous ce seuil, l'accordéon mobile n'a pas été retravaillé
+  (différé, cf. backlog). Composants nouveaux : `OverflowToolbar`, `DesignerModule`,
+  `ModuleChrome`, `lib/designerModules.js`. Champs persistés nouveaux : `adsrView`,
+  `designerCollapsed`, `maximized`, `autoCollapse`.
+  - **Steppers `▴▾` (O.1)** : les deux **sliders range** du Designer (nombre
+    d'ancres `4..32`, plafond d'harmoniques `1..256`) sont remplacés par des
+    **steppers** = saisie libre du `NumberInput` + colonne de **chevrons `▴▾`**
+    (Lucide). Clic = `±1`, `Shift+clic` = `±10`, **appui maintenu** = cran immédiat
+    puis auto-répétition accélérée (récupère le « scrub live » de l'ancien slider
+    du cap), clavier `↑↓`/`Shift+↑↓` au focus. Extension **opt-in** de `NumberInput`
+    (`showSteppers`/`step`/`shiftStep`, terrain prêt pour ADSR/ampli/fréquence, non
+    activé). Livre l'item backlog **« flèches ↑↓ dans NumberInput »**.
+  - **`OverflowToolbar` priority-plus (O.2, généralisé O.6.2)** : composant
+    générique réutilisable qui affiche un maximum de contrôles en ligne et pousse
+    le débordement dans un **tiroir `⋯`** (popover de lignes libellées). Mesure par
+    *ghost row* + `ResizeObserver` (root + ghost), anti-boucle (root rempli par le
+    flex parent → largeur observée indépendante du contenu), repli droite→gauche,
+    focus/Esc/clic-dehors alignés sur `BibContextMenu`, état des contrôles dans le
+    parent (on ne fait que relocaliser le rendu, au resize). Branché sur **les 5
+    headers de module** (Forme d'onde, Harmoniques, Instrument, AHDSR, Spectro) +
+    le **groupe droit de la `DesignerToolbar`** (séparateur en `prefix`). L'icône
+    + le titre du module restent **hors** de l'OverflowToolbar (`we-header-left`).
+  - **Quadrant Instrument responsive (O.3, desktop only)** : dégradation à
+    **2 étages** (seuils `width OU height`, au-dessus du plancher accordéon) qui
+    libère des lignes pour le clavier. Étage 1 (`instrumentCollapsed`) : contrôles
+    système → icône `[⚙]` dans le header (modale inchangée). Étage 2
+    (`octaveInHeader`, ⟹ étage 1) : les 11 boutons d'octave → **stepper `▴▾`** dans
+    le header. `data-anchor="designer-octave-selector"` suit le contrôle. **Mobile
+    (accordéon < 924×668) strictement inchangé**.
+  - **AHDSR compact (O.4)** : la zone est observée (`ResizeObserver` sur
+    `.we-adsr-area`, mesure de la **zone** — pas `windowWidth` — donc
+    layout-agnostique : desktop, accordéon, collapse). Sous `ADSR_COMPACT_*`, un
+    **switch segmenté Graphe/Sliders** dans le header n'affiche **qu'une vue à la
+    fois** ; la vue Sliders seule passe en **grille 2 colonnes**. `adsrView:
+    'graph'|'sliders'` persisté (défaut `graph`, non-undoable). Canvas **jamais
+    démonté** (`display:none` + redraw forcé au retour Graphe).
+  - **Gestionnaire de modules (O.5a→d)** : les 5 modules Designer sont enveloppés
+    dans `DesignerModule` + `ModuleChrome`. **Collapse** en bande verticale (icône
+    en tête + titre en rotation, `designerCollapsed`, libère l'espace via flexGrow
+    normalisé). **Maximize** plein-cadre Designer (`maximized`, autres modules
+    masqués en CSS via `:has()`). **Chrome détachée** en coin haut-droit (boutons
+    nus Réduire/Agrandir-Restaurer, icônes contrôles-fenêtre SVG) — hors
+    OverflowToolbar. **Identité** par module (`MODULE_META` : icône Lucide + label,
+    source unique). **Auto-réduction par rangée** (`autoCollapse` + toggle dans la
+    DesignerToolbar, forcée en écran étroit) — **coexiste avec l'AUTO** du
+    dimensionnement (auto-collapse = à l'ouverture ; AUTO = au focus). Canvas
+    **jamais démonté** (collapse/maximize = CSS pur ; sinon canvas vide). Les
+    `ResizeObserver` des canvas / de la zone AHDSR sont posés via **callback ref**
+    (anti-orphelin : la render-prop remonte les nodes sans démonter `WaveformEditor`).
+  - **Titres en ellipsis progressive (O.6.1)** : quand un header se resserre, le
+    titre se tronque (« … »), l'icône d'identité reste ; repli ultime = **icône
+    seule**.
+- **Iteration N — « Stabilité & fluidité » (close, v1.6.0)**. État présent du
+  Designer après l'itération (détail par phase N.1→N.6 dans `CONTEXT-ARCHIVE.md`) :
+  - **Édition d'ancres refondue — principe « représentation vs forme »** : les
+    actions de *représentation* (re-fit du nombre d'ancres, ADD/REMOVE, bascule
+    Doux/Anguleux) laissent la canonical **strictement inchangée** — le résidu
+    est recalculé contre la nouvelle spline, une ancre ajoutée snappe sur le
+    tracé (`y=canonical[x]`, hauteur du clic ignorée). Seul le drag d'ancre
+    change la *forme*, via un **warp 2D horizontal du résidu à support local**
+    (le détail dessiné « ride » sur la tendance portée par la spline ; pré-image
+    smoothstep C¹ en Doux / PL en Anguleux, garde anti-repli). `fitAnchorsToCurve`
+    pose les ancres par **Douglas-Peucker à compte fixe** (sur les transitions,
+    plus à l'équiréparti). Réf figée au début du drag, 1 commit = 1 undo.
+  - **Presets « Timbres »** : la modale `PresetPicker` est le **point d'entrée
+    unique** des sons pré-fabriqués (la barre des 4 presets géométriques du mode
+    Libre est retirée). 4 sections — Formes de base (2 vues **idéale /
+    band-limitée** + N éditable), Formes **paramétriques** (escalier, scie à
+    étages, sinus décroissante, pulse, trapèze, demi-sinus, impulsion : params de
+    forme + N + 2 vignettes, redraw live), Timbres conçus, Inattendus. Moteur pur
+    `lib/waveforms.js` (`idealWaveform`/`bandlimitWaveform`, DFT directe sur 600,
+    phase naturelle, normalisée). Chargement unifié `LOAD_PRESET`, **en place**
+    (conserve `currentPatchId`, marque dirty), **sans confirmation** (undo = filet).
+  - **Lissage du tracé** : deux boutons undoables/répétables dans le header Forme
+    d'onde, gardés tous deux (fonctions distinctes et complémentaires) — passe-bas
+    Gaussien périodique (`Waves` → `SMOOTH_EDITOR_CANONICAL`) et lerp vers la
+    spline des ancres (`ChartSpline` → `TEND_TOWARD_SPLINE`, répété → résidu→0).
+  - **Durcissements** : `// @ts-check` opt-in sur `src/reducer.js` (checkJs:false
+    global) — 4 erreurs réelles corrigées sans `@ts-ignore` ; auto-sizing intégré
+    au **groupe radio de dimensionnement** (5ᵉ bouton AUTO + 4 presets de
+    proportions, actif dérivé, coloration = toggles radio du Spectrogramme).
+  - **Perf** : régression de latence de drag (depuis M.r.5) corrigée à la cause —
+    seuil `HARMONIC_EPSILON = 1e-4` anti-leakage sur l'iDFT harmonique (7,6× à
+    cap=256, transparent) + quick wins sans regret (cache `themeColor` /
+    `PeriodicWave`, arrondi du payload localStorage à 1e-4 → −63 %). Les refactors
+    React Groupe B/C restent **gelés** jusqu'au verdict du profilage prod.
+- Iteration M — phase M.3 (mode points/spline, 2026-05-30). 3ᵉ mode de
+  fabrication de timbre, propre par construction. 3 sous-commits :
+  - **3.1** `SplinePatch` (`mode:'spline'`, `anchors` 4..32, `interpolation`
+    'soft'|'hard', **pas de `definition`**) ajouté à l'union ; `src/lib/spline.js`
+    (`splineSoft` Catmull-Rom périodique via Hermite y(x) à voisins wrappés ±600,
+    continuité C¹ à x=600↔0 ; `splineHard` polyligne périodique ; sortie
+    `Float32Array(600)` clampée) ; reducer : `MOVE`/`ADD`/`REMOVE_SPLINE_ANCHOR`
+    + `SET_SPLINE_INTERPOLATION` (undoable, draft commit côté éditeur),
+    `sanitizeAnchors`, hydratation forward-compat localStorage. `points` =
+    reconstruction (ombre), chaîne audio inchangée.
+  - **3.2** `SplineEditor.jsx` (canvas courbe + poignées draggables façon ADSR,
+    clic = ajout, Suppr/clic droit = retrait, toggle Doux/Anguleux) ; dispatch
+    dans `WaveformEditor.renderCanvasArea` ; couplage Harmoniques read-only
+    montrant la DFT **pleine** (pas de `definition` en spline) + 🔒.
+  - **3.3** Passerelle étendue : `ConvertToSplineDialog` (N ancres défaut 8 +
+    interpolation, réutilisé draw→spline et harmonic→spline), spline→draw
+    (`ConfirmDialog`, `CONVERT_EDITOR_TO_DRAW` rendu mode-agnostique sur
+    `editor.points`), spline→harmonic (`ConvertToHarmonicDialog`, DFT). 2 boutons
+    par mode actif, conversions atomiques, snap proportions (spline = ½¼¼).
+    osaFormat + libraryTransfer round-trip `.osa` du mode spline.
+  - **Hors scope** : presets de formes spline → M.4 ; auto-fit depuis un tracé →
+    backlog ; B-spline/Bézier → non retenu (Catmull-Rom + polyligne).
+- Iteration M — phase M.2-AS (auto-sizing, livré en essai 2026-05-30 ;
+  gardé en iter-N N.6.2 sous forme de bouton AUTO d'un groupe radio ;
+  **finalement RETIRÉ en iter-Q** — impraticable, cf. `CONTEXT-ARCHIVE.md`
+  « Itération terminée : Q »). Opt-in, OFF
+  par défaut, posé **par-dessus** l'état de proportions de M.2 (il l'écrit ;
+  aucun nouvel état canonique). 3 sous-commits :
+  - **AS.1** Champ `autoSizing: boolean` (initial `false`, persisté localStorage,
+    action `SET_AUTO_SIZING` non undoable) + toggle « Dimension auto » dans la
+    barre des presets. OFF → comportement M.2 strictement inchangé.
+  - **AS.2** Focus contextuel : listener `mousedown` (capture) attaché
+    uniquement quand ON. 3 états stables — focus Forme d'onde `[0.6,0.2,0.2]`,
+    Harmoniques `[0.2,0.6,0.2]`, Spectro/repos `[0.2,0.2,0.6]` (le repos *est*
+    le focus-spectro, pas de 4ᵉ état). Focus **volatile** (ref, non persisté) :
+    activation/ouverture/sortie = repos. Clic hors widget → repos ; clics sur
+    la barre presets/toggle neutres (préserve le « figer en basculant OFF »).
+  - **AS.3** Anti-conflit (quand ON) : (1) séparateur = cible indépendante, son
+    drag écrit comme en manuel, le prochain changement de focus l'écrase (pas
+    de pinning en auto) ; (2) le clic qui *change* le focus ne fait que focuser
+    — guard (ref partagé `DesignerColumns`→`WaveformEditor`) levé le temps du
+    geste, canvas/barres s'abstiennent, l'édition reprend au geste suivant ;
+    (3) sortie → repos. **N.6.2** : en plus, un drag manuel de séparateur coupe
+    désormais l'auto-sizing (`onManualResize` → `setAutoSizing(false)`) au lieu
+    d'attendre le prochain focus. **iter-Q : retrait effectif** — bouton AUTO,
+    `useEffect` de focus, champ persisté et 4 presets supprimés (les proportions
+    se font au drag des séparateurs + bouton « Égaliser » deux rangées).
+- Iteration M — phase M.2 (layout 3-vues + Patch typé + éditeur Harmoniques +
+  passerelle, 2026-05-30). 5 sous-commits :
+  - **2.1** Patch typé : union discriminée `Patch = DrawPatch | HarmonicPatch`
+    par `mode`. `audio.harmonicsToPoints` (iDFT) reconstruit `points` pour un
+    patch harmonique → toute la chaîne audio (playback/export/miniatures) reste
+    mono-chemin sur `points`, zéro modif. Hydratation rétro-compat (mode absent
+    → 'draw'), SAVE/UPDATE/HYDRATE/RESET mode-aware, round-trip `.osa`.
+  - **2.2** Layout 3 colonnes (`DesignerColumns`) Forme d'onde / Harmoniques /
+    Spectro : presets + séparateurs glissables, `designerColumnWidths` persisté
+    (défaut par mode). Spectro = colonne permanente (toggle « Spectro » retiré,
+    `spectrogramVisible` vestigial).
+  - **2.3** Éditeur Harmoniques : N barres bleues éditables (drag vertical,
+    1 barre/geste, bouton N 16..256) ; en mode dessin, read-only = magnitudes
+    DFT tronquées à `definition` (🔒).
+  - **2.4** Vue éditable suit le mode (l'autre → read-only 🔒) ; Forme d'onde
+    read-only en harmonic (reconstruction iDFT) ; slider Définition masqué.
+  - **2.5** Passerelle : « Convertir en Harmoniques » (dialog choix N, DFT +
+    troncature) / « Convertir en Dessin » (iDFT) — conversions atomiques
+    undoables. **Follow-up** : la conversion snappe `designerColumnWidths` au
+    défaut du mode cible (la vue éditable récupère sa largeur de référence).
+  - **Hors scope traité ailleurs** : toggle auto-sizing → M.2-AS (séparée) ;
+    mode spline → M.3 ; presets → M.4 ; doc/renderer `\sum` → M.5.
+- Iteration M — phase M.1 (bump cap 256 + slider Définition, 2026-05-30).
+  SC1 : `NUM_SAMPLES` 256→512, cap harmoniques 128→256 (rééchantillonnage
+  600→512, même troncature miroir-conjugué). Les basses récupèrent jusqu'à
+  ~128 harmoniques audibles ; au-dessus de ~156 Hz, aucun changement. Stade
+  dev → pas de migration localStorage. SC2 : champ `Patch.definition`
+  (1..256, défaut 256) + slider « Définition » dans la colonne de paramètres
+  du Designer (readout « N / 256 »), troncature M/256 appliquée en aval dans
+  `pointsToPeriodicWave` (preview live, lecture Composer, export WAV) ; le
+  spectro statique reflète le couperet. `editor.definition` +
+  `SET_EDITOR_DEFINITION` (undoable designer), mirroré au save, hydraté depuis
+  le patch ; rétro-compat localStorage + imports `.osa` → 256 injecté.
+  Reste mono-mode (le typage `draw`/`spline`/`harmonic` vient en M.2).
+- Iteration M — préalable B (francisation des libellés, 2026-05-29). Graine
+  i18n via `src/lib/strings.js` (clés sémantiques → FR, sans lib i18n). SC1 :
+  audit (`archi/M0-audit-francisation.md`) + centralisation (refactor neutre,
+  composants consommant les clés). SC2 : traductions claires — onglets
+  Designer→Création / Composer→Composition (+ toutes leurs références),
+  Forme d'onde, presets, étapes AHDSR (Attaque/Tenue/Déclin/Maintien/
+  Relâchement), Mute→Sourdine, root→Racine. Cas « à arbitrer » tranchés par
+  l'archi (2026-05-29, révision AHDSR le 2026-05-30) : Play/Stop→Lire/Arrêter,
+  Export…→Exporter…, Test→Tester, Peak→Crête, Live→Direct, Canvas vide→Zone de
+  dessin vide, Hold→Tenue, Sustain (+ pédale Espace)→Maintien ; conservés :
+  Spectro, Solo, OK.
+- Iteration M — préalable A (migration TypeScript, phases 0+1, 2026-05-29).
+  Adoption TS **incrémentale** posée avant la perf et avant M.2 (Patch typé) :
+  devDep `typescript` + `tsconfig.json` (allowJs/noEmit/strict:false) ;
+  `src/types.ts` (modèle actuel typé — Patch/Clip/Track/TuningSystem/AppState +
+  union discriminée `Action`) ; `tuningSystems.js → .ts` (registre central) ;
+  câblage JSDoc des types sur le reducer. Zéro changement runtime (bundle vite
+  byte-identique, lint vert, `tsc --noEmit` clean).
+- Iteration L phase 5 (corpus utilisateur) + clôture — **release v1.4.0,
+  Itération L close** : documentation complète rédigée par l'agent writer.
+  Corpus : 2 glossaires (technique, musical), 4 articles de vulgarisation
+  (« Comprendre » : forme d'onde, piano pas juste, 12 notes, tempérament),
+  12 fiches tempéraments (une par système du registre), 3 guides de prise en
+  main (Designer, Bibliothèque, Composer), article « Limites connues »
+  (périmètre V1 assumé). TOC à 6 sections (Le projet / Prise en main /
+  Comprendre / Concepts / Tempéraments / Référence). Clôture : rebranchement
+  des DocLink, retrait de `_renderer-test.md`, ancres `data-anchor` posées
+  (export / + Piste / amplitude / nouveau dossier), bump 1.3.0 → 1.4.0
+  (`package.json` + `about.md`). Zéro npm ajouté sur toute l'itération.
+- Iteration L phase R (extension renderer Markdown — math maison) :
+  support des formules dont la doc a besoin, sans KaTeX (~100 lignes).
+  Délimiteurs `$…$` (inline) et `$$…$$` (block centré, mono- ou
+  multi-ligne). Constructs : exposants `^{x}`, indices `_{x}` (accolades
+  obligatoires), fractions `\frac{a}{b}` (barre CSS empilée), italique
+  auto sur lettres latines isolées **dans les délimiteurs uniquement**,
+  ~12 symboles Unicode (`\pi \alpha \beta \gamma \cdot \times \div
+  \approx \neq \leq \geq \pm`). Récursif (contenu des accolades re-parsé
+  en math). Sous-parser dédié `src/lib/mathParse.js` (mathAst construit
+  au parse), rendu sup/sub/frac dans MarkdownRenderer. Commande inconnue
+  → rendu littéral + warn dev, pas de crash. `_renderer-test.md` enrichi
+  d'une section Formules. Zéro npm ajouté. Posé entre L.4 et L.5 car les
+  contenus L.5 (tempéraments, glossaires) génèrent beaucoup de ratios,
+  cents et exposants. **Phase R.4** : délimiteurs extensibles `( )` `[ ]`
+  qui grandissent avec la fraction (bords dessinés en CSS, flex stretch,
+  sans mesure JS) ; `why-12-notes.md` migré vers la syntaxe math (1er
+  consommateur réel).
+- Iteration L phase 4 (Tour guidé) — **V1 de l'Itération L atteinte** :
+  visite guidée par diaporama d'info-bulles ancrées. Bouton **Compass**
+  (header) + **Ctrl/Cmd+J** démarrent le tour de l'onglet actif. Mode
+  spotlight : blocker plein écran (gel clic/molette/clavier hors ESC),
+  voile box-shadow sur l'ancre courante, bulle ancrée, progress bar
+  cliquable à la place des onglets, navigation ← / → (ou Précédent/Suivant),
+  croix + ESC pour quitter. Tours
+  déclaratifs par onglet (`src/lib/tours/*.js`, 1er jet des textes — passe
+  writer en attente). 3e consommateur de `getAnchoredPosition` ; RAF borné
+  pour le montage différé + ouverture de sidebar repliée ; étape sans ancre
+  skippée. State `tour` volatile (snapshot onglet + sidebars capturé une
+  fois, restauré à la sortie ; chaînage entre onglets sans re-snapshot).
+  « En savoir plus » par étape → article de doc. Zéro npm ajouté.
+- Iteration L phases 2-3 (onglet Documentation navigable) : 4e onglet
+  Documentation (renderer Markdown maison `src/lib/markdown.js`, TOC
+  collapsible/resizable, restauration de scroll par article, page
+  Raccourcis auto-générée depuis `SHORTCUTS`). Navigation interne active
+  (L.3) : les `<DocLink target="onglet:ancre">` basculent sur l'onglet
+  cible + halo temporaire sur l'élément d'UI (via `highlightElement`,
+  2e consommateur de `getAnchoredPosition`) ; les liens `[label](doc:id)`
+  changent l'article courant sans quitter la doc. Handlers propagés via
+  `MarkdownNavContext` ; cibles inconnues = no-op gracieux + warn dev.
+- Iteration L phase 1 (fondation Documentation) : infrastructure pour
+  l'onglet Documentation utilisateur sans modification du comportement
+  métier. Table déclarative `src/lib/shortcuts.js` (source unique des
+  raccourcis), convention `data-anchor` posée sur les éléments d'UI,
+  composant `ShortcutsOverlay` opérationnel via bouton header Keyboard
+  ou Ctrl+K. Promotions UI permanentes : pastille `Sustain` cliquable
+  (verrouillable) dans le Designer, bouton `Coller` dans la toolbar
+  Composer (sémantique ancre/piste sélectionnée/fallback piste 0),
+  chip `📋 N éléments` dans la toolbar Bibliothèque (× pour vider),
+  halo subtil sur le clip ancre Composer, outline subtil sur le header
+  de la piste sélectionnée Composer (nouveau concept `selectedTrackId`
+  persisté). Tooltips CP1/CP2 corrigés (Octave Composer, Rétablir
+  Bibliothèque).
+- Bibliothèque dédiée + 3 sous-apps autonomes (itér K phase 2) : onglet
+  Bibliothèque dédié avec full PatchBank + toolbar d'actions icônes,
+  sidebars en PatchPicker simplifié, popup SavePatchDialog avec folder
+  picker, modal DeleteUsageWarningDialog, piles undo séparées routées
+  par activeTab, clipboard multi-paste, batch delete atomique.
+- Bibliothèque multi-mode style file explorer (itér K phase 1) :
+  5 combinaisons Tree/Nav × List/Details/Tiles, breadcrumb, multi-
+  sélection (Ctrl/Shift/lasso), clipboard Copier/Couper/Coller avec
+  anti-cycle, raccourcis clavier, popup redimensionnable, état partagé
+  Designer + Composer.
+- Spectrogramme Designer avancé (itér I phase 1) : mode statique (DFT)
+  + mode Live FFT (AnalyserNode temps réel), basculés via **toggle
+  explicite "Live"** dans le header. Toggle dB / linéaire applicable
+  aux deux modes. Peak hold optionnel pour le Live. Graduations Y
+  (majors + minors) sur les deux modes pour lecture précise des
+  amplitudes.
+- Import / Export bibliothèque format `.osa` (itér H phase 1) : 3 voies
+  d'export (Actions Download bibliothèque complète / menu contextuel
+  folder / menu contextuel patch), import unique avec choix de placement
+  (sous-ensemble wrapper / racine), IDs régénérés systématiquement,
+  déduplication des noms de dossiers, IMPORT_LIBRARY undoable Designer.
+- Dessin waveform + presets
+- Éditeur ADSR visuel draggable
+- Preview polyphonique via clavier piano interactif + raccourcis QWERTY
+  (event.code) + Espace = sustain (E.3)
+- Banque de patches : drag, rename, delete, dossiers arborescents
+- Drop timeline avec snap triple croche (0.125 beat), polyphonie
+  multi-lanes, multi-pistes
+- Hauteur par clip (12-TET ou Libre) via `clipFrequency(clip)` (E.1)
+- Durée par clip : 7 bases (carrée à triple croche) × 4 coefs (pur,
+  ×1.25, pointé, double-pointé) via `DurationButtons` (E.6.1)
+- BPM ajustable + recalcul durée totale
+- Curseur animé + affichage temps
+- Zoom horizontal + vertical (hauteur de piste modifiable)
+- Visualiseur oscilloscope temps réel
+- Sidebars Composer resizables et collapsibles (E.7.4-7.5)
+- Sidebar Designer resizable et collapsible avec popover Bibliothèque
+  flottant en mode réduit (G.1.2) — mode réduit organisé en 3 groupes
+  (haut Bibliothèque / spacer / Actions + Play en bas, G.2.1)
+- Panneau **Actions** dans la sidebar Designer en barre d'icônes
+  inline groupées (patch / historique Undo/Redo / Import-Export
+  placeholders) — G.1.1 + G.2.2. Icônes Lucide-react partout (G.2.1).
+- Sélecteur de système musical à deux étages dans le Designer :
+  Catégorie (Moderne / Historique / Théorique) + Système filtré.
+  Composant **ShortLabelSelect** (libellé court trigger / complet menu)
+  appliqué uniformément à Catégorie / Système / Repère / Tonique sur
+  une même ligne flex-wrap (G.1.3 + G.2.3).
+- Système Libre testable (bouton Test + raccourci `s`, dette technique
+  fermée en G.1.3)
+- Patches portent un **defaultTuningSystem** capturé au save —
+  propagation cohérente au drop : key-held → editor, drop simple →
+  patch default, placement contigu → clip référent (G.2.4)
+- Zone clavier : OctaveSelector au-dessus avec libellé "Octaves",
+  clavier en `flex:1` qui s'étire verticalement selon espace, ligne
+  Note ancrée tout en bas (G.2.5)
+- `TooSmallGate` (ex-`ResolutionGate`, renommé R.3) réactif au resize :
+  placeholder pleine page (overlay, app reste montée) si **côté court < 300 OU
+  côté long < 500** (plancher orientation-aware R.3.1, ex-924×668), modale soft
+  dismissible &lt; 1740×900 (G.1.4 + G.2.6 + R.3.1)
+- Export WAV PCM 16-bit stéréo
+- Persistance localStorage (pas de migration vers nouveau format en E.1 :
+  reset si ancien format détecté)
+
+✅ **Itération A terminée**.
+
+✅ **Itération B terminée** (2026-04-17)
+- Spectrogramme statique synchronisé (DFT, échelle log)
+- Multi-sélection (rectangle, Ctrl+clic, Shift+drag additionnel)
+- Drag/resize/duplication multi avec bornes groupées
+- Copier/couper/coller clips (Ctrl+C/X/V, clic droit, positionnement souris)
+- Fusion (Ctrl+M) et split (Ctrl+D ÷2, Ctrl+Shift+D ÷3)
+- Ctrl+drag scroll horizontal, Alt+drag zoom rectangle
+- Répertoires de sons arborescents (CRUD, drag interne, indentation)
+- Suppression sons/dossiers avec blocage si clips référencent + assistance
+- Check undo symétrique cross-onglet (Designer ↔ Composer)
+- Menu contextuel mesures : supprimer/insérer/couper/copier/coller
+  avec split automatique des clips à cheval
+- Properties panel multi-sélection (son/durée mixtes, actions groupées)
+
+✅ **Itération C terminée** (2026-04-18)
+- UI multi-tracks : en-têtes + couloirs, CRUD pistes, drop/drag cross-piste,
+  réordonnancement par drag, refactor banque double-clic=renommer (phase 1)
+- Mute/Solo/Volume par piste : UI M/S/slider, logique solo DAW, GainNode
+  per-track, gains temps réel, atténuation visuelle clips (phase 2)
+- Moteur audio look-ahead : scheduler fenêtre glissante, réactivité temps
+  réel aux modifications de clips pendant lecture (phase 3)
+- Adaptation multipiste : fusion check trackId, coller cross-piste (clic droit
+  + Ctrl+V), PropertiesPanel affiche piste, Échap ferme menu contextuel (phase 4)
+
+✅ **Itération D terminée** (2026-04-19) — Refonte Designer
+- Phase 1 — Refonte sélecteur de notes : dropdown "Système"
+  (12-TET / Libre), clavier piano 12 notes, sélecteur d'octave 0-10,
+  extension mode libre 2^4-2^15 Hz. Les trois boutons Test
+  (impact/court/tenu) introduits ici ont été remplacés par la preview
+  polyphonique au clavier en E.3 puis retirés en F.3.5.
+  Modèle : `mode: 'note' | 'free'` → `tuningSystem: '12-TET' | 'free'`
+  (migration transparente via `normalizeSound`).
+
+✅ **Itération E terminée** (2026-04-22) — Patches vs Notes (refonte conceptuelle majeure)
+- ✅ **Phase 1** (2026-04-19) — Patches remplacent Sounds, notes portées par
+  les clips. Commit unique.
+  - Modèle : `SavedSound` → `Patch` (id `patch-N`) sans fréquence ni note ;
+    champs supprimés : `frequency`, `mode`, `tuningSystem`, `noteIndex`,
+    `octave`.
+  - `Clip` enrichi : `soundId` → `patchId`, + `tuningSystem`, `noteIndex`,
+    `octave`, `frequency` (null côté non applicable). Helper partagé
+    `clipFrequency(clip)` dans reducer.js.
+  - Éditeur : nouveaux champs `testTuningSystem`, `testNoteIndex`,
+    `testOctave`, `testFrequency` — uniquement pour piloter la preview,
+    pas copiés dans le patch sauvegardé. Hydratation d'un patch préserve
+    ces champs (contexte de test utilisateur).
+  - Drop de patch sur timeline : la hauteur du nouveau clip est celle du
+    clavier de test courant (règle par défaut, raccourcis clavier prévus
+    en E.4). `handleAddClip` utilise `editorTestNoteFields(editor)`.
+  - Actions reducer renommées : `SAVE_SOUND` → `SAVE_PATCH`,
+    `UPDATE_SOUND` → `UPDATE_PATCH`, `DELETE_SOUND` → `DELETE_PATCH`,
+    `RENAME_SOUND` → `RENAME_PATCH`, `MOVE_SOUND_TO_FOLDER` →
+    `MOVE_PATCH_TO_FOLDER`, `UPDATE_CLIPS_SOUND` → `UPDATE_CLIPS_PATCH`,
+    `SET_CURRENT_SOUND_ID` → `SET_CURRENT_PATCH_ID`,
+    `HYDRATE_EDITOR_FROM_SOUND` → `HYDRATE_EDITOR_FROM_PATCH`,
+    `SET_EDITOR_NOTE/OCTAVE/TUNING_SYSTEM/FREQUENCY` →
+    `SET_EDITOR_TEST_NOTE/OCTAVE/TUNING_SYSTEM/FREQUENCY`.
+  - State renommé : `savedSounds` → `patches`, `soundCounter` →
+    `patchCounter`, `currentSoundId` → `currentPatchId`.
+  - Split/merge/paste/cut/insert/delete measure propagent désormais les
+    champs de hauteur du clip source vers les nouveaux clips créés
+    (helper `buildSplitPart` dans App, `cloneClipNote` dans reducer).
+  - `canMergeClips` ajoute la vérification que tous les clips aient la
+    même hauteur (en plus du même `patchId` et `trackId`).
+  - Plus de détection de doublons au save : un patch est toujours créé
+    avec un id unique (un même timbre peut exister plusieurs fois sous
+    des noms différents, c'est permis).
+  - **Pas de migration** : si `loadPersistedState` détecte un ancien format
+    (clés `savedSounds`, `soundCounter`, `noteCounter`, `placementCounter`),
+    on log un warning et on repart d'un état initial vide. Deal assumé.
+  - Renommage fichier : `SoundBank.jsx/.css` → `PatchBank.jsx/.css` ;
+    props renommées (`savedSounds` → `patches`, `onLoadSound` →
+    `onLoadPatch`, etc.). Affichage de la fréquence retiré des chips
+    (un patch n'en a plus).
+  - `usePlayback` : signature `{ clips, patches, tracks, bpm, ... }`,
+    résolution fréquence via `clipFrequency(clip)` à l'attaque de
+    chaque clip (live + export WAV). Signature de changement inclut
+    les champs de hauteur pour invalider les clips reprogrammés.
+- ✅ **Phase 2** (2026-04-19) — Affichage note dans clips + édition
+  Properties + flèches clavier. 3 sous-commits :
+  - **2.1** Label adaptatif : `src/lib/clipNote.js` exporte
+    `formatClipNote(clip)` (12-TET → "A4", free → "440.0 Hz") et
+    `NOTE_NAMES` avec ♯ Unicode. Dans Timeline, la `.placed-name` est
+    scindée en `.placed-note` (gras) + `.placed-patch-name` (opacité
+    0.7). Container queries : patch name masqué sous 120px, tout
+    masqué sous 30px.
+  - **2.2** `PianoKeyboard`/`OctaveSelector` extraits dans
+    `src/components/PianoKeyboard.{jsx,css}`, prop `compact` pour la
+    variante Properties (56px de haut, pas de labels). Action
+    `UPDATE_CLIPS_PITCH` (payload `[{id, tuningSystem?, noteIndex?,
+    octave?, frequency?}]`, undoable pile Composer). Handler
+    `handleUpdateClipsPitch`. PropertiesPanel mono : nouveau champ
+    "Note" entre Patch et Position (mini-clavier + octave en 12-TET,
+    FreqInput en Libre). PropertiesPanel multi : éditable si toutes
+    les hauteurs identiques, sinon "Notes mixtes" lecture seule.
+  - **2.3** Listener keydown global (App, activeTab=composer). ↑↓ :
+    ±1 demi-ton via arithmétique midi (passage d'octave auto).
+    Shift+↑↓ : ±1 octave entière. ←→ : ±0.25 beat. Shift+←→ : ±1 beat.
+    Bornes intersectées : midi ∈ [12, 143] (C0..B10), position ∈
+    [0, totalBeats]. Groupe bloqué si le membre le plus contraint
+    ne peut pas bouger. Clips free ignorés pour ↑↓ (édition libre
+    via input Hz). Exclusions : input/textarea/select/contenteditable,
+    `.timeline-context-menu` ouvert, body cursor en drag.
+- ✅ **Phase 3** (2026-04-19) — Designer = instrument de test
+  polyphonique. 5 sous-commits :
+  - **3.1** PianoKeyboard accepte `onKeyPress(idx)` / `onKeyRelease(idx)`
+    + prop `activeNotes` (Set). mousedown → onSelectNote + onKeyPress ;
+    un listener window mouseup déclenche onKeyRelease (option B : la
+    note tient tant que la souris n'est pas relâchée, même hors de la
+    touche). WaveformEditor maintient `activeNotesMapRef` (Map<idx,
+    {osc, gain, octave}>) et `instrumentParamsRef` (valeurs ADSR /
+    amplitude / testOctave fraîches pour les handlers). Cleanup à
+    l'unmount et au changement de patch. Classe `.is-playing` jaune
+    vif pour les touches actives (distincte du cyan is-active).
+  - **3.2** Mapping `event.code` → noteIndex : KeyS/D/F/G/H/J/K pour
+    les blanches (C D E F G A B), KeyE/R/Y/U/I pour les noires. Utilise
+    event.code (position physique) donc fonctionne identiquement QWERTY /
+    AZERTY / DVORAK. event.repeat ignoré. `instrumentBridgeRef` stable
+    sert de pont entre le listener (attaché une fois par activeTab) et
+    les fonctions play/release recréées à chaque render. Sortie du
+    Designer = stopAllInstrumentNotes.
+  - **3.3** PageUp/PageDown décalent testOctave (±1, bornes [0, 10]).
+    Keydown unique, skip form fields et combos Ctrl/Alt/Cmd
+    (navigation d'onglet navigateur). e.repeat autorisé : maintenir la
+    touche traverse les octaves. Initialement Shift/Ctrl "seuls" via
+    flags shiftAloneRef/ctrlAloneRef invalidés par toute autre touche
+    ou mousedown, remplacé car l'ordre de relâchement dans des combos
+    créait des octaves intempestives.
+  - **3.4** Pédale de sustain : Espace maintenue = sustainActiveRef.
+    Le release est extrait dans `performRelease` et
+    `releaseInstrumentNote` le diffère vers `sustainedNotesRef` quand
+    sustain est actif. Au relâchement de Espace, performRelease est
+    appelé sur toutes les notes sustainées. `playInstrumentNote`
+    gère le retrigger : si la note est déjà active (sustainée ou non),
+    la voix existante est coupée net avant d'en démarrer une nouvelle.
+    preventDefault sur Space (empêche scroll). Badge SUSTAIN orange
+    à côté du label "Note".
+  - **3.5** Suppression des 3 boutons Test impact/court/tenu et toute
+    la logique associée (startAudio, stopAudio, handleTestClick,
+    playingMode, oscRef/gainRef, COURT_HOLD_SEC, useEffect live
+    frequency/amplitude, CSS .test-btn-mode/.test-buttons). Le test
+    d'un patch passe exclusivement par le clavier interactif.
+- ✅ **Phase 4** (2026-04-19) — Drop intelligent + placement contigu.
+  2 sous-commits :
+  - **4.1** `KEY_CODE_TO_NOTE_INDEX` déplacé dans
+    `src/lib/keyboardMap.js` partagé. App maintient `pressedNoteKeyRef`
+    (synchrone) + `pressedNoteKey` state. Listener Composer : keydown
+    enregistre la touche (skip sur Ctrl/Cmd combos + repeat), keyup
+    clear. `handleAddClip` priorise pressedNoteKey : si set, clip créé
+    en 12-TET à cette note + testOctave, sinon fallback
+    `editorTestNoteFields`. Badge ♪ XN orange dans la toolbar Composer
+    pendant qu'une touche est maintenue. Raccourcis d'octave (PageUp/
+    PageDown) logés dans un useEffect dédié de App (actif les deux
+    onglets).
+  - **4.2** State `lastAnchorClipId` (non undoable, non persisté)
+    ajouté au reducer. Mis à jour par ADD_CLIP, DUPLICATE_CLIPS,
+    SPLIT_CLIPS, MERGE_CLIPS, PASTE_CLIPS, SELECT_CLIPS (dernier du
+    payload). Nettoyé à REMOVE_CLIP / DELETE_SELECTED_CLIPS /
+    CLEAR_TIMELINE si l'anchor disparaît. Le keyup Composer, si aucun
+    drag en cours (dragstart/dragend window listeners + body cursor
+    check), dispatch ADD_CLIP après l'anchor : même patch, même piste,
+    même durée par défaut, note = touche pressée, octave = testOctave.
+    ADD_CLIP accepte `extraMeasures` pour étendre automatiquement la
+    composition. `handleAddClip` consomme pressedNoteKey au drop pour
+    que le keyup suivant ne double pas le placement.
+- ✅ **Phase 5** (2026-04-19) — Fixes placement contigu (voir Roadmap).
+- ✅ **Phase 6** (2026-04-20) — UX enrichie : durées en boutons toggle
+  (7 bases + 3 coefs, snap 0.125), indicateur octave dans la toolbar,
+  animation CSS des corridors (voir Roadmap).
+- ✅ **Phase 7** (2026-04-20) — Ajustements UI : invariant
+  `lastAnchorClipId ↔ selectedClipIds`, fractions réf noire
+  (1=noire, 1/2=croche), pas flèche Composer 0.125, sidebars
+  resizables + collapsibles, settling frame drag cross-piste
+  (voir Roadmap).
+- ✅ **Phase 8** (2026-04-22) — Fix release ADSR Designer sur appui
+  bref : `gain.value` lu avant `cancelScheduledValues` + marge 20ms
+  sur `osc.stop()` (voir Roadmap).
+- ✅ **Phase 9** (2026-04-22) — Micro-fades anti-clic. `MIN_ATTACK`
+  (3 ms) en plancher d'attack côté Designer + Composer (clic au
+  démarrage), `RETRIGGER_FADE` (8 ms) en fade-out de la voix
+  précédente lors d'un retrigger (clic de voice-stealing sur note
+  déjà active ou sustainée) (voir Roadmap).
+
+🚧 **Itération F — Tier 1 + Tier 2 (gamelan + shrutis indiens) + Tier 3 livrés** — Multi-tempérament
+- ✅ **Phase 1** (2026-04-22) — Infrastructure multi-tempérament.
+  Création de `src/lib/tuningSystems.js` : registre `TUNING_SYSTEMS`
+  (clé = id de système) avec `{ id, label, notesPerOctave, noteNames,
+  freq }`. `clipFrequency(clip, a4Ref)` délègue au registre —
+  `sys.freq(noteIndex, octave, a4Ref)` pour les systèmes note/octave,
+  `clip.frequency` pour `free`. `frequencyToNearestNote` et les noms
+  de notes 12-TET migrés dans le registre. `formatClipNote` lit
+  `noteNames` depuis le registre (plus de copie locale).
+  `WaveformEditor` (preview polyphonique) passe par le même registre
+  que `usePlayback` — plus de copie locale de `noteToFrequency`.
+  `PropertiesPanel` et `App.jsx` (spectrogramme) routent leurs
+  calculs MIDI via le registre. Nouveau champ d'état `a4Ref` (défaut
+  440 Hz, persisté, propagé via ref dans le scheduler live, via prop
+  directe pour l'export WAV). Aucune UI d'édition exposée — A4 reste
+  à 440 Hz pour l'utilisateur final. Comportement strictement
+  identique à E.9.
+- ✅ **Phase 2** (2026-04-22) — Premier tempérament alternatif +
+  UI A4. 2 sous-commits :
+  - **2.1** Tempérament Pythagoricien 12 centré sur C. Ratios dérivés
+    à l'init par parcours de la chaîne (6 montantes, 5 descendantes,
+    loup F#↔Db ~678 cents). Mêmes noms de notes que 12-TET → clavier
+    et UI existants réutilisés. Ordre registre : 12-TET,
+    pythagorean-12, free. Sélecteurs dynamisés (Designer +
+    PropertiesPanel — ajout du sélecteur dans Properties, absent
+    auparavant : multi avec check `allSameTuningSystem` →
+    "Systèmes mixtes" en lecture seule sinon). Logique de bascule
+    portée par le reducer (`UPDATE_CLIPS_PITCH` étendu) pour
+    verrouiller l'invariant "clip cohérent" au modèle : vers 'free'
+    calcule la fréquence courante, entre systèmes de même grille
+    garde note/octave, sinon snap via 12-TET. Fix latent dans
+    `SET_EDITOR_TEST_TUNING_SYSTEM` du Designer (hardcode '12-TET'
+    en branche non-free) corrigé au passage.
+  - **2.2** Input A4 dans la toolbar Composer. Nouveau composant
+    `A4Input` (même pattern que `BpmInput` — validation différée,
+    Échap restaure, ±1 flèches / ±5 Shift). Fourchette 380-480 Hz
+    entiers. Action `SET_A4_REF` undoable, `a4Ref` ajouté à
+    `COMPOSER_FIELDS`. `A4Input` candidat à extraction en
+    `ValidatedIntegerInput` partagé si un 3e input similaire
+    apparaît (pas extrait par choix de scope en F.2).
+- ✅ **Phase 3** (2026-04-23 → 2026-04-24) — Multi-tempérament 24
+  notes + refonte UI ADSR. ~13 sous-commits (détail dans Historique
+  et Roadmap). Registre enrichi : chaque entrée porte ses champs
+  `layout` et `keyboardMap` — `src/lib/keyboardMap.js` supprimé,
+  les consommateurs lisent `getTuningSystem(id).keyboardMap`. Deux
+  nouveaux tempéraments **24-TET égal** et **24-TET Le Caire 1932**
+  (table en dur, source aly-abbara.com, ancrée 'Oshairan = A4 = 440).
+  `PianoKeyboard` devient un dispatcher (`LAYOUT_COMPONENTS` :
+  `piano-12` → `PianoLayout12`, `grid-24` → `Grid24Layout`). Nouveau
+  `Grid24Layout` en CSS Grid 4×30 sub-cols (escalier 1/4 d'unité par
+  rangée), palette HSL par degré — 7 hues naturelles, lightness
+  différencié par kind ♮/♯/↑/↓ ; `is-active` et `is-playing` en
+  outlines pour préserver la couleur de position. Mapping QWERTY 24
+  positions géométriquement alignées (SDFGHJK naturelles, ERTYUIO
+  demi-dièses, 24680 dièses pleins, XCBNM demi-bémols). Refonte
+  raccourcis durées : NumPad sans Shift + Shift+Digit (Digit nus
+  libérés pour les notes 24-TET). Snap inter-systèmes généralisé :
+  `frequencyToNearestNote` (12-TET only) → `frequencyToNearestIn(hz,
+  sysId, a4Ref)` qui itère sur la grille du système cible × 11
+  octaves et minimise |cents|. Sélecteur de tempérament ajouté dans
+  la toolbar Composer (à côté de A4). **ADSR → AHDSR** : nouveau
+  champ `hold` (0-1000 ms, défaut 0) — plateau au peak entre attack
+  et decay, pédagogiquement précieux pour distinguer hold forcé vs
+  sustain tant que la touche est tenue. UI Enveloppe refondue :
+  Amplitude rapatriée dans la zone ADSR (6 sliders Amp/A/H/D/S/R
+  empilés), valeurs éditables au clavier via composant générique
+  `NumberInput`, tooltips au survol (`AdsrTooltip`), handles
+  isotropes, curseur dynamique, P3 retiré (sustain = niveau
+  sémantique, pas plateau temporel). Action combinée
+  `SET_EDITOR_ADSR_AND_AMP` pour unifier le drag P1 diagonal en un
+  seul snapshot undo. P1h géré en z-order (au-dessus de P1 en ordre
+  de dessin + hit-test), pas en Y-offset : silhouette fidèle.
+- ✅ **Phase 4.1** (2026-04-25) — Juste intonation majeure centrée
+  sur C. Ajout de l'entrée `'just-major-c'` au registre (3e
+  position, entre `pythagorean-12` et `24-tet-equal`). Table d'Ellis
+  5-limit en dur (`JUST_MAJOR_RATIOS_FROM_C`) ; ancrage `C4 = a4Ref
+  × 3/5` pour préserver l'invariant A4 = a4Ref exact (A/C = 5/3 dans
+  la table). Accidentels en enharmoniques bémols fonctionnels
+  (D♯=6/5, G♯=8/5, A♯=9/5, C♯=16/15, F♯=45/32) — écart vs dièses
+  non enharmoniques que le tempérament égal efface, point
+  pédagogique assumé. Aucun nouveau layout ni mapping : réutilise
+  `piano-12` et `TWELVE_KEY_MAP`. Sélecteurs et reducer consomment
+  la nouvelle entrée sans modification — le pattern d'extension
+  posé en F.3 tient.
+- ✅ **Phase 4.2** (2026-04-25) — 5-TET pentatonique égale + layout
+  `grid-5`. Premier tempérament avec `notesPerOctave ∉ {12, 24}` :
+  5 divisions égales de l'octave, nomenclature I..V (pas d'emprunt
+  chromatique), tonique I ancrée à `a4Ref` à l'octave 4 —
+  généralisation sémantique de `a4Ref` comme "fréquence du degré 0
+  à oct 4". `FIVE_KEY_MAP` réutilise les positions SDFGH (sous-
+  ensemble strict du `TWELVE_KEY_MAP`) pour préserver la mémoire
+  motrice. Nouveau `Grid5Layout` dans `PianoKeyboard.jsx` : 5
+  rectangles en ligne (CSS Grid 1×5), palette 5 hues à 72° de pas
+  avec lightness uniforme (pas de hiérarchie d'altération en 5-TET),
+  patterns `is-active` (inset cyan) et `is-playing` (outline jaune
+  + glow) hérités de grid-24. Entrée insérée en 6e position
+  (avant `free`) pour ne pas disrupter les positions déjà adoptées.
+- ✅ **Phase 4.3** (2026-04-25) — 31-EDO explorateur micro-tonal +
+  layout `grid-31`. Nouvelle entrée `'31-edo'` au registre (7e
+  position, avant `free`). 31 divisions égales (step 1200/31 ≈
+  38.71¢) ; tonique deg 0 ancrée à `a4Ref` à oct 4 (cohérence avec
+  5-TET). Interprétation abstraite : degrés numérotés 1..31
+  (`THIRTYONE_EDO_NOTE_NAMES`), pas d'emprunt à la nomenclature
+  méantone (C♯/D♭, double-dièses) — cohérent avec la position
+  pédagogique de 5-TET. Suffixe "." dans les noms (`"1."` à `"31."`)
+  comme séparateur visuel pour `formatClipNote` (`"23." + "4"` →
+  `"23.4"`), masqué sur les touches du clavier. `THIRTYONE_KEY_MAP`
+  31 positions sur les 4 rangées physiques du clavier QWERTY en
+  serpentin-colonne (KeyZ KeyS KeyE Digit4 KeyX KeyD KeyR Digit5 …
+  KeyP) — 8 colonnes × 4 rangées moins la case haut-droite manquante
+  (degré 31 = octave non représenté). Nouveau `Grid31Layout` dans
+  `PianoKeyboard.jsx` : CSS Grid 4×35 sub-cols, escalier 1/4
+  d'unité par rangée (extension du pattern grid-24 à 8 colonnes au
+  lieu de 7). Axe horizontal monotone : `start_subCol(k+1) =
+  start_subCol(k) + 1` que ce soit une montée intra-colonne ou un
+  saut de colonne. Palette `GRID31_HUE_PER_COL` (8 hues par
+  colonne, étendant le pattern `HUE_PER_NATURAL` de grid-24 à 8
+  entrées) + 4 lightness par rangée (75/60/45/30%, alignée sur la
+  grammaire ↓→♮→↑→♯ de grid-24) ; voir 4.3.1 pour la correction
+  par rapport à la palette initiale 4-hues-par-rangée.
+  Hauteur 160px / 80px compact alignée sur grid-24 (autre layout
+  4-rangées) plutôt que sur grid-5 (1 rangée). Patterns `is-active`
+  (inset cyan) et `is-playing` (outline jaune + glow) hérités du
+  pattern grid-24. `LAYOUT_COMPONENTS` enrichi de `'grid-31'`.
+  Vérifs numériques (a4Ref=440) : deg 0 oct 4 = 440 Hz exact, deg 0
+  oct 5 = 880 Hz exact (octave juste), deg 10 vs 5/4 = +0.78¢
+  (tierce méantone quasi-pure, signature 31-EDO), deg 18 vs 3/2 =
+  −5.18¢ (quinte méantone). Snap 12-TET C4 → 31-EDO deg 8 oct 3
+  (écart 9.68¢ < step/2 = 19.35¢). **Tier 1 multi-tempérament clos**
+  (4.1 juste-majeure, 4.2 5-TET, 4.3 31-EDO).
+- ✅ **Phase 4.4** (2026-04-25) — Repères visuels (gammes & accords)
+  sur le clavier, saveur A passive. Nouveau fichier
+  `src/lib/visualCues.js` : `VISUAL_CUE_PATTERNS` (8 entrées : `none`
+  + 3 accords + 4 gammes — triade majeure/mineure, septième de
+  dominante, gamme majeure/mineure naturelle, pentatonique majeure,
+  gamme par tons), définis comme listes d'intervalles **en cents
+  depuis la tonique** (ratios purs 5-limit / 7-limit pour dom7).
+  Helper `cuedNoteIndices(patternId, tonicDeg, sysId, a4Ref)` snappe
+  vers les degrés du système courant via `frequencyToNearestIn` —
+  même définition produit [0,4,7] en 12-TET et [0,10,18] en 31-EDO,
+  ce qui est précisément l'intérêt pédagogique. Systèmes supportés
+  via `VISUAL_CUE_SUPPORTED_SYSTEMS` : 12-TET, Pythag-12, juste-
+  majeure, 24-TET égal, Le Caire 1932, 31-EDO. Pas 5-TET (errs > 90¢
+  sur la triade majeure) ni Libre (pas de degrés). État éditeur :
+  `editor.visualCuePattern` (défaut `'none'`) + `editor.visualCueTonic`
+  (défaut 0), pile undo Designer, persistés à plat dans localStorage
+  (clés `editorVisualCuePattern` + `editorVisualCueTonic`, ré-injectés
+  dans `editor` au `buildInitialState`). `SET_EDITOR_TEST_TUNING_SYSTEM`
+  enrichi : si `visualCueTonic` dépasse `notesPerOctave` du nouveau
+  système, snap à 0 (le pattern reste). UI WaveformEditor : barre
+  "Repère + Tonique" au-dessus du clavier, visible uniquement quand
+  le système supporte les cues. PianoKeyboard : nouvelle prop
+  `cuedNotes` propagée à chaque layout (les 4 layouts ajoutent
+  `is-cued` à la className des cellules concernées). CSS `.is-cued` :
+  halo magenta `box-shadow: 0 0 0 2px #e832e2` en externe, préserve
+  le fill HSL ; combinaisons avec `is-active` (inset cyan) et
+  `is-playing` (outline jaune + glow) gérées via box-shadow
+  comma-separated. Saveur B (sélection compositionnelle active par
+  clic-multi) reste en BACKLOG. Vérifs : 12-TET tonic 7 (G) triade
+  maj → [2,7,11] ; 31-EDO tonic 0 pentat. maj → [0,5,10,18,23] ;
+  31-EDO tonic 0 whole-tone → [0,5,10,16,21,26] (séquence non
+  régulière car 200¢ ne divise pas 31-EDO).
+- ✅ **Phase 5** (2026-04-25) — Tier 3 historiques européens.
+  Deux tempéraments 12 notes ajoutés au registre :
+  **`'meantone-quarter-comma'`** (Mésotonique 1/4 de comma centré
+  sur C, chaîne E♭→G♯, tierces majeures 5/4 pures à 386.314¢ exact,
+  loup G♯↔E♭ ; cents Helmholtz/Ellis) et **`'werckmeister-iii'`**
+  (Andreas Werckmeister 1691, 4 quintes tempérées chacune par 1/4
+  de comma pythagoricien sur C-G/G-D/D-A/B-F♯ + 8 quintes pures ;
+  tempérament Bach pour le Wohltemperierte Klavier ; cents Barbour
+  1951). Tables de cents inline (les fonctions ratio existantes
+  pythagorean/just ne motivent pas un helper unifié — abstractions
+  natives différentes). Ancrage A4 = a4Ref via
+  `c4 = a4Ref × 2^(-CENTS[9]/1200)` (pattern symétrique aux autres
+  systèmes 12-notes basés sur C). Insérés en 4e/5e position du
+  registre (entre `just-major-c` et `24-tet-equal`) — regroupement
+  des systèmes 12-notes. Aucun nouveau layout, aucun nouveau
+  mapping — réutilisation de `piano-12` et `TWELVE_KEY_MAP`. Visual
+  cues activés (`VISUAL_CUE_SUPPORTED_SYSTEMS` étendu). Registre
+  à 10 entrées. Vérifs (a4Ref=440) : Mésotonique C4=263.181,
+  E4=328.977 (= C4×5/4 exact), G4=393.548, A4=440.000 ; Werckmeister
+  III C4=263.404, E4=329.998, G4=393.768, A4=440.000.
+  Triptyque pédagogique complété : Pythagoricien (quintes pures,
+  tierces fausses) → Mésotonique 1/4-comma (tierces pures, wolf
+  marqué) → Werckmeister III (compromis bien-tempéré, toutes
+  tonalités utilisables) → 12-TET (uniforme). Tier 2 (gamelan,
+  22-TET, 53-EDO) reste en backlog.
+- ✅ **Phase 6** (2026-04-25) — Tier 2 gamelan. Deux tempéraments
+  javanais d'après Surjodiningrat, Sudarjana & Susanto, "Tone
+  Measurements of Outstanding Javanese Gamelans in Jogjakarta
+  and Surakarta" (1972) — étude empirique de référence, citée
+  en commentaire du registre. **`'slendro'`** (5 notes, accordage
+  Surakarta moyen, cents [0, 241, 481, 719, 958] ; réutilise
+  layout `grid-5` et `FIVE_KEY_MAP` — strict alignement avec
+  5-TET côté UI, audio différent par les ~3¢ de déviation par
+  rapport à 5-EDO) et **`'pelog'`** (7 notes, cents [0, 119, 258,
+  539, 678, 794, 1058] ; nouveau layout `grid-7` calqué sur
+  grid-5 avec 7 hues à 360°/7 ≈ 51° de pas, mapping QWERTY home
+  row SDFGHJK = `PELOG_KEY_MAP`, sous-ensemble strict de
+  `TWELVE_KEY_MAP`). Cellules équidistantes alors que les pitchs
+  Pelog ne le sont pas — convention partagée avec piano-12 et
+  tous les autres layouts. Nomenclature romaine I..V / I..VII —
+  pas d'import des noms javanais natifs (barang/gulu/dada/lima/
+  nem ou ji/ro/lu/pat/mo/nem/pi), décision de scope assumée
+  pour limiter la friction terminologique en classe. Tonique
+  deg 0 = `a4Ref` (cohérence 5-TET / 31-EDO ; pas d'A en
+  gamelan). Visual cues **désactivés** : `slendro`/`pelog` absents
+  de `VISUAL_CUE_SUPPORTED_SYSTEMS`, la barre se masque
+  automatiquement via la logique F.4.4 existante. Pelog Bem /
+  Pelog Barang non modélisés comme entrées séparées — le clavier
+  expose les 7 notes, l'utilisateur choisit son sous-ensemble
+  joué. Insérés en 10e/11e position du registre (entre `31-edo`
+  et `free`). `LAYOUT_COMPONENTS` enrichi de `'grid-7'` →
+  `Grid7Layout` (nouveau composant dans `PianoKeyboard.jsx`,
+  parallèle à `Grid5Layout`). Vérifs (a4Ref=440) : Slendro I oct 4
+  = 440.000, V = 765.200, I oct 5 = 880.000 (octave juste).
+  Pelog I = 440.000, II = 471.308 (~119¢ — intervalle "petit"
+  caractéristique), IV = 600.711 (~539¢ — 4e degré loin du
+  tonique), VII = 810.701, I oct 5 = 880.000. Registre à 12
+  entrées. Reste en backlog : 22-EDO et 53-EDO du Tier 2 ; refonte
+  UI dropdown catégorisé (12 entrées commencent à frotter).
+- ✅ **Phase 7** (2026-04-26) — Tier 2 shrutis indiens (deux
+  frameworks). Path B : on ship deux entrées registre dédiées
+  (`'shrutis-bhatkhande'` et `'shrutis-sarngadeva'`) plutôt qu'un
+  unique "22 shrutis" générique, parce que la grammaire culturelle
+  est précisément ce que les frameworks encodent. 2 sous-commits :
+  - **7.1** Catalogue partagé + Bhatkhande. `SHRUTI_CANONICAL_CENTS`
+    (22 valeurs entières dérivées du 5-limit just intonation,
+    sources Te Nijenhuis 1974 / Rowell 1992 / Bhatkhande 1909-1932)
+    et helper `shrutiFreq(noteIndex, octave, a4Ref)` ancré sa = a4Ref
+    à oct 4 (cohérence 5-TET / 31-EDO / gamelan). Bhatkhande
+    (V.N. Bhatkhande, *Hindustani Sangeet Paddhati*, 1909-1932) :
+    distribution **1-4-4-4-1-4-4** — sa (I) et pa (V) sont des
+    piliers à 1 cellule chacun, re/ga/ma/dha/ni reçoivent chacune
+    4 sub-shrutis. Nomenclature romaine `I, IIa..IId, IIIa..IIId,
+    IVa..IVd, V, VIa..VId, VIIa..VIId` (22 noms terminés par lettre
+    → pas besoin de séparateur "." pour `formatClipNote`). Mapping
+    QWERTY `BHATKHANDE_KEY_MAP` 22 positions : Z-row = 7 svaras à
+    leur position la plus grave (ZXCVBNM = sa, IIa, IIIa, IVa, pa,
+    VIa, VIIa), 3 rangées au-dessus pour les sub-shrutis ascendantes
+    des 5 clusters non-piliers (gaps physiques au-dessus de sa et pa
+    — reflet de la grammaire visuelle). Nouveau layout
+    `grid-22-bhatkhande` dans `PianoKeyboard.jsx` : 7 colonnes svaras
+    sur grille 4 rangées × 32 sub-cols, escalier 1 sub-col par rangée
+    (extension du pattern grid-31 à 7 colonnes), gaps visuels
+    au-dessus des colonnes sa (col 1) et pa (col 5). Palette
+    `HUE_PER_SHRUTI_SVARA = [0, 51, 103, 154, 206, 257, 309]`
+    (réutilise les 7 hues de grid-7 — cohérence visuelle cross-system
+    pelog/shrutis) × 4 lightness par rangée (75/60/45/30%, alignée
+    sur grid-31 ↓→♮→↑→♯). CSS `.grid22-key` posé en 7.1 mutualisé
+    avec 7.2.
+  - **7.2** Sarngadeva. Sarngadeva (*Sangita Ratnakara*, XIIIe s.) :
+    distribution **4-3-2-4-4-3-2** (Bharata classique préservé) — sa,
+    ma, pa habitent 4 sub-shrutis chacun (zones étendues), ri et dha
+    3, ga et ni 2. Mêmes 22 cents canoniques que Bhatkhande (`shrutiFreq`
+    partagé) — différence purement organisationnelle. Nomenclature
+    `Ia..Id, IIa..IIc, IIIa..IIIb, IVa..IVd, Va..Vd, VIa..VIc,
+    VIIa..VIIb` (la sub-shruti la plus grave porte le nom de la svara :
+    Ia = sa, IIa = ri, IIIa = ga, IVa = ma, Va = pa, VIa = dha,
+    VIIa = ni). Mapping QWERTY `SARNGADEVA_KEY_MAP` 22 positions :
+    Z-row = 7 svaras nommées (mêmes ZXCVBNM que Bhatkhande pour
+    préserver la mémoire motrice cross-framework), colonnes hautes
+    pour sa/ma/pa (jusqu'au digit row), basses pour ga/ni (s'arrêtent
+    à la rangée A). Nouveau composant `Grid22SarngadevaLayout` qui
+    réutilise strictement les classes CSS `.piano-keyboard-grid22` et
+    `.grid22-key` posées en 7.1 — la grille géométrique est identique
+    (32 sub-cols, 4 rangées, mêmes hues svara), seules les cellules
+    peuplées diffèrent. Grammaire visuelle "piliers larges" (sa/ma/pa
+    montent jusqu'au digit row) contraste avec "piliers étroits" de
+    Bhatkhande — c'est l'écart pédagogique central qu'on veut donner
+    à voir. `LAYOUT_COMPONENTS` enrichi de `'grid-22-bhatkhande'` et
+    `'grid-22-sarngadeva'`. Visual cues désactivés sur les deux
+    (patterns 5-limit harmoniques ne s'appliquent pas au contexte
+    modal-mélodique indien). Insérés en 12e/13e position du registre
+    (entre `pelog` et `free`). Vérifs (a4Ref=440) : sa oct 4 = 440.000
+    Hz exact (Bhatkhande I = noteIndex 0 ; Sarngadeva Ia = noteIndex
+    0), re shuddha = 495.026 (Bhatkhande IId = noteIndex 4 ;
+    Sarngadeva IIa = noteIndex 4 ; ~9/8 à +0.09¢ d'écart vs ratio
+    pur — conséquence du choix d'arrondir SHRUTI_CANONICAL_CENTS à
+    l'entier, conforme à la pratique slendro/pelog), pa = 660.017
+    (3/2 à +0.06¢), ni shuddha (Bhatkhande VIId = Sarngadeva indice
+    21) = 835.421, sa oct 5 = 880.000 (octave juste). Bascule
+    Bhatkhande ↔ Sarngadeva : noteIndex préservé → fréquence
+    préservée, seuls les labels changent (ex. "IId.4" → "IIa.4"
+    pour la même 495 Hz). Registre à 14 entrées. Reste en backlog :
+    22-EDO Erlich (distinct des shrutis indiens — reste un candidat
+    xenharmonique séparé), 53-EDO, refonte UI dropdown (14 entrées
+    rend la dette urgente), Bharata reconstructed (Sambamoorthy)
+    comme 3e framework potentiel si demande explicite, modes
+    indiens (ragas/pathets) comme sous-ensembles surlignés —
+    feature pédagogique future.
+- ✅ **Phase 8** (2026-04-27) — X-EDO paramétrique livrée.
+  Sous-phases 8.1 (infrastructure backend), 8.2 (composant
+  GridXEdoLayout + captation Shift) et 8.3 (UI XEdoInput +
+  bannière de bascule 12/24) toutes livrées. Slendro / Pelog /
+  X-EDO sont entièrement jouables (clavier physique + souris),
+  X-EDO 44..53 via Shift en mode SHIFT_ANCHOR. Détail dans
+  Roadmap & Backlog. Registre à 13 entrées
+  (-5-tet -31-edo +x-edo). **Itération F (multi-tempérament)
+  clôturée** — reste en backlog le redesign optgroup catégorisé
+  du dropdown (B.dropdown-tuning, dette UI marquée comme
+  prochaine candidate).
