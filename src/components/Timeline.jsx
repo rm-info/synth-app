@@ -1,4 +1,4 @@
-import { useEffect, useRef, useCallback, useState } from 'react'
+import { useEffect, useLayoutEffect, useRef, useCallback, useState } from 'react'
 import {
   layoutClips,
   computeBounds as computeBoundsRaw,
@@ -179,6 +179,7 @@ function Timeline({
 }) {
   const wrapperRef = useRef(null)
   const gridRef = useRef(null)
+  const pendingZoomScrollRef = useRef(null)
   const dropZoneRef = useRef(null)
   const visualizerCanvasRef = useRef(null)
   const [contextMenu, setContextMenu] = useState(null)
@@ -385,18 +386,32 @@ function Timeline({
       const oldPxPerBeat = pxPerBeatFromZoom(oldZoom)
       const beatPos = (e.clientX - gridRect.left) / oldPxPerBeat
 
-      onSetZoomH(newZoom)
-
-      // Re-centrer après re-render pour conserver la position musicale sous la souris.
       // Delta de scroll = beatPos × variation de px/beat (la largeur des headers et
       // la position de la souris dans le viewport s'annulent, pas besoin de les passer).
-      requestAnimationFrame(() => {
-        const newPxPerBeat = pxPerBeatFromZoom(newZoom)
-        wrapper.scrollLeft += beatPos * (newPxPerBeat - oldPxPerBeat)
-      })
+      // Cible calculée ici (layout de l'ancien zoom, scrollLeft non clampé) et
+      // appliquée au commit du nouveau zoom — cf. useLayoutEffect ci-dessous.
+      const newPxPerBeat = pxPerBeatFromZoom(newZoom)
+      pendingZoomScrollRef.current = {
+        zoom: newZoom,
+        scrollLeft: wrapper.scrollLeft + beatPos * (newPxPerBeat - oldPxPerBeat),
+      }
+      onSetZoomH(newZoom)
     },
     [zoomH, zoomHMin, zoomHMax, onSetZoomH],
   )
+
+  // Recalage du scroll dans le même commit que le changement de largeur. Un
+  // requestAnimationFrame n'est pas ordonné par rapport au commit React (zoomH
+  // vit dans le reducer global, le rendu part dans une tâche ultérieure) : le
+  // scroll pouvait être peint une frame avec l'ancienne largeur (micro-saut),
+  // ou clampé par l'ancien scrollWidth.
+  useLayoutEffect(() => {
+    const pending = pendingZoomScrollRef.current
+    if (!pending) return
+    pendingZoomScrollRef.current = null
+    const wrapper = wrapperRef.current
+    if (wrapper && pending.zoom === zoomH) wrapper.scrollLeft = pending.scrollLeft
+  }, [zoomH])
 
   useEffect(() => {
     const wrapper = wrapperRef.current
@@ -883,14 +898,16 @@ function Timeline({
 
       const wrapperWidth = wrapper.clientWidth
       const newZoom = Math.max(zoomHMin, Math.min(zoomHMax, zoomSnap * wrapperWidth / rectWidth))
-      onSetZoomH(newZoom)
-
       const rectCenter = (startX + endX) / 2
       const beatCenter = rectCenter / pxPerBeatSnap
-      requestAnimationFrame(() => {
-        const newPxPerBeat = pxPerBeatFromZoom(newZoom)
-        wrapper.scrollLeft = beatCenter * newPxPerBeat - wrapperWidth / 2
-      })
+      const targetScrollLeft = beatCenter * pxPerBeatFromZoom(newZoom) - wrapperWidth / 2
+      if (newZoom === zoomSnap) {
+        // Zoom déjà en butée : pas de commit à attendre, on centre directement.
+        wrapper.scrollLeft = targetScrollLeft
+        return
+      }
+      pendingZoomScrollRef.current = { zoom: newZoom, scrollLeft: targetScrollLeft }
+      onSetZoomH(newZoom)
     }
 
     window.addEventListener('mousemove', handleMove)
