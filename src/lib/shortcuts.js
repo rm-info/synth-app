@@ -22,6 +22,8 @@
 // inclus sous forme COMPOSITE (mapping live dépendant de testTuningSystem /
 // xEdoN, rendu spécial dans l'overlay L.1.5).
 
+import { STRINGS } from './strings'
+
 // ----- Helpers internes du parser de combo -----
 
 // Sépare un combo "Ctrl/Cmd+Shift+Z" en { mods: Set, key: 'Z' }. La key est
@@ -163,10 +165,18 @@ export const SHORTCUTS = [
     anchor: 'header-info-button',
   },
   {
+    id: 'global-tour',
+    contexts: ['global'],
+    label: 'Visite guidée',
+    description: "Démarre la visite guidée de l'onglet actif. Pendant la visite : ←/→ changent d'étape, Échap quitte, toute autre touche est ignorée.",
+    keys: { primary: 'Ctrl/Cmd+J', alternative: null, display: 'Ctrl+J' },
+    anchor: 'header-tour-button',
+  },
+  {
     id: 'global-undo',
     contexts: ['global'],
     label: 'Annuler',
-    description: "Annule la dernière action de l'onglet actif (Bibliothèque, Designer ou Composer).",
+    description: `Annule la dernière action de l'onglet actif (${STRINGS.tabs.library}, ${STRINGS.tabs.designer} ou ${STRINGS.tabs.composer}).`,
     keys: { primary: 'Ctrl/Cmd+Z', alternative: null, display: 'Ctrl+Z' },
     anchor: (state) => {
       const tab = state.activeTab
@@ -243,10 +253,20 @@ export const SHORTCUTS = [
     id: 'designer-notes',
     contexts: ['designer'],
     label: 'Touches notes',
-    description: 'Joue les notes du système musical actif. Le mapping QWERTY varie selon le système et la valeur N (X-EDO).',
+    description: 'Joue les notes du système musical actif. Le mapping QWERTY varie selon le système et la valeur N (X-EDO). En X-EDO à partir de N = 44, Shift+touche joue le second degré de la touche.',
     keys: { primary: '(touches du clavier)', alternative: null, display: '— mapping live —' },
     anchor: 'designer-keyboard',
     composite: 'per-key',
+  },
+  {
+    // Pas d'ancre : le seul élément candidat est la zone de dessin entière,
+    // que l'étiquette de l'overlay recouvrirait. Page Raccourcis uniquement.
+    id: 'designer-spline-remove-anchor',
+    contexts: ['designer'],
+    label: "Supprimer l'ancre sélectionnée",
+    description: "Forme d'onde en mode Ancres (spline) : retire l'ancre sélectionnée, dans la limite du nombre minimal d'ancres.",
+    keys: { primary: 'Delete', alternative: 'Backspace', display: 'Suppr' },
+    anchor: null,
   },
 
   // ============================================================
@@ -301,7 +321,7 @@ export const SHORTCUTS = [
     id: 'composer-duration-base',
     contexts: ['composer'],
     label: 'Durée — base',
-    description: "Définit la base de durée par défaut (1 = ronde → 7 = triple croche).",
+    description: "Définit la base de durée par défaut (1 = carrée, 2 = ronde → 7 = triple croche).",
     keys: { primary: 'Numpad1-7', alternative: 'Shift+Digit1-7', display: '1-7 (Numpad ou Shift+Digit)' },
     anchor: 'composer-duration-buttons',
     composite: 'per-key',
@@ -310,7 +330,7 @@ export const SHORTCUTS = [
     id: 'composer-duration-coef',
     contexts: ['composer'],
     label: 'Durée — coefficient',
-    description: 'Applique un coefficient à la durée par défaut (8 = ×1.25, 9 = pointé, 0 = double-pointé).',
+    description: 'Applique un coefficient à la durée par défaut (8 = ×1.25, 9 = pointé, 0 = double-pointé). Rappuyer sur le coefficient actif le retire.',
     keys: { primary: 'Numpad8-0', alternative: 'Shift+Digit8-0', display: '8/9/0 (Numpad ou Shift+Digit)' },
     anchor: 'composer-duration-buttons',
     composite: 'per-key',
@@ -337,7 +357,7 @@ export const SHORTCUTS = [
     id: 'composer-paste',
     contexts: ['composer'],
     label: 'Coller',
-    description: 'Colle le contenu du presse-papier (à la position de la souris via raccourci, ou via le bouton selon les règles d\'ancre / piste sélectionnée).',
+    description: "Colle le contenu du presse-papier, comme le bouton Coller : après le clip ancre s'il existe, sinon au début de la piste sélectionnée, sinon au début de la première piste. (Le coller à la position de la souris passe par le menu contextuel.)",
     keys: { primary: 'Ctrl/Cmd+V', alternative: null, display: 'Ctrl+V' },
     anchor: 'composer-paste-button',
     condition: (state) => state.clipboard != null,
@@ -346,7 +366,7 @@ export const SHORTCUTS = [
     id: 'composer-merge',
     contexts: ['composer'],
     label: 'Fusionner',
-    description: 'Fusionne ≥ 2 clips sélectionnés contigus (même patch / même piste).',
+    description: 'Fusionne ≥ 2 clips sélectionnés contigus (même piste, même patch, même hauteur).',
     keys: { primary: 'Ctrl/Cmd+M', alternative: null, display: 'Ctrl+M' },
     anchor: 'composer-merge-button',
     condition: (state) => (state.selectedClipIds?.length ?? 0) >= 2,
@@ -403,7 +423,7 @@ export const SHORTCUTS = [
     id: 'library-paste',
     contexts: ['library'],
     label: 'Coller',
-    description: 'Colle le contenu du presse-papier bibliothèque dans le dossier courant.',
+    description: "Colle le contenu du presse-papier bibliothèque : dans le dossier courant en mode Navigation ; en mode Arborescence, dans le dossier sélectionné (ou celui du patch sélectionné), à la racine sinon.",
     keys: { primary: 'Ctrl/Cmd+V', alternative: null, display: 'Ctrl+V' },
     anchor: 'library-paste-button',
   },
@@ -411,7 +431,7 @@ export const SHORTCUTS = [
     id: 'library-rename',
     contexts: ['library'],
     label: 'Renommer',
-    description: 'Renomme l\'item sélectionné (mode édition inline).',
+    description: "Renomme l'item sélectionné (mode édition inline). Actif avec exactement un item sélectionné.",
     keys: { primary: 'F2', alternative: null, display: 'F2' },
     anchor: 'library-rename-button',
   },
@@ -419,7 +439,7 @@ export const SHORTCUTS = [
     id: 'library-delete',
     contexts: ['library'],
     label: 'Supprimer',
-    description: 'Supprime les items sélectionnés (avertissement modal si patches utilisés en Composer).',
+    description: `Supprime les items sélectionnés (avertissement modal si patches utilisés en ${STRINGS.tabs.composer}).`,
     keys: { primary: 'Delete', alternative: 'Backspace', display: 'Suppr' },
     anchor: 'library-delete-button',
   },
