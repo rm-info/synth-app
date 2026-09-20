@@ -1500,9 +1500,18 @@ function App() {
 
   useEffect(() => {
     const handler = (e) => {
-      if (activeTab !== 'composer') return
       const target = e.target
       const tag = target?.tagName
+      // Ctrl+D / Ctrl+Shift+D = favoris navigateur. Neutralisé dès que l'app
+      // a le focus hors champ de saisie texte, même si le split est no-op
+      // (autre onglet, pas de sélection, focus resté sur un select/slider) :
+      // sinon le dialogue de favori s'ouvre dans tous ces états.
+      if (matchesShortcut(e, 'composer-split2') || matchesShortcut(e, 'composer-split3')) {
+        const isTextField = tag === 'TEXTAREA' || target?.isContentEditable
+          || (tag === 'INPUT' && !['range', 'checkbox', 'radio', 'button'].includes(target.type))
+        if (!isTextField) e.preventDefault()
+      }
+      if (activeTab !== 'composer') return
       if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return
       if (target?.isContentEditable) return
       if (matchesShortcut(e, 'composer-copy') && selectedClipIds.length > 0) {
