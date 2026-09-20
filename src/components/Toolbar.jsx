@@ -1,3 +1,4 @@
+import { Undo2, Redo2 } from 'lucide-react'
 import BpmInput from './BpmInput'
 import A4Input from './A4Input'
 import XEdoInput from './XEdoInput'
@@ -219,7 +220,7 @@ function Toolbar({
           aria-label="Annuler"
           title="Annuler (Ctrl+Z)"
           data-anchor="global-undo-button-composer"
-        >⟲</button>
+        ><Undo2 size={16} strokeWidth={2} /></button>
         <button
           type="button"
           className="history-btn"
@@ -228,7 +229,7 @@ function Toolbar({
           aria-label="Rétablir"
           title="Rétablir (Ctrl+Shift+Z)"
           data-anchor="global-redo-button-composer"
-        >⟳</button>
+        ><Redo2 size={16} strokeWidth={2} /></button>
       </div>
 
       <div className="toolbar-section toolbar-spacer">
