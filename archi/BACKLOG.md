@@ -2,7 +2,7 @@
 
 > Suivi des idées, pistes et dettes techniques reportées.
 > Tenu par l'archi. Source de vérité pour ce qui n'est pas encore planifié.
-> Dernière mise à jour : 2026-09-21.
+> Dernière mise à jour : 2026-09-21 (clôture U, correctifs post-U, recadrage du brief).
 
 > Note : itération U close (Documentation utilisateur de la Création,
 > release v1.13.0, 2026-09-21 ; cf. CONTEXT.md). **Entre deux
@@ -758,6 +758,31 @@ itérations. Faible coût, faible risque.
   dériver un booléen au render, le passer à `DesignerToolbar` via le
   render-prop ; pour le PatchPicker, le remonter à `App.jsx`.
   (relevé 2026-05-28, audité 2026-09-21)
+- **Dettes de code relevées par l'audit du brief (2026-09-21)** — ménage sans
+  risque fonctionnel, à faire en un ou deux petits commits :
+  - CSS mort : `.designer-row` / `.designer-cell` (+ `is-collapsed`, `is-maximized`)
+    dans `App.css` ~297-343 (plus aucun JSX ne les rend) ;
+    `.designer-library-popover > .sound-bank-panel`.
+  - Chaînes mortes : `STRINGS.timbrePresets.dirtyConfirmTitle/Body/Load`.
+  - Props mortes de `PatchBank` depuis qu'il n'est plus en sidebar :
+    `loadOnSingleClick` (⇒ `is-current` jamais appliqué), `headerExtra`.
+  - Fichiers non référencés : `public/icons.svg`, `src/assets/` (template Vite).
+  - Commentaires source périmés : `audio.js` (~263, `patch.points`), `types.ts`
+    (~191/209, bornes [-1,1] alors que la borne réelle est [-10,10]),
+    `tsconfig.json:3` (« esbuild »), `ModuleChrome.jsx:13`, `DesignerModule.jsx:5-7`
+    et `lib/designerModules.js:4` (« 5 modules »), `useWindowSize.js:11-15` et
+    `DesignerToolbar.jsx:10` (« accordéon mobile »), `PianoKeyboard.jsx:396-397`,
+    commentaire de la prop `effectsSelected` (`WaveformEditor.jsx` ~1068, 4 effets).
+  - Piège latent : `GAP = 8` en dur dans `OverflowToolbar.jsx`, doit coller au `gap`
+    CSS de `.overflow-toolbar-row`.
+- **Bibliothèque : deux incohérences de suppression** (relevé 2026-09-21) :
+  (1) le `ConfirmDialog` « Vider la bibliothèque » est **dupliqué** dans
+  `PatchBank.jsx` (~1332 et ~1422) avec deux messages divergents, dont « le
+  Composer » en dur au lieu de `STRINGS.tabs.composer` ; (2) deux chemins de
+  suppression : la corbeille d'une ligne passe par `handleDeletePatch` (toast, et
+  bascule d'onglet seulement si `activeTab === 'designer'`, donc jamais depuis la
+  Bibliothèque) alors que la suppression par sélection ouvre
+  `DeleteUsageWarningDialog`. À unifier sur le second.
 - **Marges autour des canvas éditables (Designer)** : ajouter une
   petite marge interne autour des canvas de la forme d'onde ET de
   l'enveloppe, pour que (1) les tracés ne sortent pas du cadre et
@@ -797,95 +822,27 @@ avant de trancher la politique exacte.
 
 ---
 
-## État global de l'itération F (réf. CONTEXT.md pour le détail)
+## Itération F (multi-tempérament) — close 2026-04-27
 
-Itération F (multi-tempérament) **majoritairement livrée**. Le registre
-`tuningSystems.js` héberge 14 systèmes (12-TET, Pythag-12, Just-major-c,
-Mésotonique 1/4-comma, Werckmeister III, 24-TET équipartite, Maqâmât
-Cairo 1932 mesuré, 5-TET, 31-EDO, Slendro, Pelog, shrutis Bhatkhande,
-shrutis Sarngadeva, free). Quatre layouts clavier dédiés (piano-12,
-grid-24, grid-5, grid-7, grid-22-bhatkhande, grid-22-sarngadeva,
-grid-31). Visual cues passifs (catalogue universel en cents + halo
-magenta `is-cued`) sur 8 systèmes. Persistance Designer cohérente
-(F.4.4.3) et guards transverses navigateur (F.7.5).
+Livrée en entier, F.8 inclus. Registre `src/lib/tuningSystems.ts` : **13 systèmes**
+(12-TET, pythagorean-12, just-major-c, meantone-quarter-comma, werckmeister-iii,
+24-tet-equal, 24-tet-cairo-1932, slendro, pelog, shrutis-bhatkhande,
+shrutis-sarngadeva, **x-edo**, free). **X-EDO paramétrique** : `xEdoN` **global**
+(1..53, défaut 31 — pas par clip, contrairement au cadrage initial `xEdoX` 1..40),
+layouts `lib/xEdoLayouts.js` + `GridXEdoLayout` (2 degrés par touche via Shift pour
+N ∈ 44..53), `XEdoInput` dans la toolbar Composer. `5-tet` et `31-edo` retirés du
+registre **avec** migration des clips à l'hydratation ; `Grid5Layout`/`Grid7Layout`/
+`Grid31Layout` supprimés (Slendro et Pelog réutilisent `grid-x-edo`). La **dette
+« dropdown catégorisé par tradition » est soldée** (G.1.3 : sélecteur à deux étages
+Catégorie → Système, `TUNING_CATEGORIES`). Détail = git + `CONTEXT-ARCHIVE.md`.
 
-**Reste à faire en F** : F.8 (X-EDO paramétrique) puis dette UI
-dropdown catégorisée par tradition.
-
-## Prochaines pistes probables (ordre indicatif)
-
-1. **F.8 — X-EDO paramétrique** (planifié, design layout adaptatif en
-   cours par l'archi).
-2. **Dette UI dropdown catégorisée par tradition** (post-F.8, le
-   dropdown atteindra 13-15 entrées et sa lisibilité plate
-   commence à frotter).
-3. **Itération G — Performance Designer** (clics résiduels post-E.9
-   probablement liés à `PeriodicWave` non mémoïsée + cost
-   d'infrastructure au démarrage à chaud — diagnostic à faire avant
-   optimisation).
-4. **Backlog général** ci-dessous, à piocher selon priorité ressentie.
+Conséquence pour les candidats ci-dessous : 53-EDO, 22-EDO, 19-EDO, 17-EDO… sont
+déjà jouables via X-EDO (N ≤ 53) ; ne restent pertinents que les systèmes **non
+équipartis** ou demandant une nomenclature propre.
 
 ---
 
-## Itération F — Reste à faire et candidats futurs
-
-### F.8 X-EDO paramétrique (planifié, design en cours)
-
-Entrée registre `'x-edo'` paramétrée par un X variable choisi par
-l'utilisateur entre 1 et 40 (40 = max maintenable sur QWERTY en
-gardant toutes les notes accessibles au clavier). Une seule entrée
-registre, layout adaptatif selon la valeur de X.
-
-- **État** : `editor.xEdoX` (number, 1..40), `clip.xEdoX` (number,
-  optionnel — valable seulement si `clip.tuningSystem === 'x-edo'`).
-  Persistés alongside les autres champs `editor.test*`. Cohérent avec
-  l'invariant F.4.4.3 (clamp défensif à l'hydratation pour indices
-  hors borne).
-- **Anchorage** : degré 0 oct 4 = a4Ref (cohérent 5-TET, 31-EDO,
-  gamelan, shrutis).
-- **Layout adaptatif** : design en cours par l'archi. Plages
-  pressenties — X=1 trivial (1 cellule = octaves seules), X∈[2,7]
-  ligne unique, X∈[8,14] deux rangs avec escalier 1/2, X∈[15,32]
-  3-4 rangs en escalier façon grid-31 généralisé, X∈[33,40] 4 rangs
-  pleins.
-- **QWERTY** : parcours déterministe des touches selon X (Z-row 7,
-  A-row 9, Q-row 10, digit row 10, ponctuations à risque pour
-  atteindre 40).
-- **Visual cues** : désactivés par défaut (le sens des patterns
-  dépend de X, pas pédagogique sans calibration). Activable
-  conditionnellement plus tard (X=12, 24, 31) si la demande émerge.
-- **UI** : input numérique X dans la toolbar Composer (à côté de A4),
-  visible quand `testTuningSystem === 'x-edo'`. Pattern à la
-  BpmInput / A4Input (validation différée, ↑↓ ±1, Shift ±5).
-- **Suppressions associées** : drop des entrées `'5-tet'` et `'31-edo'`
-  du registre (acoustiquement redondantes une fois X-EDO en place).
-  Pas de migration localStorage (stade dev, aucun utilisateur réel
-  impacté). Composants Grid5Layout et Grid31Layout **conservés**
-  (Slendro réutilise grid-5 ; Grid31Layout potentiellement réutilisable
-  comme cas interne de X-EDO X=31).
-
-### Dette UI : dropdown catégorisé par tradition
-
-Le dropdown des tempéraments a 14 entrées actuellement (15 avec X-EDO
-ajouté en F.8). Au-delà de 12-13, la liste plate devient peu lisible.
-Solution simple : `optgroup` HTML par catégorie sémantique. Coût
-implé faible, bénéfice immédiat.
-
-Catégories pressenties :
-- **Égaux occidentaux** : 12-TET
-- **Justes** : just-major-c
-- **Historiques européens** : pythagorean-12, meantone-quarter-comma,
-  werckmeister-iii
-- **Maqâmât** : 24-tet-equal (théorique Cairo 1932), 24-tet-cairo-1932
-  (mesuré)
-- **Gamelan** : slendro, pelog
-- **Indiens** : shrutis-bhatkhande, shrutis-sarngadeva
-- **Expérimental paramétrique** : x-edo
-- **Libre** : free
-
-Bénéfice double : (1) lisibilité dropdown ; (2) **affordance
-d'enseignement** — le prof voit la structure du domaine d'un coup
-d'œil. C'est plus qu'un gain UI, c'est de la pédagogie embarquée.
+## Itération F — candidats futurs
 
 ### Tempéraments candidats futurs (priorité moyenne)
 
